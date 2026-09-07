@@ -1,0 +1,424 @@
+import { ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import type { Business, BusinessAddress, BusinessLink, BusinessStatus, Category, LocalArea, Prisma } from '@melbourne-sphere/database';
+import { AuditService } from '../audit/audit.service.js';
+import type { RequestContext } from '../auth/auth.service.js';
+import { FieldEncryptionService } from '../common/field-encryption.service.js';
+import { collectionMeta, skipFor } from '../common/pagination.js';
+import { isValidSlug, slugify } from '../common/slug.js';
+import { RedirectsService } from '../seo/redirects.service.js';
+import { CacheService } from '../cache/cache.service.js';
+import { CACHE_TAGS } from '@melbourne-sphere/domain';
+import type { ChangeSlugDto } from '../seo/dto/redirect.dto.js';
+import { DatabaseService } from '../database/database.service.js';
+import type { AdminPrincipal } from '../identity/identity.service.js';
+import { TaxonomyService } from '../taxonomy/taxonomy.service.js';
+import { normaliseAddressKey, normaliseBusinessName, normalisePhone, parseAustralianPhone, publicationBlockers, TRANSITIONS, validateLinks, validatePublicUrl } from './business-rules.js';
+import type { BusinessDto, BusinessListItemDto, BusinessStateDto, CreateBusinessDto, DuplicateWarningDto, ListBusinessesQueryDto, UpdateBusinessDto } from './dto/business.dto.js';
+
+type BusinessRow = Business & {
+  address: BusinessAddress | null;
+  categories: { categoryId: string }[];
+  services: { serviceId: string }[];
+  links: BusinessLink[];
+  primaryCategory: Pick<Category, 'id' | 'name' | 'active'>;
+  localArea: Pick<LocalArea, 'id' | 'name' | 'active'>;
+};
+
+const include = {
+  address: true,
+  categories: { select: { categoryId: true } },
+  services: { select: { serviceId: true } },
+  links: { orderBy: { sortOrder: 'asc' } },
+  primaryCategory: { select: { id: true, name: true, active: true } },
+  localArea: { select: { id: true, name: true, active: true } },
+} as const;
+
+const stale = () => new ConflictException({ code: 'STALE_VERSION', message: 'This listing was changed by someone else. Reload and try again.' });
+const notFound = () => new NotFoundException({ code: 'NOT_FOUND', message: 'Listing not found' });
+const validation = (field: string, message: string) => new HttpException({ code: 'VALIDATION_ERROR', message, fields: { [field]: [message] } }, HttpStatus.BAD_REQUEST);
+const validationFields = (fields: Record<string, string[]>) => new HttpException({ code: 'VALIDATION_ERROR', message: 'Some fields are invalid', fields }, HttpStatus.BAD_REQUEST);
+
+/** publicPhone must be a real Australian number so the public "Call" action is a valid tel link (SRS BUS 003). */
+function phoneOrThrow(value: string | null | undefined): { publicPhone: string | null; normalizedPhone: string | null } {
+  if (!value) return { publicPhone: null, normalizedPhone: null };
+  const parsed = parseAustralianPhone(value);
+  if (!parsed) throw validation('publicPhone', 'Enter an Australian phone number (landline, mobile, 13, 1300 or 1800)');
+  return { publicPhone: parsed.display, normalizedPhone: normalisePhone(parsed.national) };
+}
+
+function websiteOrThrow(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const url = validatePublicUrl(value);
+  if (!url) throw validation('publicUrl', 'Website must be a full http(s) URL without credentials');
+  return url;
+}
+
+function linksOrThrow(links: { kind: string; url: string; label?: string | null }[] | undefined) {
+  const { errors, normalised } = validateLinks((links ?? []) as Parameters<typeof validateLinks>[0]);
+  if (Object.keys(errors).length > 0) throw validationFields(errors);
+  return normalised;
+}
+
+/**
+ * DirectoryModule (SRS MOD 001): owns listing eligibility, publication and
+ * versioned edits. Public projections come in Phase 14; this service is the
+ * only writer of business rows.
+ */
+@Injectable()
+export class DirectoryService {
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly audit: AuditService,
+    private readonly encryption: FieldEncryptionService,
+    private readonly taxonomy: TaxonomyService,
+    private readonly redirects: RedirectsService,
+    private readonly cache: CacheService,
+  ) {
+    // Taxonomy terms in use by active (non-archived) listings cannot be deactivated (SRS BUS 007).
+    this.taxonomy.referencedByActiveListings = async (kind, id) => {
+      const db = await this.database.client();
+      const active: BusinessStatus[] = ['draft', 'published'];
+      if (kind === 'category') {
+        const [primary, secondary] = await Promise.all([
+          db.business.count({ where: { primaryCategoryId: id, status: { in: active } } }),
+          db.businessCategory.count({ where: { categoryId: id, business: { status: { in: active } } } }),
+        ]);
+        return primary + secondary;
+      }
+      if (kind === 'service') return db.businessService.count({ where: { serviceId: id, business: { status: { in: active } } } });
+      return db.business.count({ where: { localAreaId: id, status: { in: active } } });
+    };
+  }
+
+  // ---- projections ----------------------------------------------------------
+
+  private async toDto(row: BusinessRow, includePrivate: boolean): Promise<BusinessDto> {
+    const duplicateWarnings = await this.findDuplicates(row.id, row.normalizedName, row.normalizedPhone, row.address);
+    return {
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      description: row.description,
+      status: row.status,
+      primaryCategoryId: row.primaryCategoryId,
+      secondaryCategoryIds: row.categories.map((c) => c.categoryId).sort(),
+      serviceIds: row.services.map((s) => s.serviceId).sort(),
+      localAreaId: row.localAreaId,
+      publicPhone: row.publicPhone,
+      publicEmail: row.publicEmail,
+      publicUrl: row.publicUrl,
+      telHref: parseAustralianPhone(row.publicPhone ?? '')?.telHref ?? null,
+      links: row.links.map((l) => ({ kind: l.kind, url: l.url, label: l.label })),
+      hoursMode: row.hoursMode,
+      addressVisibility: row.addressVisibility,
+      address: row.address ? { line1: row.address.line1, line2: row.address.line2, suburb: row.address.suburb, postcode: row.address.postcode, latitude: row.address.latitude === null ? null : Number(row.address.latitude), longitude: row.address.longitude === null ? null : Number(row.address.longitude) } : null,
+      ...(includePrivate ? { privateEnquiryEmail: row.privateEnquiryEmailEncrypted ? this.encryption.decrypt(row.privateEnquiryEmailEncrypted, row.id) : null } : {}),
+      hasPrivateEnquiryEmail: row.privateEnquiryEmailEncrypted !== null,
+      eligibilitySource: row.eligibilitySource,
+      eligibilityVerifiedAt: row.eligibilityVerifiedAt?.toISOString() ?? null,
+      contentRightsReviewedAt: row.contentRightsReviewedAt?.toISOString() ?? null,
+      contentRightsNote: row.contentRightsNote,
+      duplicateOverrideReason: row.duplicateOverrideReason,
+      duplicateWarnings,
+      publicationBlockers: this.blockersFor(row),
+      firstPublishedAt: row.firstPublishedAt?.toISOString() ?? null,
+      publishedAt: row.publishedAt?.toISOString() ?? null,
+      archivedAt: row.archivedAt?.toISOString() ?? null,
+      version: row.version,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  private blockersFor(row: BusinessRow): string[] {
+    return publicationBlockers({
+      name: row.name,
+      slug: row.slug,
+      description: row.description,
+      primaryCategoryActive: row.primaryCategory.active,
+      localAreaActive: row.localArea.active,
+      eligibilityVerifiedAt: row.eligibilityVerifiedAt,
+      contentRightsReviewedAt: row.contentRightsReviewedAt,
+      publicPhone: row.publicPhone,
+      publicEmail: row.publicEmail,
+      publicUrl: row.publicUrl,
+      hasPrivateEnquiryEmail: row.privateEnquiryEmailEncrypted !== null,
+    });
+  }
+
+  async findDuplicates(selfId: string | null, normalizedName: string, normalizedPhone: string | null, address: Pick<BusinessAddress, 'line1' | 'postcode'> | null): Promise<DuplicateWarningDto[]> {
+    const db = await this.database.client();
+    const candidates = await db.business.findMany({
+      where: { normalizedName, status: { not: 'archived' }, ...(selfId ? { id: { not: selfId } } : {}) },
+      include: { address: true },
+      take: 10,
+    });
+    const myAddress = normaliseAddressKey(address);
+    return candidates.map((c) => {
+      const match: DuplicateWarningDto['match'] =
+        myAddress && normaliseAddressKey(c.address) === myAddress ? 'name_and_address' : normalizedPhone && c.normalizedPhone === normalizedPhone ? 'name_and_phone' : 'name';
+      return { businessId: c.id, name: c.name, slug: c.slug, match };
+    });
+  }
+
+  // ---- list / get -----------------------------------------------------------
+
+  async list(q: ListBusinessesQueryDto): Promise<{ data: BusinessListItemDto[]; meta: ReturnType<typeof collectionMeta> }> {
+    const db = await this.database.client();
+    const where: Prisma.BusinessWhereInput = {
+      ...(q.status ? { status: q.status } : {}),
+      ...(q.categoryId ? { OR: [{ primaryCategoryId: q.categoryId }, { categories: { some: { categoryId: q.categoryId } } }] } : {}),
+      ...(q.localAreaId ? { localAreaId: q.localAreaId } : {}),
+      ...(q.q ? { AND: [{ OR: [{ name: { contains: q.q } }, { slug: { contains: q.q } }] }] } : {}),
+    };
+    const [total, rows] = await Promise.all([
+      db.business.count({ where }),
+      db.business.findMany({ where, include, orderBy: [{ [q.sort]: q.order }, { id: 'asc' }], skip: skipFor(q.page, q.pageSize), take: q.pageSize }),
+    ]);
+    const data = await Promise.all(
+      rows.map(async (row) => ({
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        status: row.status,
+        primaryCategoryId: row.primaryCategoryId,
+        primaryCategoryName: row.primaryCategory.name,
+        localAreaId: row.localAreaId,
+        localAreaName: row.localArea.name,
+        publishable: this.blockersFor(row).length === 0,
+        duplicateFlagged: (await this.findDuplicates(row.id, row.normalizedName, row.normalizedPhone, row.address)).length > 0,
+        firstPublishedAt: row.firstPublishedAt?.toISOString() ?? null,
+        updatedAt: row.updatedAt.toISOString(),
+        version: row.version,
+      })),
+    );
+    return { data, meta: collectionMeta(q.page, q.pageSize, total) };
+  }
+
+  async get(id: string, actor: AdminPrincipal): Promise<BusinessDto> {
+    const db = await this.database.client();
+    const row = await db.business.findUnique({ where: { id }, include });
+    if (!row) throw notFound();
+    return this.toDto(row, actor.permissions.includes('listings.write'));
+  }
+
+  // ---- create / update -----------------------------------------------------
+
+  async create(input: CreateBusinessDto, actor: AdminPrincipal, ctx: RequestContext): Promise<BusinessDto> {
+    const db = await this.database.client();
+    const slug = input.slug ?? slugify(input.name);
+    if (!isValidSlug(slug)) throw validation('slug', 'Slug must be lowercase letters, numbers and single hyphens');
+    if (await db.business.findUnique({ where: { slug } })) throw new ConflictException({ code: 'SLUG_IN_USE', message: 'That slug is already used', fields: { slug: ['That slug is already used'] } });
+    await this.assertTaxonomy(input.primaryCategoryId, input.secondaryCategoryIds ?? [], input.serviceIds ?? [], input.localAreaId);
+    const phone = phoneOrThrow(input.publicPhone);
+    const publicUrl = websiteOrThrow(input.publicUrl);
+    const links = linksOrThrow(input.links);
+    const now = new Date();
+    const row = await db.$transaction(async (tx) => {
+      const created = await tx.business.create({
+        data: {
+          name: input.name,
+          normalizedName: normaliseBusinessName(input.name),
+          slug,
+          description: input.description,
+          primaryCategoryId: input.primaryCategoryId,
+          localAreaId: input.localAreaId,
+          ...phone,
+          publicEmail: input.publicEmail?.toLowerCase() ?? null,
+          publicUrl,
+          links: { create: links },
+          addressVisibility: input.addressVisibility ?? 'full',
+          eligibilitySource: input.eligibilitySource ?? null,
+          eligibilityVerifiedAt: input.eligibilitySource ? now : null,
+          contentRightsReviewedAt: input.contentRightsReviewed ? now : null,
+          contentRightsNote: input.contentRightsNote ?? null,
+          categories: { create: (input.secondaryCategoryIds ?? []).filter((c) => c !== input.primaryCategoryId).map((categoryId) => ({ categoryId })) },
+          services: { create: (input.serviceIds ?? []).map((serviceId) => ({ serviceId })) },
+          rating: { create: {} },
+          ...(input.address ? { address: { create: this.addressData(input.address) } } : {}),
+        },
+      });
+      if (input.privateEnquiryEmail) {
+        await tx.business.update({ where: { id: created.id }, data: { privateEnquiryEmailEncrypted: this.encryption.encrypt(input.privateEnquiryEmail.toLowerCase(), created.id) } });
+      }
+      return tx.business.findUniqueOrThrow({ where: { id: created.id }, include });
+    });
+    await this.audit.record({ action: 'listing.create', actorAdminId: actor.id, targetType: 'business', targetId: row.id, metadata: { slug }, requestId: ctx.requestId, ipAddress: ctx.ip });
+    return this.toDto(row, true);
+  }
+
+  async update(id: string, input: UpdateBusinessDto, actor: AdminPrincipal, ctx: RequestContext): Promise<BusinessDto> {
+    const db = await this.database.client();
+    const current = await db.business.findUnique({ where: { id }, include });
+    if (!current) throw notFound();
+    if (current.version !== input.expectedVersion) throw stale();
+    if (current.status === 'archived') throw new ConflictException({ code: 'INVALID_STATE', message: 'Restore the listing before editing it' });
+    const data: Prisma.BusinessUncheckedUpdateInput = {};
+    const changed: string[] = [];
+    if (input.name !== undefined && input.name !== current.name) {
+      data.name = input.name;
+      data.normalizedName = normaliseBusinessName(input.name);
+      changed.push('name');
+    }
+    if (input.slug !== undefined && input.slug !== current.slug) {
+      if (!isValidSlug(input.slug)) throw validation('slug', 'Slug must be lowercase letters, numbers and single hyphens');
+      if (current.firstPublishedAt) throw new ConflictException({ code: 'SLUG_LOCKED', message: 'The slug of a published listing changes through the slug-change endpoint, which creates a redirect' });
+      if (await db.business.findUnique({ where: { slug: input.slug } })) throw new ConflictException({ code: 'SLUG_IN_USE', message: 'That slug is already used', fields: { slug: ['That slug is already used'] } });
+      data.slug = input.slug;
+      changed.push('slug');
+    }
+    if (input.description !== undefined) { data.description = input.description; changed.push('description'); }
+    if (input.primaryCategoryId !== undefined || input.secondaryCategoryIds !== undefined || input.serviceIds !== undefined || input.localAreaId !== undefined) {
+      await this.assertTaxonomy(input.primaryCategoryId ?? current.primaryCategoryId, input.secondaryCategoryIds ?? current.categories.map((c) => c.categoryId), input.serviceIds ?? current.services.map((s) => s.serviceId), input.localAreaId ?? current.localAreaId);
+    }
+    if (input.primaryCategoryId !== undefined) { data.primaryCategoryId = input.primaryCategoryId; changed.push('primaryCategoryId'); }
+    if (input.localAreaId !== undefined) { data.localAreaId = input.localAreaId; changed.push('localAreaId'); }
+    if (input.publicPhone !== undefined) { Object.assign(data, phoneOrThrow(input.publicPhone)); changed.push('publicPhone'); }
+    if (input.publicEmail !== undefined) { data.publicEmail = input.publicEmail?.toLowerCase() ?? null; changed.push('publicEmail'); }
+    if (input.publicUrl !== undefined) { data.publicUrl = websiteOrThrow(input.publicUrl); changed.push('publicUrl'); }
+    const links = input.links !== undefined ? linksOrThrow(input.links) : undefined;
+    if (input.addressVisibility !== undefined) { data.addressVisibility = input.addressVisibility; changed.push('addressVisibility'); }
+    if (input.privateEnquiryEmail !== undefined) { data.privateEnquiryEmailEncrypted = input.privateEnquiryEmail ? this.encryption.encrypt(input.privateEnquiryEmail.toLowerCase(), id) : null; changed.push('privateEnquiryEmail'); }
+    if (input.eligibilitySource !== undefined) { data.eligibilitySource = input.eligibilitySource; data.eligibilityVerifiedAt = input.eligibilitySource ? new Date() : null; changed.push('eligibility'); }
+    if (input.contentRightsReviewed !== undefined) { data.contentRightsReviewedAt = input.contentRightsReviewed ? (current.contentRightsReviewedAt ?? new Date()) : null; changed.push('contentRights'); }
+    if (input.contentRightsNote !== undefined) { data.contentRightsNote = input.contentRightsNote; changed.push('contentRightsNote'); }
+
+    const primaryId = input.primaryCategoryId ?? current.primaryCategoryId;
+    const row = await db.$transaction(async (tx) => {
+      const result = await tx.business.updateMany({ where: { id, version: input.expectedVersion }, data: { ...data, version: { increment: 1 } } });
+      if (result.count !== 1) throw stale();
+      if (input.secondaryCategoryIds !== undefined) {
+        await tx.businessCategory.deleteMany({ where: { businessId: id } });
+        await tx.businessCategory.createMany({ data: [...new Set(input.secondaryCategoryIds)].filter((c) => c !== primaryId).map((categoryId) => ({ businessId: id, categoryId })) });
+        changed.push('secondaryCategories');
+      } else if (input.primaryCategoryId !== undefined) {
+        await tx.businessCategory.deleteMany({ where: { businessId: id, categoryId: primaryId } });
+      }
+      if (input.serviceIds !== undefined) {
+        await tx.businessService.deleteMany({ where: { businessId: id } });
+        await tx.businessService.createMany({ data: [...new Set(input.serviceIds)].map((serviceId) => ({ businessId: id, serviceId })) });
+        changed.push('services');
+      }
+      if (links !== undefined) {
+        await tx.businessLink.deleteMany({ where: { businessId: id } });
+        if (links.length > 0) await tx.businessLink.createMany({ data: links.map((l) => ({ businessId: id, ...l })) });
+        changed.push('links');
+      }
+      if (input.address !== undefined) {
+        if (input.address === null) await tx.businessAddress.deleteMany({ where: { businessId: id } });
+        else await tx.businessAddress.upsert({ where: { businessId: id }, create: { businessId: id, ...this.addressData(input.address) }, update: this.addressData(input.address) });
+        changed.push('address');
+      }
+      return tx.business.findUniqueOrThrow({ where: { id }, include });
+    });
+    await this.audit.record({ action: 'listing.update', actorAdminId: actor.id, targetType: 'business', targetId: id, metadata: { fields: changed.join(',') }, requestId: ctx.requestId, ipAddress: ctx.ip });
+    return this.toDto(row, true);
+  }
+
+  /**
+   * Changes the public slug of a listing and, when it has been published,
+   * leaves a 301 from the old path in the same transaction (SRS SEO 004).
+   */
+  async changeSlug(id: string, input: ChangeSlugDto, actor: AdminPrincipal, ctx: RequestContext): Promise<BusinessDto> {
+    const db = await this.database.client();
+    const current = await db.business.findUnique({ where: { id }, include });
+    if (!current) throw notFound();
+    if (current.version !== input.expectedVersion) throw stale();
+    if (current.status === 'archived') throw new ConflictException({ code: 'INVALID_STATE', message: 'Restore the listing before changing its slug' });
+    const slug = input.slug.trim().toLowerCase();
+    if (!isValidSlug(slug)) throw validation('slug', 'Slug must be lowercase letters, numbers and single hyphens');
+    if (slug === current.slug) throw validation('slug', 'That is already the slug of this listing');
+    if (await db.business.findUnique({ where: { slug } })) throw new ConflictException({ code: 'SLUG_IN_USE', message: 'That slug is already used', fields: { slug: ['That slug is already used'] } });
+    const row = await db.$transaction(async (tx) => {
+      const result = await tx.business.updateMany({ where: { id, version: input.expectedVersion }, data: { slug, version: { increment: 1 } } });
+      if (result.count !== 1) throw stale();
+      // A listing that was never public has no indexed URL to preserve.
+      if (current.firstPublishedAt) {
+        await this.redirects.recordSlugChange(tx, { sourcePath: `/business/${current.slug}`, targetPath: `/business/${slug}`, resourceType: 'business', resourceId: id, actorAdminId: actor.id, reason: input.reason ?? null });
+      }
+      await this.cache.recordInvalidation(tx, {
+        resourceType: 'business',
+        resourceId: id,
+        urgent: true,
+        correlationId: ctx.requestId,
+        tags: [CACHE_TAGS.businesses, CACHE_TAGS.business(current.slug), CACHE_TAGS.business(slug), CACHE_TAGS.sitemap, CACHE_TAGS.redirects],
+      });
+      return tx.business.findUniqueOrThrow({ where: { id }, include });
+    });
+    await this.cache.bumpNamespace();
+    await this.audit.record({ action: 'listing.slug.change', actorAdminId: actor.id, targetType: 'business', targetId: id, reason: input.reason ?? null, metadata: { from: current.slug, to: slug, redirect: current.firstPublishedAt ? 'created' : 'none' }, requestId: ctx.requestId, ipAddress: ctx.ip });
+    return this.toDto(row, true);
+  }
+
+  // ---- explicit state transitions (SRS BUS 006) ------------------------------
+
+  async transition(id: string, action: keyof typeof TRANSITIONS, input: BusinessStateDto, actor: AdminPrincipal, ctx: RequestContext): Promise<BusinessDto> {
+    const db = await this.database.client();
+    const current = await db.business.findUnique({ where: { id }, include });
+    if (!current) throw notFound();
+    if (current.version !== input.expectedVersion) throw stale();
+    const rule = TRANSITIONS[action];
+    if (!rule.from.includes(current.status)) throw new ConflictException({ code: 'INVALID_STATE', message: `Cannot ${action} a ${current.status} listing` });
+    const data: Prisma.BusinessUncheckedUpdateInput = { status: rule.to };
+    const now = new Date();
+    if (action === 'publish') {
+      const blockers = this.blockersFor(current);
+      if (blockers.length > 0) throw new HttpException({ code: 'PUBLICATION_BLOCKED', message: 'The listing does not meet the publication requirements', fields: { publication: blockers } }, HttpStatus.CONFLICT);
+      const duplicates = await this.findDuplicates(current.id, current.normalizedName, current.normalizedPhone, current.address);
+      if (duplicates.length > 0 && !input.duplicateOverrideReason) {
+        throw new HttpException({ code: 'DUPLICATE_SUSPECTED', message: 'This listing looks like a duplicate; provide an override reason to publish it anyway', fields: { duplicateOverrideReason: duplicates.map((d) => `${d.name} (${d.slug}): ${d.match.replace(/_/g, ' ')}`) } }, HttpStatus.CONFLICT);
+      }
+      if (duplicates.length > 0) data.duplicateOverrideReason = input.duplicateOverrideReason;
+      data.publishedAt = now;
+      if (!current.firstPublishedAt) data.firstPublishedAt = now;
+    }
+    if (action === 'unpublish') data.publishedAt = null;
+    if (action === 'archive') { data.archivedAt = now; data.publishedAt = null; }
+    if (action === 'restore') data.archivedAt = null;
+    await db.$transaction(async (tx) => {
+      const result = await tx.business.updateMany({ where: { id, version: input.expectedVersion }, data: { ...data, version: { increment: 1 } } });
+      if (result.count !== 1) throw stale();
+      // Publication changes are urgent purges: an unpublished listing must stop
+      // being served within the CACHE 002 window, not when a TTL expires.
+      await this.cache.recordInvalidation(tx, {
+        resourceType: 'business',
+        resourceId: id,
+        urgent: action !== 'publish',
+        correlationId: ctx.requestId,
+        tags: [CACHE_TAGS.businesses, CACHE_TAGS.business(current.slug), CACHE_TAGS.sitemap, CACHE_TAGS.taxonomy],
+      });
+    });
+    await this.cache.bumpNamespace();
+    await this.audit.record({ action: `listing.${action}`, actorAdminId: actor.id, targetType: 'business', targetId: id, reason: input.reason ?? input.duplicateOverrideReason ?? null, metadata: { from: current.status, to: rule.to }, requestId: ctx.requestId, ipAddress: ctx.ip });
+    return this.get(id, actor);
+  }
+
+  // ---- helpers --------------------------------------------------------------
+
+  private addressData(a: NonNullable<CreateBusinessDto['address']>) {
+    return { line1: a.line1, line2: a.line2 ?? null, suburb: a.suburb, postcode: a.postcode, latitude: a.latitude ?? null, longitude: a.longitude ?? null };
+  }
+
+  private async assertTaxonomy(primaryCategoryId: string, secondaryCategoryIds: string[], serviceIds: string[], localAreaId: string): Promise<void> {
+    const db = await this.database.client();
+    const primary = await db.category.findUnique({ where: { id: primaryCategoryId } });
+    if (!primary || !primary.active) throw validation('primaryCategoryId', 'Choose an active category');
+    const secondary = [...new Set(secondaryCategoryIds)].filter((c) => c !== primaryCategoryId);
+    if (secondary.length) {
+      const found = await db.category.count({ where: { id: { in: secondary }, active: true } });
+      if (found !== secondary.length) throw validation('secondaryCategoryIds', 'All secondary categories must exist and be active');
+    }
+    const services = [...new Set(serviceIds)];
+    if (services.length) {
+      const found = await db.service.count({ where: { id: { in: services }, active: true } });
+      if (found !== services.length) throw validation('serviceIds', 'All services must exist and be active');
+    }
+    const area = await db.localArea.findUnique({ where: { id: localAreaId } });
+    if (!area || !area.active) throw validation('localAreaId', 'Choose an approved, active local area');
+  }
+
+  /** Guard helper used by the controller for write actions. */
+  static assertCan(actor: AdminPrincipal, permission: 'listings.write' | 'listings.publish'): void {
+    if (!actor.permissions.includes(permission)) throw new ForbiddenException({ code: 'FORBIDDEN', message: 'You do not have permission to do that' });
+  }
+}

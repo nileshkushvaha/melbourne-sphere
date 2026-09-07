@@ -1,0 +1,20 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "e2e"
+  - "tools/*"
+allowBuilds:
+  unrs-resolver: true
+  # Prisma 7: the CLI (prisma) and @prisma/engines download the schema engine
+  # used by `prisma migrate`; approved explicitly in Phase 6.
+  prisma: true
+  "@prisma/engines": true
+  # @scarf/scarf (via swagger-ui-dist) is install-time telemetry; its script is
+  # deliberately NOT run, so installs make no outbound calls.
+  "@scarf/scarf": false
+  # Optional native accelerator; the pure-JS path is used instead, so its
+  # install script is not run.
+  msgpackr-extract: false
+  # esbuild ships its platform binary as a separate package that pnpm already
+  # installs, so the postinstall download is unnecessary here.
+  esbuild: false

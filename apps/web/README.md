@@ -1,0 +1,56 @@
+# web — public site
+
+Next.js 16 (App Router, React 19, Tailwind v4) public site for Melbourne Sphere. It renders on the server and reads every piece of domain data from the NestJS API (SRS ARC 002); it never touches MySQL, Redis or object storage.
+
+## Routes (SRS UX 003 route contract)
+
+| Route | Rendering | Index policy |
+| --- | --- | --- |
+| `/` | dynamic (data cached per fetch) | index |
+| `/directory` (route group `(list)`) | dynamic | index; `noindex, follow` once any filter is applied |
+| `/directory/category/[slug]`, `/directory/area/[slug]` | dynamic, 404 for unknown or inactive terms | index if substantive |
+| `/business/[slug]` | dynamic, 404 unless published | index |
+| `/blog`, `/blog/[slug]`, `/blog/category/[slug]`, `/blog/tag/[slug]` | dynamic, 404 for drafts and unknown terms | index when published |
+| `/contact` | dynamic; always resolves | index once the approved page is published, `noindex, follow` while the factual fallback is shown |
+| `/about`, `/privacy`, `/terms`, `/review-guidelines` | dynamic, 404 until published | index |
+
+Filter state (`q`, `category`, `area`, `minRating`, `sort`, `page`) lives in the URL and is parsed by `src/lib/search-params.ts`; the filter form is a plain GET form and pagination and chips are links, so the directory works without client JavaScript.
+
+## Design system and page composition
+
+Public tokens live in `packages/ui/src/styles.css`: colours, content widths (`--ms-content` 1520 px, `--ms-content-tight` 1120 px, `--ms-content-prose`), gutters, section rhythm, radii, shadows, focus rings and motion timings, plus the `.ms-container`, `.ms-container-tight` and `.ms-section` primitives. Use them instead of inventing per-page values.
+
+The site is **light-first with designed dark bands** — warm off-white page, white cards, a cool neutral band, and deep navy for the header, hero, locality feature, call to action and footer. There is deliberately **no `prefers-color-scheme` dark variant**: the light/dark rhythm is part of the composition, and an OS-driven dark mode flattened every band into the same navy. `src/lib/palette.test.ts` enforces both that decision and WCAG AA contrast on every surface.
+
+`main` carries no width. Sections are full-bleed and bound their own content: `src/components/page-shell.tsx` provides `Band` (`page` / `plain` / `soft` / `dark` / `deep` tones), `SectionHeading`, `gridColumns` (column count follows how many cards exist) and `PageShell` for inner pages. Dark surfaces carry `.ms-on-dark`, which switches the focus ring to a light colour.
+
+Typography pairs Geist (interface) with Instrument Serif (`.font-display`, headings only), both self-hosted through `next/font`.
+
+Hero photography: `src/lib/hero-assets.ts` holds the licensed default slides in `public/hero/`; anything an administrator configures in site settings replaces them. Sources and licences are recorded in `docs/content/hero-photography.md`.
+
+Listings without a photograph get a branded panel derived from their category (`src/lib/category-visuals.ts`, `src/components/category-icon.tsx`) rather than a shared placeholder — the fallback never implies a photograph exists.
+
+## Structure
+
+```
+src/app/            layout (shell, skip link, landmarks), pages, not-found, error boundaries
+src/components/     site header/footer, business card, filters, chips, pagination, results, hours table, breadcrumbs
+src/lib/api.ts      server-only API client: envelopes, ApiRequestError, per-resource revalidate + cache tags
+src/lib/site.ts     SITE_ORIGIN and contactChannel() (a development address is treated as unset)
+src/lib/hours.ts    wall-clock hours formatting for Australia/Melbourne
+src/lib/*.test.ts   Vitest unit tests for the pure helpers (`pnpm --filter web test`)
+```
+
+Presentation primitives and design tokens come from `@melbourne-sphere/ui` (transpiled workspace package); response types come from `@melbourne-sphere/contracts`. Ant Design and Refine are admin-only and must never appear in a public bundle (SRS NFR 013).
+
+## Environment
+
+Copy `.env.example` to `.env.local` (git-ignored). `API_ORIGIN` is server-only and also drives the `/api/v1` rewrite in `next.config.ts`; `SITE_ORIGIN` is the absolute public origin used for canonical URLs; `SITE_CONTACT_EMAIL` receives "Add or update a business" and hours-correction mail and must be publicly routable — an address on `.local`, `.test`, `.invalid`, `.example` or `.internal` is treated as unset, and the site then withholds every contact link instead of publishing a dead mailbox. No `NEXT_PUBLIC_*` variables exist.
+
+## Caching
+
+Every fetch sets an explicit `next.revalidate` and cache tags (SRS CACHE 001): taxonomy 300 s, search 30 s, business detail 60 s (`businesses`, `business:<slug>`). Tag-based purge on publish/unpublish arrives in the caching phase.
+
+## Commands
+
+`pnpm dev:web` · `pnpm --filter web build` · `pnpm --filter web test` · `pnpm --filter web lint` · `pnpm --filter web typecheck` (runs `next typegen` first).

@@ -1,0 +1,252 @@
+import { randomBytes } from 'node:crypto';
+import { ConflictException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { AdminUser, Prisma } from '@melbourne-sphere/database';
+import { AuditService } from '../audit/audit.service.js';
+import { hashResetToken, type RequestContext } from '../auth/auth.service.js';
+import { MailerPort } from '../auth/mailer/mailer.port.js';
+import { SessionService } from '../auth/session.service.js';
+import { DatabaseService } from '../database/database.service.js';
+import type { EnvironmentVariables } from '../config/env.validation.js';
+import { normaliseEmail, type AdminPrincipal } from '../identity/identity.service.js';
+import { SUPER_ADMIN_ROLE } from '../identity/permissions.js';
+import { collectionMeta, skipFor } from '../common/pagination.js';
+import type { AdminListItemDto, CreateAdminDto, ListAdminsQueryDto, UpdateAdminDto } from './dto/admins.dto.js';
+
+const SETUP_TOKEN_TTL_MS = 24 * 60 * 60_000;
+
+type AdminRow = AdminUser & { roles: { role: { key: string } }[] };
+
+export function toAdminItem(admin: AdminRow): AdminListItemDto {
+  return {
+    id: admin.id,
+    email: admin.email,
+    displayName: admin.displayName,
+    status: admin.status,
+    roles: admin.roles.map((r) => r.role.key).sort(),
+    totpEnabled: admin.totpEnabledAt !== null,
+    lastLoginAt: admin.lastLoginAt?.toISOString() ?? null,
+    createdAt: admin.createdAt.toISOString(),
+    updatedAt: admin.updatedAt.toISOString(),
+    version: admin.version,
+  };
+}
+
+const include = { roles: { select: { role: { select: { key: true } } } } } as const;
+
+/**
+ * Administrator account lifecycle (SRS ADM 001, IdentityModule family
+ * /admins). Every mutation is audited; the last active Super Admin is protected.
+ */
+@Injectable()
+export class AdminsService {
+  private readonly adminBaseUrl: string;
+
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly sessions: SessionService,
+    private readonly audit: AuditService,
+    private readonly mailer: MailerPort,
+    config: ConfigService<EnvironmentVariables, true>,
+  ) {
+    this.adminBaseUrl = config.get('PUBLIC_ADMIN_URL', { infer: true });
+  }
+
+  async list(query: ListAdminsQueryDto): Promise<{ data: AdminListItemDto[]; meta: ReturnType<typeof collectionMeta> }> {
+    const db = await this.database.client();
+    const where: Prisma.AdminUserWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.q ? { OR: [{ email: { contains: query.q } }, { displayName: { contains: query.q } }] } : {}),
+    };
+    const [total, rows] = await Promise.all([
+      db.adminUser.count({ where }),
+      db.adminUser.findMany({
+        where,
+        include,
+        // Deterministic order: allowlisted sort field, then stable id (SRS DIR 004 principle).
+        orderBy: [{ [query.sort]: query.order }, { id: 'asc' }],
+        skip: skipFor(query.page, query.pageSize),
+        take: query.pageSize,
+      }),
+    ]);
+    return { data: rows.map(toAdminItem), meta: collectionMeta(query.page, query.pageSize, total) };
+  }
+
+  async get(id: string): Promise<AdminListItemDto> {
+    const db = await this.database.client();
+    const admin = await db.adminUser.findUnique({ where: { id }, include });
+    if (!admin) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Administrator not found' });
+    return toAdminItem(admin);
+  }
+
+  /** Creates an invited account and sends a 24 h setup link (SRS ADM 001). */
+  async create(input: CreateAdminDto, actor: AdminPrincipal, ctx: RequestContext): Promise<AdminListItemDto> {
+    const db = await this.database.client();
+    const email = normaliseEmail(input.email);
+    if (await db.adminUser.findUnique({ where: { email } })) {
+      throw new ConflictException({ code: 'EMAIL_IN_USE', message: 'An administrator with that email already exists' });
+    }
+    const roles = await this.resolveRoles(input.roleKeys);
+    const token = randomBytes(32).toString('base64url');
+    const admin = await db.$transaction(async (tx) => {
+      const created = await tx.adminUser.create({
+        data: {
+          email,
+          displayName: input.displayName,
+          // Unusable placeholder until setup: a random Argon2-looking sentinel is not needed;
+          // status=invited blocks login and the setup flow replaces this value.
+          passwordHash: `invited:${randomBytes(16).toString('hex')}`,
+          status: 'invited',
+          roles: { create: roles.map((r) => ({ roleId: r.id })) },
+        },
+        include,
+      });
+      await tx.passwordResetToken.create({
+        data: { tokenHash: hashResetToken(token), adminId: created.id, purpose: 'setup', expiresAt: new Date(Date.now() + SETUP_TOKEN_TTL_MS), requestedIp: ctx.ip.slice(0, 45) },
+      });
+      return created;
+    });
+    let delivered = true;
+    try {
+      await this.mailer.send({
+        to: admin.email,
+        subject: 'Your Melbourne Sphere administrator account',
+        text: [
+          `${actor.displayName} created a Melbourne Sphere administrator account for you.`,
+          ``,
+          `Set your password to activate it (link valid for 24 hours, single use):`,
+          `${this.adminBaseUrl}/accept-setup?token=${token}`,
+        ].join('\n'),
+      });
+    } catch {
+      delivered = false;
+    }
+    await this.audit.record({ action: 'admin.create', actorAdminId: actor.id, targetType: 'admin_user', targetId: admin.id, metadata: { roles: roles.map((r) => r.key).join(','), delivered, transport: this.mailer.transportName }, requestId: ctx.requestId, ipAddress: ctx.ip });
+    return toAdminItem(admin);
+  }
+
+  /** Re-issues a setup link for an invited account. */
+  async resendSetup(id: string, actor: AdminPrincipal, ctx: RequestContext): Promise<void> {
+    const db = await this.database.client();
+    const admin = await db.adminUser.findUnique({ where: { id } });
+    if (!admin) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Administrator not found' });
+    if (admin.status !== 'invited') throw new ConflictException({ code: 'INVALID_STATE', message: 'Only invited accounts can receive a setup link' });
+    const token = randomBytes(32).toString('base64url');
+    await db.passwordResetToken.updateMany({ where: { adminId: id, purpose: 'setup', usedAt: null }, data: { usedAt: new Date() } });
+    await db.passwordResetToken.create({ data: { tokenHash: hashResetToken(token), adminId: id, purpose: 'setup', expiresAt: new Date(Date.now() + SETUP_TOKEN_TTL_MS), requestedIp: ctx.ip.slice(0, 45) } });
+    let delivered = true;
+    try {
+      await this.mailer.send({ to: admin.email, subject: 'Your Melbourne Sphere administrator account', text: `Set your password to activate your account (valid 24 hours):\n${this.adminBaseUrl}/accept-setup?token=${token}` });
+    } catch {
+      delivered = false;
+    }
+    await this.audit.record({ action: 'admin.setup_link.resent', actorAdminId: actor.id, targetType: 'admin_user', targetId: id, metadata: { delivered }, requestId: ctx.requestId, ipAddress: ctx.ip });
+  }
+
+  async update(id: string, input: UpdateAdminDto, actor: AdminPrincipal, ctx: RequestContext): Promise<AdminListItemDto> {
+    const db = await this.database.client();
+    const current = await db.adminUser.findUnique({ where: { id }, include });
+    if (!current) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Administrator not found' });
+    if (current.version !== input.expectedVersion) throw new ConflictException({ code: 'STALE_VERSION', message: 'This administrator was changed by someone else. Reload and try again.' });
+    const nextRoles = input.roleKeys ? await this.resolveRoles(input.roleKeys) : null;
+    const changes: Record<string, string> = {};
+    if (nextRoles && !nextRoles.some((r) => r.key === SUPER_ADMIN_ROLE.key) && current.roles.some((r) => r.role.key === SUPER_ADMIN_ROLE.key)) {
+      await this.assertNotLastSuperAdmin(current.id);
+      changes.roles = nextRoles.map((r) => r.key).join(',');
+    }
+    const updated = await db.$transaction(async (tx) => {
+      if (nextRoles) {
+        await tx.adminRole.deleteMany({ where: { adminId: id } });
+        await tx.adminRole.createMany({ data: nextRoles.map((r) => ({ adminId: id, roleId: r.id })) });
+        changes.roles = nextRoles.map((r) => r.key).join(',');
+      }
+      if (input.displayName !== undefined && input.displayName !== current.displayName) changes.displayName = input.displayName;
+      const result = await tx.adminUser.updateMany({
+        where: { id, version: input.expectedVersion },
+        data: { ...(input.displayName !== undefined ? { displayName: input.displayName } : {}), version: { increment: 1 } },
+      });
+      if (result.count !== 1) throw new ConflictException({ code: 'STALE_VERSION', message: 'This administrator was changed by someone else. Reload and try again.' });
+      return tx.adminUser.findUniqueOrThrow({ where: { id }, include });
+    });
+    if (changes.roles) {
+      // Privilege change: rotate out existing sessions (SRS AUTH 002).
+      await this.sessions.revokeAllForAdmin(id, 'privilege_change');
+    }
+    await this.audit.record({ action: 'admin.update', actorAdminId: actor.id, targetType: 'admin_user', targetId: id, metadata: changes, requestId: ctx.requestId, ipAddress: ctx.ip });
+    return toAdminItem(updated);
+  }
+
+  async disable(id: string, expectedVersion: number, reason: string | undefined, actor: AdminPrincipal, ctx: RequestContext): Promise<AdminListItemDto> {
+    if (id === actor.id) throw new ConflictException({ code: 'SELF_DISABLE', message: 'You cannot disable your own account' });
+    const db = await this.database.client();
+    const current = await db.adminUser.findUnique({ where: { id }, include });
+    if (!current) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Administrator not found' });
+    if (current.status === 'disabled') throw new ConflictException({ code: 'INVALID_STATE', message: 'Administrator is already disabled' });
+    if (current.roles.some((r) => r.role.key === SUPER_ADMIN_ROLE.key)) await this.assertNotLastSuperAdmin(id);
+    const result = await db.adminUser.updateMany({ where: { id, version: expectedVersion }, data: { status: 'disabled', disabledAt: new Date(), version: { increment: 1 } } });
+    if (result.count !== 1) throw new ConflictException({ code: 'STALE_VERSION', message: 'This administrator was changed by someone else. Reload and try again.' });
+    const revoked = await this.sessions.revokeAllForAdmin(id, 'account_disabled');
+    await this.audit.record({ action: 'admin.disable', actorAdminId: actor.id, targetType: 'admin_user', targetId: id, reason: reason ?? null, metadata: { sessionsRevoked: revoked }, requestId: ctx.requestId, ipAddress: ctx.ip });
+    return this.get(id);
+  }
+
+  async enable(id: string, expectedVersion: number, reason: string | undefined, actor: AdminPrincipal, ctx: RequestContext): Promise<AdminListItemDto> {
+    const db = await this.database.client();
+    const current = await db.adminUser.findUnique({ where: { id } });
+    if (!current) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Administrator not found' });
+    if (current.status !== 'disabled') throw new ConflictException({ code: 'INVALID_STATE', message: 'Only disabled administrators can be enabled' });
+    const result = await db.adminUser.updateMany({ where: { id, version: expectedVersion }, data: { status: 'active', disabledAt: null, version: { increment: 1 } } });
+    if (result.count !== 1) throw new ConflictException({ code: 'STALE_VERSION', message: 'This administrator was changed by someone else. Reload and try again.' });
+    await this.audit.record({ action: 'admin.enable', actorAdminId: actor.id, targetType: 'admin_user', targetId: id, reason: reason ?? null, requestId: ctx.requestId, ipAddress: ctx.ip });
+    return this.get(id);
+  }
+
+  async listSessions(adminId: string, currentSessionId?: string) {
+    const db = await this.database.client();
+    if (!(await db.adminUser.findUnique({ where: { id: adminId }, select: { id: true } }))) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Administrator not found' });
+    const rows = await db.adminSession.findMany({ where: { adminId, revokedAt: null, expiresAt: { gt: new Date() } }, orderBy: [{ lastSeenAt: 'desc' }, { id: 'asc' }] });
+    return rows.map((s) => ({
+      id: s.id,
+      createdAt: s.createdAt.toISOString(),
+      lastSeenAt: s.lastSeenAt.toISOString(),
+      idleExpiresAt: s.idleExpiresAt.toISOString(),
+      expiresAt: s.expiresAt.toISOString(),
+      ipAddress: s.ipAddress,
+      userAgent: s.userAgent,
+      current: s.id === currentSessionId,
+    }));
+  }
+
+  async revokeSession(adminId: string, sessionId: string, actor: AdminPrincipal, ctx: RequestContext): Promise<void> {
+    const db = await this.database.client();
+    const session = await db.adminSession.findFirst({ where: { id: sessionId, adminId } });
+    if (!session) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Session not found' });
+    await this.sessions.revoke(sessionId, actor.id === adminId ? 'revoked_by_owner' : 'revoked_by_admin');
+    await this.audit.record({ action: 'admin.session.revoke', actorAdminId: actor.id, targetType: 'admin_session', targetId: sessionId, metadata: { adminId }, requestId: ctx.requestId, ipAddress: ctx.ip });
+  }
+
+  async revokeAllSessions(adminId: string, actor: AdminPrincipal, ctx: RequestContext, exceptSessionId?: string): Promise<number> {
+    const count = await this.sessions.revokeAllForAdmin(adminId, actor.id === adminId ? 'revoked_by_owner' : 'revoked_by_admin', exceptSessionId);
+    await this.audit.record({ action: 'admin.session.revoke_all', actorAdminId: actor.id, targetType: 'admin_user', targetId: adminId, metadata: { count }, requestId: ctx.requestId, ipAddress: ctx.ip });
+    return count;
+  }
+
+  /** SRS ADM 001: never disable/demote the last active Super Admin. */
+  async assertNotLastSuperAdmin(adminId: string): Promise<void> {
+    const db = await this.database.client();
+    const others = await db.adminUser.count({ where: { id: { not: adminId }, status: 'active', roles: { some: { role: { key: SUPER_ADMIN_ROLE.key } } } } });
+    if (others === 0) {
+      throw new HttpException({ code: 'LAST_SUPER_ADMIN', message: 'At least one active Super Admin must remain' }, HttpStatus.CONFLICT);
+    }
+  }
+
+  private async resolveRoles(keys: string[]) {
+    const db = await this.database.client();
+    const unique = [...new Set(keys)];
+    const roles = await db.role.findMany({ where: { key: { in: unique } } });
+    if (roles.length !== unique.length) {
+      throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Unknown role', fields: { roleKeys: ['Unknown role key'] } }, HttpStatus.BAD_REQUEST);
+    }
+    return roles;
+  }
+}

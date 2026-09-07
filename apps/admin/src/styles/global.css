@@ -1,0 +1,183 @@
+/* Base document */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Visible keyboard focus everywhere (NFR 011): amber-700 ring (>= 3:1 on navy and
+   white) with a white halo so it stays visible on any surface. */
+:focus-visible {
+  outline: 3px solid #b45309;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px #ffffff;
+}
+
+/* Skip link: hidden until focused, then pinned top-left above the header. */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -100px;
+  z-index: 2000;
+  padding: 8px 12px;
+  background: #ffffff;
+  color: #0b1f3a;
+  font-weight: 600;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.skip-link:focus {
+  top: 8px;
+}
+
+/* Main region receives programmatic focus from the skip link; no ring needed there. */
+#main-content:focus {
+  outline: none;
+}
+
+/* Respect reduced-motion preferences for any residual CSS motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---- Rich text editor and sanitised previews -------------------------------
+   One typographic treatment shared by the editor surface and the preview, so
+   what an editor writes is what they see (SRS BLOG 001). */
+.ms-editor-body,
+.ms-prose {
+  font-size: 16px;
+  line-height: 1.7;
+  color: #0f172a;
+}
+
+.ms-editor-body > *:first-child,
+.ms-prose > *:first-child {
+  margin-top: 0;
+}
+
+.ms-editor-body h2,
+.ms-prose h2 {
+  font-size: 22px;
+  line-height: 1.3;
+  margin: 28px 0 10px;
+  font-weight: 650;
+}
+
+.ms-editor-body h3,
+.ms-prose h3 {
+  font-size: 18px;
+  margin: 22px 0 8px;
+  font-weight: 650;
+}
+
+.ms-editor-body h4,
+.ms-prose h4 {
+  font-size: 16px;
+  margin: 18px 0 6px;
+  font-weight: 650;
+}
+
+.ms-editor-body p,
+.ms-prose p {
+  margin: 0 0 14px;
+}
+
+.ms-editor-body ul,
+.ms-editor-body ol,
+.ms-prose ul,
+.ms-prose ol {
+  margin: 0 0 14px;
+  padding-inline-start: 24px;
+}
+
+.ms-editor-body blockquote,
+.ms-prose blockquote {
+  margin: 18px 0;
+  padding: 4px 16px;
+  border-inline-start: 4px solid #0369a1;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.ms-editor-body pre,
+.ms-prose pre {
+  background: #0b1f3a;
+  color: #e6eef8;
+  padding: 14px 16px;
+  border-radius: 10px;
+  overflow-x: auto;
+}
+
+.ms-editor-body code,
+.ms-prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92em;
+}
+
+.ms-editor-body img,
+.ms-prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+}
+
+.ms-editor-body table,
+.ms-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 18px 0;
+}
+
+.ms-editor-body th,
+.ms-editor-body td,
+.ms-prose th,
+.ms-prose td {
+  border: 1px solid #e2e8f0;
+  padding: 8px 10px;
+  text-align: start;
+}
+
+.ms-editor-body th,
+.ms-prose th {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+/* Placeholder-free empty state still needs a caret target. */
+.ms-editor-body:focus {
+  outline: none;
+}
+
+.ms-editor-body hr,
+.ms-prose hr {
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+  margin: 24px 0;
+}
+
+/* Visually hidden text that assistive technology still reads (WCAG 1.3.1). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -1,0 +1,88 @@
+import Link from 'next/link';
+import { Button } from '@melbourne-sphere/ui';
+import { fetchAreas, fetchCategories, flattenCategories, searchBusinesses } from '@/lib/api';
+import { buildChips, pageHref, toQueryString, type SearchState } from '@/lib/search-params';
+import { BusinessCard } from './business-card';
+import { DirectoryFilters } from './directory-filters';
+import { FilterChips } from './filter-chips';
+import { Pagination } from './pagination';
+import { gridColumns } from './page-shell';
+
+interface Props {
+  basePath: string;
+  state: SearchState;
+  fixed?: { category?: string; area?: string };
+}
+
+/**
+ * Shared results block for /directory and the curated category/area pages:
+ * filters, chips, count, cards, pagination and the empty state. API failures
+ * propagate to the route error boundary (SRS DIR 006).
+ */
+export async function DirectoryResults({ basePath, state, fixed = {} }: Props) {
+  const [result, categories, areas] = await Promise.all([searchBusinesses(state, fixed), fetchCategories(), fetchAreas()]);
+  const names = {
+    categories: Object.fromEntries(flattenCategories(categories).map((c) => [c.slug, c.name])),
+    areas: Object.fromEntries(areas.map((a) => [a.slug, a.name])),
+  };
+  const chips = buildChips(state, basePath, names);
+  const { data, meta } = result;
+  const beyond = data.length === 0 && meta.total > 0;
+  return (
+    <div className="flex flex-col gap-6">
+      <DirectoryFilters action={basePath} state={state} categories={categories} areas={areas} fixed={{ category: Boolean(fixed.category), area: Boolean(fixed.area) }} />
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+        <p role="status" className="text-sm">
+          <span className="font-semibold">{meta.total === 0 ? 'No businesses match' : `${meta.total} business${meta.total === 1 ? '' : 'es'}`}</span>
+          {meta.total > 0 && meta.pageCount > 1 ? <span className="text-text-muted"> · page {state.page} of {meta.pageCount}</span> : null}
+        </p>
+        <FilterChips chips={chips} resetHref={basePath} />
+      </div>
+      {meta.featured.length > 0 && (
+        <section aria-labelledby="featured-heading" className="rounded-card-lg border border-border bg-sky-50 p-5 sm:p-6">
+          <div className="mb-3 flex flex-wrap items-baseline gap-2">
+            <h2 id="featured-heading" className="text-lg font-semibold">
+              Featured
+            </h2>
+            <p className="text-sm text-text-muted">Chosen by our editors. They match your filters and are not paid placements.</p>
+          </div>
+          <ul className={`grid gap-6 ${gridColumns(meta.featured.length)}`}>
+            {meta.featured.map((business) => (
+              <li key={business.id}>
+                <BusinessCard business={business} featured />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {data.length > 0 ? (
+        <ul className={`grid gap-6 ${gridColumns(data.length)}`}>
+          {data.map((b) => (
+            <li key={b.id}>
+              <BusinessCard business={b} />
+            </li>
+          ))}
+        </ul>
+      ) : beyond ? (
+        <div className="rounded-card-lg border border-border bg-surface-raised p-10 text-center shadow-sm">
+          <p className="text-lg font-semibold">This page is past the end of the results.</p>
+          <Button asChild className="mt-4">
+            <Link href={`${basePath}${toQueryString({ ...state, page: 1 })}`}>Go to page one</Link>
+          </Button>
+        </div>
+      ) : (
+        <div className="rounded-card-lg border border-dashed border-border-strong p-12 text-center">
+          <p aria-hidden="true" className="text-3xl">🔍</p>
+          <p className="mt-3 text-lg font-semibold">No businesses match these filters.</p>
+          <p className="mx-auto mt-2 max-w-md text-text-muted">Try a broader search term or remove a filter. We only list businesses inside Melbourne, so widening the area is not an option here.</p>
+          {chips.length > 0 && (
+            <Button asChild variant="outline" className="mt-4">
+              <Link href={basePath}>Clear filters</Link>
+            </Button>
+          )}
+        </div>
+      )}
+      <Pagination page={state.page} pageCount={meta.pageCount} hrefFor={(p) => pageHref(state, basePath, p)} />
+    </div>
+  );
+}

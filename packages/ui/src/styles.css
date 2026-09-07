@@ -1,0 +1,197 @@
+/*
+ * Melbourne Sphere public design tokens (SRS UX 001).
+ *
+ * The public site is a light-first editorial surface — warm off-white and
+ * neutral page bands — with deep navy used deliberately as a *band* colour for
+ * the header, the hero, the locality feature and the call to action. That is
+ * what "balanced light and dark surfaces" means here: the rhythm alternates
+ * between light and dark sections rather than following the operating system's
+ * colour scheme. An OS-driven dark scheme is deliberately not offered, because
+ * it turned every band into the same navy field and destroyed the hierarchy the
+ * design depends on; `color-scheme: light` is declared in apps/web/globals.css.
+ *
+ * Contrast (WCAG 2.2 AA, NFR 006/011): text #16233c on #ffffff 14.4:1 and on
+ * #faf8f4 13.4:1; muted #55637d on #ffffff 6.4:1; link #0b5f8f on #ffffff
+ * 5.9:1; band text #ffffff on #0e2242 15.4:1; band muted #b9c9e2 on #0e2242
+ * 9.6:1; band link #8ed0ff on #0e2242 10.0:1. `apps/web/src/lib/palette.test.ts`
+ * fails the build if any of these regress.
+ */
+:root {
+  /* Brand */
+  --ms-navy-950: #08152b;
+  --ms-navy-900: #0e2242;
+  --ms-navy-800: #153260;
+  --ms-navy-700: #1d447f;
+  --ms-sky-700: #0b5f8f;
+  --ms-sky-600: #0284c7;
+  --ms-sky-500: #0ea5e9;
+  --ms-sky-400: #38bdf8;
+  --ms-sky-100: #e0f2fe;
+  --ms-sky-50: #f0f9ff;
+
+  /* Light surfaces: white cards on a warm off-white page, with a cooler
+     neutral for the alternating "soft" band. */
+  --ms-surface: #ffffff;
+  --ms-surface-muted: #faf8f4;
+  --ms-surface-raised: #ffffff;
+  --ms-surface-sunken: #eff2f7;
+  --ms-border: #e2e5ec;
+  --ms-border-strong: #c4cbd8;
+  --ms-text: #16233c;
+  --ms-text-muted: #55637d;
+  --ms-text-inverse: #ffffff;
+  --ms-link: #0b5f8f;
+
+  /* Dark bands (hero, header, locality feature, call to action, footer). These
+     never follow a colour scheme: they are a fixed part of the composition. */
+  --ms-band: #0e2242;
+  --ms-band-deep: #08152b;
+  --ms-band-raised: #16305a;
+  --ms-band-text: #ffffff;
+  --ms-band-muted: #b9c9e2;
+  --ms-band-border: #24406e;
+  --ms-band-link: #8ed0ff;
+
+  /* The hero search panel sits on photography, so it keeps its own light
+     colours whatever the image looks like (#16233c on #ffffff 14.4:1). */
+  --ms-panel: #ffffff;
+  --ms-panel-muted: #eff2f7;
+  --ms-panel-text: #16233c;
+  --ms-panel-text-muted: #55637d;
+  --ms-panel-border: #d5dae3;
+  --ms-hero-text: #dbe8f8;
+
+  --ms-focus: #b45309;
+  --ms-success: #15803d;
+  --ms-warning: #b45309;
+  --ms-danger: #b91c1c;
+
+  /* Shape and elevation: restrained, so cards read as editorial rather than
+     as dashboard widgets. */
+  --ms-radius-sm: 0.5rem;
+  --ms-radius: 0.875rem;
+  --ms-radius-lg: 1.25rem;
+  --ms-radius-pill: 999px;
+  --ms-shadow-sm: 0 1px 2px rgba(14, 34, 66, 0.05), 0 1px 3px rgba(14, 34, 66, 0.06);
+  --ms-shadow-md: 0 8px 24px -12px rgba(14, 34, 66, 0.22);
+  --ms-shadow-lg: 0 28px 60px -28px rgba(14, 34, 66, 0.4);
+
+  /* Layout rhythm: wide section composition, readable text measure. */
+  --ms-content: 1520px;
+  --ms-content-tight: 1120px;
+  --ms-content-prose: 68ch;
+  --ms-gutter: clamp(1rem, 4vw, 3.5rem);
+  --ms-section-space: clamp(3.25rem, 6vw, 6rem);
+
+  /* Motion timing shared by the hero rotation and hover transitions. */
+  --ms-motion-fast: 150ms;
+  --ms-motion-base: 300ms;
+  --ms-motion-slow: 700ms;
+}
+
+@theme inline {
+  --color-navy-950: var(--ms-navy-950);
+  --color-navy-900: var(--ms-navy-900);
+  --color-navy-800: var(--ms-navy-800);
+  --color-navy-700: var(--ms-navy-700);
+  --color-sky-700: var(--ms-sky-700);
+  --color-sky-600: var(--ms-sky-600);
+  --color-sky-500: var(--ms-sky-500);
+  --color-sky-400: var(--ms-sky-400);
+  --color-sky-100: var(--ms-sky-100);
+  --color-sky-50: var(--ms-sky-50);
+  --color-surface: var(--ms-surface);
+  --color-surface-muted: var(--ms-surface-muted);
+  --color-surface-raised: var(--ms-surface-raised);
+  --color-surface-sunken: var(--ms-surface-sunken);
+  --color-border-strong: var(--ms-border-strong);
+  --color-border: var(--ms-border);
+  --color-text: var(--ms-text);
+  --color-text-muted: var(--ms-text-muted);
+  --color-text-inverse: var(--ms-text-inverse);
+  --color-band: var(--ms-band);
+  --color-band-deep: var(--ms-band-deep);
+  --color-band-raised: var(--ms-band-raised);
+  --color-band-text: var(--ms-band-text);
+  --color-band-muted: var(--ms-band-muted);
+  --color-band-border: var(--ms-band-border);
+  --color-band-link: var(--ms-band-link);
+  --color-panel: var(--ms-panel);
+  --color-panel-muted: var(--ms-panel-muted);
+  --color-panel-text: var(--ms-panel-text);
+  --color-panel-text-muted: var(--ms-panel-text-muted);
+  --color-panel-border: var(--ms-panel-border);
+  --color-link: var(--ms-link);
+  --color-hero-text: var(--ms-hero-text);
+  --color-focus: var(--ms-focus);
+  --color-success: var(--ms-success);
+  --color-warning: var(--ms-warning);
+  --color-danger: var(--ms-danger);
+  --radius-card: var(--ms-radius);
+  --radius-card-lg: var(--ms-radius-lg);
+  --shadow-sm: var(--ms-shadow-sm);
+  --shadow-md: var(--ms-shadow-md);
+  --shadow-lg: var(--ms-shadow-lg);
+}
+
+/*
+ * Layout primitives. Sections are full-bleed; only their inner container is
+ * bounded, so a wide screen gets a wide composition instead of one narrow
+ * column (the container itself never constrains a paragraph — `.ms-prose` and
+ * `max-w-*` on text blocks keep the reading measure sensible).
+ */
+.ms-container {
+  width: 100%;
+  max-width: var(--ms-content);
+  margin-inline: auto;
+  padding-inline: var(--ms-gutter);
+}
+
+.ms-container-tight {
+  width: 100%;
+  max-width: var(--ms-content-tight);
+  margin-inline: auto;
+  padding-inline: var(--ms-gutter);
+}
+
+.ms-section {
+  padding-block: var(--ms-section-space);
+}
+
+/* Visible focus for every interactive element (SRS NFR 011). */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--ms-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* On a dark band the amber focus ring is hard to see; the light ring keeps the
+   3:1 non-text contrast the focus indicator needs. */
+.ms-on-dark :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline-color: #ffd166;
+}
+
+.ms-skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -100px;
+  z-index: 100;
+  padding: 0.75rem 1.25rem;
+  background: var(--ms-navy-900);
+  color: var(--ms-text-inverse);
+  border-radius: var(--ms-radius-sm);
+  font-weight: 600;
+}
+.ms-skip-link:focus {
+  top: 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

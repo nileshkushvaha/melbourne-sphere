@@ -1,0 +1,1150 @@
+// Melbourne Sphere database schema (Prisma 7).
+// Connection URL and migration settings live in ../prisma.config.ts.
+// Naming policy: models are PascalCase singular; tables are snake_case PLURAL via @@map
+// (e.g. AdminUser -> admin_users); columns keep Prisma's camelCase field names.
+
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  runtime                = "nodejs"
+  moduleFormat           = "esm"
+  generatedFileExtension = "ts"
+  importFileExtension    = "js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+/// Technical table used only to prove migrations and connectivity
+/// (readiness checks, integration tests). Not a product entity.
+model SystemProbe {
+  /// Opaque identifier.
+  id        String   @id @default(cuid())
+  /// Unique lookup key, e.g. "readiness" or "integration-test:<run id>".
+  key       String   @unique @db.VarChar(191)
+  value     String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+
+  @@map("system_probes")
+}
+
+// ---------------------------------------------------------------------------
+// Administration identity and authorisation (SRS section 10, 14; Phase 9)
+// ---------------------------------------------------------------------------
+
+enum AdminUserStatus {
+  /// Created by a Super Admin; cannot sign in until the setup link is used.
+  invited
+  active
+  disabled
+}
+
+enum AdminTokenPurpose {
+  reset
+  setup
+}
+
+/// Administrator account. Never used as public author data (SRS BLOG 001).
+model AdminUser {
+  id                         String          @id @default(cuid())
+  /// Normalised (trimmed, lower-cased) unique email used for login.
+  email                      String          @unique @db.VarChar(254)
+  displayName                String          @db.VarChar(80)
+  /// Argon2id PHC string; never selected into API responses.
+  passwordHash               String          @db.VarChar(255)
+  status                     AdminUserStatus @default(active)
+  passwordChangedAt          DateTime        @default(now()) @db.DateTime(3)
+  lastLoginAt                DateTime?       @db.DateTime(3)
+  disabledAt                 DateTime?       @db.DateTime(3)
+  /// AES-256-GCM ciphertext (base64) of the active TOTP secret (SRS AUTH 003, DAT 002).
+  totpSecretEncrypted        String?         @db.VarChar(255)
+  /// Secret awaiting first successful verification; discarded on verify/disable.
+  totpPendingSecretEncrypted String?         @db.VarChar(255)
+  totpEnabledAt              DateTime?       @db.DateTime(3)
+  version                    Int             @default(1)
+  createdAt                  DateTime        @default(now()) @db.DateTime(3)
+  updatedAt                  DateTime        @updatedAt @db.DateTime(3)
+
+  roles              AdminRole[]
+  sessions           AdminSession[]
+  resetTokens        PasswordResetToken[]
+  recoveryCodes      AdminRecoveryCode[]
+  loginChallenges    AdminLoginChallenge[]
+  auditEntries       AuditLog[]            @relation("AuditActor")
+  siteSettings       SiteSetting[]         @relation("SiteSettingUpdatedBy")
+  moderatedReviews   Review[]              @relation("ReviewModerator")
+  contentRevisions   ContentRevision[]     @relation("ContentRevisionActor")
+  handledEnquiries   Enquiry[]             @relation("EnquiryHandler")
+  uploadedMedia      MediaAsset[]          @relation("MediaUploader")
+  moderatedComments  Comment[]             @relation("CommentModerator")
+  moderatedReports   AbuseReport[]         @relation("AbuseReportModerator")
+  redirects          Redirect[]            @relation("RedirectAuthor")
+  staticPages        StaticPage[]          @relation("StaticPageEditor")
+  featuredPlacements FeaturedPlacement[]   @relation("FeaturedPlacementAuthor")
+
+  @@index([status])
+  @@map("admin_users")
+}
+
+/// Role with a stable key (e.g. super_admin). isSystem roles cannot be deleted.
+model Role {
+  id          String   @id @default(cuid())
+  key         String   @unique @db.VarChar(64)
+  name        String   @db.VarChar(80)
+  description String   @db.VarChar(255)
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now()) @db.DateTime(3)
+  updatedAt   DateTime @updatedAt @db.DateTime(3)
+
+  permissions RolePermission[]
+  admins      AdminRole[]
+
+  @@map("roles")
+}
+
+/// Permission catalogue entry, key = "<resource>.<action>" (SRS RBAC 001).
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique @db.VarChar(64)
+  description String   @db.VarChar(255)
+  createdAt   DateTime @default(now()) @db.DateTime(3)
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now()) @db.DateTime(3)
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model AdminRole {
+  adminId   String
+  roleId    String
+  createdAt DateTime @default(now()) @db.DateTime(3)
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  role  Role      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([adminId, roleId])
+  @@index([roleId])
+  @@map("admin_roles")
+}
+
+/// Opaque server-side session (SRS AUTH 002). The browser holds only the random
+/// token in an HttpOnly cookie; the database stores its SHA-256 hash.
+model AdminSession {
+  id            String    @id @default(cuid())
+  tokenHash     String    @unique @db.Char(64)
+  adminId       String
+  createdAt     DateTime  @default(now()) @db.DateTime(3)
+  lastSeenAt    DateTime  @default(now()) @db.DateTime(3)
+  /// Sliding idle deadline (30 min default).
+  idleExpiresAt DateTime  @db.DateTime(3)
+  /// Absolute deadline (12 h default).
+  expiresAt     DateTime  @db.DateTime(3)
+  revokedAt     DateTime? @db.DateTime(3)
+  revokedReason String?   @db.VarChar(64)
+  ipAddress     String?   @db.VarChar(45)
+  userAgent     String?   @db.VarChar(255)
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId, revokedAt])
+  @@index([expiresAt])
+  @@map("admin_sessions")
+}
+
+/// Password reset (30 min) or account setup (24 h) token: random, hashed, single use.
+model PasswordResetToken {
+  id          String            @id @default(cuid())
+  tokenHash   String            @unique @db.Char(64)
+  adminId     String
+  purpose     AdminTokenPurpose @default(reset)
+  createdAt   DateTime          @default(now()) @db.DateTime(3)
+  expiresAt   DateTime          @db.DateTime(3)
+  usedAt      DateTime?         @db.DateTime(3)
+  requestedIp String?           @db.VarChar(45)
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+/// Hashed single-use TOTP recovery codes (SRS AUTH 003).
+model AdminRecoveryCode {
+  id        String    @id @default(cuid())
+  adminId   String
+  codeHash  String    @db.Char(64)
+  usedAt    DateTime? @db.DateTime(3)
+  createdAt DateTime  @default(now()) @db.DateTime(3)
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([adminId, codeHash])
+  @@map("admin_recovery_codes")
+}
+
+/// Second step of login for TOTP-enabled admins: password verified, code pending.
+model AdminLoginChallenge {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique @db.Char(64)
+  adminId   String
+  attempts  Int       @default(0)
+  expiresAt DateTime  @db.DateTime(3)
+  usedAt    DateTime? @db.DateTime(3)
+  ipAddress String?   @db.VarChar(45)
+  userAgent String?   @db.VarChar(255)
+  createdAt DateTime  @default(now()) @db.DateTime(3)
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([expiresAt])
+  @@map("admin_login_challenges")
+}
+
+/// Append-only, redacted security/admin audit record (SRS section 14, MON 001).
+/// metadata holds only non-sensitive keys (never passwords, tokens, cookies).
+model AuditLog {
+  id           String   @id @default(cuid())
+  /// null = system action (e.g. bootstrap, expiry job).
+  actorAdminId String?
+  action       String   @db.VarChar(64)
+  targetType   String?  @db.VarChar(64)
+  targetId     String?  @db.VarChar(64)
+  reason       String?  @db.VarChar(500)
+  metadata     Json?
+  requestId    String?  @db.VarChar(64)
+  ipAddress    String?  @db.VarChar(45)
+  createdAt    DateTime @default(now()) @db.DateTime(3)
+
+  actor AdminUser? @relation("AuditActor", fields: [actorAdminId], references: [id], onDelete: SetNull)
+
+  @@index([actorAdminId, createdAt])
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Directory taxonomy and Melbourne local areas (SRS CFG 003, BUS 008; Phase 11)
+// ---------------------------------------------------------------------------
+
+/// Business category; two levels only (a child's parent must be a root).
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @db.VarChar(80)
+  /// Lowercase-hyphen slug; unique even when inactive (SRS DAT 004).
+  slug        String   @unique @db.VarChar(100)
+  description String?  @db.VarChar(500)
+  parentId    String?
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  version     Int      @default(1)
+  createdAt   DateTime @default(now()) @db.DateTime(3)
+  updatedAt   DateTime @updatedAt @db.DateTime(3)
+
+  parent     Category?          @relation("CategoryParent", fields: [parentId], references: [id], onDelete: Restrict)
+  children   Category[]         @relation("CategoryParent")
+  primaryOf  Business[]         @relation("BusinessPrimaryCategory")
+  businesses BusinessCategory[]
+
+  @@index([parentId, active, sortOrder])
+  @@index([active])
+  @@map("categories")
+}
+
+/// Service label businesses can offer; matched in search via label and synonyms (SRS HERO 005).
+model Service {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(80)
+  slug      String   @unique @db.VarChar(100)
+  active    Boolean  @default(true)
+  version   Int      @default(1)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+
+  synonyms   ServiceSynonym[]
+  businesses BusinessService[]
+
+  @@index([active])
+  @@map("services")
+}
+
+model ServiceSynonym {
+  id        String   @id @default(cuid())
+  serviceId String
+  /// Normalised (trimmed, lower-cased) synonym, unique per service.
+  term      String   @db.VarChar(80)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, term])
+  @@index([term])
+  @@map("service_synonyms")
+}
+
+/// Approved Melbourne local area (allowlist; subdivisions only, no city entity — SRS SCP 001, BUS 008).
+model LocalArea {
+  id                    String    @id @default(cuid())
+  name                  String    @db.VarChar(80)
+  slug                  String    @unique @db.VarChar(100)
+  editorialIntro        String?   @db.Text
+  /// How eligibility against the approved boundary was established (source/reference).
+  eligibilitySource     String?   @db.VarChar(255)
+  eligibilityVerifiedAt DateTime? @db.DateTime(3)
+  active                Boolean   @default(true)
+  sortOrder             Int       @default(0)
+  version               Int       @default(1)
+  createdAt             DateTime  @default(now()) @db.DateTime(3)
+  updatedAt             DateTime  @updatedAt @db.DateTime(3)
+
+  businesses Business[]
+
+  @@index([active, sortOrder])
+  @@map("local_areas")
+}
+
+// ---------------------------------------------------------------------------
+// Business listings (SRS section 6, 13; Phase 12)
+// ---------------------------------------------------------------------------
+
+enum BusinessStatus {
+  draft
+  published
+  archived
+}
+
+/// Whether the street address is shown publicly or only the approved local area (SRS BUS 003).
+enum AddressVisibility {
+  full
+  areaOnly
+}
+
+model Business {
+  id                           String            @id @default(cuid())
+  name                         String            @db.VarChar(120)
+  /// Lower-cased, punctuation-stripped name for duplicate detection (SRS BUS 007).
+  normalizedName               String            @db.VarChar(120)
+  /// Stable public slug; unique even when archived (SRS DAT 004, UX 003).
+  slug                         String            @unique @db.VarChar(140)
+  description                  String            @db.Text
+  status                       BusinessStatus    @default(draft)
+  primaryCategoryId            String
+  localAreaId                  String
+  publicPhone                  String?           @db.VarChar(30)
+  /// Digits-only form of publicPhone for duplicate detection.
+  normalizedPhone              String?           @db.VarChar(20)
+  publicEmail                  String?           @db.VarChar(254)
+  publicUrl                    String?           @db.VarChar(500)
+  addressVisibility            AddressVisibility @default(full)
+  /// `unknown` until an admin records a schedule; never rendered as open or closed (SRS BUS 004).
+  hoursMode                    HoursMode         @default(unknown)
+  /// Enquiry destination, AES-256-GCM encrypted; never public (SRS BUS 002, DAT 002).
+  privateEnquiryEmailEncrypted String?           @db.VarChar(500)
+  eligibilityVerifiedAt        DateTime?         @db.DateTime(3)
+  eligibilitySource            String?           @db.VarChar(255)
+  contentRightsReviewedAt      DateTime?         @db.DateTime(3)
+  contentRightsNote            String?           @db.VarChar(500)
+  duplicateOverrideReason      String?           @db.VarChar(500)
+  firstPublishedAt             DateTime?         @db.DateTime(3)
+  publishedAt                  DateTime?         @db.DateTime(3)
+  archivedAt                   DateTime?         @db.DateTime(3)
+  version                      Int               @default(1)
+  createdAt                    DateTime          @default(now()) @db.DateTime(3)
+  updatedAt                    DateTime          @updatedAt @db.DateTime(3)
+
+  primaryCategory    Category            @relation("BusinessPrimaryCategory", fields: [primaryCategoryId], references: [id], onDelete: Restrict)
+  localArea          LocalArea           @relation(fields: [localAreaId], references: [id], onDelete: Restrict)
+  address            BusinessAddress?
+  categories         BusinessCategory[]
+  services           BusinessService[]
+  rating             BusinessRating?
+  reviews            Review[]
+  enquiries          Enquiry[]
+  media              BusinessMedia[]
+  openingHours       OpeningInterval[]
+  hoursExceptions    HoursException[]
+  links              BusinessLink[]
+  featuredPlacements FeaturedPlacement[]
+
+  @@index([status, primaryCategoryId])
+  @@index([status, localAreaId])
+  @@index([status, firstPublishedAt])
+  @@index([normalizedName])
+  @@index([normalizedPhone])
+  @@index([name])
+  @@map("businesses")
+}
+
+/// One address per business; state/country are fixed (VIC, AU) and not stored (SRS SCP 001).
+model BusinessAddress {
+  businessId String   @id
+  line1      String   @db.VarChar(120)
+  line2      String?  @db.VarChar(120)
+  /// Suburb label as displayed (the approved local area is the canonical location).
+  suburb     String   @db.VarChar(80)
+  postcode   String   @db.Char(4)
+  latitude   Decimal? @db.Decimal(9, 6)
+  longitude  Decimal? @db.Decimal(9, 6)
+  updatedAt  DateTime @updatedAt @db.DateTime(3)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("business_addresses")
+}
+
+/// Secondary categories (the primary category is a column on the business).
+model BusinessCategory {
+  businessId String
+  categoryId String
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([businessId, categoryId])
+  @@index([categoryId])
+  @@map("business_categories")
+}
+
+model BusinessService {
+  businessId String
+  serviceId  String
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  service  Service  @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@id([businessId, serviceId])
+  @@index([serviceId])
+  @@map("business_services")
+}
+
+enum HoursMode {
+  unknown
+  scheduled
+}
+
+/// Weekly opening interval in Australia/Melbourne wall-clock minutes (SRS BUS 004, API 001).
+/// A weekday with no rows is closed when hoursMode = scheduled; `allDay` marks "open 24 hours".
+model OpeningInterval {
+  id          String  @id @default(cuid())
+  businessId  String
+  /// ISO weekday: 1 = Monday … 7 = Sunday.
+  weekday     Int     @db.TinyInt
+  allDay      Boolean @default(false)
+  /// Minutes from local midnight, 0–1439; null when allDay.
+  startMinute Int?    @db.SmallInt
+  /// Minutes from local midnight, 1–1440 (1440 = midnight at the end of the day); null when allDay.
+  endMinute   Int?    @db.SmallInt
+  /// The interval closes on the following calendar day (overnight trading).
+  endNextDay  Boolean @default(false)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, weekday])
+  @@map("opening_intervals")
+}
+
+enum HoursExceptionKind {
+  closed
+  open24
+  custom
+}
+
+/// Date-specific override of the weekly schedule (public holidays, one-off closures).
+model HoursException {
+  id          String             @id @default(cuid())
+  businessId  String
+  /// Local calendar date (Australia/Melbourne); stored as a DATE, no time component.
+  date        DateTime           @db.Date
+  kind        HoursExceptionKind
+  startMinute Int?               @db.SmallInt
+  endMinute   Int?               @db.SmallInt
+  endNextDay  Boolean            @default(false)
+  note        String?            @db.VarChar(120)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, date])
+  @@map("hours_exceptions")
+}
+
+enum BusinessLinkKind {
+  facebook
+  instagram
+  x
+  linkedin
+  youtube
+  tiktok
+  other
+}
+
+/// Public website/social links; http(s) only (SRS BUS 003). At most one per known kind (service rule).
+model BusinessLink {
+  id         String           @id @default(cuid())
+  businessId String
+  kind       BusinessLinkKind
+  url        String           @db.VarChar(500)
+  label      String?          @db.VarChar(60)
+  sortOrder  Int              @default(0)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, sortOrder])
+  @@map("business_links")
+}
+
+/// Transactional approved-review aggregate (SRS REV 004); maintained by moderation in Phase 16.
+model BusinessRating {
+  businessId    String   @id
+  approvedCount Int      @default(0)
+  ratingSum     Int      @default(0)
+  updatedAt     DateTime @updatedAt @db.DateTime(3)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("business_ratings")
+}
+
+/// Editable site settings (SRS CFG 001). One row per settings key; the payload
+/// is a validated JSON document owned by the API, never free-form content.
+/// Secrets never live here.
+model SiteSetting {
+  key              String   @id @db.VarChar(64)
+  data             Json
+  version          Int      @default(1)
+  updatedByAdminId String?
+  createdAt        DateTime @default(now()) @db.DateTime(3)
+  updatedAt        DateTime @updatedAt @db.DateTime(3)
+
+  updatedBy AdminUser? @relation("SiteSettingUpdatedBy", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
+
+  @@map("site_settings")
+}
+
+enum ReviewStatus {
+  pending
+  approved
+  rejected
+  spam
+}
+
+/// Visitor review (SRS REV 001–005). No public account exists; the email is
+/// collected for moderation contact only, encrypted at rest, and a keyed hash
+/// supports repeat-submission signals without storing a searchable address.
+model Review {
+  id                    String       @id @default(cuid())
+  businessId            String
+  displayName           String       @db.VarChar(80)
+  /// AES-256-GCM; never public (SRS DAT 002).
+  privateEmailEncrypted String       @db.VarChar(500)
+  /// HMAC of the normalised email, for repeat-submission signals (SRS REV 005).
+  emailHash             String       @db.Char(64)
+  rating                Int          @db.TinyInt
+  /// Exactly what the visitor submitted; never edited (SRS REV 003).
+  originalText          String       @db.Text
+  /// Editorial redaction shown publicly; null means the original is shown.
+  publicText            String?      @db.Text
+  redactionReason       String?      @db.VarChar(500)
+  status                ReviewStatus @default(pending)
+  moderationReason      String?      @db.VarChar(500)
+  moderatorAdminId      String?
+  decidedAt             DateTime?    @db.DateTime(3)
+  /// Flagged when the same email reviewed this business within 30 days (SRS REV 005).
+  repeatFlagged         Boolean      @default(false)
+  /// Version of the guidelines/privacy acknowledgement accepted (SRS PRIV 001).
+  acknowledgedVersion   String       @db.VarChar(32)
+  acknowledgedAt        DateTime     @db.DateTime(3)
+  /// Keyed hash of the submitting IP; retained for abuse signals only (SRS PRIV 001 table).
+  submitterIpHash       String?      @db.Char(64)
+  version               Int          @default(1)
+  createdAt             DateTime     @default(now()) @db.DateTime(3)
+  updatedAt             DateTime     @updatedAt @db.DateTime(3)
+
+  business  Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  moderator AdminUser?    @relation("ReviewModerator", fields: [moderatorAdminId], references: [id], onDelete: SetNull)
+  reports   AbuseReport[]
+
+  @@index([businessId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([emailHash, businessId, createdAt])
+  @@map("reviews")
+}
+
+enum AbuseReportReason {
+  spam
+  offensive
+  misleading
+  privacy
+  other
+}
+
+enum AbuseReportStatus {
+  open
+  investigating
+  resolved
+}
+
+enum AbuseReportOutcome {
+  retain
+  remove
+  spam
+}
+
+/// Abuse report about an approved review (SRS REP 001–002). Comments join the
+/// same table in the blog phase. Reports never remove content by themselves.
+model AbuseReport {
+  id                     String              @id @default(cuid())
+  /// Exactly one target is set (SRS REP 001); enforced by a check constraint.
+  reviewId               String?
+  commentId              String?
+  reason                 AbuseReportReason
+  details                String?             @db.VarChar(1000)
+  /// Optional private contact for follow-up; encrypted, never disclosed.
+  reporterEmailEncrypted String?             @db.VarChar(500)
+  reporterIpHash         String?             @db.Char(64)
+  /// Public content as reported, so the report stays auditable after removal.
+  targetSnapshot         String              @db.Text
+  status                 AbuseReportStatus   @default(open)
+  outcome                AbuseReportOutcome?
+  resolutionNote         String?             @db.VarChar(1000)
+  moderatorAdminId       String?
+  resolvedAt             DateTime?           @db.DateTime(3)
+  version                Int                 @default(1)
+  createdAt              DateTime            @default(now()) @db.DateTime(3)
+  updatedAt              DateTime            @updatedAt @db.DateTime(3)
+
+  review    Review?    @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  comment   Comment?   @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  moderator AdminUser? @relation("AbuseReportModerator", fields: [moderatorAdminId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([reviewId])
+  @@index([commentId])
+  @@map("abuse_reports")
+}
+
+/// Public form idempotency (SRS API 003): a hashed key scoped to an endpoint,
+/// with the payload fingerprint and the original receipt, kept for 24 hours.
+model IdempotencyRecord {
+  keyHash            String   @db.Char(64)
+  scope              String   @db.VarChar(64)
+  payloadFingerprint String   @db.Char(64)
+  responseStatus     Int      @db.SmallInt
+  responseBody       Json
+  createdAt          DateTime @default(now()) @db.DateTime(3)
+  expiresAt          DateTime @db.DateTime(3)
+
+  @@id([scope, keyHash])
+  @@index([expiresAt])
+  @@map("idempotency_records")
+}
+
+enum EnquiryKind {
+  business
+  site
+}
+
+enum EnquiryHandlingStatus {
+  new
+  inProgress
+  closed
+}
+
+enum EnquiryDeliveryStatus {
+  queued
+  providerAccepted
+  delivered
+  retrying
+  failed
+  suppressed
+}
+
+/// Visitor enquiry (SRS ENQ 001–007). The recipient is resolved from the
+/// listing at dispatch time, never from the request. Contact details are
+/// encrypted; the message body never appears in logs or queue payloads.
+model Enquiry {
+  id                  String                @id @default(cuid())
+  kind                EnquiryKind           @default(business)
+  /// Null for general site contact (SRS ENQ 002).
+  businessId          String?
+  name                String                @db.VarChar(80)
+  emailEncrypted      String                @db.VarChar(500)
+  phoneEncrypted      String?               @db.VarChar(500)
+  subject             String                @db.VarChar(150)
+  message             String                @db.Text
+  acknowledgedVersion String                @db.VarChar(32)
+  acknowledgedAt      DateTime              @db.DateTime(3)
+  submitterIpHash     String?               @db.Char(64)
+  handlingStatus      EnquiryHandlingStatus @default(new)
+  deliveryStatus      EnquiryDeliveryStatus @default(queued)
+  deliveryAttempts    Int                   @default(0)
+  /// Provider message id when one was returned; not proof of delivery (SRS ENQ 004).
+  providerMessageId   String?               @db.VarChar(255)
+  lastError           String?               @db.VarChar(500)
+  suppressionReason   String?               @db.VarChar(500)
+  deliveredAt         DateTime?             @db.DateTime(3)
+  handledByAdminId    String?
+  version             Int                   @default(1)
+  createdAt           DateTime              @default(now()) @db.DateTime(3)
+  updatedAt           DateTime              @updatedAt @db.DateTime(3)
+
+  business  Business?  @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  handledBy AdminUser? @relation("EnquiryHandler", fields: [handledByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([handlingStatus, createdAt])
+  @@index([deliveryStatus, createdAt])
+  @@index([businessId, createdAt])
+  @@map("enquiries")
+}
+
+enum OutboxStatus {
+  pending
+  dispatched
+  failed
+}
+
+/// Transactional outbox (SRS EVT 001): written in the same transaction as the
+/// change it describes. Payloads carry identifiers only, never private bodies.
+model OutboxEvent {
+  id              String       @id @default(cuid())
+  type            String       @db.VarChar(64)
+  resourceType    String       @db.VarChar(32)
+  resourceId      String       @db.VarChar(64)
+  resourceVersion Int          @default(1)
+  correlationId   String?      @db.VarChar(64)
+  payload         Json
+  status          OutboxStatus @default(pending)
+  attempts        Int          @default(0)
+  /// Next time the dispatcher may claim this row (backoff).
+  availableAt     DateTime     @default(now()) @db.DateTime(3)
+  dispatchedAt    DateTime?    @db.DateTime(3)
+  lastError       String?      @db.VarChar(500)
+  occurredAt      DateTime     @default(now()) @db.DateTime(3)
+
+  @@index([status, availableAt])
+  @@index([resourceType, resourceId])
+  @@map("outbox_events")
+}
+
+/// Provider callback deduplication (SRS ENQ 006). Webhook ingestion itself
+/// arrives with the chosen provider (decision D03); this table exists so
+/// repeated provider event ids can never be processed twice.
+model ProviderMessageEvent {
+  providerEventId String   @id @db.VarChar(191)
+  kind            String   @db.VarChar(32)
+  enquiryId       String?  @db.VarChar(64)
+  receivedAt      DateTime @default(now()) @db.DateTime(3)
+
+  @@index([enquiryId])
+  @@map("provider_message_events")
+}
+
+/// Public author attribution (SRS BLOG 001). Deliberately separate from
+/// AdminUser: it grants no access and never carries a login email.
+/// Public author profile. Attribution only: it never grants authentication and
+/// is deliberately separate from AdminUser identity and email (SRS SCP 002,
+/// BLOG 001). Fields beyond the name are optional so a byline can stay minimal.
+model Author {
+  id             String   @id @default(cuid())
+  displayName    String   @db.VarChar(120)
+  slug           String   @unique @db.VarChar(100)
+  /// Editorial role shown under the byline, e.g. "Food editor".
+  role           String?  @db.VarChar(120)
+  /// One or two sentences for bylines and author cards.
+  shortBio       String?  @db.VarChar(300)
+  /// Long profile text, sanitised HTML (SRS SEC 001).
+  bio            String?  @db.Text
+  pronouns       String?  @db.VarChar(40)
+  /// Melbourne suburb or area the author writes from.
+  location       String?  @db.VarChar(120)
+  /// Public contact address for editorial correspondence; never an admin login.
+  publicEmail    String?  @db.VarChar(255)
+  websiteUrl     String?  @db.VarChar(500)
+  /// Topic labels for author cards, stored as a validated string array.
+  expertise      Json?
+  seoTitle       String?  @db.VarChar(180)
+  seoDescription String?  @db.VarChar(300)
+  imageMediaId   String?
+  active         Boolean  @default(true)
+  version        Int      @default(1)
+  createdAt      DateTime @default(now()) @db.DateTime(3)
+  updatedAt      DateTime @updatedAt @db.DateTime(3)
+
+  image MediaAsset?  @relation("AuthorImage", fields: [imageMediaId], references: [id], onDelete: Restrict)
+  posts Post[]
+  links AuthorLink[]
+
+  @@index([active])
+  @@map("authors")
+}
+
+enum AuthorLinkKind {
+  website
+  facebook
+  instagram
+  x
+  linkedin
+  youtube
+  tiktok
+  threads
+  mastodon
+  github
+  other
+}
+
+/// Public profile links; http(s) only, at most one per known kind.
+model AuthorLink {
+  id        String         @id @default(cuid())
+  authorId  String
+  kind      AuthorLinkKind
+  url       String         @db.VarChar(500)
+  label     String?        @db.VarChar(60)
+  sortOrder Int            @default(0)
+
+  author Author @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([authorId, sortOrder])
+  @@map("author_links")
+}
+
+/// Editorial category; separate taxonomy from the directory categories.
+model BlogCategory {
+  id             String   @id @default(cuid())
+  name           String   @db.VarChar(80)
+  slug           String   @unique @db.VarChar(100)
+  landingContent String?  @db.Text
+  active         Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  version        Int      @default(1)
+  createdAt      DateTime @default(now()) @db.DateTime(3)
+  updatedAt      DateTime @updatedAt @db.DateTime(3)
+
+  posts Post[]
+
+  @@index([active, sortOrder])
+  @@map("blog_categories")
+}
+
+model BlogTag {
+  id             String   @id @default(cuid())
+  name           String   @db.VarChar(60)
+  slug           String   @unique @db.VarChar(100)
+  landingContent String?  @db.Text
+  active         Boolean  @default(true)
+  version        Int      @default(1)
+  createdAt      DateTime @default(now()) @db.DateTime(3)
+  updatedAt      DateTime @updatedAt @db.DateTime(3)
+
+  posts PostTag[]
+
+  @@index([active])
+  @@map("blog_tags")
+}
+
+enum PostStatus {
+  draft
+  scheduled
+  published
+  archived
+}
+
+/// Editorial article (SRS BLOG 001–003). The body is authored as Markdown and
+/// stored alongside the sanitised HTML that is actually rendered.
+enum PostBodyFormat {
+  /// Legacy articles authored as Markdown.
+  markdown
+  /// Rich-text editor output, sanitised with the same allowlist.
+  html
+}
+
+model Post {
+  id               String         @id @default(cuid())
+  title            String         @db.VarChar(180)
+  /// Stable public slug; unique even when archived (SRS DAT 004).
+  slug             String         @unique @db.VarChar(160)
+  excerpt          String         @db.VarChar(500)
+  bodyFormat       PostBodyFormat @default(markdown)
+  bodyMarkdown     String         @db.MediumText
+  /// Allowlist-sanitised HTML rendered publicly and in admin preview (SRS SEC 001).
+  sanitizedBody    String         @db.MediumText
+  status           PostStatus     @default(draft)
+  authorId         String
+  categoryId       String
+  coverMediaId     String?
+  coverAlt         String?        @db.VarChar(255)
+  seoTitle         String?        @db.VarChar(180)
+  seoDescription   String?        @db.VarChar(300)
+  commentsEnabled  Boolean        @default(true)
+  /// UTC instant; the admin picks it in Australia/Melbourne (SRS BLOG 002).
+  scheduledAt      DateTime?      @db.DateTime(3)
+  firstPublishedAt DateTime?      @db.DateTime(3)
+  publishedAt      DateTime?      @db.DateTime(3)
+  archivedAt       DateTime?      @db.DateTime(3)
+  version          Int            @default(1)
+  createdAt        DateTime       @default(now()) @db.DateTime(3)
+  updatedAt        DateTime       @updatedAt @db.DateTime(3)
+
+  author   Author       @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  cover    MediaAsset?  @relation("PostCover", fields: [coverMediaId], references: [id], onDelete: Restrict)
+  category BlogCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  tags     PostTag[]
+  comments Comment[]
+
+  @@index([status, publishedAt])
+  @@index([status, scheduledAt])
+  @@index([categoryId, status, publishedAt])
+  @@index([authorId, status])
+  @@map("posts")
+}
+
+model PostTag {
+  postId String
+  tagId  String
+
+  post Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag  BlogTag @relation(fields: [tagId], references: [id], onDelete: Restrict)
+
+  @@id([postId, tagId])
+  @@index([tagId])
+  @@map("post_tags")
+}
+
+/// Restricted edit history for versioned content (SRS §14 ContentRevision).
+model ContentRevision {
+  id                String   @id @default(cuid())
+  resourceType      String   @db.VarChar(32)
+  resourceId        String   @db.VarChar(64)
+  version           Int
+  /// The sanitised body as it stood before this change.
+  sanitizedSnapshot String   @db.MediumText
+  title             String?  @db.VarChar(200)
+  reason            String?  @db.VarChar(500)
+  actorAdminId      String?
+  createdAt         DateTime @default(now()) @db.DateTime(3)
+
+  actor AdminUser? @relation("ContentRevisionActor", fields: [actorAdminId], references: [id], onDelete: SetNull)
+
+  @@unique([resourceType, resourceId, version])
+  @@index([resourceType, resourceId, createdAt])
+  @@map("content_revisions")
+}
+
+/// Visitor comment on an article (SRS COM 001–002). Same moderation rules as
+/// reviews; flat list, no visitor accounts, private email encrypted at rest.
+model Comment {
+  id                    String       @id @default(cuid())
+  postId                String
+  displayName           String       @db.VarChar(80)
+  privateEmailEncrypted String       @db.VarChar(500)
+  emailHash             String       @db.Char(64)
+  originalText          String       @db.Text
+  publicText            String?      @db.Text
+  redactionReason       String?      @db.VarChar(500)
+  status                ReviewStatus @default(pending)
+  moderationReason      String?      @db.VarChar(500)
+  moderatorAdminId      String?
+  decidedAt             DateTime?    @db.DateTime(3)
+  acknowledgedVersion   String       @db.VarChar(32)
+  acknowledgedAt        DateTime     @db.DateTime(3)
+  submitterIpHash       String?      @db.Char(64)
+  version               Int          @default(1)
+  createdAt             DateTime     @default(now()) @db.DateTime(3)
+  updatedAt             DateTime     @updatedAt @db.DateTime(3)
+
+  post      Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  moderator AdminUser?    @relation("CommentModerator", fields: [moderatorAdminId], references: [id], onDelete: SetNull)
+  reports   AbuseReport[]
+
+  @@index([postId, status, createdAt])
+  @@index([status, createdAt])
+  @@map("comments")
+}
+
+enum MediaStatus {
+  quarantined
+  ready
+  rejected
+}
+
+/// Uploaded image (SRS MED 001–003). The original stays in the private
+/// quarantine bucket; only re-encoded variants are ever published.
+model MediaAsset {
+  id                String      @id @default(cuid())
+  /// Original file name, kept for admins only; never used to build a key.
+  sourceName        String      @db.VarChar(255)
+  mimeType          String      @db.VarChar(64)
+  bytes             Int
+  width             Int?
+  height            Int?
+  /// SHA-256 of the uploaded bytes, used to confirm the completed upload.
+  checksum          String?     @db.Char(64)
+  /// Random server-generated key in the private quarantine bucket.
+  objectKey         String      @unique @db.VarChar(255)
+  status            MediaStatus @default(quarantined)
+  rejectionReason   String?     @db.VarChar(500)
+  /// Required for content images (SRS MED 003).
+  altText           String?     @db.VarChar(255)
+  credit            String?     @db.VarChar(255)
+  rightsNote        String?     @db.VarChar(500)
+  /// Focal point as fractions of width/height, for responsive cropping.
+  focalX            Decimal?    @db.Decimal(4, 3)
+  focalY            Decimal?    @db.Decimal(4, 3)
+  uploadedByAdminId String?
+  readyAt           DateTime?   @db.DateTime(3)
+  version           Int         @default(1)
+  createdAt         DateTime    @default(now()) @db.DateTime(3)
+  updatedAt         DateTime    @updatedAt @db.DateTime(3)
+
+  uploadedBy AdminUser?      @relation("MediaUploader", fields: [uploadedByAdminId], references: [id], onDelete: SetNull)
+  variants   MediaVariant[]
+  businesses BusinessMedia[]
+  coverOf    Post[]          @relation("PostCover")
+  authorOf   Author[]        @relation("AuthorImage")
+
+  @@index([status, createdAt])
+  @@map("media_assets")
+}
+
+enum MediaVariantKind {
+  thumbnail
+  card
+  hero
+}
+
+/// Re-encoded rendition in the public bucket; EXIF is stripped on generation.
+model MediaVariant {
+  id        String           @id @default(cuid())
+  assetId   String
+  kind      MediaVariantKind
+  objectKey String           @unique @db.VarChar(255)
+  mimeType  String           @db.VarChar(64)
+  width     Int
+  height    Int
+  bytes     Int
+  createdAt DateTime         @default(now()) @db.DateTime(3)
+
+  asset MediaAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, kind])
+  @@map("media_variants")
+}
+
+/// Gallery usage (SRS MED 004): order, caption and contextual alt live here, so
+/// one asset can appear in several galleries with different context.
+model BusinessMedia {
+  businessId  String
+  mediaId     String
+  sortOrder   Int     @default(0)
+  caption     String? @db.VarChar(255)
+  altOverride String? @db.VarChar(255)
+  isCover     Boolean @default(false)
+
+  business Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  media    MediaAsset @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@id([businessId, mediaId])
+  @@index([mediaId])
+  @@index([businessId, sortOrder])
+  @@map("business_media")
+}
+
+enum RedirectKind {
+  /// 301 to the target path.
+  permanent
+  /// 410: deliberately removed, with no replacement.
+  gone
+}
+
+/// Public path redirect (SRS SEO 004). Sources are unique, targets are always
+/// site-relative, and the service resolves existing aliases so chains never form.
+model Redirect {
+  id               String       @id @default(cuid())
+  sourcePath       String       @unique @db.VarChar(255)
+  targetPath       String?      @db.VarChar(255)
+  kind             RedirectKind @default(permanent)
+  reason           String?      @db.VarChar(500)
+  resourceType     String?      @db.VarChar(32)
+  resourceId       String?      @db.VarChar(64)
+  createdByAdminId String?
+  createdAt        DateTime     @default(now()) @db.DateTime(3)
+  updatedAt        DateTime     @updatedAt @db.DateTime(3)
+
+  createdBy AdminUser? @relation("RedirectAuthor", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([targetPath])
+  @@map("redirects")
+}
+
+enum StaticPageStatus {
+  draft
+  published
+}
+
+/// Editable information pages (SRS CFG 002). Slugs come from a fixed set so no
+/// one can publish an arbitrary top-level URL; content is sanitised rich text
+/// and every change keeps a revision.
+model StaticPage {
+  id               String           @id @default(cuid())
+  /// One of: about, contact, privacy, terms, review-guidelines.
+  slug             String           @unique @db.VarChar(64)
+  title            String           @db.VarChar(180)
+  /// Sanitised HTML actually rendered on the public page.
+  sanitizedBody    String           @db.MediumText
+  /// Source exactly as the editor wrote it, in bodyFormat.
+  bodySource       String           @db.MediumText
+  bodyFormat       PostBodyFormat   @default(html)
+  seoTitle         String?          @db.VarChar(180)
+  seoDescription   String?          @db.VarChar(300)
+  status           StaticPageStatus @default(draft)
+  /// Contact routing address for the Contact page; validated before activation.
+  contactEmail     String?          @db.VarChar(255)
+  publishedAt      DateTime?        @db.DateTime(3)
+  version          Int              @default(1)
+  updatedByAdminId String?
+  createdAt        DateTime         @default(now()) @db.DateTime(3)
+  updatedAt        DateTime         @updatedAt @db.DateTime(3)
+
+  updatedBy AdminUser? @relation("StaticPageEditor", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@map("static_pages")
+}
+
+/// Manual editorial feature (SRS DIR 007). No payment fields exist and none may
+/// be added: paid promotion is explicitly out of scope (FUT 002).
+model FeaturedPlacement {
+  id               String    @id @default(cuid())
+  businessId       String
+  /// Display order within the featured block; lower comes first.
+  position         Int       @default(0)
+  startsAt         DateTime  @db.DateTime(3)
+  endsAt           DateTime? @db.DateTime(3)
+  note             String?   @db.VarChar(500)
+  createdByAdminId String?
+  createdAt        DateTime  @default(now()) @db.DateTime(3)
+  updatedAt        DateTime  @updatedAt @db.DateTime(3)
+
+  business  Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdBy AdminUser? @relation("FeaturedPlacementAuthor", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([startsAt, endsAt])
+  @@index([businessId])
+  @@map("featured_placements")
+}

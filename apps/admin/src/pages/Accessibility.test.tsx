@@ -1,0 +1,66 @@
+import { screen } from '@testing-library/react';
+import { DashboardPage } from './DashboardPage';
+import { LoginPage } from './LoginPage';
+import { AuthorEditorPage } from './blog/AuthorEditorPage';
+import { RedirectsPage } from './seo/RedirectsPage';
+import { anonymousProvider, renderWithProviders } from '@/test/render';
+import { jsonResponse } from '@/test/fetch-fakes';
+import { axeViolations, describeViolations } from '@/test/axe';
+
+const dashboard = {
+  metrics: [{ key: 'pendingReviews', label: 'Reviews awaiting moderation', value: 2, href: '/reviews', tone: 'attention' }],
+  scheduledPosts: [{ id: 'p1', title: 'Winter markets', scheduledAt: '2026-09-08T09:00:00.000Z', overdue: false }],
+  activity: [{ id: 'l1', action: 'blog.post.publish', actorName: 'Alex Editor', targetType: 'post', createdAt: '2026-09-06T00:00:00.000Z' }],
+  generatedAt: '2026-09-06T01:00:00.000Z',
+};
+
+const redirect = {
+  id: 'r1', sourcePath: '/business/old', targetPath: '/business/new', kind: 'permanent', reason: null,
+  resourceType: 'business', resourceId: 'b1', createdByAdminId: 'a1', createdAt: '2026-09-06T00:00:00.000Z', updatedAt: '2026-09-06T00:00:00.000Z',
+};
+
+/** Automated WCAG checks on representative screens (SRS NFR 006/011). */
+describe('accessibility', () => {
+  const originalFetch = globalThis.fetch;
+  beforeEach(() => {
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith('/api/v1/admin/dashboard')) return jsonResponse(200, { data: dashboard });
+      if (url.startsWith('/api/v1/admin/redirects')) return jsonResponse(200, { data: [redirect], meta: { page: 1, pageSize: 25, total: 1, pageCount: 1 } });
+      if (url.startsWith('/api/v1/admin/authors')) return jsonResponse(200, { data: [] });
+      return jsonResponse(200, { data: { status: 'ok' } });
+    }) as typeof fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const check = async (container: HTMLElement) => {
+    const violations = await axeViolations(container);
+    expect(describeViolations(violations)).toBe('');
+  };
+
+  it('dashboard has no automated violations', async () => {
+    const { container } = renderWithProviders(<DashboardPage />, { initialEntries: ['/admin/'] });
+    await screen.findByRole('heading', { level: 1, name: 'Dashboard' });
+    await check(container);
+  });
+
+  it('sign-in page has no automated violations', async () => {
+    const { container } = renderWithProviders(<LoginPage />, { initialEntries: ['/admin/login'], authProvider: anonymousProvider() });
+    await screen.findByRole('heading', { level: 1 });
+    await check(container);
+  });
+
+  it('author editor has no automated violations', async () => {
+    const { container } = renderWithProviders(<AuthorEditorPage />, { initialEntries: ['/admin/authors/new'], routePath: '/authors/new' });
+    await screen.findByRole('heading', { level: 1, name: 'New author' });
+    await check(container);
+  });
+
+  it('redirects screen has no automated violations', async () => {
+    const { container } = renderWithProviders(<RedirectsPage />, { initialEntries: ['/admin/redirects'] });
+    await screen.findByRole('heading', { level: 1, name: 'SEO redirects' });
+    await check(container);
+  });
+});

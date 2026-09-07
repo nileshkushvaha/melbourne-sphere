@@ -1,0 +1,171 @@
+@import "tailwindcss";
+@import "@melbourne-sphere/ui/styles.css";
+@source "../../../../packages/ui/src";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+}
+
+html {
+  /* The public site is a designed light-and-dark composition, not an
+     OS-themed surface (see packages/ui/src/styles.css). */
+  color-scheme: light;
+}
+
+body {
+  background: var(--ms-surface-muted);
+  color: var(--ms-text);
+}
+
+/* Display headings are set in the serif face (next/font supplies --font-display
+   on <html>; it is deliberately not a @theme entry, which would make the custom
+   property reference itself). */
+.font-display {
+  font-family: var(--font-display), Georgia, "Times New Roman", serif;
+  letter-spacing: -0.005em;
+}
+
+/* Card lift used by listing, category and article cards. One definition keeps
+   the hover/focus treatment identical everywhere without a utility soup. */
+.ms-card-lift {
+  transition: transform var(--ms-motion-fast) ease, box-shadow var(--ms-motion-fast) ease, border-color var(--ms-motion-fast) ease;
+}
+.ms-card-lift:hover,
+.ms-card-lift:focus-within {
+  transform: translateY(-2px);
+  box-shadow: var(--ms-shadow-md);
+  border-color: var(--ms-border-strong);
+}
+
+/* Hero phrase transition (SRS HERO 002: 300 ms, no layout shift). */
+@keyframes ms-fade {
+  from {
+    opacity: 0;
+    transform: translateY(0.25em);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Editorial reading style shared by article bodies and author biographies.
+   One place to tune the reading experience instead of long utility strings. */
+.ms-prose {
+  --ms-prose-measure: 68ch;
+  line-height: 1.75;
+}
+
+.ms-prose > * + * {
+  margin-top: 1rem;
+}
+
+.ms-prose h2 {
+  margin-top: 2rem;
+  font-size: 1.5rem;
+  line-height: 1.3;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.ms-prose h3 {
+  margin-top: 1.75rem;
+  font-size: 1.25rem;
+  font-weight: 650;
+}
+
+.ms-prose h4 {
+  margin-top: 1.5rem;
+  font-size: 1.075rem;
+  font-weight: 650;
+}
+
+.ms-prose p,
+.ms-prose ul,
+.ms-prose ol {
+  max-width: var(--ms-prose-measure);
+}
+
+.ms-prose ul,
+.ms-prose ol {
+  padding-inline-start: 1.5rem;
+}
+
+.ms-prose ul {
+  list-style: disc;
+}
+
+.ms-prose ol {
+  list-style: decimal;
+}
+
+.ms-prose li + li {
+  margin-top: 0.35rem;
+}
+
+.ms-prose a {
+  color: var(--ms-link);
+  text-underline-offset: 2px;
+  text-decoration: underline;
+}
+
+.ms-prose blockquote {
+  border-inline-start: 3px solid var(--ms-sky-600);
+  padding: 0.25rem 0 0.25rem 1rem;
+  color: var(--ms-text-muted);
+  font-style: italic;
+}
+
+.ms-prose pre {
+  overflow-x: auto;
+  border-radius: var(--ms-radius);
+  background: var(--ms-navy-950);
+  color: #e6eef8;
+  padding: 1rem 1.25rem;
+}
+
+.ms-prose code {
+  font-size: 0.925em;
+}
+
+.ms-prose :not(pre) > code {
+  background: var(--ms-surface-muted);
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.35rem;
+}
+
+.ms-prose img {
+  border-radius: var(--ms-radius);
+  height: auto;
+}
+
+.ms-prose figure figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--ms-text-muted);
+}
+
+.ms-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+}
+
+.ms-prose th,
+.ms-prose td {
+  border: 1px solid var(--ms-border);
+  padding: 0.5rem 0.75rem;
+  text-align: start;
+}
+
+.ms-prose th {
+  background: var(--ms-surface-muted);
+  font-weight: 600;
+}
+
+.ms-prose hr {
+  border: 0;
+  border-top: 1px solid var(--ms-border);
+  margin-block: 2rem;
+}
