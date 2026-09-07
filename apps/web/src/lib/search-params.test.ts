@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildChips, isFiltered, pageHref, parseSearchParams, toQueryString } from './search-params';
+import { buildChips, isFiltered, landingRobots, pageHref, parseSearchParams, toQueryString } from './search-params';
 
 describe('search params', () => {
   it('parses tolerant URL state and drops invalid values', () => {
-    expect(parseSearchParams({ q: '  little   collins ', category: 'cafes', area: 'Bad Slug', minRating: '4', sort: 'rating', page: '3' })).toEqual({ q: 'little collins', category: 'cafes', area: null, minRating: 4, sort: 'rating', page: 3 });
-    expect(parseSearchParams({ q: ['a', 'b'], minRating: '9', sort: 'nope', page: '0' })).toEqual({ q: 'a', category: null, area: null, minRating: null, sort: null, page: 1 });
+    expect(parseSearchParams({ q: '  little   collins ', category: 'cafes', area: 'Bad Slug', minRating: '4', sort: 'rating', page: '3' })).toEqual({ q: 'little collins', category: 'cafes', area: null, minRating: 4, openNow: false, sort: 'rating', page: 3 });
+    expect(parseSearchParams({ q: ['a', 'b'], minRating: '9', sort: 'nope', page: '0' })).toEqual({ q: 'a', category: null, area: null, minRating: null, openNow: false, sort: null, page: 1 });
     expect(parseSearchParams({ q: 'x'.repeat(200) }).q).toHaveLength(120);
   });
 
@@ -26,5 +26,25 @@ describe('search params', () => {
     expect(isFiltered(state)).toBe(true);
     expect(isFiltered(parseSearchParams({ sort: 'name', page: '2' }))).toBe(false);
     expect(pageHref(state, '/directory', 4)).toBe('/directory?q=cafe&category=cafes&minRating=4&page=4');
+  });
+
+  it('carries the conditional "open now" filter through the URL (SRS DIR 008)', () => {
+    expect(parseSearchParams({ openNow: '1' }).openNow).toBe(true);
+    expect(parseSearchParams({ openNow: 'true' }).openNow).toBe(true);
+    // Anything else is off, so a stray value cannot silently narrow the results.
+    expect(parseSearchParams({ openNow: 'yes' }).openNow).toBe(false);
+    expect(parseSearchParams({}).openNow).toBe(false);
+    expect(toQueryString({ openNow: true })).toBe('?openNow=1');
+    expect(toQueryString({ openNow: false })).toBe('');
+  });
+});
+
+describe('landingRobots (SRS SEO 003)', () => {
+  it('indexes only a landing with editorial text and at least one listing, never a filtered view', () => {
+    expect(landingRobots('Carlton is…', 12, false)).toBeUndefined();
+    expect(landingRobots('', 12, false)).toEqual({ index: false, follow: true });
+    expect(landingRobots(null, 12, false)).toEqual({ index: false, follow: true });
+    expect(landingRobots('Carlton is…', 0, false)).toEqual({ index: false, follow: true });
+    expect(landingRobots('Carlton is…', 12, true)).toEqual({ index: false, follow: true });
   });
 });

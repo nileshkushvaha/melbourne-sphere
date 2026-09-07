@@ -1,8 +1,9 @@
 import { randomBytes } from 'node:crypto';
-import { ConflictException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { AdminUser, Prisma } from '@melbourne-sphere/database';
 import { AuditService } from '../audit/audit.service.js';
+import { AuthorizationService } from '../authorization/authorization.service.js';
 import { hashResetToken, type RequestContext } from '../auth/auth.service.js';
 import { MailerPort } from '../auth/mailer/mailer.port.js';
 import { SessionService } from '../auth/session.service.js';
@@ -46,6 +47,7 @@ export class AdminsService {
     private readonly database: DatabaseService,
     private readonly sessions: SessionService,
     private readonly audit: AuditService,
+    private readonly authorization: AuthorizationService,
     private readonly mailer: MailerPort,
     config: ConfigService<EnvironmentVariables, true>,
   ) {
@@ -86,7 +88,11 @@ export class AdminsService {
     if (await db.adminUser.findUnique({ where: { email } })) {
       throw new ConflictException({ code: 'EMAIL_IN_USE', message: 'An administrator with that email already exists' });
     }
-    const roles = await this.resolveRoles(input.roleKeys);
+    const roles = await this.authorization.rolesByKey(input.roleKeys);
+    // Creating an account is not a way around the assignment rules: an
+    // administrator cannot mint a colleague who holds more than they do
+    // (SRS RBAC 011). There is no self-check here — the account is new.
+    await this.authorization.assertMayAssignRoles(actor, null, roles);
     const token = randomBytes(32).toString('base64url');
     const admin = await db.$transaction(async (tx) => {
       const created = await tx.adminUser.create({
@@ -148,13 +154,23 @@ export class AdminsService {
     const current = await db.adminUser.findUnique({ where: { id }, include });
     if (!current) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Administrator not found' });
     if (current.version !== input.expectedVersion) throw new ConflictException({ code: 'STALE_VERSION', message: 'This administrator was changed by someone else. Reload and try again.' });
-    const nextRoles = input.roleKeys ? await this.resolveRoles(input.roleKeys) : null;
+    const nextRoles = input.roleKeys ? await this.authorization.rolesByKey(input.roleKeys) : null;
     const changes: Record<string, string> = {};
-    if (nextRoles && !nextRoles.some((r) => r.key === SUPER_ADMIN_ROLE.key) && current.roles.some((r) => r.role.key === SUPER_ADMIN_ROLE.key)) {
-      await this.assertNotLastSuperAdmin(current.id);
+    if (nextRoles) {
+      // Changing what an administrator may do is an access-control operation,
+      // whichever endpoint it arrives at: it needs the access permission and it
+      // obeys the same invariants (no self-edit, no inactive role, nothing
+      // beyond what the actor holds). Before this, `admins.manage` alone could
+      // grant any role, including to oneself (SRS RBAC 008/011).
+      if (!actor.permissions.includes('admins.access.manage')) {
+        throw new ForbiddenException({ code: 'FORBIDDEN', message: 'You do not have permission to change an administrator’s roles' });
+      }
+      await this.authorization.assertMayAssignRoles(actor, id, nextRoles);
       changes.roles = nextRoles.map((r) => r.key).join(',');
     }
+    const losesProtectedRole = Boolean(nextRoles && !nextRoles.some((r) => r.key === SUPER_ADMIN_ROLE.key) && current.roles.some((r) => r.role.key === SUPER_ADMIN_ROLE.key));
     const updated = await db.$transaction(async (tx) => {
+      if (losesProtectedRole) await this.authorization.assertNotLastSuperAdminTx(tx, current.id);
       if (nextRoles) {
         await tx.adminRole.deleteMany({ where: { adminId: id } });
         await tx.adminRole.createMany({ data: nextRoles.map((r) => ({ adminId: id, roleId: r.id })) });
@@ -163,7 +179,13 @@ export class AdminsService {
       if (input.displayName !== undefined && input.displayName !== current.displayName) changes.displayName = input.displayName;
       const result = await tx.adminUser.updateMany({
         where: { id, version: input.expectedVersion },
-        data: { ...(input.displayName !== undefined ? { displayName: input.displayName } : {}), version: { increment: 1 } },
+        data: {
+          ...(input.displayName !== undefined ? { displayName: input.displayName } : {}),
+          version: { increment: 1 },
+          // A role change retires this administrator's cached permissions in the
+          // same transaction, so the next request re-resolves them (RBAC 009).
+          ...(nextRoles ? { authzVersion: { increment: 1 } } : {}),
+        },
       });
       if (result.count !== 1) throw new ConflictException({ code: 'STALE_VERSION', message: 'This administrator was changed by someone else. Reload and try again.' });
       return tx.adminUser.findUniqueOrThrow({ where: { id }, include });
@@ -182,9 +204,17 @@ export class AdminsService {
     const current = await db.adminUser.findUnique({ where: { id }, include });
     if (!current) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Administrator not found' });
     if (current.status === 'disabled') throw new ConflictException({ code: 'INVALID_STATE', message: 'Administrator is already disabled' });
-    if (current.roles.some((r) => r.role.key === SUPER_ADMIN_ROLE.key)) await this.assertNotLastSuperAdmin(id);
-    const result = await db.adminUser.updateMany({ where: { id, version: expectedVersion }, data: { status: 'disabled', disabledAt: new Date(), version: { increment: 1 } } });
-    if (result.count !== 1) throw new ConflictException({ code: 'STALE_VERSION', message: 'This administrator was changed by someone else. Reload and try again.' });
+    const isSuperAdmin = current.roles.some((r) => r.role.key === SUPER_ADMIN_ROLE.key);
+    await db.$transaction(async (tx) => {
+      // The check and the write share one transaction behind the protected role
+      // row's lock, so two concurrent disables cannot both pass (RBAC 011).
+      if (isSuperAdmin) await this.authorization.assertNotLastSuperAdminTx(tx, id);
+      const result = await tx.adminUser.updateMany({
+        where: { id, version: expectedVersion },
+        data: { status: 'disabled', disabledAt: new Date(), version: { increment: 1 }, authzVersion: { increment: 1 } },
+      });
+      if (result.count !== 1) throw new ConflictException({ code: 'STALE_VERSION', message: 'This administrator was changed by someone else. Reload and try again.' });
+    });
     const revoked = await this.sessions.revokeAllForAdmin(id, 'account_disabled');
     await this.audit.record({ action: 'admin.disable', actorAdminId: actor.id, targetType: 'admin_user', targetId: id, reason: reason ?? null, metadata: { sessionsRevoked: revoked }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return this.get(id);
@@ -195,7 +225,10 @@ export class AdminsService {
     const current = await db.adminUser.findUnique({ where: { id } });
     if (!current) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Administrator not found' });
     if (current.status !== 'disabled') throw new ConflictException({ code: 'INVALID_STATE', message: 'Only disabled administrators can be enabled' });
-    const result = await db.adminUser.updateMany({ where: { id, version: expectedVersion }, data: { status: 'active', disabledAt: null, version: { increment: 1 } } });
+    const result = await db.adminUser.updateMany({
+      where: { id, version: expectedVersion },
+      data: { status: 'active', disabledAt: null, version: { increment: 1 }, authzVersion: { increment: 1 } },
+    });
     if (result.count !== 1) throw new ConflictException({ code: 'STALE_VERSION', message: 'This administrator was changed by someone else. Reload and try again.' });
     await this.audit.record({ action: 'admin.enable', actorAdminId: actor.id, targetType: 'admin_user', targetId: id, reason: reason ?? null, requestId: ctx.requestId, ipAddress: ctx.ip });
     return this.get(id);
@@ -229,24 +262,5 @@ export class AdminsService {
     const count = await this.sessions.revokeAllForAdmin(adminId, actor.id === adminId ? 'revoked_by_owner' : 'revoked_by_admin', exceptSessionId);
     await this.audit.record({ action: 'admin.session.revoke_all', actorAdminId: actor.id, targetType: 'admin_user', targetId: adminId, metadata: { count }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return count;
-  }
-
-  /** SRS ADM 001: never disable/demote the last active Super Admin. */
-  async assertNotLastSuperAdmin(adminId: string): Promise<void> {
-    const db = await this.database.client();
-    const others = await db.adminUser.count({ where: { id: { not: adminId }, status: 'active', roles: { some: { role: { key: SUPER_ADMIN_ROLE.key } } } } });
-    if (others === 0) {
-      throw new HttpException({ code: 'LAST_SUPER_ADMIN', message: 'At least one active Super Admin must remain' }, HttpStatus.CONFLICT);
-    }
-  }
-
-  private async resolveRoles(keys: string[]) {
-    const db = await this.database.client();
-    const unique = [...new Set(keys)];
-    const roles = await db.role.findMany({ where: { key: { in: unique } } });
-    if (roles.length !== unique.length) {
-      throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Unknown role', fields: { roleKeys: ['Unknown role key'] } }, HttpStatus.BAD_REQUEST);
-    }
-    return roles;
   }
 }

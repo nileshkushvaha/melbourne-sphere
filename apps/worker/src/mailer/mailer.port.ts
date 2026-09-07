@@ -30,12 +30,16 @@ export class PermanentDeliveryError extends Error {
 }
 
 /**
- * Outbound mail boundary for the worker (SRS MOD 002, ENQ 005). A provider
- * adapter is added when the client's email account exists (decision D03);
- * until then the console transport makes local delivery observable and
- * production refuses to start without a real one.
+ * Outbound mail boundary for the worker (SRS MOD 002, ENQ 005). The SMTP
+ * adapter (`@melbourne-sphere/mail`) is the production transport and works
+ * with whichever provider decision D03 selects; the console transport makes
+ * local delivery observable and is refused in production.
  */
 export abstract class EnquiryMailerPort {
   abstract send(message: OutboundEnquiryMessage): Promise<DeliveryResult>;
   abstract readonly transportName: string;
+  /** Start-up description safe to print (host and mode, never credentials). */
+  describe?(): string;
+  /** Releases sockets on shutdown. */
+  close?(): void;
 }

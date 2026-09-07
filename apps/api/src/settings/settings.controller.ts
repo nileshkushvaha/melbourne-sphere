@@ -5,6 +5,7 @@ import { CurrentAdmin, Public, RequirePermissions, type AuthenticatedRequest } f
 import { getRequestId } from '../common/request-id.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import { HomeSettingsRecordDto, PublicHomeDto, UpdateHomeSettingsDto } from './dto/settings.dto.js';
+import { GeneralSettingsRecordDto, PublicSiteSettingsDto, UpdateGeneralSettingsDto } from './dto/general-settings.dto.js';
 import { SettingsService } from './settings.service.js';
 import { StaticPagesService } from './static-pages.service.js';
 import { PublicStaticPageDto, PublicStaticPageSummaryDto, StaticPageDto, StaticPageStateDto, UpdateStaticPageDto } from './dto/static-page.dto.js';
@@ -27,6 +28,22 @@ export class HomePublicController {
   }
 }
 
+/** Public shell settings (SRS CFG 001): the name, contact details, branding, header bar and footer the public site renders. */
+@ApiTags('public-site')
+@Public()
+@Controller('site')
+export class SiteSettingsPublicController {
+  constructor(private readonly settings: SettingsService) {}
+
+  @Get('settings')
+  @Header('Cache-Control', 'public, max-age=300')
+  @ApiOperation({ summary: 'Application name, contact details, branding, header bar and footer' })
+  @ApiOkResponse({ type: PublicSiteSettingsDto })
+  async settingsPayload() {
+    return { data: await this.settings.publicSiteSettings() };
+  }
+}
+
 /** Editable site settings (SRS CFG 001); `settings.manage` only. */
 @ApiTags('admin-settings')
 @Controller('admin/settings')
@@ -39,6 +56,25 @@ export class SettingsAdminController {
   @ApiOkResponse({ type: HomeSettingsRecordDto })
   async get() {
     return { data: await this.settings.homeSettings() };
+  }
+
+  @RequirePermissions('settings.manage')
+  @Get('general')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Application information, branding, header bar and footer' })
+  @ApiOkResponse({ type: GeneralSettingsRecordDto })
+  async getGeneral() {
+    return { data: await this.settings.generalSettings() };
+  }
+
+  @RequirePermissions('settings.manage')
+  @Put('general')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Replace the general settings (expectedVersion; audited)' })
+  @ApiOkResponse({ type: GeneralSettingsRecordDto })
+  async putGeneral(@Body() body: UpdateGeneralSettingsDto, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest) {
+    return { data: await this.settings.updateGeneralSettings(body, actor, ctxOf(req)) };
   }
 
   @RequirePermissions('settings.manage')

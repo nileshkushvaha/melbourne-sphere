@@ -5,7 +5,7 @@ import { validatePublicUrl } from '../directory/business-rules.js';
  * only: nothing here creates or references a login, and the public email is an
  * editorial contact address, never an administrator's account email.
  */
-export const AUTHOR_LINK_KINDS = ['website', 'facebook', 'instagram', 'x', 'linkedin', 'youtube', 'tiktok', 'threads', 'mastodon', 'github', 'other'] as const;
+export const AUTHOR_LINK_KINDS = ['website', 'facebook', 'instagram', 'x', 'linkedin', 'youtube', 'tiktok', 'pinterest', 'threads', 'mastodon', 'github', 'other'] as const;
 export type AuthorLinkKind = (typeof AUTHOR_LINK_KINDS)[number];
 
 export const MAX_AUTHOR_LINKS = 8;
@@ -20,6 +20,7 @@ const LINK_HOSTS: Partial<Record<AuthorLinkKind, string[]>> = {
   linkedin: ['linkedin.com'],
   youtube: ['youtube.com', 'youtu.be'],
   tiktok: ['tiktok.com'],
+  pinterest: ['pinterest.com', 'pinterest.com.au', 'pin.it'],
   threads: ['threads.net', 'threads.com'],
   github: ['github.com'],
 };

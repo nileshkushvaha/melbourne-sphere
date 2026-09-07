@@ -11,7 +11,15 @@ export interface AuditEntry {
   metadata?: Record<string, string | number | boolean | null> | null;
   requestId?: string | null;
   ipAddress?: string | null;
+  /** Recorded for authorization events only, within PRIV 001 limits. */
+  userAgent?: string | null;
 }
+
+/**
+ * The subset of the Prisma client an audit write needs, so a transaction client
+ * fits without importing the generated argument types here.
+ */
+export type AuditWriteClient = { auditLog: { create: (args: never) => unknown } };
 
 const FORBIDDEN_METADATA_KEYS = /password|token|secret|cookie|authorization|hash/i;
 
@@ -37,7 +45,18 @@ export class AuditService {
 
   async recordOrThrow(entry: AuditEntry): Promise<void> {
     const db = await this.database.client();
-    await db.auditLog.create({
+    await this.recordWith(db, entry);
+  }
+
+  /**
+   * Writes through a caller-supplied client — a transaction client, so an access
+   * change and the record of it commit together or not at all (SRS RBAC 012).
+   * It throws on failure by design: an access change that cannot be recorded is
+   * rolled back rather than applied silently.
+   */
+  async recordWith(client: AuditWriteClient, entry: AuditEntry): Promise<void> {
+    const create = client.auditLog.create as (args: { data: Record<string, unknown> }) => Promise<unknown>;
+    await create({
       data: {
         action: entry.action.slice(0, 64),
         actorAdminId: entry.actorAdminId ?? null,
@@ -47,6 +66,7 @@ export class AuditService {
         metadata: entry.metadata ? sanitiseMetadata(entry.metadata) : undefined,
         requestId: entry.requestId ?? null,
         ipAddress: entry.ipAddress ? entry.ipAddress.slice(0, 45) : null,
+        userAgent: entry.userAgent ? entry.userAgent.slice(0, 255) : null,
       },
     });
   }

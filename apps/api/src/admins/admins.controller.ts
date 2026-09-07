@@ -6,6 +6,7 @@ import type { RequestContext } from '../auth/auth.service.js';
 import type { SessionSummary } from '../auth/session.service.js';
 import { SessionListItemDto } from '../auth/dto/account.dto.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
+import { SensitiveMutation } from '../authorization/decorators.js';
 import { AdminsService } from './admins.service.js';
 import { AdminCollectionDto, AdminEnvelopeDto, AdminStateChangeDto, CreateAdminDto, ListAdminsQueryDto, UpdateAdminDto } from './dto/admins.dto.js';
 
@@ -28,6 +29,7 @@ export class AdminsController {
   }
 
   @Post()
+  @SensitiveMutation()
   @HttpCode(201)
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Create an invited administrator and send a setup link' })
@@ -44,6 +46,7 @@ export class AdminsController {
   }
 
   @Patch(':id')
+  @SensitiveMutation()
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Update display name / roles (expectedVersion required)' })
   @ApiOkResponse({ type: AdminEnvelopeDto })
@@ -52,6 +55,7 @@ export class AdminsController {
   }
 
   @Post(':id/disable')
+  @SensitiveMutation()
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Disable an administrator and revoke their sessions' })
@@ -61,6 +65,7 @@ export class AdminsController {
   }
 
   @Post(':id/enable')
+  @SensitiveMutation()
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: AdminEnvelopeDto })
@@ -69,6 +74,7 @@ export class AdminsController {
   }
 
   @Post(':id/resend-setup')
+  @SensitiveMutation()
   @HttpCode(202)
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Re-send the setup link for an invited administrator' })
@@ -85,6 +91,7 @@ export class AdminsController {
   }
 
   @Delete(':id/sessions')
+  @SensitiveMutation()
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Revoke all sessions of an administrator' })
@@ -94,6 +101,7 @@ export class AdminsController {
   }
 
   @Delete(':id/sessions/:sessionId')
+  @SensitiveMutation()
   @HttpCode(204)
   @Header('Cache-Control', 'no-store')
   async revokeOne(@Param('id') id: string, @Param('sessionId') sessionId: string, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest): Promise<void> {

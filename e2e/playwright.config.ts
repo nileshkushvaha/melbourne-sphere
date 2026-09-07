@@ -9,6 +9,9 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './specs',
+  // Runs after every run, including an interrupted or failed one, so no
+  // provisioned administrator, session or reset link outlives the journeys.
+  globalTeardown: './global-teardown.ts',
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,

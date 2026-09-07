@@ -2,7 +2,7 @@
 
 Independent admin frontend: React 19, TypeScript 6, Vite 8, Refine 5, Ant Design 5, React Router 7. Served under **`/admin/`** and talking to the NestJS API through same-origin **`/api/v1`** paths (SRS ARC 004, ARC 005).
 
-> **Access control** is enforced by the API: every request under `/api/v1/admin` needs the `ms_admin_session` cookie (HttpOnly) and a permission (SRS AUTH 002, RBAC 001). The app mirrors that with Refine's `<Authenticated>` around the shell and an auth provider that asks `GET /admin/auth/me`; nothing about the session is stored in web storage. `/admin` is `noindex`. Public exposure still awaits the remaining hardening phases (TLS, web-tier security headers, monitoring).
+> **Access control** is enforced by the API: every request under `/api/v1/admin` needs the `ms_admin_session` cookie (HttpOnly) and a permission (SRS AUTH 002, RBAC 001–012). The app mirrors that with Refine's `<Authenticated>` around the shell and an auth provider that asks `GET /admin/auth/me`; nothing about the session is stored in web storage. `/admin` is `noindex`. Public exposure still awaits the remaining hardening phases (TLS, web-tier security headers, monitoring).
 
 ## Runtime contract
 
@@ -45,6 +45,18 @@ src/
 ```
 
 Screens (Phase 10): `pages/admins/AdministratorsPage` (paginated list, search/status filters via URL params, create dialog), `pages/admins/AdminDetailPage` (edit with `expectedVersion`, disable/enable with confirmation, setup-link resend, session revocation), `pages/account/AccountSecurityPage` (change password, sessions, TOTP enrol with `qrcode.react` QR + manual key, recovery codes shown once, disable), `pages/AuditLogPage`, `pages/AcceptSetupPage`; the login page gains the TOTP step (202 challenge → code). Navigation entries are hidden without the matching permission, purely as a courtesy.
+
+## Permission-aware interface (SRS RBAC 010)
+
+The server calculates effective permissions (role-inherited ∪ direct) and returns them from `GET /admin/auth/me`; this app never recreates role resolution. The pieces:
+
+- `src/auth/permissions.ts` — typed codes and `ROUTE_PERMISSIONS`, the **one** mapping from route to required permissions. A contract test compares the codes with the API catalogue, so the two cannot drift.
+- `src/auth/access-control.ts` — Refine's `accessControlProvider` (`can` by route path or by permission code) plus the capability context.
+- `src/auth/RequirePermission.tsx` — wraps every route: a waiting state while capabilities are unknown, an accessible forbidden page when they are not held, never a flash of either.
+- `useCapabilities().can('roles.update')` — how a component gates a button. No component compares raw permission strings.
+- Screens: `pages/access/RolesPage`, `RoleEditorPage` (permission matrix grouped by module, protected system roles read-only), `PermissionCatalogPage` (read-only — codes are declared in the API and cannot be invented here) and `AdminAccessCard` on an administrator's page (roles, direct permissions, effective set with the source of each entry).
+
+Hiding is a courtesy, not security: a URL typed by hand still reaches an API that answers 403. Full model and recipes: `docs/authorization.md`.
 
 Listings (Phase 12): `businesses` is the first entry in `<Refine resources>`; `pages/businesses/BusinessesPage` reads through the data provider (`useList` with the documented sort/filter contract) and `pages/businesses/BusinessEditorPage` loads with `useOne` and mutates through the typed `src/api/businesses.ts` client (create, PATCH with `expectedVersion`, publish/unpublish/archive/restore). Dialog-driven state changes carry an optional reason and, when the API answers `DUPLICATE_SUSPECTED`, a required override reason; `PUBLICATION_BLOCKED` reasons come from `fields.publication`. A 401 during a mutation is passed to Refine's `useOnError`, so the auth provider redirects to sign in. Phase 13 adds `pages/businesses/HoursEditor` (weekly schedule and date exceptions saved through `PUT …/hours` with the business version; native `type="time"`/`type="date"` inputs; the API's `24:00` is shown as `00:00` + "closes next day") and link rows (kind, URL, label) on the editor; nested envelope field paths are mapped with `toNamePath` in `src/api/businesses.ts`.
 

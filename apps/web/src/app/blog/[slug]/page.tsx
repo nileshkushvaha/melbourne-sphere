@@ -12,7 +12,7 @@ import { CommentList } from '@/components/comment-list';
 import { PostCard } from '@/components/post-card';
 import { gridColumns } from '@/components/page-shell';
 import { ShareLinks } from '@/components/share-links';
-import { fetchComments, fetchPost } from '@/lib/api';
+import { fetchComments, fetchPost, reviewGuidelinesHref } from '@/lib/api';
 import { absoluteUrl, turnstileSiteKey } from '@/lib/site';
 
 export async function generateMetadata({ params }: PageProps<'/blog/[slug]'>): Promise<Metadata> {
@@ -104,7 +104,7 @@ export default async function ArticlePage({ params }: PageProps<'/blog/[slug]'>)
           {post.commentsEnabled ? (
             <div>
               <h3 className="mb-3 text-lg font-semibold">Leave a comment</h3>
-              <CommentForm postId={post.id} turnstileSiteKey={turnstileSiteKey()} guidelinesHref="/review-guidelines" />
+              <CommentForm postId={post.id} turnstileSiteKey={turnstileSiteKey()} guidelinesHref={await reviewGuidelinesHref()} />
             </div>
           ) : (
             <p className="text-text-muted">Comments are closed on this article.</p>

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { App as AntdApp, ConfigProvider } from 'antd';
 import enAU from 'antd/locale/en_GB';
 import { Refine } from '@refinedev/core';
@@ -7,6 +7,10 @@ import routerProvider from '@refinedev/react-router';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { dataProvider } from '@/api/data-provider';
 import { createAuthProvider } from '@/auth/auth-provider';
+import { createAccessControlProvider } from '@/auth/access-control';
+import { CapabilityProvider } from '@/auth/CapabilityProvider';
+import { withCapabilityLifecycle } from '@/auth/capability-lifecycle';
+import { capabilityStore } from '@/auth/capability-store';
 import type { AuthProvider } from '@refinedev/core';
 import { APP_NAME } from '@/config/app-config';
 import { createAdminTheme } from '@/config/theme';
@@ -23,11 +27,19 @@ const defaultAuthProvider = createAuthProvider();
 /** Refine needs the antd App context for notifications, so it is mounted inside it. */
 function RefineRoot({ children, authProvider }: AppProvidersProps) {
   const notificationProvider = useNotificationProvider();
+  const provider = authProvider ?? defaultAuthProvider;
+  // The capability store is the single owner of the codes the server returned;
+  // the lifecycle wrapper keeps it in step with the session (SRS RBAC 010).
+  const authProviderWithCapabilities = useMemo(() => withCapabilityLifecycle(provider, capabilityStore), [provider]);
+  // The provider asks the auth provider for the codes the *server* calculated;
+  // the admin never recreates role resolution (SRS RBAC 010).
+  const accessControlProvider = useMemo(() => createAccessControlProvider(() => capabilityStore.get()), []);
   return (
     <Refine
       routerProvider={routerProvider}
       dataProvider={dataProvider}
-      authProvider={authProvider ?? defaultAuthProvider}
+      authProvider={authProviderWithCapabilities}
+      accessControlProvider={accessControlProvider}
       notificationProvider={notificationProvider}
       resources={[{ name: 'businesses', list: '/businesses', create: '/businesses/new', edit: '/businesses/:id', meta: { label: 'Businesses' } }]}
       options={{
@@ -53,7 +65,9 @@ export function AppProviders({ children, authProvider }: AppProvidersProps) {
     <ConfigProvider theme={createAdminTheme(reducedMotion)} locale={enAU}>
       <AntdApp>
         <ErrorBoundary>
-          <RefineRoot authProvider={authProvider}>{children}</RefineRoot>
+          <RefineRoot authProvider={authProvider}>
+            <CapabilityProvider>{children}</CapabilityProvider>
+          </RefineRoot>
         </ErrorBoundary>
       </AntdApp>
     </ConfigProvider>

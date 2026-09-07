@@ -62,7 +62,12 @@ export async function seedSuperAdmin(app: INestApplication, overrides: Partial<{
   return admin;
 }
 
-/** Clears throttle keys written by this test run (prefix ms:throttle:*). */
+/**
+ * Clears throttle keys written by this test run (prefix ms:throttle:*), which
+ * covers login/reset and the privileged-mutation ceiling. Suites that make many
+ * access changes in quick succession call this between tests: a real deployment
+ * spreads them over time, and the ceiling has its own dedicated test.
+ */
 export async function clearThrottleKeys(app: INestApplication): Promise<void> {
   const redis = app.get(RedisService);
   await redis.ensureConnected();

@@ -15,6 +15,21 @@ export function settingsApi(client: HttpClient = httpClient) {
   };
 }
 
+export type GeneralSettings = components['schemas']['GeneralSettingsRecordDto'];
+export type UpdateGeneralSettings = components['schemas']['UpdateGeneralSettingsDto'];
+
+/** Social platforms the general settings accept, in the order the public shell renders them. */
+export const SOCIAL_PLATFORMS = ['facebook', 'instagram', 'x', 'youtube', 'pinterest'] as const;
+export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number];
+
+/** General settings (SRS CFG 001); `settings.manage` is enforced by the API. */
+export function generalSettingsApi(client: HttpClient = httpClient) {
+  return {
+    get: (signal?: AbortSignal) => client.request<{ data: GeneralSettings }>('/admin/settings/general', { signal }).then((r) => r.data.data),
+    put: (body: UpdateGeneralSettings) => client.request<{ data: GeneralSettings }>('/admin/settings/general', { method: 'PUT', body }).then((r) => r.data.data),
+  };
+}
+
 export type StaticPage = components['schemas']['StaticPageDto'];
 
 export interface UpdateStaticPage {

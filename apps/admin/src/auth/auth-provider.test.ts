@@ -3,7 +3,7 @@ import { createAuthProvider } from './auth-provider';
 import type { Authenticated } from '@/api/auth';
 
 const principal: Authenticated = {
-  admin: { id: 'a1', email: 'admin@example.com', displayName: 'Admin', roles: ['super_admin'], permissions: ['listings.read'], totpEnabled: false },
+  admin: { id: 'a1', email: 'admin@example.com', displayName: 'Admin', roles: ['super_admin'], permissions: ['listings.read'], inheritedPermissions: ['listings.read'], directPermissions: [], totpEnabled: false },
   session: { id: 's1', createdAt: '2026-09-06T00:00:00.000Z', idleExpiresAt: '2026-09-06T00:30:00.000Z', expiresAt: '2026-09-06T12:00:00.000Z' },
 };
 const unauthorized = new ApiError({ kind: 'unauthorized', status: 401, code: 'UNAUTHENTICATED', userMessage: 'Sign in to continue' });

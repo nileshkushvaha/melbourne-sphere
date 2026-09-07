@@ -219,7 +219,26 @@ The browser only ever calls **relative** `/api/v1/...` URLs on the web app's own
 - **Admin app**: same principle. `vite.config.ts` proxies `/api/v1` to `ADMIN_API_PROXY_TARGET` in development and preview; the built assets contain only relative `/api/v1` calls.
 - **Production** (per the SRS): one HTTPS reverse proxy routes `/` to Next.js, `/admin/` to the admin static build (with `index.html` fallback) and `/api/v1` straight to NestJS, so neither dev proxy is on the request path.
 - **Admin access control** is enforced by the API (sessions + permissions); the admin app only reflects it. Public exposure still awaits the remaining hardening phases (TLS, headers/CSP on the web tier, monitoring).
-## Local infrastructure (MySQL + Redis)
+## Test hygiene: authentication artifacts
+
+A test or a manual runtime check that requests a password-reset link and signs in leaves two credentials in the development database: a single-use link that was mailed but never consumed, and an open session. Both are retired by:
+
+```bash
+pnpm --filter api auth:revoke-test-artifacts   # revoke, then report what remains
+pnpm --filter api auth:artifacts:check         # report only; exits 1 if anything is still live
+```
+
+It marks every unused token used (so the real reset flow answers with its ordinary "invalid or expired") and revokes every live session with a recorded reason. It prints counts only, never a token, a session id or an address, and it refuses `NODE_ENV=production` or any database not named `*_dev`, `*_test` or `*_e2e`. The Playwright journeys run the same cleanup from `e2e/global-teardown.ts`, so a failed or interrupted UAT run leaves nothing usable behind. `apps/api/test/auth-artifacts.integration-spec.ts` proves it end to end against the real database.
+
+## Transactional email
+
+One provider-independent boundary serves every outbound message: `packages/mail` (`SmtpTransport` on nodemailer, bounded DNS/connection/greeting/socket timeouts, no pooling, plain text only, header-injection refusal, a caller-owned stable `Message-ID`, failures classified as transient or permanent with addresses redacted). The API uses it for password-reset and account set-up mail; the worker uses it for enquiry delivery, where the queue owns the retries (five attempts, exponential backoff) and an already-accepted enquiry is never sent twice.
+
+The boundary refuses anything a caller could turn into a second recipient: multi-address, display-name and bracketed values are rejected for `to`, `from` and `replyTo`, the subject is bounded at 998 characters and the body at 256 KB, TLS is pinned to 1.2 or newer with certificate verification left on, and nothing but plain text is ever sent. The relay host, the sender and the recipient come from configuration or from the listing's own encrypted field — never from a request. `Reply-To` is the only visitor-supplied header value and it is validated twice.
+
+`MAIL_TRANSPORT` is `none`, `console` or `smtp`. Locally, `smtp` points at the Compose Mailpit catcher (inbox at http://127.0.0.1:8025). **Production requires `smtp`** with `SMTP_HOST`, `SMTP_USER`/`SMTP_PASSWORD`, STARTTLS or implicit TLS, a non-loopback relay and a verified `MAIL_FROM_ADDRESS`; the API and the worker both refuse to start otherwise, and start-up errors name variables but never values. Choosing the provider is decision D03 (`docs/launch/client-decisions.md`); every candidate offers an authenticated SMTP endpoint, so it is a credential change. Bounce and complaint webhooks (SRS ENQ 006) are provider-specific and follow that decision.
+
+## Local infrastructure (MySQL, Redis, MinIO, Mailpit)
 
 Defined in [infrastructure/docker-compose.yml](infrastructure/docker-compose.yml); full details in [infrastructure/README.md](infrastructure/README.md).
 
@@ -228,10 +247,12 @@ Defined in [infrastructure/docker-compose.yml](infrastructure/docker-compose.yml
 | MySQL 8.4 LTS | `mysql:8.4.11` | `127.0.0.1:3307` | `melbourne-sphere_mysql-data` |
 | Redis | `redis:8.4.6` | `127.0.0.1:6380` | `melbourne-sphere_redis-data` |
 | Adminer (browser DB UI, dev only) | `adminer:5.5.1` | http://127.0.0.1:8082 (server `mysql`) | none |
+| MinIO (S3-compatible media storage) | `minio/minio:RELEASE.2025-09-07T16-13-09Z` | `127.0.0.1:9010` (API), http://127.0.0.1:9011 (console) | `melbourne-sphere_minio-data` |
+| Mailpit (SMTP catcher, dev only) | `axllent/mailpit:v1.31.1` | `127.0.0.1:1025` (SMTP), http://127.0.0.1:8025 (inbox) | `melbourne-sphere_mailpit-data` |
 
 1. Start the Docker daemon (this machine uses Colima: `colima start`).
 2. Create `infrastructure/.env` from `infrastructure/.env.example` and replace every placeholder. The file is git-ignored; it holds the only copy of the local credentials.
-3. `pnpm infra:up` starts both services and waits for their health checks. `pnpm infra:down` stops them and **keeps the data volumes**.
+3. `pnpm infra:up` starts every service and waits for their health checks. `pnpm infra:down` stops them and **keeps the data volumes**.
 
 MySQL uses `utf8mb4`, creates the development database and a non-root application user limited to that database. Redis runs with a password, AOF persistence and `noeviction` (required by BullMQ). Host ports 3307 and 6380 are used because a native MySQL (3306) and another project's Redis container (6379) occupy the standard ports on the original machine. The `MYSQL_*` values are applied only when the data volume is first created; editing them later does not change existing accounts. Deleting data (`down --volumes`) is a deliberate, destructive step and is not part of any script.
 
@@ -239,4 +260,23 @@ The API connects to MySQL through Prisma (`packages/database`); Redis is not con
 
 ## Status
 
-Setup phases 1–4 are complete (dependency cleanup, frontend and backend verification, repository conventions, API foundation and frontend connection); Phases 5–21 are complete and verified (local MySQL/Redis; Prisma foundation; admin shell; collation/test-database foundation; administrator authentication, sessions and RBAC; account lifecycle, audit log and optional TOTP; directory taxonomy and Melbourne local areas; business listings core; listing hours, links and contact validation; the public directory; the hero, home settings and search suggestions; reviews, ratings, abuse reports and moderation; enquiries with the transactional outbox and the BullMQ worker; the blog editorial core; public blog pages and comment moderation; the media pipeline; SEO with sitemaps, structured data and redirects). Phases 22–24 are complete (editorial depth and interface quality, information pages, featured placements, caching and invalidation; accessibility and performance; operations, CI, images, monitoring and backups), Phase 25 adds the UAT journeys, the capacity profile and a rehearsed restore drill, and `docs/pre-audit-report.md` records the internal pre-audit and the remaining launch gates. See `docs/setup-progress.md` for verified versions, decisions and the maintenance list (including the ESLint 9 end-of-life item).
+Setup phases 1–4 are complete (dependency cleanup, frontend and backend verification, repository conventions, API foundation and frontend connection); Phases 5–21 are complete and verified (local MySQL/Redis; Prisma foundation; admin shell; collation/test-database foundation; administrator authentication, sessions and RBAC; account lifecycle, audit log and optional TOTP; directory taxonomy and Melbourne local areas; business listings core; listing hours, links and contact validation; the public directory; the hero, home settings and search suggestions; reviews, ratings, abuse reports and moderation; enquiries with the transactional outbox and the BullMQ worker; the blog editorial core; public blog pages and comment moderation; the media pipeline; SEO with sitemaps, structured data and redirects). Phases 22–24 are complete (editorial depth and interface quality, information pages, featured placements, caching and invalidation; accessibility and performance; operations, CI, images, monitoring and backups), Phase 25 adds the UAT journeys, the capacity profile and a rehearsed restore drill, Phases 26–27 recompose the public site (home page, contact page and form, blog and listing detail with the published rating distribution), and Phase 28 adds the General settings screen and the states around them, described below. `docs/pre-audit-report.md` records the internal pre-audit and the remaining launch gates. See `docs/setup-progress.md` for verified versions, decisions and the maintenance list (including the ESLint 9 end-of-life item).
+
+## General settings, brand marks, loading and error states (Phase 28)
+
+- `GET/PUT /api/v1/admin/settings/general` (`settings.manage`) and the public `GET /api/v1/site/settings`: the application's own identity — name, short and organisation name, tagline, default meta description, support email and Australian phone, website, postal address, logo, browser icon and default share image from the media library, the header contact bar, one profile URL per social platform (Facebook, Instagram, X, YouTube, Pinterest) and the footer copyright template (`{year}`, `{name}`) and text. Validated server-side, versioned with `expectedVersion` and audited by shape only. A support address on a development domain is refused rather than published, and each social URL must be on that platform's own domain, so a link in the site header cannot become a redirect on every page.
+- The public shell (header, footer, page metadata and browser icon) is built from those settings; anything unset is omitted rather than rendered blank, and a failed settings read falls back to the shipped defaults so no page fails because of the shell.
+- Every profile link — the site's own, a listing's and an author's — is shown as that platform's brand mark with the platform name as its accessible name and hover title, at a 44 px target (36 px inside the slim contact strip). LinkedIn keeps a neutral globe: Simple Icons withdrew that mark at the trademark owner's request.
+- The review rating is a star radio group (five radios, filled up to the choice, each named "N stars"), and rating displays draw star icons rather than the ★ character.
+- Waiting is visible: the public site shows a navigation indicator during client-side page changes (additive, so pages still render with JavaScript disabled), and the admin has one loading screen for route code, session checks and record loads plus a boot loader in the document itself.
+- Failures are designed: 404 and 500 share one treatment with the status named, a quotable reference and real destinations out; `global-error.tsx` covers a failure in the root layout; the admin boundary tells a stale build apart from a genuine fault and offers the reload that fixes it. The API answers every failure with its `{error:{code,message,fields,requestId}}` envelope.
+
+## Administrator roles and permissions (Phase 29, SRS 1.1 RBAC 002–012)
+
+- Permissions are declared in application code (`resource.action`, with a label, description and module) and synchronised into the database by `pnpm --filter api admin:seed-rbac`. Administrators assign registered permissions; they never invent codes, so a misspelling cannot become a silent grant.
+- A role carries permissions, an administrator holds roles, and permissions can also be granted directly to one administrator. Effective access is the union of both, restricted to active roles, active permissions and an active account. There are no deny rules in this revision — the absence of a grant is denial.
+- Every admin route declares its permission and the guard defaults to deny: 401 without authentication, 403 without the permission, with no hint about which one was missing. Hiding interface elements is a courtesy; a URL typed by hand still gets 403.
+- Effective permissions are cached in Redis under an authorization version that every access change increments in the same transaction, so withdrawn access is gone on the next request; if Redis is unavailable the resolver reads MySQL, and a cache failure never grants access.
+- The admin has a roles list, a role editor with a permission matrix grouped by module, a read-only permission catalogue, and an access editor per administrator showing inherited and direct permissions and the source of every effective capability. Refused by design: editing your own access, granting what you do not hold, demoting or disabling the last active Super Admin, and deleting, deactivating or hand-editing the protected Super Admin role. Every change is audited.
+
+Developer guide: [docs/authorization.md](docs/authorization.md). Decision: [docs/decisions/0001-authorization-casl.md](docs/decisions/0001-authorization-casl.md).

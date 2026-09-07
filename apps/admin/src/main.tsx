@@ -14,3 +14,6 @@ createRoot(container).render(
     <App />
   </StrictMode>,
 );
+
+// The document's boot loader has done its job once React owns the page.
+document.getElementById('app-boot')?.remove();

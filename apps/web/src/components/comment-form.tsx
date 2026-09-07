@@ -26,7 +26,7 @@ function validate(values: Values): FieldErrors {
  * Comment form (SRS COM 001). Every comment is moderated before it appears, so
  * the confirmation says exactly that and never shows the comment immediately.
  */
-export function CommentForm({ postId, turnstileSiteKey, guidelinesHref }: { postId: string; turnstileSiteKey: string | null; guidelinesHref: string }) {
+export function CommentForm({ postId, turnstileSiteKey, guidelinesHref }: { postId: string; turnstileSiteKey: string | null; guidelinesHref: string | null }) {
   const [values, setValues] = useState<Values>(EMPTY);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -119,9 +119,13 @@ export function CommentForm({ postId, turnstileSiteKey, guidelinesHref }: { post
           <input type="checkbox" checked={values.acknowledged} onChange={(e) => set('acknowledged', e.target.checked)} className="mt-1 size-4" />
           <span>
             I have read the{' '}
-            <a href={guidelinesHref} className="text-link underline-offset-2 hover:underline">
-              comment guidelines and privacy notice
-            </a>
+            {guidelinesHref ? (
+              <a href={guidelinesHref} className="text-link underline underline-offset-2">
+                comment guidelines and privacy notice
+              </a>
+            ) : (
+              'comment guidelines and privacy notice'
+            )}
             .
           </span>
         </label>

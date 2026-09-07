@@ -1,20 +1,6 @@
 import Image from 'next/image';
 import type { PostDetail } from '@/lib/api';
-
-/** Labels for the profile links an author can publish. */
-const LINK_LABELS: Record<string, string> = {
-  website: 'Website',
-  facebook: 'Facebook',
-  instagram: 'Instagram',
-  x: 'X',
-  linkedin: 'LinkedIn',
-  youtube: 'YouTube',
-  tiktok: 'TikTok',
-  threads: 'Threads',
-  mastodon: 'Mastodon',
-  github: 'GitHub',
-  other: 'Profile',
-};
+import { BrandIcon, brandLabel } from './brand-icon';
 
 /**
  * Author card shown under an article (SRS BLOG 004/005: author information
@@ -51,14 +37,26 @@ export function AuthorCard({ author }: { author: PostDetail['author'] }) {
             </ul>
           )}
           {author.links.length > 0 && (
-            <ul className="mt-3 flex flex-wrap gap-3 text-sm">
-              {author.links.map((link) => (
-                <li key={link.url}>
-                  <a href={link.url} rel="noopener noreferrer nofollow" target="_blank" className="text-link underline-offset-2 hover:underline">
-                    {link.label ?? LINK_LABELS[link.kind] ?? link.kind}
-                  </a>
-                </li>
-              ))}
+            // The mark identifies the network at a glance; the name is still the
+            // accessible name, so the row does not depend on recognising a glyph.
+            <ul aria-label={`${author.displayName} elsewhere`} className="mt-3 flex flex-wrap gap-1.5">
+              {author.links.map((link) => {
+                const name = link.label ?? brandLabel(link.kind);
+                return (
+                  <li key={link.url}>
+                    <a
+                      href={link.url}
+                      rel="noopener noreferrer nofollow"
+                      target="_blank"
+                      title={name}
+                      className="inline-flex size-11 items-center justify-center rounded-full border border-border text-text-muted transition-colors hover:border-border-strong hover:bg-sky-50 hover:text-link"
+                    >
+                      <BrandIcon kind={link.kind} size={18} />
+                      <span className="sr-only">{name}</span>
+                    </a>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

@@ -128,4 +128,85 @@ describe('Home settings and search suggestions (integration)', () => {
     await clearRateKeys();
     await agent().get('/api/v1/search/suggestions?q=cafe').expect(200);
   });
+  it('manages the general settings: permissions, validation, versioning, audit and the public shell payload', async () => {
+    // Nothing saved yet: the public payload still describes a usable shell.
+    const before = await agent().get('/api/v1/site/settings').expect(200);
+    expect(before.body.data).toMatchObject({ name: 'Melbourne Sphere', headerTopBarEnabled: false, social: [] });
+    expect(before.body.data.contact).toEqual({ email: null, phone: null, websiteUrl: null, address: null });
+
+    await agent().get('/api/v1/admin/settings/general').expect(401);
+    await admin(agent().get('/api/v1/admin/settings/general'), readerCookie).expect(403);
+    await admin(agent().put('/api/v1/admin/settings/general'), readerCookie).send({ expectedVersion: 0, applicationName: 'Nope' }).expect(403);
+
+    // A development address would be a dead contact route on every page.
+    const invalid = await admin(agent().put('/api/v1/admin/settings/general'))
+      .send({ expectedVersion: 0, applicationName: 'Melbourne Sphere', supportEmail: 'listings@melbournesphere.local', social: { facebook: 'https://evil.example/ms' } })
+      .expect(400);
+    expect(Object.keys(invalid.body.error.fields).sort()).toEqual(['social.facebook', 'supportEmail']);
+    // Unknown fields are rejected by the DTO allowlist.
+    await admin(agent().put('/api/v1/admin/settings/general')).send({ expectedVersion: 0, applicationName: 'Melbourne Sphere', unexpected: true }).expect(400);
+    // Branding must reference an asset that exists and is processed.
+    const missingMedia = await admin(agent().put('/api/v1/admin/settings/general')).send({ expectedVersion: 0, applicationName: 'Melbourne Sphere', logoMediaId: 'does-not-exist' }).expect(400);
+    expect(missingMedia.body.error.fields.logoMediaId).toBeDefined();
+
+    const saved = await admin(agent().put('/api/v1/admin/settings/general'))
+      .send({
+        expectedVersion: 0,
+        applicationName: '  Melbourne   Sphere ',
+        shortName: 'Sphere',
+        tagline: 'Find local businesses across Melbourne',
+        supportEmail: 'Listings@MelbourneSphere.com.au',
+        supportPhone: '03 9000 0000',
+        websiteUrl: 'https://melbournesphere.com',
+        address: 'Level 2, 100 Collins Street\nMelbourne VIC 3000',
+        headerTopBarEnabled: true,
+        social: { facebook: 'https://www.facebook.com/melbournesphere', x: 'https://twitter.com/melbournesphere', pinterest: 'https://www.pinterest.com.au/melbournesphere' },
+        copyrightText: '© {year} {name}. All rights reserved.',
+        footerText: 'An independent directory for Melbourne, Victoria.',
+      })
+      .expect(200);
+    expect(saved.body.data).toMatchObject({ applicationName: 'Melbourne Sphere', version: 1, supportEmail: 'listings@melbournesphere.com.au' });
+    expect(saved.body.data.supportPhoneDisplay).toEqual({ display: '03 9000 0000', telHref: 'tel:+61390000000' });
+
+    // A second writer with the stale version is refused rather than overwriting.
+    await admin(agent().put('/api/v1/admin/settings/general')).send({ expectedVersion: 0, applicationName: 'Stale write' }).expect(409);
+
+    const publicPayload = await agent().get('/api/v1/site/settings').expect(200);
+    expect(publicPayload.body.data).toMatchObject({
+      name: 'Melbourne Sphere',
+      shortName: 'Sphere',
+      headerTopBarEnabled: true,
+      footer: { copyrightText: '© {year} {name}. All rights reserved.', text: 'An independent directory for Melbourne, Victoria.' },
+    });
+    expect(publicPayload.body.data.contact).toEqual({
+      email: 'listings@melbournesphere.com.au',
+      phone: { display: '03 9000 0000', telHref: 'tel:+61390000000' },
+      websiteUrl: 'https://melbournesphere.com/',
+      address: 'Level 2, 100 Collins Street\nMelbourne VIC 3000',
+    });
+    // Platforms keep a fixed order and only configured ones are published.
+    expect(publicPayload.body.data.social).toEqual([
+      { platform: 'facebook', url: 'https://www.facebook.com/melbournesphere' },
+      { platform: 'x', url: 'https://twitter.com/melbournesphere' },
+      { platform: 'pinterest', url: 'https://www.pinterest.com.au/melbournesphere' },
+    ]);
+
+    const db = testDatabase();
+    const audit = await db.auditLog.findFirst({ where: { action: 'settings.general.update' }, orderBy: { createdAt: 'desc' } });
+    expect(audit).toBeTruthy();
+    // The audit records the shape of the change, never the values themselves.
+    expect(audit?.metadata).toMatchObject({ headerTopBarEnabled: true, socialLinks: 3, hasSupportEmail: true, hasSupportPhone: true });
+    expect(JSON.stringify(audit?.metadata)).not.toContain('melbournesphere.com');
+
+    // Clearing optional fields empties them rather than keeping the old value.
+    const cleared = await admin(agent().put('/api/v1/admin/settings/general')).send({ expectedVersion: 1, applicationName: 'Melbourne Sphere', supportEmail: '', headerTopBarEnabled: false }).expect(200);
+    expect(cleared.body.data).toMatchObject({ supportEmail: null, supportPhone: null, version: 2 });
+    expect((await agent().get('/api/v1/site/settings').expect(200)).body.data.contact.email).toBeNull();
+  });
+
+  it('refuses to show a contact bar with nothing in it', async () => {
+    const current = (await admin(agent().get('/api/v1/admin/settings/general')).expect(200)).body.data;
+    const refused = await admin(agent().put('/api/v1/admin/settings/general')).send({ expectedVersion: current.version, applicationName: 'Melbourne Sphere', headerTopBarEnabled: true }).expect(400);
+    expect(refused.body.error.fields.headerTopBarEnabled).toBeDefined();
+  });
 });

@@ -3,8 +3,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { CollectionHeader } from '@/components/collection-header';
 import { DirectoryResults } from '@/components/directory-results';
-import { fetchCategories, flattenCategories } from '@/lib/api';
-import { isFiltered, parseSearchParams, toQueryString } from '@/lib/search-params';
+import { fetchCategories, flattenCategories, searchBusinesses } from '@/lib/api';
+import { isFiltered, landingRobots, parseSearchParams, toQueryString } from '@/lib/search-params';
 
 async function findCategory(slug: string) {
   return flattenCategories(await fetchCategories()).find((c) => c.slug === slug) ?? null;
@@ -15,11 +15,15 @@ export async function generateMetadata({ params, searchParams }: PageProps<'/dir
   const category = await findCategory(slug);
   if (!category) return { title: 'Category not found' };
   const state = parseSearchParams(await searchParams);
+  const filtered = isFiltered(state);
+  // Same request the page body makes, so it is served from the data cache; an
+  // unfiltered landing is indexed only when it has text and at least one listing.
+  const total = filtered ? 0 : (await searchBusinesses({ ...state, category: null }, { category: category.slug })).meta.total;
   return {
     title: `${category.name} in Melbourne`,
     description: category.description ?? `Published ${category.name} businesses across Melbourne with opening hours and contact details.`,
     alternates: { canonical: `/directory/category/${category.slug}${toQueryString(state)}` },
-    robots: isFiltered(state) ? { index: false, follow: true } : undefined,
+    robots: landingRobots(category.description, total, filtered),
   };
 }
 

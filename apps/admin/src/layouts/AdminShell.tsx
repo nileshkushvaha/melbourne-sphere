@@ -16,11 +16,14 @@ import {
   PictureOutlined,
   ReadOutlined,
   SafetyOutlined,
+  LayoutOutlined,
   SettingOutlined,
   ShopOutlined,
   StarOutlined,
   TagsOutlined,
   TeamOutlined,
+  SafetyCertificateOutlined,
+  KeyOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { useGetIdentity, useLogout, usePermissions } from '@refinedev/core';
@@ -90,10 +93,13 @@ const NAV_GROUPS: NavGroup[] = [
     key: 'configuration',
     label: 'Configuration',
     items: [
-      { key: '/settings', label: 'Site settings', icon: <SettingOutlined aria-hidden="true" />, permission: 'settings.manage' },
+      { key: '/settings/general', label: 'General settings', icon: <SettingOutlined aria-hidden="true" />, permission: 'settings.manage' },
+      { key: '/settings', label: 'Home page settings', icon: <LayoutOutlined aria-hidden="true" />, permission: 'settings.manage' },
       { key: '/pages', label: 'Information pages', icon: <FileTextOutlined aria-hidden="true" />, permission: 'settings.manage' },
       { key: '/redirects', label: 'SEO redirects', icon: <LinkOutlined aria-hidden="true" />, permission: 'redirects.manage' },
       { key: '/admins', label: 'Administrators', icon: <TeamOutlined aria-hidden="true" />, permission: 'admins.manage' },
+      { key: '/roles', label: 'Roles', icon: <SafetyCertificateOutlined aria-hidden="true" />, permission: 'roles.view' },
+      { key: '/permissions', label: 'Permissions', icon: <KeyOutlined aria-hidden="true" />, permission: 'permissions.view' },
       { key: '/audit', label: 'Audit log', icon: <FileSearchOutlined aria-hidden="true" />, permission: 'audit.read' },
     ],
   },
@@ -122,12 +128,17 @@ export function AdminShell({ children }: AdminShellProps) {
   const { data: permissions } = usePermissions<string[]>({});
   const { mutate: logout, isPending: loggingOut } = useLogout();
 
+  // `undefined` means the server has not answered yet. Nothing permission-gated
+  // is rendered until it has, so no entry appears and is then withdrawn
+  // (SRS RBAC 010); the shell shows the navigation as a quiet waiting state.
+  const capabilitiesKnown = permissions !== undefined;
   const groups = useMemo(
     () =>
-      NAV_GROUPS.map((group) => ({ ...group, items: group.items.filter((item) => !item.permission || (permissions ?? []).includes(item.permission)) })).filter(
-        (group) => group.items.length > 0,
-      ),
-    [permissions],
+      NAV_GROUPS.map((group) => ({
+        ...group,
+        items: group.items.filter((item) => !item.permission || (capabilitiesKnown && (permissions ?? []).includes(item.permission))),
+      })).filter((group) => group.items.length > 0),
+    [permissions, capabilitiesKnown],
   );
 
   // Escape closes the mobile drawer wherever focus is (WCAG 2.1.2 / dialog convention).

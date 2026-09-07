@@ -3,6 +3,8 @@ import { Authenticated } from '@refinedev/core';
 import { CatchAllNavigate } from '@refinedev/react-router';
 import { Outlet, Route, Routes } from 'react-router';
 import { AdminShell } from '@/layouts/AdminShell';
+import { PageLoader } from '@/components/ui';
+import { RequirePermission } from '@/auth/RequirePermission';
 import { AcceptSetupPage } from '@/pages/AcceptSetupPage';
 import { AREAS_CONFIG, CATEGORIES_CONFIG, SERVICES_CONFIG } from '@/pages/taxonomy/configs';
 import { BLOG_CATEGORIES_CONFIG, BLOG_TAGS_CONFIG } from '@/pages/blog/editorial-configs';
@@ -33,7 +35,11 @@ const PostEditorPage = lazy(() => import('@/pages/blog/PostEditorPage').then((m)
 const AuthorEditorPage = lazy(() => import('@/pages/blog/AuthorEditorPage').then((m) => ({ default: m.AuthorEditorPage })));
 const StaticPagesPage = lazy(() => import('@/pages/settings/StaticPagesPage').then((m) => ({ default: m.StaticPagesPage })));
 const SiteSettingsPage = lazy(() => import('@/pages/settings/SiteSettingsPage').then((m) => ({ default: m.SiteSettingsPage })));
+const GeneralSettingsPage = lazy(() => import('@/pages/settings/GeneralSettingsPage').then((m) => ({ default: m.GeneralSettingsPage })));
 const AuditLogPage = lazy(() => import('@/pages/AuditLogPage').then((m) => ({ default: m.AuditLogPage })));
+const RolesPage = lazy(() => import('@/pages/access/RolesPage').then((m) => ({ default: m.RolesPage })));
+const RoleEditorPage = lazy(() => import('@/pages/access/RoleEditorPage').then((m) => ({ default: m.RoleEditorPage })));
+const PermissionCatalogPage = lazy(() => import('@/pages/access/PermissionCatalogPage').then((m) => ({ default: m.PermissionCatalogPage })));
 
 /**
  * Route table. Everything inside the shell requires a server-verified session
@@ -49,11 +55,20 @@ export function AppRoutes() {
       <Route path="/accept-setup" element={<AcceptSetupPage />} />
       <Route
         element={
-          <Authenticated key="admin-shell" fallback={<CatchAllNavigate to="/login" />} loading={<p role="status">Checking your session…</p>}>
+          <Authenticated key="admin-shell" fallback={<CatchAllNavigate to="/login" />} loading={<PageLoader label="Checking your session…" minHeight={320} />}>
             <AdminShell>
-              <Suspense fallback={<p role="status">Loading…</p>}>
-                <Outlet />
-              </Suspense>
+              {/*
+                One route guard for every screen: it reads the required
+                permissions from the canonical route mapping, waits while
+                capabilities are unknown and renders the forbidden state instead
+                of the page when they are not held (SRS RBAC 010). The API
+                enforces the same permission on every request the page makes.
+              */}
+              <RequirePermission>
+                <Suspense fallback={<PageLoader label="Loading this screen…" />}>
+                  <Outlet />
+                </Suspense>
+              </RequirePermission>
             </AdminShell>
           </Authenticated>
         }
@@ -79,12 +94,17 @@ export function AppRoutes() {
         <Route path="/comments" element={<CommentsPage />} />
         <Route path="/reviews" element={<ReviewsPage />} />
         <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/settings/general" element={<GeneralSettingsPage />} />
         <Route path="/settings" element={<SiteSettingsPage />} />
         <Route path="/pages" element={<StaticPagesPage />} />
         <Route path="/redirects" element={<RedirectsPage />} />
         <Route path="/admins" element={<AdministratorsPage />} />
         <Route path="/admins/:id" element={<AdminDetailPage />} />
         <Route path="/account" element={<AccountSecurityPage />} />
+        <Route path="/roles" element={<RolesPage />} />
+        <Route path="/roles/new" element={<RoleEditorPage />} />
+        <Route path="/roles/:id" element={<RoleEditorPage />} />
+        <Route path="/permissions" element={<PermissionCatalogPage />} />
         <Route path="/audit" element={<AuditLogPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

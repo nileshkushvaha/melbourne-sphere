@@ -1,6 +1,6 @@
 import { Alert, Button, Input, Select, Space, Table, Tag, Tooltip } from 'antd';
 import { PlusOutlined, WarningOutlined } from '@ant-design/icons';
-import { useList, usePermissions } from '@refinedev/core';
+import { useList } from '@refinedev/core';
 import { Link, useSearchParams } from 'react-router';
 import type { BusinessListItem, BusinessStatus } from '@/api/businesses';
 import { isApiError } from '@/api/errors';
@@ -9,6 +9,8 @@ import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
 import { PageHeader } from '@/components/ui';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 const STATUS_COLOURS: Record<BusinessStatus, string> = { draft: 'default', published: 'green', archived: 'orange' };
 const SORTS = ['updatedAt', 'name', 'status', 'createdAt', 'publishedAt'] as const;
@@ -22,8 +24,8 @@ type Sort = (typeof SORTS)[number];
 export function BusinessesPage() {
   useDocumentTitle('Businesses');
   const [params, setParams] = useSearchParams();
-  const { data: permissions } = usePermissions<string[]>({});
-  const canWrite = (permissions ?? []).includes('listings.write');
+  const { can } = useCapabilities();
+  const canWrite = can(PERMISSION.listingsWrite);
   const page = Number(params.get('page') ?? '1') || 1;
   const q = params.get('q') ?? '';
   const status = (params.get('status') as BusinessStatus | null) ?? undefined;

@@ -7,6 +7,7 @@ export type BusinessCard = components['schemas']['PublicBusinessCardDto'];
 export type BusinessDetail = components['schemas']['PublicBusinessDetailDto'];
 export type SearchMeta = components['schemas']['SearchMetaDto'];
 export type PublicHome = components['schemas']['PublicHomeDto'];
+export type SiteSettings = components['schemas']['PublicSiteSettingsDto'];
 export type PublicReview = components['schemas']['PublicReviewDto'];
 export type PostCard = components['schemas']['PublicPostCardDto'];
 export type PostDetail = components['schemas']['PublicPostDto'];
@@ -78,6 +79,33 @@ export async function fetchHome(): Promise<PublicHome> {
   }
 }
 
+/**
+ * Shell settings — name, contact details, branding, header bar and footer (SRS
+ * CFG 001). Every public page renders the shell, so a failure here must never
+ * take a page down: the documented defaults stand in until the API answers
+ * again, and an unconfigured value simply means that element is not shown.
+ */
+export const DEFAULT_SITE_SETTINGS: SiteSettings = {
+  name: 'Melbourne Sphere',
+  shortName: null,
+  organisationName: null,
+  tagline: 'Find local businesses across Melbourne',
+  metaDescription: 'An independent directory of businesses across Melbourne, Victoria: cafes, trades, services and more, with opening hours and contact details.',
+  contact: { email: null, phone: null, websiteUrl: null, address: null },
+  branding: { logo: null, favicon: null, shareImage: null },
+  headerTopBarEnabled: false,
+  social: [],
+  footer: { copyrightText: null, text: null },
+};
+
+export async function fetchSiteSettings(): Promise<SiteSettings> {
+  try {
+    return (await apiGet<{ data: SiteSettings }>('/site/settings', { revalidate: 300, tags: ['settings'] })).data;
+  } catch {
+    return DEFAULT_SITE_SETTINGS;
+  }
+}
+
 export async function fetchCategories(): Promise<PublicCategory[]> {
   return (await apiGet<{ data: PublicCategory[] }>('/categories', { revalidate: 300, tags: ['taxonomy'] })).data;
 }
@@ -95,7 +123,7 @@ export async function searchBusinesses(state: SearchState, fixed: { category?: s
   return apiGet('/businesses', {
     revalidate: 30,
     tags: ['businesses'],
-    query: { q: state.q, category: fixed.category ?? state.category, area: fixed.area ?? state.area, minRating: state.minRating, sort: state.sort, page: state.page, pageSize: 20 },
+    query: { q: state.q, category: fixed.category ?? state.category, area: fixed.area ?? state.area, minRating: state.minRating, openNow: state.openNow ? '1' : undefined, sort: state.sort, page: state.page, pageSize: 20 },
   });
 }
 
@@ -180,6 +208,16 @@ export async function fetchStaticPage(slug: string): Promise<StaticPageContent |
     if (error instanceof ApiRequestError && error.status === 404) return null;
     throw error;
   }
+}
+
+/**
+ * Where the acknowledgement on the review and comment forms may link (SRS
+ * PRIV 001, REV 001). Null until the review guidelines page is published: the
+ * wording stays, the link does not, so no form ever points at a 404.
+ */
+export async function reviewGuidelinesHref(): Promise<string | null> {
+  const pages = await fetchStaticPages();
+  return pages.some((page) => page.slug === 'review-guidelines') ? '/review-guidelines' : null;
 }
 
 /** Published information pages, for footer navigation; never links to a draft. */

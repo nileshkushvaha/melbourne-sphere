@@ -13,6 +13,8 @@ export interface SearchState {
   category: string | null;
   area: string | null;
   minRating: number | null;
+  /** SRS DIR 008: only listings open at request time. Conditional — the API ignores it when hours coverage is too thin. */
+  openNow: boolean;
   sort: Sort | null;
   page: number;
 }
@@ -36,6 +38,7 @@ export function parseSearchParams(raw: RawSearchParams): SearchState {
     category: category && SLUG.test(category) ? category : null,
     area: area && SLUG.test(area) ? area : null,
     minRating: Number.isInteger(minRating) && minRating >= 1 && minRating <= 5 ? minRating : null,
+    openNow: first(raw.openNow) === '1' || first(raw.openNow) === 'true',
     sort: (SORTS as readonly string[]).includes(sort ?? '') ? (sort as Sort) : null,
     page: Number.isInteger(page) && page >= 1 ? page : 1,
   };
@@ -48,6 +51,7 @@ export function toQueryString(state: Partial<SearchState>): string {
   if (state.category) params.set('category', state.category);
   if (state.area) params.set('area', state.area);
   if (state.minRating) params.set('minRating', String(state.minRating));
+  if (state.openNow) params.set('openNow', '1');
   if (state.sort) params.set('sort', state.sort);
   if (state.page && state.page > 1) params.set('page', String(state.page));
   const s = params.toString();
@@ -79,4 +83,15 @@ export function buildChips(state: SearchState, basePath: string, names: { catego
 
 export function pageHref(state: SearchState, basePath: string, page: number): string {
   return `${basePath}${toQueryString({ ...state, page })}`;
+}
+
+/**
+ * Index policy for a curated category or local-area landing page (SRS SEO 003,
+ * UX 003): indexable only when it carries its own editorial text and lists at
+ * least one published business; a filtered view is never indexed. Thin or
+ * empty landings stay reachable and followed, just not indexed.
+ */
+export function landingRobots(intro: string | null | undefined, total: number, filtered: boolean): { index: false; follow: true } | undefined {
+  const substantive = (intro ?? '').trim().length > 0 && total > 0;
+  return filtered || !substantive ? { index: false, follow: true } : undefined;
 }

@@ -56,7 +56,7 @@ export function HoursTable({ hours, correctionEmail, businessName }: { hours: Pu
         {mailto && (
           <>
             {' '}
-            <a className="text-link underline-offset-2 hover:underline" href={mailto}>
+            <a className="text-link underline underline-offset-2" href={mailto}>
               Report a correction
             </a>
             .

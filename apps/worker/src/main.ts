@@ -4,6 +4,7 @@ import { loadWorkerConfig } from './config.js';
 import { deliverEnquiry, markDeliveryFailed, type DeliveryJobData } from './enquiry-delivery.js';
 import { ConsoleEnquiryMailer } from './mailer/console-mailer.js';
 import { EnquiryMailerPort } from './mailer/mailer.port.js';
+import { SmtpEnquiryMailer } from './mailer/smtp-mailer.js';
 import { randomBytes } from 'node:crypto';
 import { CACHE_INVALIDATE_JOB, ENQUIRY_EMAIL_JOB, MEDIA_PROCESS_JOB, QUEUE_NAME, buildEnquiryMail, redisConnectionFromUrl } from '@melbourne-sphere/domain';
 import { processMediaAsset, type MediaJobData } from './media-processing.js';
@@ -19,7 +20,9 @@ import { decryptField } from './field-encryption.js';
 async function main(): Promise<void> {
   const config = loadWorkerConfig();
   const db: DatabaseClient = createDatabaseClient({ url: config.databaseUrl, allowPublicKeyRetrieval: process.env.DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL === 'true' });
-  const mailer: EnquiryMailerPort = new ConsoleEnquiryMailer();
+  // Configuration has already refused console/none in production, so the
+  // fallback sender below can only ever appear in a development transport.
+  const mailer: EnquiryMailerPort = config.smtp ? new SmtpEnquiryMailer(config.smtp) : new ConsoleEnquiryMailer();
   const fromAddress = config.mailFromAddress ?? 'no-reply@melbourne-sphere.local';
 
   const storage = new S3Storage(config.media);
@@ -53,11 +56,12 @@ async function main(): Promise<void> {
     }
   });
 
-  process.stdout.write(`[worker] listening on ${QUEUE_NAME} (transport: ${mailer.transportName}, concurrency: ${config.concurrency})\n`);
+  process.stdout.write(`[worker] listening on ${QUEUE_NAME} (transport: ${mailer.describe?.() ?? mailer.transportName}, concurrency: ${config.concurrency})\n`);
 
   const shutdown = async (signal: string) => {
     process.stdout.write(`[worker] ${signal} received, draining\n`);
     await worker.close();
+    mailer.close?.();
     await db.$disconnect();
     process.exit(0);
   };

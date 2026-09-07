@@ -3,6 +3,8 @@ import { DashboardPage } from './DashboardPage';
 import { LoginPage } from './LoginPage';
 import { AuthorEditorPage } from './blog/AuthorEditorPage';
 import { RedirectsPage } from './seo/RedirectsPage';
+import { RoleEditorPage } from './access/RoleEditorPage';
+import { AdminAccessCard } from './access/AdminAccessCard';
 import { anonymousProvider, renderWithProviders } from '@/test/render';
 import { jsonResponse } from '@/test/fetch-fakes';
 import { axeViolations, describeViolations } from '@/test/axe';
@@ -19,6 +21,18 @@ const redirect = {
   resourceType: 'business', resourceId: 'b1', createdByAdminId: 'a1', createdAt: '2026-09-06T00:00:00.000Z', updatedAt: '2026-09-06T00:00:00.000Z',
 };
 
+const catalogue = [
+  { key: 'posts.write', label: 'Edit articles', description: 'Create and edit blog posts', module: 'Editorial', isActive: true, isSystem: true },
+  { key: 'roles.view', label: 'View roles', description: 'View roles and the permissions they carry', module: 'Access control', isActive: true, isSystem: true },
+];
+
+const adminAccess = {
+  adminId: 'a2', displayName: 'Second Admin', email: 'second@example.com', status: 'active', version: 2,
+  roles: [{ id: 'r2', key: 'editor', name: 'Editor', isActive: true }],
+  directPermissions: ['roles.view'], inheritedPermissions: ['posts.write'], effectivePermissions: ['posts.write', 'roles.view'],
+  sources: { 'posts.write': ['editor'], 'roles.view': ['direct'] },
+};
+
 /** Automated WCAG checks on representative screens (SRS NFR 006/011). */
 describe('accessibility', () => {
   const originalFetch = globalThis.fetch;
@@ -28,6 +42,9 @@ describe('accessibility', () => {
       if (url.startsWith('/api/v1/admin/dashboard')) return jsonResponse(200, { data: dashboard });
       if (url.startsWith('/api/v1/admin/redirects')) return jsonResponse(200, { data: [redirect], meta: { page: 1, pageSize: 25, total: 1, pageCount: 1 } });
       if (url.startsWith('/api/v1/admin/authors')) return jsonResponse(200, { data: [] });
+      if (url.startsWith('/api/v1/admin/permissions')) return jsonResponse(200, { data: catalogue });
+      if (url.includes('/access')) return jsonResponse(200, { data: adminAccess });
+      if (url.startsWith('/api/v1/admin/roles')) return jsonResponse(200, { data: [], meta: { page: 1, pageSize: 20, total: 0, pageCount: 1 } });
       return jsonResponse(200, { data: { status: 'ok' } });
     }) as typeof fetch;
   });
@@ -49,6 +66,19 @@ describe('accessibility', () => {
   it('sign-in page has no automated violations', async () => {
     const { container } = renderWithProviders(<LoginPage />, { initialEntries: ['/admin/login'], authProvider: anonymousProvider() });
     await screen.findByRole('heading', { level: 1 });
+    await check(container);
+  });
+
+  it('role editor, including the permission matrix, has no automated violations', async () => {
+    const { container } = renderWithProviders(<RoleEditorPage />, { initialEntries: ['/admin/roles/new'], routePath: '/roles/new' });
+    await screen.findByRole('heading', { level: 1, name: 'New role' });
+    await screen.findByRole('checkbox', { name: /edit articles/i });
+    await check(container);
+  });
+
+  it('administrator access editor has no automated violations', async () => {
+    const { container } = renderWithProviders(<AdminAccessCard adminId="a2" isSelf={false} />, { initialEntries: ['/admin/admins/a2'] });
+    await screen.findByRole('table');
     await check(container);
   });
 

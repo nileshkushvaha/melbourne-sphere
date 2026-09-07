@@ -1,12 +1,13 @@
 import { Alert, Button, Input, Select, Space, Table, Tag } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { usePermissions } from '@refinedev/core';
 import { Link, useSearchParams } from 'react-router';
 import { POST_STATUSES, blogApi, type PostStatus, type PostSummary } from '@/api/blog';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
 import { PageHeader } from '@/components/ui';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 const STATUS_COLOURS: Record<PostStatus, string> = { draft: 'default', scheduled: 'blue', published: 'green', archived: 'orange' };
 
@@ -15,8 +16,8 @@ export function PostsPage() {
   useDocumentTitle('Articles');
   const api = blogApi();
   const [params, setParams] = useSearchParams();
-  const { data: permissions } = usePermissions<string[]>({});
-  const canWrite = (permissions ?? []).includes('posts.write');
+  const { can } = useCapabilities();
+  const canWrite = can(PERMISSION.postsWrite);
   const status = (params.get('status') as PostStatus | null) ?? undefined;
   const q = params.get('q') ?? '';
   const page = Number(params.get('page') ?? '1') || 1;

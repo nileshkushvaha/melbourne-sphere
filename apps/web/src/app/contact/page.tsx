@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { MailIcon, PenLineIcon, ShieldCheckIcon, StoreIcon } from 'lucide-react';
+import { MailIcon, PenLineIcon, PhoneIcon, ShieldCheckIcon, StoreIcon } from 'lucide-react';
 import { InformationPage } from '@/components/information-page';
-import { fetchStaticPage } from '@/lib/api';
-import { contactChannel, turnstileSiteKey } from '@/lib/site';
+import { fetchSiteSettings, fetchStaticPage } from '@/lib/api';
+import { contactChannelFrom, turnstileSiteKey } from '@/lib/site';
 import { ContactForm } from '@/components/contact-form';
 
 export const dynamic = 'force-dynamic';
@@ -53,9 +53,12 @@ const ROUTES = [
 ];
 
 export default async function ContactPage() {
-  const page = await fetchStaticPage('contact');
-  const channel = contactChannel();
+  const [page, settings] = await Promise.all([fetchStaticPage('contact'), fetchSiteSettings()]);
+  // The page's own address wins when an editor set one; otherwise the site-wide
+  // support address from the general settings (SRS CFG 001/002).
+  const channel = contactChannelFrom(settings);
   const email = page?.contactEmail ?? channel.email;
+  const phone = settings.contact.phone;
 
   const aside = (
     <div className="rounded-card-lg border border-border bg-surface-raised p-6 shadow-sm">
@@ -67,6 +70,14 @@ export default async function ContactPage() {
             {email}
           </a>
           <p className="mt-3 text-sm leading-relaxed text-text-muted">One mailbox for listings, corrections and editorial questions. We read everything; we reply to what needs a reply.</p>
+          {phone && (
+            <p className="mt-3 text-sm">
+              <a href={phone.telHref} className="inline-flex min-h-11 items-center gap-2 text-link underline-offset-4 hover:underline">
+                <PhoneIcon aria-hidden="true" className="size-4 shrink-0" />
+                {phone.display}
+              </a>
+            </p>
+          )}
         </>
       ) : (
         <p className="mt-3 text-sm leading-relaxed text-text-muted">
@@ -87,7 +98,8 @@ export default async function ContactPage() {
           </Link>
         </li>
       </ul>
-      <p className="mt-6 text-sm leading-relaxed text-text-muted">Melbourne Sphere covers Melbourne, Victoria, Australia only. We do not add businesses outside the city.</p>
+      {settings.contact.address && <address className="mt-6 whitespace-pre-line text-sm not-italic leading-relaxed text-text-muted">{settings.contact.address}</address>}
+      <p className="mt-6 text-sm leading-relaxed text-text-muted">{settings.name} covers Melbourne, Victoria, Australia only. We do not add businesses outside the city.</p>
     </div>
   );
 

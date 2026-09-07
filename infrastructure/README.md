@@ -1,6 +1,6 @@
-# Local infrastructure (MySQL + Redis)
+# Local infrastructure (MySQL, Redis, MinIO, Mailpit)
 
-Docker Compose definition for the local development database and Redis. Nothing here is used in production; production uses managed/private services per the SRS (ARC 004, OPS 003).
+Docker Compose definition for the local development database, Redis, S3-compatible object storage and an SMTP catcher. Nothing here is used in production; production uses managed/private services per the SRS (ARC 004, OPS 003).
 
 ## Prerequisites
 
@@ -22,21 +22,27 @@ Docker Compose definition for the local development database and Redis. Nothing 
 | Service | Image | Container | Host port (loopback only) | Volume |
 | --- | --- | --- | --- | --- |
 | MySQL | `mysql:8.4.11` (8.4 LTS) | `melbourne-sphere-mysql` | `127.0.0.1:3307` (`MYSQL_HOST_PORT`) | `melbourne-sphere_mysql-data` |
-| Redis | `redis:8.4.6` | `melbourne-sphere-redis` | `127.0.0.1:6379` (`REDIS_HOST_PORT`) | `melbourne-sphere_redis-data` |
+| Redis | `redis:8.4.6` | `melbourne-sphere-redis` | `127.0.0.1:6380` (`REDIS_HOST_PORT`) | `melbourne-sphere_redis-data` |
+| MinIO (S3 API + console) | `minio/minio:RELEASE.2025-09-07T16-13-09Z` | `melbourne-sphere-minio` | `127.0.0.1:9010` / `127.0.0.1:9011` (`MINIO_HOST_PORT`, `MINIO_CONSOLE_PORT`) | `melbourne-sphere_minio-data` |
+| Mailpit (SMTP catcher + inbox) | `axllent/mailpit:v1.31.1` | `melbourne-sphere-mailpit` | `127.0.0.1:1025` SMTP / http://127.0.0.1:8025 inbox (`MAILPIT_SMTP_PORT`, `MAILPIT_UI_PORT`) | `melbourne-sphere_mailpit-data` |
 
 - Compose project name: `melbourne-sphere`; internal network `melbourne-sphere_local`.
 - MySQL runs with `utf8mb4` / `utf8mb4_unicode_ci` server defaults (project collation policy, see `packages/database/README.md`), creates `MYSQL_DATABASE` and a non-root `MYSQL_USER` with privileges on that database only. Root is restricted to `localhost` inside the container.
 - Redis runs with AUTH (`REDIS_PASSWORD`), AOF persistence (`appendfsync everysec`) plus RDB snapshots, and `maxmemory-policy noeviction` as BullMQ requires. One instance serves both cache and queue locally; separating them in production is a later decision (SRS CACHE 003).
 - Host port 3307 is the default for MySQL because a Homebrew MySQL already listens on 3306 on the original development machine. Change `MYSQL_HOST_PORT` in `.env` if 3307 is taken; nothing else needs editing.
 
+## Mail catcher (Mailpit)
+
+The API (password resets, account set-up) and the worker (enquiry delivery) use the same SMTP adapter locally as in production, pointed at Mailpit: `MAIL_TRANSPORT=smtp`, `SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025`, no credentials, no TLS. Every message they send appears at http://127.0.0.1:8025 with its headers (including the stable `Message-ID` an enquiry carries across retries) and never leaves the machine — Mailpit stores mail, it does not relay it. Captured mail persists in the named volume and is capped at 5,000 messages. Production refuses this shape of configuration: the relay must be authenticated and TLS-protected, and a loopback host is rejected at start-up.
+
 ## Commands (run from the repository root)
 
 | Command | Effect |
 | --- | --- |
 | `pnpm infra:validate` | validates the Compose file and `.env` without printing resolved values |
-| `pnpm infra:up` | starts both services in the background and waits for their health checks |
+| `pnpm infra:up` | starts every service in the background and waits for their health checks |
 | `pnpm infra:status` | shows containers, health and published ports |
-| `pnpm infra:logs` | follows the last 100 log lines of both services |
+| `pnpm infra:logs` | follows the last 100 log lines of every service |
 | `pnpm infra:down` | stops and removes the containers and network. **Volumes (data) are kept.** |
 
 Restarting with `pnpm infra:down && pnpm infra:up` preserves all data.
@@ -76,7 +82,7 @@ This was done on 2026-09-06 for the existing local volume (shadow in Phase 6, te
 
 Deleting data is a separate, deliberate action. None of the `infra:*` scripts do it.
 
-- `docker compose -f infrastructure/docker-compose.yml --env-file infrastructure/.env down --volumes` removes the containers **and both data volumes**; the next `infra:up` starts from an empty database and re-runs MySQL initialisation from `.env`.
+- `docker compose -f infrastructure/docker-compose.yml --env-file infrastructure/.env down --volumes` removes the containers **and every data volume**; the next `infra:up` starts from an empty database and re-runs MySQL initialisation from `.env`.
 - Do not run `docker system prune` on a machine with other projects' containers/volumes unless you have checked what it will remove.
 
 ## Troubleshooting

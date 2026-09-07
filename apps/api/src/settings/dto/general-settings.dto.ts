@@ -1,0 +1,125 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsBoolean, IsInt, IsObject, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
+import { LIMITS, SOCIAL_PLATFORMS, type SocialPlatform } from '../general-settings.js';
+
+/**
+ * One optional profile URL per platform. The DTO only checks shape and length;
+ * `validateGeneralSettings` enforces that each link stays on its own domain
+ * (SRS CFG 001, BUS 003 link rules).
+ */
+export class SocialLinksDto {
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.socialUrl }) @IsOptional() @IsString() @MaxLength(LIMITS.socialUrl) facebook?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.socialUrl }) @IsOptional() @IsString() @MaxLength(LIMITS.socialUrl) instagram?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.socialUrl }) @IsOptional() @IsString() @MaxLength(LIMITS.socialUrl) x?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.socialUrl }) @IsOptional() @IsString() @MaxLength(LIMITS.socialUrl) youtube?: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.socialUrl }) @IsOptional() @IsString() @MaxLength(LIMITS.socialUrl) pinterest?: string | null;
+}
+
+/** General settings as an administrator edits them (SRS CFG 001). */
+export class GeneralSettingsDto {
+  @ApiProperty({ minLength: LIMITS.applicationName.min, maxLength: LIMITS.applicationName.max, description: 'Public name used in the header, page titles and the copyright line' })
+  @IsString()
+  @MaxLength(LIMITS.applicationName.max)
+  applicationName!: string;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.shortName, description: 'Compact name for tight spaces' }) @IsOptional() @IsString() @MaxLength(LIMITS.shortName) shortName?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.organisationName }) @IsOptional() @IsString() @MaxLength(LIMITS.organisationName) organisationName?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.tagline, description: 'Shown after the name in the browser title' }) @IsOptional() @IsString() @MaxLength(LIMITS.tagline) tagline?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.metaDescription, description: 'Default meta description (SRS SEO 001)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(LIMITS.metaDescription)
+  metaDescription?: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.supportEmail, description: 'Published contact address; a development domain is refused' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(LIMITS.supportEmail)
+  supportEmail?: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.supportPhone, description: 'Australian phone number; stored normalised' }) @IsOptional() @IsString() @MaxLength(LIMITS.supportPhone) supportPhone?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.websiteUrl }) @IsOptional() @IsString() @MaxLength(LIMITS.websiteUrl) websiteUrl?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.address, description: 'At most four lines' }) @IsOptional() @IsString() @MaxLength(LIMITS.address) address?: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.mediaId, description: 'Ready media asset used as the logo' }) @IsOptional() @IsString() @MaxLength(LIMITS.mediaId) logoMediaId?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.mediaId, description: 'Ready media asset used as the browser icon' }) @IsOptional() @IsString() @MaxLength(LIMITS.mediaId) faviconMediaId?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.mediaId, description: 'Default social share image' }) @IsOptional() @IsString() @MaxLength(LIMITS.mediaId) shareImageMediaId?: string | null;
+
+  @ApiPropertyOptional({ description: 'Contact strip above the public navigation; refused while it would be empty' }) @IsOptional() @IsBoolean() headerTopBarEnabled?: boolean;
+  @ApiPropertyOptional({ type: SocialLinksDto }) @IsOptional() @IsObject() @ValidateNested() @Type(() => SocialLinksDto) social?: SocialLinksDto;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.copyrightText, description: 'Supports {year} and {name}; empty uses the built-in line' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(LIMITS.copyrightText)
+  copyrightText?: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.footerText }) @IsOptional() @IsString() @MaxLength(LIMITS.footerText) footerText?: string | null;
+}
+
+export class UpdateGeneralSettingsDto extends GeneralSettingsDto {
+  @ApiProperty({ minimum: 0, description: 'Version returned by GET; 0 when no settings row has been saved yet' }) @IsInt() @Min(0) expectedVersion!: number;
+}
+
+export class SettingsImageDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() url!: string;
+  @ApiProperty() alt!: string;
+  @ApiProperty() width!: number;
+  @ApiProperty() height!: number;
+}
+
+export class PublicPhoneNumberDto {
+  @ApiProperty({ description: 'Formatted for reading, e.g. 03 9000 0000' }) display!: string;
+  @ApiProperty({ description: 'tel: href for dialling' }) telHref!: string;
+}
+
+/** The stored record as the admin screen reads it back, with branding resolved for preview. */
+export class GeneralSettingsRecordDto extends GeneralSettingsDto {
+  @ApiProperty({ type: PublicPhoneNumberDto, nullable: true, description: 'Normalised phone; null when none is set' }) supportPhoneDisplay!: PublicPhoneNumberDto | null;
+  @ApiProperty({ type: SettingsImageDto, nullable: true }) logo!: SettingsImageDto | null;
+  @ApiProperty({ type: SettingsImageDto, nullable: true }) favicon!: SettingsImageDto | null;
+  @ApiProperty({ type: SettingsImageDto, nullable: true }) shareImage!: SettingsImageDto | null;
+  @ApiProperty() version!: number;
+  @ApiProperty({ format: 'date-time' }) updatedAt!: string;
+  @ApiProperty({ type: String, nullable: true }) updatedByAdminId!: string | null;
+}
+
+export class PublicSocialLinkDto {
+  @ApiProperty({ enum: SOCIAL_PLATFORMS }) platform!: SocialPlatform;
+  @ApiProperty() url!: string;
+}
+
+export class PublicSiteContactDto {
+  @ApiProperty({ type: String, nullable: true, description: 'Published only when a routable address is configured' }) email!: string | null;
+  @ApiProperty({ type: PublicPhoneNumberDto, nullable: true }) phone!: PublicPhoneNumberDto | null;
+  @ApiProperty({ type: String, nullable: true }) websiteUrl!: string | null;
+  @ApiProperty({ type: String, nullable: true, description: 'Free text, at most four lines' }) address!: string | null;
+}
+
+export class PublicSiteBrandingDto {
+  @ApiProperty({ type: SettingsImageDto, nullable: true }) logo!: SettingsImageDto | null;
+  @ApiProperty({ type: SettingsImageDto, nullable: true, description: 'Smallest rendition, used as the browser icon' }) favicon!: SettingsImageDto | null;
+  @ApiProperty({ type: SettingsImageDto, nullable: true, description: 'Default Open Graph image' }) shareImage!: SettingsImageDto | null;
+}
+
+export class PublicSiteFooterDto {
+  @ApiProperty({ type: String, nullable: true, description: 'Template with {year} and {name}; clients render it so the year is never stale' }) copyrightText!: string | null;
+  @ApiProperty({ type: String, nullable: true }) text!: string | null;
+}
+
+/** Everything the public site needs to render its shell (SRS CFG 001, UX 002). */
+export class PublicSiteSettingsDto {
+  @ApiProperty() name!: string;
+  @ApiProperty({ type: String, nullable: true }) shortName!: string | null;
+  @ApiProperty({ type: String, nullable: true }) organisationName!: string | null;
+  @ApiProperty({ type: String, nullable: true }) tagline!: string | null;
+  @ApiProperty({ type: String, nullable: true }) metaDescription!: string | null;
+  @ApiProperty({ type: PublicSiteContactDto }) contact!: PublicSiteContactDto;
+  @ApiProperty({ type: PublicSiteBrandingDto }) branding!: PublicSiteBrandingDto;
+  @ApiProperty({ description: 'Whether the contact strip above the navigation is shown' }) headerTopBarEnabled!: boolean;
+  @ApiProperty({ type: [PublicSocialLinkDto], description: 'Configured profiles in a fixed order; empty when none are set' }) social!: PublicSocialLinkDto[];
+  @ApiProperty({ type: PublicSiteFooterDto }) footer!: PublicSiteFooterDto;
+}

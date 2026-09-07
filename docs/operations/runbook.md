@@ -59,6 +59,7 @@ before launch.
 - **Pools**: size `DATABASE_CONNECTION_LIMIT` per replica so that
   `(api replicas + worker replicas) × limit` stays below the server's
   `max_connections` with headroom for migrations and admin sessions.
+- **Database transport**: `DATABASE_URL` must carry `?sslmode=verify-identity` (or `verify-ca` with `&sslca=<percent-encoded PEM path>`) in production — the API refuses to start otherwise, because an unverified MySQL handshake can be downgraded and the account password read in clear (`docs/security/dependency-advisories.md`). `DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL` must stay `false`.
 - **Networking**: MySQL and Redis listen on private networks only, with TLS
   where the provider supports it. Redis runs with AOF persistence and
   `noeviction` — BullMQ requires it, and the outbox stays the recovery source.
@@ -122,3 +123,23 @@ re-run the media job; processing is idempotent.
 
 **Retry a failed enquiry**: use the Enquiries queue in the admin. The original
 message is stored, so a retry never loses the sender's text.
+
+**Failed email (OPS 004)**. Trigger: the operations status reports failed
+enquiries, the oldest queued job exceeds five minutes, or the worker log shows
+`enquiry.email … failed`. Owner: the on-call responder (§5). Diagnose: read the
+enquiry's `lastError` in the admin (addresses are redacted; the SMTP code and
+response are kept) — a 4xx or a connection/timeout error is transient and the
+queue retries it five times with backoff; a 5xx, `EAUTH` or envelope error is
+permanent and the job stops. Contain: for permanent authentication failures,
+rotate the relay credentials in the secret store and restart the worker (it
+refuses to start with an unauthenticated or plaintext production relay);
+for provider outages, nothing is lost — accepted enquiries stay in the outbox
+and the queue. Recover: retry from the Enquiries queue with a reason once the
+relay answers; a retry reuses the original `Message-ID`, so a duplicate after
+an ambiguous timeout is recognisable to the recipient's mail server. Do not
+resend by hand from a mailbox. Record: the incident, the count of affected
+enquiries and the time to recovery.
+
+## Authorization
+
+Changing, inspecting or recovering administrator access — including the emergency database procedure and `pnpm --filter api authz:verify` — is in [authorization-runbook.md](authorization-runbook.md).

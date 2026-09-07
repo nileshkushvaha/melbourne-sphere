@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from '../../common/pagination.js';
 import { BusinessLinkDto } from './business.dto.js';
 import { HoursExceptionDto, HoursStatusDto, WeeklyHoursDto } from './hours.dto.js';
@@ -25,6 +25,15 @@ export class SearchBusinessesQueryDto {
   @ApiPropertyOptional({ description: 'Category slug; active descendant categories are included' }) @IsOptional() @IsString() @MaxLength(100) @Matches(SLUG, { message: 'category must be a slug' }) category?: string;
   @ApiPropertyOptional({ description: 'Approved local area slug' }) @IsOptional() @IsString() @MaxLength(100) @Matches(SLUG, { message: 'area must be a slug' }) area?: string;
   @ApiPropertyOptional({ minimum: 1, maximum: 5, description: 'Minimum approved average rating' }) @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(5) minRating?: number;
+  @ApiPropertyOptional({
+    description:
+      'Only listings open at the moment of the request, in Melbourne time (SRS DIR 008). Conditional: ignored while published hours coverage is below the threshold, which `meta.openNow.available` reports. Listings without published hours are never included — an absent schedule is not evidence of being open.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => (value === undefined || value === '' ? undefined : value === true || value === 'true' || value === '1'))
+  @IsBoolean()
+  openNow?: boolean;
+
   @ApiPropertyOptional({ enum: SEARCH_SORTS, description: 'Defaults to relevance with q, otherwise name' }) @IsOptional() @IsIn(SEARCH_SORTS) sort?: SearchSort;
   @ApiPropertyOptional({ minimum: 1, default: 1 }) @IsOptional() @Type(() => Number) @IsInt() @Min(1) page = 1;
   @ApiPropertyOptional({ minimum: 1, maximum: MAX_PAGE_SIZE, default: DEFAULT_PAGE_SIZE }) @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(MAX_PAGE_SIZE) pageSize = DEFAULT_PAGE_SIZE;
@@ -136,6 +145,14 @@ export class SearchFacetsDto {
   @ApiProperty({ type: [SearchFacetDto] }) areas!: SearchFacetDto[];
 }
 
+/** Whether the "open now" filter can be offered, and the coverage behind that (SRS DIR 008). */
+export class OpenNowMetaDto {
+  @ApiProperty({ description: 'True when published hours coverage supports the filter; false means it is not offered and is ignored if sent' }) available!: boolean;
+  @ApiProperty({ description: 'Whether this response was filtered to listings open now' }) applied!: boolean;
+  @ApiProperty({ description: 'Published listings that publish a schedule' }) withHours!: number;
+  @ApiProperty({ description: 'Published listings in total' }) published!: number;
+}
+
 export class SearchMetaDto {
   @ApiProperty() page!: number;
   @ApiProperty() pageSize!: number;
@@ -144,6 +161,7 @@ export class SearchMetaDto {
   @ApiProperty({ enum: SEARCH_SORTS }) sort!: SearchSort;
   @ApiProperty({ type: SearchFacetsDto }) facets!: SearchFacetsDto;
   @ApiProperty({ type: [PublicBusinessCardDto], description: 'Featured block (SRS DIR 007): at most three, excluded from data, counts and pagination' }) featured!: PublicBusinessCardDto[];
+  @ApiProperty({ type: OpenNowMetaDto, description: 'Conditional "open now" filter state (SRS DIR 008)' }) openNow!: OpenNowMetaDto;
 }
 
 export class SuggestionsQueryDto {

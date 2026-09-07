@@ -25,13 +25,18 @@
     "admin:bootstrap": "nest build && node dist/cli/bootstrap-admin.js",
     "admin:seed-rbac": "nest build && node dist/cli/bootstrap-admin.js --seed-only",
     "openapi:generate": "nest build && node dist/cli/generate-openapi.js",
-    "taxonomy:seed": "nest build && node dist/cli/seed-taxonomy.js"
+    "taxonomy:seed": "nest build && node dist/cli/seed-taxonomy.js",
+    "authz:verify": "nest build && node dist/cli/verify-authorization.js",
+    "auth:revoke-test-artifacts": "nest build && node dist/cli/revoke-auth-artifacts.js",
+    "auth:artifacts:check": "nest build && node dist/cli/revoke-auth-artifacts.js --check"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1127.0",
     "@aws-sdk/s3-request-presigner": "3.1127.0",
+    "@casl/ability": "7.0.1",
     "@melbourne-sphere/database": "workspace:*",
     "@melbourne-sphere/domain": "workspace:*",
+    "@melbourne-sphere/mail": "workspace:*",
     "@nestjs/common": "^12.0.1",
     "@nestjs/config": "^12.0.0",
     "@nestjs/core": "^12.0.1",
@@ -53,7 +58,6 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^12.0.0",
-    "@nestjs/mau": "^0.2.6",
     "@nestjs/schematics": "^12.0.0",
     "@nestjs/testing": "^12.0.1",
     "@types/express": "^5.0.0",

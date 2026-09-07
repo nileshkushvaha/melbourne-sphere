@@ -1,4 +1,5 @@
 export { PageHeader, type Crumb } from './PageHeader';
+export { PageLoader } from './PageLoader';
 export { SectionCard } from './SectionCard';
 export { EmptyState } from './EmptyState';
 export { StatusTag } from './StatusTag';

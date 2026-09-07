@@ -5,7 +5,9 @@ export class AdminSummaryDto {
   @ApiProperty() email!: string;
   @ApiProperty() displayName!: string;
   @ApiProperty({ type: [String] }) roles!: string[];
-  @ApiProperty({ type: [String], description: 'Effective permission keys (resource.action)' }) permissions!: string[];
+  @ApiProperty({ type: [String], description: 'Effective permission keys (resource.action): inherited ∪ direct' }) permissions!: string[];
+  @ApiProperty({ type: [String], description: 'Permissions inherited through active roles' }) inheritedPermissions!: string[];
+  @ApiProperty({ type: [String], description: 'Permissions granted directly to this administrator' }) directPermissions!: string[];
   @ApiProperty() totpEnabled!: boolean;
 }
 

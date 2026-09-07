@@ -10,6 +10,7 @@ import { DatabaseModule } from './database/database.module.js';
 import { DirectoryModule } from './directory/directory.module.js';
 import { HealthModule } from './health/health.module.js';
 import { IdentityModule } from './identity/identity.module.js';
+import { AuthorizationModule } from './authorization/authorization.module.js';
 import { OperationsModule } from './operations/operations.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { MediaModule } from './media/media.module.js';
@@ -22,7 +23,7 @@ import { SiteModule } from './site/site.module.js';
 import { TaxonomyModule } from './taxonomy/taxonomy.module.js';
 
 @Module({
-  imports: [AppConfigModule, CacheModule, CaptchaModule, DatabaseModule, RedisModule, AuditModule, IdentityModule, AuthModule, AdminsModule, TaxonomyModule, DirectoryModule, ReviewsModule,
+  imports: [AppConfigModule, CacheModule, CaptchaModule, DatabaseModule, RedisModule, AuditModule, AuthorizationModule, IdentityModule, AuthModule, AdminsModule, TaxonomyModule, DirectoryModule, ReviewsModule,
     EnquiriesModule,
     BlogModule,
     MediaModule,

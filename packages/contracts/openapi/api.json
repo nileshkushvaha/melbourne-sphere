@@ -123,6 +123,316 @@
         ]
       }
     },
+    "/api/v1/admin/permissions": {
+      "get": {
+        "operationId": "AuthorizationController_permissions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "The registered permission catalogue, grouped by module (read-only)",
+        "tags": [
+          "admin-authorization"
+        ]
+      }
+    },
+    "/api/v1/admin/roles": {
+      "get": {
+        "operationId": "AuthorizationController_listRoles",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "asc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Matches the role key or name",
+            "schema": {
+              "maxLength": 80,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List roles (paginated; q)",
+        "tags": [
+          "admin-authorization"
+        ]
+      },
+      "post": {
+        "operationId": "AuthorizationController_createRole",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a role",
+        "tags": [
+          "admin-authorization"
+        ]
+      }
+    },
+    "/api/v1/admin/roles/{id}": {
+      "get": {
+        "operationId": "AuthorizationController_getRole",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "One role with the permissions it carries",
+        "tags": [
+          "admin-authorization"
+        ]
+      },
+      "patch": {
+        "operationId": "AuthorizationController_updateRole",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Edit role details or activation (expectedVersion required)",
+        "tags": [
+          "admin-authorization"
+        ]
+      },
+      "delete": {
+        "operationId": "AuthorizationController_deleteRole",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Delete an unused, non-system role",
+        "tags": [
+          "admin-authorization"
+        ]
+      }
+    },
+    "/api/v1/admin/roles/{id}/permissions": {
+      "put": {
+        "operationId": "AuthorizationController_replaceRolePermissions",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceRolePermissionsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Replace a role's permissions completely (idempotent; expectedVersion required)",
+        "tags": [
+          "admin-authorization"
+        ]
+      }
+    },
+    "/api/v1/admin/admins/{id}/access": {
+      "get": {
+        "operationId": "AuthorizationController_adminAccess",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "An administrator's roles, direct permissions, effective permissions and their sources",
+        "tags": [
+          "admin-authorization"
+        ]
+      }
+    },
+    "/api/v1/admin/admins/{id}/roles": {
+      "put": {
+        "operationId": "AuthorizationController_replaceAdminRoles",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceAdminRolesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Replace an administrator's roles completely (expectedVersion required)",
+        "tags": [
+          "admin-authorization"
+        ]
+      }
+    },
+    "/api/v1/admin/admins/{id}/permissions": {
+      "put": {
+        "operationId": "AuthorizationController_replaceAdminPermissions",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceAdminPermissionsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Replace an administrator's direct permissions completely (expectedVersion required)",
+        "tags": [
+          "admin-authorization"
+        ]
+      }
+    },
     "/api/v1/admin/auth/login": {
       "post": {
         "operationId": "AuthController_login",
@@ -2363,6 +2673,15 @@
               "minimum": 1,
               "maximum": 5,
               "type": "number"
+            }
+          },
+          {
+            "name": "openNow",
+            "required": false,
+            "in": "query",
+            "description": "Only listings open at the moment of the request, in Melbourne time (SRS DIR 008). Conditional: ignored while published hours coverage is below the threshold, which `meta.openNow.available` reports. Listings without published hours are never included — an absent schedule is not evidence of being open.",
+            "schema": {
+              "type": "boolean"
             }
           },
           {
@@ -5542,6 +5861,28 @@
         ]
       }
     },
+    "/api/v1/site/settings": {
+      "get": {
+        "operationId": "SiteSettingsPublicController_settingsPayload",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSiteSettingsDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Application name, contact details, branding, header bar and footer",
+        "tags": [
+          "public-site"
+        ]
+      }
+    },
     "/api/v1/admin/settings/home": {
       "get": {
         "operationId": "SettingsAdminController_get",
@@ -5588,6 +5929,58 @@
           }
         },
         "summary": "Replace the home settings (expectedVersion; audited)",
+        "tags": [
+          "admin-settings"
+        ]
+      }
+    },
+    "/api/v1/admin/settings/general": {
+      "get": {
+        "operationId": "SettingsAdminController_getGeneral",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneralSettingsRecordDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Application information, branding, header bar and footer",
+        "tags": [
+          "admin-settings"
+        ]
+      },
+      "put": {
+        "operationId": "SettingsAdminController_putGeneral",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGeneralSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneralSettingsRecordDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Replace the general settings (expectedVersion; audited)",
         "tags": [
           "admin-settings"
         ]
@@ -5889,6 +6282,119 @@
         "type": "object",
         "properties": {}
       },
+      "CreateRoleDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Stable key: lower-case letters, digits and underscores",
+            "example": "editor"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "permissions": {
+            "description": "Registered permission codes this role carries",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "description",
+          "permissions"
+        ]
+      },
+      "UpdateRoleDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "An inactive role grants nothing"
+          },
+          "expectedVersion": {
+            "type": "number",
+            "description": "Version the edit was made against; a mismatch is refused with 409"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "ReplaceRolePermissionsDto": {
+        "type": "object",
+        "properties": {
+          "permissions": {
+            "description": "The complete set after the change; anything absent is removed",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expectedVersion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "permissions",
+          "expectedVersion"
+        ]
+      },
+      "ReplaceAdminRolesDto": {
+        "type": "object",
+        "properties": {
+          "roleIds": {
+            "description": "The complete set of role ids after the change",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expectedVersion": {
+            "type": "number",
+            "description": "The administrator record's version"
+          }
+        },
+        "required": [
+          "roleIds",
+          "expectedVersion"
+        ]
+      },
+      "ReplaceAdminPermissionsDto": {
+        "type": "object",
+        "properties": {
+          "permissions": {
+            "description": "The complete set of directly granted permission codes after the change",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expectedVersion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "permissions",
+          "expectedVersion"
+        ]
+      },
       "LoginDto": {
         "type": "object",
         "properties": {
@@ -5928,7 +6434,21 @@
             }
           },
           "permissions": {
-            "description": "Effective permission keys (resource.action)",
+            "description": "Effective permission keys (resource.action): inherited ∪ direct",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inheritedPermissions": {
+            "description": "Permissions inherited through active roles",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "directPermissions": {
+            "description": "Permissions granted directly to this administrator",
             "type": "array",
             "items": {
               "type": "string"
@@ -5944,6 +6464,8 @@
           "displayName",
           "roles",
           "permissions",
+          "inheritedPermissions",
+          "directPermissions",
           "totpEnabled"
         ]
       },
@@ -6924,6 +7446,7 @@
               "linkedin",
               "youtube",
               "tiktok",
+              "pinterest",
               "other"
             ]
           },
@@ -7057,6 +7580,7 @@
               "linkedin",
               "youtube",
               "tiktok",
+              "pinterest",
               "other"
             ]
           },
@@ -7963,6 +8487,33 @@
           "areas"
         ]
       },
+      "OpenNowMetaDto": {
+        "type": "object",
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "description": "True when published hours coverage supports the filter; false means it is not offered and is ignored if sent"
+          },
+          "applied": {
+            "type": "boolean",
+            "description": "Whether this response was filtered to listings open now"
+          },
+          "withHours": {
+            "type": "number",
+            "description": "Published listings that publish a schedule"
+          },
+          "published": {
+            "type": "number",
+            "description": "Published listings in total"
+          }
+        },
+        "required": [
+          "available",
+          "applied",
+          "withHours",
+          "published"
+        ]
+      },
       "SearchMetaDto": {
         "type": "object",
         "properties": {
@@ -7996,6 +8547,14 @@
             "items": {
               "$ref": "#/components/schemas/PublicBusinessCardDto"
             }
+          },
+          "openNow": {
+            "description": "Conditional \"open now\" filter state (SRS DIR 008)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OpenNowMetaDto"
+              }
+            ]
           }
         },
         "required": [
@@ -8005,7 +8564,8 @@
           "pageCount",
           "sort",
           "facets",
-          "featured"
+          "featured",
+          "openNow"
         ]
       },
       "PublicPhoneDto": {
@@ -9079,6 +9639,7 @@
               "linkedin",
               "youtube",
               "tiktok",
+              "pinterest",
               "threads",
               "mastodon",
               "github",
@@ -11369,6 +11930,219 @@
           "heroSlides"
         ]
       },
+      "PublicPhoneNumberDto": {
+        "type": "object",
+        "properties": {
+          "display": {
+            "type": "string",
+            "description": "Formatted for reading, e.g. 03 9000 0000"
+          },
+          "telHref": {
+            "type": "string",
+            "description": "tel: href for dialling"
+          }
+        },
+        "required": [
+          "display",
+          "telHref"
+        ]
+      },
+      "PublicSiteContactDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "description": "Published only when a routable address is configured"
+          },
+          "phone": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicPhoneNumberDto"
+              }
+            ]
+          },
+          "websiteUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true,
+            "description": "Free text, at most four lines"
+          }
+        },
+        "required": [
+          "email",
+          "phone",
+          "websiteUrl",
+          "address"
+        ]
+      },
+      "SettingsImageDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "alt": {
+            "type": "string"
+          },
+          "width": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "alt",
+          "width",
+          "height"
+        ]
+      },
+      "PublicSiteBrandingDto": {
+        "type": "object",
+        "properties": {
+          "logo": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettingsImageDto"
+              }
+            ]
+          },
+          "favicon": {
+            "nullable": true,
+            "description": "Smallest rendition, used as the browser icon",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettingsImageDto"
+              }
+            ]
+          },
+          "shareImage": {
+            "nullable": true,
+            "description": "Default Open Graph image",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettingsImageDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "logo",
+          "favicon",
+          "shareImage"
+        ]
+      },
+      "PublicSocialLinkDto": {
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string",
+            "enum": [
+              "facebook",
+              "instagram",
+              "x",
+              "youtube",
+              "pinterest"
+            ]
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform",
+          "url"
+        ]
+      },
+      "PublicSiteFooterDto": {
+        "type": "object",
+        "properties": {
+          "copyrightText": {
+            "type": "string",
+            "nullable": true,
+            "description": "Template with {year} and {name}; clients render it so the year is never stale"
+          },
+          "text": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "copyrightText",
+          "text"
+        ]
+      },
+      "PublicSiteSettingsDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "shortName": {
+            "type": "string",
+            "nullable": true
+          },
+          "organisationName": {
+            "type": "string",
+            "nullable": true
+          },
+          "tagline": {
+            "type": "string",
+            "nullable": true
+          },
+          "metaDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "contact": {
+            "$ref": "#/components/schemas/PublicSiteContactDto"
+          },
+          "branding": {
+            "$ref": "#/components/schemas/PublicSiteBrandingDto"
+          },
+          "headerTopBarEnabled": {
+            "type": "boolean",
+            "description": "Whether the contact strip above the navigation is shown"
+          },
+          "social": {
+            "description": "Configured profiles in a fixed order; empty when none are set",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicSocialLinkDto"
+            }
+          },
+          "footer": {
+            "$ref": "#/components/schemas/PublicSiteFooterDto"
+          }
+        },
+        "required": [
+          "name",
+          "shortName",
+          "organisationName",
+          "tagline",
+          "metaDescription",
+          "contact",
+          "branding",
+          "headerTopBarEnabled",
+          "social",
+          "footer"
+        ]
+      },
       "HeroSlideDto": {
         "type": "object",
         "properties": {
@@ -11454,6 +12228,289 @@
           "version",
           "updatedAt",
           "updatedByAdminId"
+        ]
+      },
+      "SocialLinksDto": {
+        "type": "object",
+        "properties": {
+          "facebook": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300
+          },
+          "instagram": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300
+          },
+          "x": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300
+          },
+          "youtube": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300
+          },
+          "pinterest": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300
+          }
+        }
+      },
+      "GeneralSettingsRecordDto": {
+        "type": "object",
+        "properties": {
+          "applicationName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80,
+            "description": "Public name used in the header, page titles and the copyright line"
+          },
+          "shortName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 20,
+            "description": "Compact name for tight spaces"
+          },
+          "organisationName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "tagline": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120,
+            "description": "Shown after the name in the browser title"
+          },
+          "metaDescription": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300,
+            "description": "Default meta description (SRS SEO 001)"
+          },
+          "supportEmail": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 254,
+            "description": "Published contact address; a development domain is refused"
+          },
+          "supportPhone": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 30,
+            "description": "Australian phone number; stored normalised"
+          },
+          "websiteUrl": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200
+          },
+          "address": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300,
+            "description": "At most four lines"
+          },
+          "logoMediaId": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64,
+            "description": "Ready media asset used as the logo"
+          },
+          "faviconMediaId": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64,
+            "description": "Ready media asset used as the browser icon"
+          },
+          "shareImageMediaId": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64,
+            "description": "Default social share image"
+          },
+          "headerTopBarEnabled": {
+            "type": "boolean",
+            "description": "Contact strip above the public navigation; refused while it would be empty"
+          },
+          "social": {
+            "$ref": "#/components/schemas/SocialLinksDto"
+          },
+          "copyrightText": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200,
+            "description": "Supports {year} and {name}; empty uses the built-in line"
+          },
+          "footerText": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 600
+          },
+          "supportPhoneDisplay": {
+            "nullable": true,
+            "description": "Normalised phone; null when none is set",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicPhoneNumberDto"
+              }
+            ]
+          },
+          "logo": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettingsImageDto"
+              }
+            ]
+          },
+          "favicon": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettingsImageDto"
+              }
+            ]
+          },
+          "shareImage": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettingsImageDto"
+              }
+            ]
+          },
+          "version": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedByAdminId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "applicationName",
+          "supportPhoneDisplay",
+          "logo",
+          "favicon",
+          "shareImage",
+          "version",
+          "updatedAt",
+          "updatedByAdminId"
+        ]
+      },
+      "UpdateGeneralSettingsDto": {
+        "type": "object",
+        "properties": {
+          "applicationName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80,
+            "description": "Public name used in the header, page titles and the copyright line"
+          },
+          "shortName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 20,
+            "description": "Compact name for tight spaces"
+          },
+          "organisationName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "tagline": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120,
+            "description": "Shown after the name in the browser title"
+          },
+          "metaDescription": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300,
+            "description": "Default meta description (SRS SEO 001)"
+          },
+          "supportEmail": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 254,
+            "description": "Published contact address; a development domain is refused"
+          },
+          "supportPhone": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 30,
+            "description": "Australian phone number; stored normalised"
+          },
+          "websiteUrl": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200
+          },
+          "address": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300,
+            "description": "At most four lines"
+          },
+          "logoMediaId": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64,
+            "description": "Ready media asset used as the logo"
+          },
+          "faviconMediaId": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64,
+            "description": "Ready media asset used as the browser icon"
+          },
+          "shareImageMediaId": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64,
+            "description": "Default social share image"
+          },
+          "headerTopBarEnabled": {
+            "type": "boolean",
+            "description": "Contact strip above the public navigation; refused while it would be empty"
+          },
+          "social": {
+            "$ref": "#/components/schemas/SocialLinksDto"
+          },
+          "copyrightText": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200,
+            "description": "Supports {year} and {name}; empty uses the built-in line"
+          },
+          "footerText": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 600
+          },
+          "expectedVersion": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Version returned by GET; 0 when no settings row has been saved yet"
+          }
+        },
+        "required": [
+          "applicationName",
+          "expectedVersion"
         ]
       },
       "UpdateHomeSettingsDto": {

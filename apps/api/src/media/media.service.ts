@@ -232,13 +232,22 @@ export class MediaService {
    * never be rendered publicly (SRS MED 002/003).
    */
   async publicImageRef(assetId: string | null | undefined): Promise<{ id: string; url: string; alt: string } | null> {
+    return this.publicImageRefOfKind(assetId, 'card');
+  }
+
+  /**
+   * The same reference at a chosen rendition: a favicon wants the smallest
+   * variant, a share card the largest. Falls back to the nearest processed
+   * variant, and still returns null unless the asset is ready.
+   */
+  async publicImageRefOfKind(assetId: string | null | undefined, preferred: 'thumbnail' | 'card' | 'hero'): Promise<{ id: string; url: string; alt: string; width: number; height: number } | null> {
     if (!assetId) return null;
     const db = await this.database.client();
     const asset = await db.mediaAsset.findUnique({ where: { id: assetId }, include: { variants: true } });
     if (!asset || asset.status !== 'ready') return null;
     const variants = this.variantDtos(asset.variants);
-    const chosen = variants.find((variant) => variant.kind === 'card') ?? variants[0];
-    return chosen ? { id: asset.id, url: chosen.url, alt: asset.altText ?? '' } : null;
+    const chosen = variants.find((variant) => variant.kind === preferred) ?? variants[0];
+    return chosen ? { id: asset.id, url: chosen.url, alt: asset.altText ?? '', width: chosen.width, height: chosen.height } : null;
   }
 
   /**

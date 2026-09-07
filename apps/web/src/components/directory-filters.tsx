@@ -9,6 +9,12 @@ interface Props {
   areas: PublicArea[];
   /** Filters fixed by the page (curated category/area pages hide their own selector). */
   fixed?: { category?: boolean; area?: boolean };
+  /**
+   * Whether the API is offering "open now" (SRS DIR 008). It is conditional on
+   * published hours coverage, so the control appears only when the filter would
+   * give an honest answer — never as a disabled or misleading option.
+   */
+  openNowAvailable?: boolean;
 }
 
 /**
@@ -16,7 +22,7 @@ interface Props {
  * round-trips through the URL (SRS DIR 006). The layout is a single column on
  * a phone and a toolbar on wider screens, with the action always reachable.
  */
-export function DirectoryFilters({ action, state, categories, areas, fixed = {} }: Props) {
+export function DirectoryFilters({ action, state, categories, areas, fixed = {}, openNowAvailable = false }: Props) {
   // Static class names: Tailwind only generates classes it can see in the source,
   // so the column count is chosen from a literal map rather than interpolated.
   const columnClass = { 2: 'lg:grid-cols-2', 3: 'lg:grid-cols-3', 4: 'lg:grid-cols-4' }[2 + (fixed.category ? 0 : 1) + (fixed.area ? 0 : 1)] ?? 'lg:grid-cols-4';
@@ -75,6 +81,17 @@ export function DirectoryFilters({ action, state, categories, areas, fixed = {} 
             ))}
           </Select>
         </div>
+        {openNowAvailable && (
+          <div className="flex items-end">
+            <label htmlFor="openNow" className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm">
+              <input id="openNow" name="openNow" type="checkbox" value="1" defaultChecked={state.openNow} className="size-4" />
+              <span>
+                Open now
+                <span className="block text-xs text-text-muted">Listings with published hours only</span>
+              </span>
+            </label>
+          </div>
+        )}
         <div>
           <Label htmlFor="sort">Sort by</Label>
           <Select id="sort" name="sort" defaultValue={state.sort ?? ''}>

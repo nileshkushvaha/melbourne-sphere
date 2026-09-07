@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, App, Button, Col, Form, Input, List, Row, Typography } from 'antd';
-import { useOnError, usePermissions } from '@refinedev/core';
+import { useOnError } from '@refinedev/core';
 import { pagesApi, type StaticPage } from '@/api/settings';
 import { isApiError } from '@/api/errors';
 import { toNamePath } from '@/api/businesses';
@@ -9,6 +9,8 @@ import { EmptyState, PageHeader, SectionCard, StatusTag, StickyActions } from '@
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 interface FormValues {
   title: string;
@@ -33,8 +35,8 @@ export function StaticPagesPage() {
   const api = pagesApi();
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
-  const { data: permissions } = usePermissions<string[]>({});
-  const canManage = (permissions ?? []).includes('settings.manage');
+  const { can } = useCapabilities();
+  const canManage = can(PERMISSION.settingsManage);
   const [form] = Form.useForm<FormValues>();
   const [selected, setSelected] = useState<string>('about');
   const [saving, setSaving] = useState(false);

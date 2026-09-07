@@ -16,10 +16,12 @@ Retries follow the shared policy in `@melbourne-sphere/domain`: five attempts wi
 
 ## Configuration
 
-Reads the same variables as the API (`DATABASE_URL`, `REDIS_URL`, `FIELD_ENCRYPTION_KEY`, `MAIL_TRANSPORT`, `MAIL_FROM_ADDRESS`, `SITE_ENQUIRY_RECIPIENT`, `WORKER_CONCURRENCY`). Startup validation lists every problem at once and **refuses to run in production** with the console transport, without a verified sender, or without an email provider adapter (decision D03 — no provider account exists yet).
+Reads the same variables as the API (`DATABASE_URL`, `REDIS_URL`, `FIELD_ENCRYPTION_KEY`, `MAIL_TRANSPORT`, `SMTP_HOST`/`SMTP_PORT`/`SMTP_SECURE`/`SMTP_USER`/`SMTP_PASSWORD`, `MAIL_FROM_ADDRESS`, `SITE_ENQUIRY_RECIPIENT`, `MEDIA_S3_*`, `WORKER_CONCURRENCY`, `WEB_REVALIDATE_*`). Startup validation lists every problem at once, names variables but never values, and **refuses to run in production** unless `MAIL_TRANSPORT=smtp` with an authenticated, TLS-protected, non-loopback relay and a verified sender.
+
+Transports: `console` prints the message (development only); `smtp` sends through `@melbourne-sphere/mail`, the provider-independent adapter that any relay chosen under decision D03 plugs into. Locally `smtp` points at the Compose Mailpit catcher (inbox at http://127.0.0.1:8025). One attempt per job: the adapter classifies the failure and the queue decides whether to retry. The `Message-ID` is the enquiry's stable id, so a retry after an ambiguous timeout carries the same identifier. Error text stored on the enquiry is redacted of addresses before it is thrown.
 
 ## Commands
 
 `pnpm dev:worker` (watch) · `pnpm --filter worker build` · `pnpm --filter worker test` · `pnpm --filter worker lint` · `pnpm --filter worker typecheck`.
 
-Mail composition and queue policy live in `packages/domain` so the API and the worker apply the same rules (SRS ARC 002).
+Message construction and validation (header injection, address shape, subject and body bounds) live in `@melbourne-sphere/mail`; mail composition and queue policy live in `packages/domain` so the API and the worker apply the same rules (SRS ARC 002).

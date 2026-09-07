@@ -7,7 +7,7 @@ import { APP_CREATE_OPTIONS, configureApp } from '../src/app.setup.js';
 import { MailerPort } from '../src/auth/mailer/mailer.port.js';
 import { SESSION_COOKIE_NAME } from '../src/auth/session.service.js';
 import { AuthFixtureController, CapturingMailer, ORIGIN, TEST_ADMIN, clearThrottleKeys, seedSuperAdmin } from './integration/auth-fixtures.js';
-import { closeTestDatabase, testDatabase, truncateApplicationTables } from './integration/harness.js';
+import { closeTestDatabase, listenForTests, testDatabase, truncateApplicationTables } from './integration/harness.js';
 
 const COOKIE_RE = /^ms_admin_session=([^;]+);(.*)$/;
 
@@ -35,7 +35,8 @@ describe('Administrator authentication and RBAC (integration)', () => {
     const nest = moduleRef.createNestApplication<NestExpressApplication>({ ...APP_CREATE_OPTIONS, logger: false });
     configureApp(nest, { trustProxy: 1 });
     await nest.init();
-    app = nest;
+    // One stable port for the file; see listenForTests.
+    app = await listenForTests(nest);
     await clearThrottleKeys(app);
     await seedSuperAdmin(app);
   });
@@ -141,10 +142,17 @@ describe('Administrator authentication and RBAC (integration)', () => {
       const db = testDatabase();
       const perm = await db.permission.findUniqueOrThrow({ where: { key: 'listings.read' } });
       await db.rolePermission.deleteMany({ where: { permissionId: perm.id } });
+      // Effective permissions are cached under the administrator's authorization
+      // version; every API path that changes access increments it in the same
+      // transaction (SRS RBAC 009). This test edits the tables directly, so it
+      // signals the change the same way rather than waiting for a TTL.
+      await db.adminUser.updateMany({ data: { authzVersion: { increment: 1 } } });
       const forbidden = await agent().get('/api/v1/admin/__fixture/protected').set('Cookie', cookie).expect(403);
       expect(forbidden.body.error).toMatchObject({ code: 'FORBIDDEN', fields: {} });
       const role = await db.role.findUniqueOrThrow({ where: { key: 'super_admin' } });
       await db.rolePermission.create({ data: { roleId: role.id, permissionId: perm.id } });
+      await db.adminUser.updateMany({ data: { authzVersion: { increment: 1 } } });
+      await agent().get('/api/v1/admin/__fixture/protected').set('Cookie', cookie).expect(200);
     });
 
     it('mutations require a trusted origin even with a valid session', async () => {

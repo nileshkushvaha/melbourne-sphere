@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { IdentityModule } from '../identity/identity.module.js';
+import { AuthorizationModule } from '../authorization/authorization.module.js';
+import { SensitiveThrottleGuard } from '../authorization/sensitive-throttle.guard.js';
 import type { EnvironmentVariables } from '../config/env.validation.js';
 import { AccountService } from './account.service.js';
 import { AuthController } from './auth.controller.js';
@@ -15,6 +17,7 @@ import { LoginThrottleService } from './login-throttle.service.js';
 import { ConsoleMailer } from './mailer/console-mailer.js';
 import { MailerPort } from './mailer/mailer.port.js';
 import { NullMailer } from './mailer/null-mailer.js';
+import { SmtpMailer } from './mailer/smtp-mailer.js';
 import { PasswordService } from './password.service.js';
 import { SessionService } from './session.service.js';
 
@@ -24,7 +27,7 @@ import { SessionService } from './session.service.js';
  * future admin controller inherits them without opting in.
  */
 @Module({
-  imports: [IdentityModule],
+  imports: [IdentityModule, AuthorizationModule],
   controllers: [AuthController],
   providers: [
     PasswordService,
@@ -36,13 +39,19 @@ import { SessionService } from './session.service.js';
     FieldEncryptionService,
     {
       provide: MailerPort,
-      useFactory: (config: ConfigService<EnvironmentVariables, true>) =>
-        config.get('MAIL_TRANSPORT', { infer: true }) === 'console' ? new ConsoleMailer() : new NullMailer(),
+      useFactory: (config: ConfigService<EnvironmentVariables, true>) => {
+        const transport = config.get('MAIL_TRANSPORT', { infer: true });
+        if (transport === 'smtp') return SmtpMailer.fromConfig(config);
+        return transport === 'console' ? new ConsoleMailer() : new NullMailer();
+      },
       inject: [ConfigService],
     },
     { provide: APP_GUARD, useClass: CsrfOriginGuard },
     { provide: APP_GUARD, useClass: SessionAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
+    // Last in the chain: it meters what an already-authorised administrator may
+    // do in a burst, and never converts a missing permission into a 429.
+    { provide: APP_GUARD, useClass: SensitiveThrottleGuard },
   ],
   exports: [SessionService, PasswordService, MailerPort, FieldEncryptionService],
 })

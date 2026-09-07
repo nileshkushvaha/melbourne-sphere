@@ -1,14 +1,15 @@
 import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, type BusinessAddress, type BusinessLink, type Category, type HoursException, type LocalArea, type OpeningInterval } from '@melbourne-sphere/database';
+import { Prisma, type BusinessAddress, type DatabaseClient, type BusinessLink, type Category, type HoursException, type LocalArea, type OpeningInterval } from '@melbourne-sphere/database';
 import { CacheService } from '../../cache/cache.service.js';
 import { DatabaseService } from '../../database/database.service.js';
 import { ObjectStoragePort } from '../../media/storage.port.js';
 import { parseAustralianPhone } from '../business-rules.js';
 import { evaluateHours } from '../hours/hours-rules.js';
-import { localDateKey, toLocal } from '../hours/melbourne-time.js';
+import { localDateKey, melbourneMinuteKey, toLocal } from '../hours/melbourne-time.js';
 import { scheduleFromRows } from '../hours/hours.service.js';
 import { MAX_RESULT_WINDOW, type PublicBusinessCardDto, type PublicBusinessDetailDto, type PublicRatingBucketDto, type SearchBusinessesQueryDto, type SearchFacetDto, type SearchMetaDto } from '../dto/public-business.dto.js';
 import { directionsUrl, effectiveSort, escapeLike, normaliseQuery, ratingAverage } from './search-rules.js';
+import { HOURS_COVERAGE_SQL, openNowAvailable, openNowSql, type OpenNowAvailability } from '../hours/open-now.js';
 
 const cardInclude = {
   primaryCategory: { select: { name: true, slug: true } },
@@ -60,7 +61,11 @@ export class SearchService {
   async search(query: SearchBusinessesQueryDto): Promise<{ data: PublicBusinessCardDto[]; meta: SearchMetaDto }> {
     // Query results are cached for 30 s under the publication namespace, and the
     // key carries every input that changes the answer (SRS CACHE 001/003).
-    const key = `search:${JSON.stringify([query.q ?? '', query.category ?? '', query.area ?? '', query.minRating ?? '', query.sort ?? '', query.page, query.pageSize])}`;
+    // "Open now" answers change with the clock, so its key carries the Melbourne
+    // minute the answer is for; without that a cached page would claim a shop is
+    // open after it has closed (SRS DIR 008, CACHE 001).
+    const minuteStamp = query.openNow ? melbourneMinuteKey(new Date()) : '';
+    const key = `search:${JSON.stringify([query.q ?? '', query.category ?? '', query.area ?? '', query.minRating ?? '', query.sort ?? '', query.page, query.pageSize, query.openNow ? 'open' : '', minuteStamp])}`;
     return this.cache.getOrSet(key, SEARCH_CACHE_SECONDS, () => this.runSearch(query));
   }
 
@@ -72,7 +77,17 @@ export class SearchService {
     }
     const q = normaliseQuery(query.q);
     const sort = effectiveSort(query.sort, q);
-    const emptyMeta = (): SearchMetaDto => ({ page, pageSize, total: 0, pageCount: 1, sort, facets: { categories: [], areas: [] }, featured: [] });
+    const emptyMeta = (): SearchMetaDto => ({
+      page,
+      pageSize,
+      total: 0,
+      pageCount: 1,
+      sort,
+      facets: { categories: [], areas: [] },
+      featured: [],
+      // An unknown slug matches nothing; it says nothing about hours coverage.
+      openNow: { available: false, applied: false, withHours: 0, published: 0 },
+    });
 
     // Unknown slugs are valid input that matches nothing (DIR 005).
     let categoryIds: string[] | null = null;
@@ -101,8 +116,15 @@ export class SearchService {
       ids ? Prisma.sql`AND (b.primaryCategoryId IN (${Prisma.join(ids)}) OR EXISTS (SELECT 1 FROM business_categories bcf WHERE bcf.businessId = b.id AND bcf.categoryId IN (${Prisma.join(ids)})))` : Prisma.empty;
     const areaWhere = (id: string | null) => (id ? Prisma.sql`AND b.localAreaId = ${id}` : Prisma.empty);
     const ratingWhere = query.minRating ? Prisma.sql`AND r.approvedCount > 0 AND r.ratingSum >= ${query.minRating} * r.approvedCount` : Prisma.empty;
+    // "Open now" is conditional (SRS DIR 008): it is applied only when published
+    // hours coverage supports it. Below the threshold the request is answered
+    // unfiltered and `meta.openNow.available` says why, rather than returning a
+    // short list that looks like "nothing is open".
+    const coverage = await this.openNowCoverage(db);
+    const openNowApplied = query.openNow === true && coverage.available;
+    const openNowWhere = openNowApplied ? openNowSql(new Date()) : Prisma.empty;
     const from = Prisma.sql`FROM businesses b JOIN categories c ON c.id = b.primaryCategoryId LEFT JOIN business_ratings r ON r.businessId = b.id WHERE b.status = 'published'`;
-    const whereAll = Prisma.sql`${from} ${keywordWhere} ${categoryWhere(categoryIds)} ${areaWhere(areaId)} ${ratingWhere}`;
+    const whereAll = Prisma.sql`${from} ${keywordWhere} ${categoryWhere(categoryIds)} ${areaWhere(areaId)} ${ratingWhere} ${openNowWhere}`;
 
     const rank = like ? Prisma.sql`CASE WHEN b.name = ${q} THEN 0 WHEN b.name LIKE ${prefix} THEN 1 WHEN b.name LIKE ${like} THEN 2 WHEN ${labelMatch} THEN 3 ELSE 4 END` : Prisma.sql`0`;
     const orderBy = {
@@ -130,8 +152,8 @@ export class SearchService {
     const [idRows, countRows, categoryFacets, areaFacets] = await Promise.all([
       db.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT b.id ${organicWhere} ${orderBy} LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`),
       db.$queryRaw<{ total: bigint }[]>(Prisma.sql`SELECT COUNT(*) AS total ${organicWhere}`),
-      db.$queryRaw<{ id: string; count: bigint }[]>(Prisma.sql`SELECT b.primaryCategoryId AS id, COUNT(*) AS count ${from} ${keywordWhere} ${areaWhere(areaId)} ${ratingWhere} GROUP BY b.primaryCategoryId`),
-      db.$queryRaw<{ id: string; count: bigint }[]>(Prisma.sql`SELECT b.localAreaId AS id, COUNT(*) AS count ${from} ${keywordWhere} ${categoryWhere(categoryIds)} ${ratingWhere} GROUP BY b.localAreaId`),
+      db.$queryRaw<{ id: string; count: bigint }[]>(Prisma.sql`SELECT b.primaryCategoryId AS id, COUNT(*) AS count ${from} ${keywordWhere} ${areaWhere(areaId)} ${ratingWhere} ${openNowWhere} GROUP BY b.primaryCategoryId`),
+      db.$queryRaw<{ id: string; count: bigint }[]>(Prisma.sql`SELECT b.localAreaId AS id, COUNT(*) AS count ${from} ${keywordWhere} ${categoryWhere(categoryIds)} ${ratingWhere} ${openNowWhere} GROUP BY b.localAreaId`),
     ]);
     const total = Number(countRows[0]?.total ?? 0);
     const ids = idRows.map((r) => r.id);
@@ -141,7 +163,37 @@ export class SearchService {
     const cardsFor = (list: string[]) => list.map((id) => byId.get(id)).filter((r): r is CardRow => r !== undefined).map((r) => this.toCard(r));
     const data = cardsFor(ids);
     const facets = { categories: await this.facetTerms('category', categoryFacets, db), areas: await this.facetTerms('area', areaFacets, db) };
-    return { data, meta: { page, pageSize, total, pageCount: Math.max(1, Math.ceil(total / pageSize)), sort, facets, featured: cardsFor(featuredIds) } };
+    return {
+      data,
+      meta: {
+        page,
+        pageSize,
+        total,
+        pageCount: Math.max(1, Math.ceil(total / pageSize)),
+        sort,
+        facets,
+        featured: cardsFor(featuredIds),
+        openNow: { available: coverage.available, applied: openNowApplied, withHours: coverage.withHours, published: coverage.published },
+      },
+    };
+  }
+
+  /**
+   * Hours coverage across published listings, which decides whether the
+   * conditional "open now" filter is offered at all (SRS DIR 008). Cached for a
+   * minute: it changes only when listings are published or their hours edited,
+   * and it is read on every search.
+   */
+  private async openNowCoverage(db: DatabaseClient): Promise<OpenNowAvailability & { available: boolean }> {
+    return this.cache.getOrSet('search:open-now-coverage', 60, async () => {
+      const rows = await db.$queryRaw<{ published: bigint; withHours: bigint }[]>(
+        Prisma.sql`SELECT COUNT(*) AS published, SUM(CASE WHEN ${HOURS_COVERAGE_SQL} THEN 1 ELSE 0 END) AS withHours
+                   FROM businesses b WHERE b.status = 'published'`,
+      );
+      const published = Number(rows[0]?.published ?? 0);
+      const withHours = Number(rows[0]?.withHours ?? 0);
+      return { published, withHours, available: openNowAvailable(withHours, published) };
+    });
   }
 
   async detailBySlug(slug: string, now = new Date()): Promise<PublicBusinessDetailDto> {

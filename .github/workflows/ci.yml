@@ -35,6 +35,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Generate the database client
         run: pnpm db:build
+      - name: Build the shared packages (domain, mail)
+        run: pnpm domain:build && pnpm mail:build
       - name: Migration policy
         run: pnpm db:migrations:check
       - name: Lint
@@ -89,6 +91,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:build
+      - run: pnpm domain:build && pnpm mail:build
       - name: Apply migrations once
         run: pnpm db:migrate:deploy
       - name: Integration tests

@@ -76,9 +76,12 @@ test.describe('Public accessibility', () => {
     const paths = ['/', '/directory', '/blog', '/contact', ...(business ? [`/business/${business.slug}`] : [])];
     for (const path of paths) {
       await page.goto(path);
-      // The hero photograph decodes asynchronously; contrast is measured
-      // against the overlay, so wait for the page to settle before scanning.
-      await page.waitForLoadState('networkidle');
+      // The hero photograph decodes asynchronously and contrast is measured
+      // against the overlay, so wait for the images rather than for the network:
+      // where a Turnstile key is configured the widget holds a connection open,
+      // and 'networkidle' would never arrive.
+      await page.waitForLoadState('load');
+      await page.evaluate(() => Promise.all([...document.images].filter((image) => !image.complete).map((image) => image.decode().catch(() => undefined))));
       expect(await axeViolations(page), path).toEqual([]);
     }
   });

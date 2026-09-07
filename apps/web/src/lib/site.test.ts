@@ -1,26 +1,36 @@
-import { contactChannel } from './site';
+import { contactChannelFrom, siteTitle } from './site';
+import { DEFAULT_SITE_SETTINGS, type SiteSettings } from './api';
+
+const settings = (over: Partial<SiteSettings> = {}): SiteSettings => ({ ...DEFAULT_SITE_SETTINGS, ...over });
 
 /**
- * A development address such as `listings@melbournesphere.local` is not a
- * mailbox anyone can write to. Publishing one would put a dead contact route on
- * every page of the site, so the helper refuses non-routable domains.
+ * The published support address is what the whole site links to. The API
+ * refuses to store a development domain, so the web tier's job is simply to
+ * offer nothing when nothing has been published — never a blank mailto.
  */
-describe('contactChannel', () => {
-  const original = process.env.SITE_CONTACT_EMAIL;
-  afterEach(() => {
-    process.env.SITE_CONTACT_EMAIL = original;
+describe('contactChannelFrom', () => {
+  it('publishes the configured address with a ready-made listing subject', () => {
+    const channel = contactChannelFrom(settings({ name: 'Melbourne Sphere', contact: { ...DEFAULT_SITE_SETTINGS.contact, email: 'listings@melbournesphere.com' } }));
+    expect(channel).toMatchObject({ available: true, email: 'listings@melbournesphere.com' });
+    expect(channel.listingMailto).toBe(`mailto:listings@melbournesphere.com?subject=${encodeURIComponent('Add or update a business on Melbourne Sphere')}`);
   });
 
-  it('publishes a routable address with a ready-made listing subject', () => {
-    process.env.SITE_CONTACT_EMAIL = 'listings@melbournesphere.com.au';
-    const channel = contactChannel();
-    expect(channel.available).toBe(true);
-    expect(channel.email).toBe('listings@melbournesphere.com.au');
-    expect(channel.listingMailto).toContain('mailto:listings@melbournesphere.com.au?subject=');
+  it('offers nothing while no address is published', () => {
+    expect(contactChannelFrom(settings())).toEqual({ available: false, email: null, listingMailto: null });
   });
 
-  it.each(['listings@melbournesphere.local', 'a@b.test', 'a@b.invalid', 'a@example.internal', 'not-an-email', ''])('withholds %s', (value) => {
-    process.env.SITE_CONTACT_EMAIL = value;
-    expect(contactChannel()).toEqual({ available: false, email: null, listingMailto: null });
+  it('names the application in the subject line, so a renamed site does not send stale mail', () => {
+    const channel = contactChannelFrom(settings({ name: 'Melbourne Guide', contact: { ...DEFAULT_SITE_SETTINGS.contact, email: 'hello@example.com.au' } }));
+    expect(channel.listingMailto).toContain(encodeURIComponent('Add or update a business on Melbourne Guide'));
+  });
+});
+
+describe('siteTitle', () => {
+  it('joins the name and tagline', () => {
+    expect(siteTitle(settings({ name: 'Melbourne Sphere', tagline: 'Find local businesses across Melbourne' }))).toBe('Melbourne Sphere — Find local businesses across Melbourne');
+  });
+
+  it('falls back to the name alone when no tagline is set', () => {
+    expect(siteTitle(settings({ name: 'Melbourne Sphere', tagline: null }))).toBe('Melbourne Sphere');
   });
 });

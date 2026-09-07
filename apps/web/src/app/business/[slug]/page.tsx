@@ -12,15 +12,14 @@ import { statusLabel } from '@/lib/hours';
 import { RatingStars } from '@/components/rating-stars';
 import { RatingPanel } from '@/components/rating-panel';
 import { gridColumns } from '@/components/page-shell';
-import { fetchBusiness, fetchReviews } from '@/lib/api';
+import { fetchBusiness, fetchReviews, fetchSiteSettings, reviewGuidelinesHref } from '@/lib/api';
 import { EnquiryForm } from '@/components/enquiry-form';
 import { ReviewForm } from '@/components/review-form';
 import { ReviewList } from '@/components/review-list';
-import { contactChannel, turnstileSiteKey } from '@/lib/site';
+import { contactChannelFrom, reviewRichResultsEnabled, turnstileSiteKey } from '@/lib/site';
 import { categoryGradient, initials } from '@/lib/category-visuals';
 import { CategoryIcon } from '@/components/category-icon';
-
-const LINK_LABELS: Record<string, string> = { facebook: 'Facebook', instagram: 'Instagram', x: 'X', linkedin: 'LinkedIn', youtube: 'YouTube', tiktok: 'TikTok' };
+import { BrandIcon, brandLabel } from '@/components/brand-icon';
 
 export async function generateMetadata({ params }: PageProps<'/business/[slug]'>): Promise<Metadata> {
   const { slug } = await params;
@@ -39,7 +38,10 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
   const { slug } = await params;
   const business = await fetchBusiness(slug);
   if (!business) notFound();
-  const reviews = await fetchReviews(business.id);
+  const [reviews, settings] = await Promise.all([fetchReviews(business.id), fetchSiteSettings()]);
+  // The editors' own address, published in the general settings; null until one
+  // is configured, and then no correction link is offered rather than a dead one.
+  const editorsEmail = contactChannelFrom(settings).email;
   const { contact, address } = business;
   const crumbs = [{ label: 'Home', href: '/' }, { label: 'Directory', href: '/directory' }, { label: business.primaryCategory.name, href: `/directory/category/${business.primaryCategory.slug}` }, { label: business.name }];
   const hasContact = contact.phone || contact.email || contact.website || business.links.length > 0;
@@ -49,7 +51,7 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
 
   return (
     <article>
-      <JsonLdScript data={[localBusinessJsonLd(business), breadcrumbJsonLd(crumbs)]} />
+      <JsonLdScript data={[localBusinessJsonLd(business, { reviewMarkup: reviewRichResultsEnabled() }), breadcrumbJsonLd(crumbs)]} />
 
       {/* Identity band: who this is, where it is, how it rates and the three
           things a visitor actually wants to do (SRS BUS 001/003). */}
@@ -167,7 +169,7 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
             )}
           </section>
 
-          <HoursTable hours={business.hours} correctionEmail={contactChannel().email} businessName={business.name} />
+          <HoursTable hours={business.hours} correctionEmail={editorsEmail} businessName={business.name} />
 
           <section aria-labelledby="reviews-heading" className="flex flex-col gap-6 scroll-mt-24">
             <h2 id="reviews-heading" className="font-display text-2xl tracking-tight">
@@ -178,7 +180,7 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
             {reviews.data.length > 0 && <ReviewList reviews={reviews.data} />}
             <div id="write-review" className="scroll-mt-24">
               <h3 className="mb-3 text-lg font-semibold">Write a review</h3>
-              <ReviewForm businessId={business.id} businessName={business.name} turnstileSiteKey={turnstileSiteKey()} guidelinesHref="/review-guidelines" />
+              <ReviewForm businessId={business.id} businessName={business.name} turnstileSiteKey={turnstileSiteKey()} guidelinesHref={await reviewGuidelinesHref()} />
             </div>
           </section>
 
@@ -191,10 +193,10 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
             ) : (
               <p className="text-text-muted">
                 This business does not take messages through Melbourne Sphere. Use the phone number or website above
-                {contactChannel().email ? (
+                {editorsEmail ? (
                   <>
                     , or{' '}
-                    <a className="text-link underline-offset-2 hover:underline" href={`mailto:${contactChannel().email}?subject=${encodeURIComponent(`Listing correction: ${business.name}`)}`}>
+                    <a className="text-link underline underline-offset-2" href={`mailto:${editorsEmail}?subject=${encodeURIComponent(`Listing correction: ${business.name}`)}`}>
                       tell us about a missing contact detail
                     </a>
                   </>
@@ -257,14 +259,26 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
               </div>
             </dl>
             {business.links.length > 0 && (
-              <ul aria-label="Social links" className="mt-5 flex flex-wrap gap-2 border-t border-border pt-5">
-                {business.links.map((link) => (
-                  <li key={link.url}>
-                    <a href={link.url} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex min-h-9 items-center rounded-full border border-border px-3.5 text-sm transition-colors hover:border-border-strong hover:bg-sky-50">
-                      {link.label ?? LINK_LABELS[link.kind] ?? new URL(link.url).hostname}
-                    </a>
-                  </li>
-                ))}
+              // Brand marks, sized to a 44 px target; the platform name (or the
+              // editor's own label) stays as the accessible name (SRS NFR 011).
+              <ul aria-label="Social links" className="mt-5 flex flex-wrap gap-1.5 border-t border-border pt-5">
+                {business.links.map((link) => {
+                  const name = link.label ?? (link.kind === 'other' ? new URL(link.url).hostname : brandLabel(link.kind));
+                  return (
+                    <li key={link.url}>
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer nofollow"
+                        title={name}
+                        className="inline-flex size-11 items-center justify-center rounded-full border border-border text-text-muted transition-colors hover:border-border-strong hover:bg-sky-50 hover:text-link"
+                      >
+                        <BrandIcon kind={link.kind} size={18} />
+                        <span className="sr-only">{name}</span>
+                      </a>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

@@ -12,6 +12,8 @@
     "lint": "echo \"e2e: no lint config\""
   },
   "devDependencies": {
+    "@melbourne-sphere/database": "workspace:*",
+    "@node-rs/argon2": "2.2.0",
     "@playwright/test": "1.63.0",
     "@types/node": "24.13.3",
     "axe-core": "4.13.0",

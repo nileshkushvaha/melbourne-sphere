@@ -31,24 +31,26 @@ function compact(input: JsonLd): JsonLd {
   return out;
 }
 
-export function organizationJsonLd(logoUrl?: string | null): JsonLd {
+/** Organisation identity (SRS SEO 005). The name and logo come from the published general settings when they are available. */
+export function organizationJsonLd(options: { name?: string; logoUrl?: string | null; sameAs?: string[] } = {}): JsonLd {
   return compact({
     '@context': 'https://schema.org',
     '@type': 'Organization',
     '@id': `${siteOrigin()}/#organization`,
-    name: SITE_NAME,
+    name: options.name ?? SITE_NAME,
+    sameAs: options.sameAs ?? [],
     url: siteOrigin(),
-    logo: logoUrl ?? undefined,
+    logo: options.logoUrl ?? undefined,
     areaServed: compact({ '@type': 'City', name: 'Melbourne', addressRegion: 'VIC', addressCountry: 'AU' }),
   });
 }
 
-export function webSiteJsonLd(): JsonLd {
+export function webSiteJsonLd(name: string = SITE_NAME): JsonLd {
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     '@id': `${siteOrigin()}/#website`,
-    name: SITE_NAME,
+    name,
     url: siteOrigin(),
     inLanguage: 'en-AU',
     publisher: { '@id': `${siteOrigin()}/#organization` },
@@ -109,7 +111,16 @@ const DAY_LABELS: Record<string, string> = {
  * LocalBusiness for a listing page. Address, phone, geo and hours appear only
  * when they are published on the page itself (SRS SEO 005).
  */
-export function localBusinessJsonLd(business: BusinessDetail): JsonLd {
+export interface LocalBusinessJsonLdOptions {
+  /**
+   * Emit AggregateRating (SRS SEO 006). Off unless the technical lead has
+   * confirmed current Google eligibility for directory reviews and set
+   * REVIEW_RICH_RESULTS=true; visible ratings on the page are unaffected.
+   */
+  reviewMarkup?: boolean;
+}
+
+export function localBusinessJsonLd(business: BusinessDetail, options: LocalBusinessJsonLdOptions = {}): JsonLd {
   const type = BUSINESS_TYPES[business.primaryCategory.slug] ?? 'LocalBusiness';
   const address = business.address;
   const DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
@@ -136,7 +147,7 @@ export function localBusinessJsonLd(business: BusinessDetail): JsonLd {
       : [];
 
   const rating =
-    business.rating && business.rating.count > 0
+    options.reviewMarkup === true && business.rating && business.rating.count > 0
       ? compact({
           '@type': 'AggregateRating',
           ratingValue: business.rating.average,

@@ -48,6 +48,14 @@ describe('localBusinessJsonLd', () => {
     expect(data).not.toHaveProperty('openingHoursSpecification');
   });
 
+  it('omits AggregateRating until review rich results are explicitly enabled (SEO 006)', async () => {
+    const { localBusinessJsonLd } = await load();
+    const withRating = { ...base, rating: { average: 4.5, count: 12 } } as never;
+    expect(localBusinessJsonLd(withRating)).not.toHaveProperty('aggregateRating');
+    expect(localBusinessJsonLd(withRating, { reviewMarkup: false })).not.toHaveProperty('aggregateRating');
+    expect((localBusinessJsonLd(withRating, { reviewMarkup: true }).aggregateRating as Record<string, unknown>).ratingValue).toBe(4.5);
+  });
+
   it('includes address, geo, phone, rating and scheduled hours when they are published', async () => {
     const { localBusinessJsonLd } = await load();
     const data = localBusinessJsonLd({
@@ -70,7 +78,7 @@ describe('localBusinessJsonLd', () => {
         status: { open: true, label: 'Open now' },
         evaluatedAt: '2026-09-06T00:00:00.000Z',
       },
-    } as never);
+    } as never, { reviewMarkup: true });
     expect(data.telephone).toBe('03 9000 1234');
     expect((data.address as Record<string, unknown>).postalCode).toBe('3000');
     expect((data.geo as Record<string, unknown>).latitude).toBe(-37.8136);

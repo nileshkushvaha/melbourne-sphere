@@ -33,7 +33,7 @@ outstanding, and every client decision that blocks a requirement is named.
 
 ## 2. Requirement coverage
 
-Full detail is in `docs/traceability.md`. Summary by SRS section:
+Full detail is in `docs/requirements-traceability.md`. Summary by SRS section:
 
 | Section | State | Notes |
 | --- | --- | --- |
@@ -85,6 +85,8 @@ and container scanning in the deployment pipeline beyond the CI audit job;
 penetration testing.
 
 ## 4. Open items before launch
+
+**Decision pack (2026-09-07).** The client-facing register for every item below is `docs/launch/client-decisions.md`, with the boundary recommendation (`docs/launch/melbourne-boundary.md`), the content and brand inventory (`docs/launch/content-requirements.md`) and the SEO proposals (`docs/launch/seo-approval.md`). Since this report was written, item 2's email half has been closed on the engineering side: a provider-independent SMTP adapter serves the API and the worker, production refuses to start without an authenticated TLS relay, and delivery was verified end to end against a local catcher; what remains is the client's provider account (D03b). Review rich results (item 6) are now explicitly off until signed off.
 
 **Client decisions (blocking):**
 

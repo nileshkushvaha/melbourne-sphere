@@ -7,13 +7,13 @@ import { CategoryIcon } from '@/components/category-icon';
 import { PostCard } from '@/components/post-card';
 import { FeaturedPostCard } from '@/components/featured-post-card';
 import { Band, SectionHeading, gridColumns } from '@/components/page-shell';
-import { fetchAreas, fetchCategories, fetchHome, fetchPosts, flattenCategories, searchBusinesses, type BusinessCard as BusinessCardData, type PublicArea, type PublicCategory, type PostCard as PostCardData, type SearchMeta } from '@/lib/api';
+import { fetchAreas, fetchCategories, fetchHome, fetchPosts, fetchSiteSettings, flattenCategories, searchBusinesses, type BusinessCard as BusinessCardData, type PublicArea, type PublicCategory, type PostCard as PostCardData, type SearchMeta } from '@/lib/api';
 import { HeroHeadline } from '@/components/hero-headline';
 import { HeroSearch } from '@/components/hero-search';
 import { HeroBanner } from '@/components/hero-banner';
 import { heroSlides } from '@/lib/hero-assets';
 import { usablePhrases } from '@/lib/hero';
-import { contactChannel } from '@/lib/site';
+import { contactChannelFrom } from '@/lib/site';
 
 export const metadata = { alternates: { canonical: '/' } };
 /** Rendered per request (data cached 300 s per fetch) so builds never depend on a live API (SRS CACHE 001). */
@@ -61,14 +61,18 @@ function SectionEmpty({ children, tone = 'light' }: { children: React.ReactNode;
  * than being filled with placeholders.
  */
 export default async function HomePage() {
+  // Started first so it runs alongside the band data; it never rejects, because
+  // the shell must render even when the settings endpoint is unavailable.
+  const settingsPromise = fetchSiteSettings();
   const [homeResult, categoriesResult, areasResult, newestResult, topRatedResult, postsResult] = await Promise.allSettled([
     fetchHome(),
     fetchCategories(),
     fetchAreas(),
-    searchBusinesses({ q: '', category: null, area: null, minRating: null, sort: 'newest', page: 1 }),
-    searchBusinesses({ q: '', category: null, area: null, minRating: 4, sort: 'rating', page: 1 }),
+    searchBusinesses({ q: '', category: null, area: null, minRating: null, openNow: false, sort: 'newest', page: 1 }),
+    searchBusinesses({ q: '', category: null, area: null, minRating: 4, openNow: false, sort: 'rating', page: 1 }),
     fetchPosts({ page: 1 }),
   ]);
+  const settings = await settingsPromise;
 
   const home = settle(homeResult);
   const categories: Loaded<PublicCategory[]> = settle(categoriesResult);
@@ -81,14 +85,14 @@ export default async function HomePage() {
   const phrases = usablePhrases(heroContent.heroPhrases);
   const categoryOptions = categories.ok ? flattenCategories(categories.data).map((c) => ({ slug: c.slug, label: c.parent ? `${c.parent.name} › ${c.name}` : c.name })) : [];
   const featured = newest.ok ? (newest.data.meta.featured ?? []) : [];
-  const channel = contactChannel();
+  const channel = contactChannelFrom(settings);
   const areasWithIntro = areas.ok ? areas.data.filter((area) => (area.editorialIntro ?? '').trim().length > 0) : [];
   const leadPost = posts.ok ? posts.data.data[0] : undefined;
   const supportingPosts = posts.ok ? posts.data.data.slice(1, 4) : [];
 
   return (
     <>
-      <JsonLdScript data={[organizationJsonLd(), webSiteJsonLd()]} />
+      <JsonLdScript data={[organizationJsonLd({ name: settings.name, logoUrl: settings.branding.logo?.url ?? null, sameAs: settings.social.map((link) => link.url) }), webSiteJsonLd(settings.name)]} />
 
       <HeroBanner slides={heroSlides(heroContent.heroSlides)}>
         <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white backdrop-blur">

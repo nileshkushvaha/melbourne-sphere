@@ -21,6 +21,128 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The registered permission catalogue, grouped by module (read-only) */
+        get: operations["AuthorizationController_permissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List roles (paginated; q) */
+        get: operations["AuthorizationController_listRoles"];
+        put?: never;
+        /** Create a role */
+        post: operations["AuthorizationController_createRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/roles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One role with the permissions it carries */
+        get: operations["AuthorizationController_getRole"];
+        put?: never;
+        post?: never;
+        /** Delete an unused, non-system role */
+        delete: operations["AuthorizationController_deleteRole"];
+        options?: never;
+        head?: never;
+        /** Edit role details or activation (expectedVersion required) */
+        patch: operations["AuthorizationController_updateRole"];
+        trace?: never;
+    };
+    "/api/v1/admin/roles/{id}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace a role's permissions completely (idempotent; expectedVersion required) */
+        put: operations["AuthorizationController_replaceRolePermissions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/admins/{id}/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An administrator's roles, direct permissions, effective permissions and their sources */
+        get: operations["AuthorizationController_adminAccess"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/admins/{id}/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace an administrator's roles completely (expectedVersion required) */
+        put: operations["AuthorizationController_replaceAdminRoles"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/admins/{id}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace an administrator's direct permissions completely (expectedVersion required) */
+        put: operations["AuthorizationController_replaceAdminPermissions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/auth/login": {
         parameters: {
             query?: never;
@@ -1866,6 +1988,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/site/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Application name, contact details, branding, header bar and footer */
+        get: operations["SiteSettingsPublicController_settingsPayload"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/settings/home": {
         parameters: {
             query?: never;
@@ -1876,6 +2015,24 @@ export interface paths {
         get: operations["SettingsAdminController_get"];
         /** Replace the home settings (expectedVersion; audited) */
         put: operations["SettingsAdminController_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings/general": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Application information, branding, header bar and footer */
+        get: operations["SettingsAdminController_getGeneral"];
+        /** Replace the general settings (expectedVersion; audited) */
+        put: operations["SettingsAdminController_putGeneral"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2038,6 +2195,41 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         Object: Record<string, never>;
+        CreateRoleDto: {
+            /**
+             * @description Stable key: lower-case letters, digits and underscores
+             * @example editor
+             */
+            key: string;
+            name: string;
+            description: string;
+            /** @description Registered permission codes this role carries */
+            permissions: string[];
+        };
+        UpdateRoleDto: {
+            name?: string;
+            description?: string;
+            /** @description An inactive role grants nothing */
+            isActive?: boolean;
+            /** @description Version the edit was made against; a mismatch is refused with 409 */
+            expectedVersion: number;
+        };
+        ReplaceRolePermissionsDto: {
+            /** @description The complete set after the change; anything absent is removed */
+            permissions: string[];
+            expectedVersion: number;
+        };
+        ReplaceAdminRolesDto: {
+            /** @description The complete set of role ids after the change */
+            roleIds: string[];
+            /** @description The administrator record's version */
+            expectedVersion: number;
+        };
+        ReplaceAdminPermissionsDto: {
+            /** @description The complete set of directly granted permission codes after the change */
+            permissions: string[];
+            expectedVersion: number;
+        };
         LoginDto: {
             /** @example admin@example.com */
             email: string;
@@ -2048,8 +2240,12 @@ export interface components {
             email: string;
             displayName: string;
             roles: string[];
-            /** @description Effective permission keys (resource.action) */
+            /** @description Effective permission keys (resource.action): inherited ∪ direct */
             permissions: string[];
+            /** @description Permissions inherited through active roles */
+            inheritedPermissions: string[];
+            /** @description Permissions granted directly to this administrator */
+            directPermissions: string[];
             totpEnabled: boolean;
         };
         SessionSummaryDto: {
@@ -2347,7 +2543,7 @@ export interface components {
         };
         BusinessLinkInputDto: {
             /** @enum {string} */
-            kind: "facebook" | "instagram" | "x" | "linkedin" | "youtube" | "tiktok" | "other";
+            kind: "facebook" | "instagram" | "x" | "linkedin" | "youtube" | "tiktok" | "pinterest" | "other";
             /** @description http(s) URL; known kinds must point at their own domain (SRS BUS 003) */
             url: string;
             label?: string | null;
@@ -2378,7 +2574,7 @@ export interface components {
         };
         BusinessLinkDto: {
             /** @enum {string} */
-            kind: "facebook" | "instagram" | "x" | "linkedin" | "youtube" | "tiktok" | "other";
+            kind: "facebook" | "instagram" | "x" | "linkedin" | "youtube" | "tiktok" | "pinterest" | "other";
             url: string;
             label: string | null;
         };
@@ -2641,6 +2837,16 @@ export interface components {
             categories: components["schemas"]["SearchFacetDto"][];
             areas: components["schemas"]["SearchFacetDto"][];
         };
+        OpenNowMetaDto: {
+            /** @description True when published hours coverage supports the filter; false means it is not offered and is ignored if sent */
+            available: boolean;
+            /** @description Whether this response was filtered to listings open now */
+            applied: boolean;
+            /** @description Published listings that publish a schedule */
+            withHours: number;
+            /** @description Published listings in total */
+            published: number;
+        };
         SearchMetaDto: {
             page: number;
             pageSize: number;
@@ -2651,6 +2857,8 @@ export interface components {
             facets: components["schemas"]["SearchFacetsDto"];
             /** @description Featured block (SRS DIR 007): at most three, excluded from data, counts and pagination */
             featured: components["schemas"]["PublicBusinessCardDto"][];
+            /** @description Conditional "open now" filter state (SRS DIR 008) */
+            openNow: components["schemas"]["OpenNowMetaDto"];
         };
         PublicPhoneDto: {
             display: string;
@@ -2939,7 +3147,7 @@ export interface components {
         };
         AuthorLinkDto: {
             /** @enum {string} */
-            kind: "website" | "facebook" | "instagram" | "x" | "linkedin" | "youtube" | "tiktok" | "threads" | "mastodon" | "github" | "other";
+            kind: "website" | "facebook" | "instagram" | "x" | "linkedin" | "youtube" | "tiktok" | "pinterest" | "threads" | "mastodon" | "github" | "other";
             url: string;
             label?: string | null;
         };
@@ -3573,6 +3781,58 @@ export interface components {
             /** @description Present only when counters are enabled and the data is available (SRS HERO 007) */
             counters?: components["schemas"]["HomeCountersDto"];
         };
+        PublicPhoneNumberDto: {
+            /** @description Formatted for reading, e.g. 03 9000 0000 */
+            display: string;
+            /** @description tel: href for dialling */
+            telHref: string;
+        };
+        PublicSiteContactDto: {
+            /** @description Published only when a routable address is configured */
+            email: string | null;
+            phone: components["schemas"]["PublicPhoneNumberDto"] | null;
+            websiteUrl: string | null;
+            /** @description Free text, at most four lines */
+            address: string | null;
+        };
+        SettingsImageDto: {
+            id: string;
+            url: string;
+            alt: string;
+            width: number;
+            height: number;
+        };
+        PublicSiteBrandingDto: {
+            logo: components["schemas"]["SettingsImageDto"] | null;
+            /** @description Smallest rendition, used as the browser icon */
+            favicon: components["schemas"]["SettingsImageDto"] | null;
+            /** @description Default Open Graph image */
+            shareImage: components["schemas"]["SettingsImageDto"] | null;
+        };
+        PublicSocialLinkDto: {
+            /** @enum {string} */
+            platform: "facebook" | "instagram" | "x" | "youtube" | "pinterest";
+            url: string;
+        };
+        PublicSiteFooterDto: {
+            /** @description Template with {year} and {name}; clients render it so the year is never stale */
+            copyrightText: string | null;
+            text: string | null;
+        };
+        PublicSiteSettingsDto: {
+            name: string;
+            shortName: string | null;
+            organisationName: string | null;
+            tagline: string | null;
+            metaDescription: string | null;
+            contact: components["schemas"]["PublicSiteContactDto"];
+            branding: components["schemas"]["PublicSiteBrandingDto"];
+            /** @description Whether the contact strip above the navigation is shown */
+            headerTopBarEnabled: boolean;
+            /** @description Configured profiles in a fixed order; empty when none are set */
+            social: components["schemas"]["PublicSocialLinkDto"][];
+            footer: components["schemas"]["PublicSiteFooterDto"];
+        };
         HeroSlideDto: {
             /** @description Ready media asset used as the background image */
             mediaId: string;
@@ -3597,6 +3857,84 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             updatedByAdminId: string | null;
+        };
+        SocialLinksDto: {
+            facebook?: string | null;
+            instagram?: string | null;
+            x?: string | null;
+            youtube?: string | null;
+            pinterest?: string | null;
+        };
+        GeneralSettingsRecordDto: {
+            /** @description Public name used in the header, page titles and the copyright line */
+            applicationName: string;
+            /** @description Compact name for tight spaces */
+            shortName?: string | null;
+            organisationName?: string | null;
+            /** @description Shown after the name in the browser title */
+            tagline?: string | null;
+            /** @description Default meta description (SRS SEO 001) */
+            metaDescription?: string | null;
+            /** @description Published contact address; a development domain is refused */
+            supportEmail?: string | null;
+            /** @description Australian phone number; stored normalised */
+            supportPhone?: string | null;
+            websiteUrl?: string | null;
+            /** @description At most four lines */
+            address?: string | null;
+            /** @description Ready media asset used as the logo */
+            logoMediaId?: string | null;
+            /** @description Ready media asset used as the browser icon */
+            faviconMediaId?: string | null;
+            /** @description Default social share image */
+            shareImageMediaId?: string | null;
+            /** @description Contact strip above the public navigation; refused while it would be empty */
+            headerTopBarEnabled?: boolean;
+            social?: components["schemas"]["SocialLinksDto"];
+            /** @description Supports {year} and {name}; empty uses the built-in line */
+            copyrightText?: string | null;
+            footerText?: string | null;
+            /** @description Normalised phone; null when none is set */
+            supportPhoneDisplay: components["schemas"]["PublicPhoneNumberDto"] | null;
+            logo: components["schemas"]["SettingsImageDto"] | null;
+            favicon: components["schemas"]["SettingsImageDto"] | null;
+            shareImage: components["schemas"]["SettingsImageDto"] | null;
+            version: number;
+            /** Format: date-time */
+            updatedAt: string;
+            updatedByAdminId: string | null;
+        };
+        UpdateGeneralSettingsDto: {
+            /** @description Public name used in the header, page titles and the copyright line */
+            applicationName: string;
+            /** @description Compact name for tight spaces */
+            shortName?: string | null;
+            organisationName?: string | null;
+            /** @description Shown after the name in the browser title */
+            tagline?: string | null;
+            /** @description Default meta description (SRS SEO 001) */
+            metaDescription?: string | null;
+            /** @description Published contact address; a development domain is refused */
+            supportEmail?: string | null;
+            /** @description Australian phone number; stored normalised */
+            supportPhone?: string | null;
+            websiteUrl?: string | null;
+            /** @description At most four lines */
+            address?: string | null;
+            /** @description Ready media asset used as the logo */
+            logoMediaId?: string | null;
+            /** @description Ready media asset used as the browser icon */
+            faviconMediaId?: string | null;
+            /** @description Default social share image */
+            shareImageMediaId?: string | null;
+            /** @description Contact strip above the public navigation; refused while it would be empty */
+            headerTopBarEnabled?: boolean;
+            social?: components["schemas"]["SocialLinksDto"];
+            /** @description Supports {year} and {name}; empty uses the built-in line */
+            copyrightText?: string | null;
+            footerText?: string | null;
+            /** @description Version returned by GET; 0 when no settings row has been saved yet */
+            expectedVersion: number;
         };
         UpdateHomeSettingsDto: {
             /** @description Stable accessible headline (SRS HERO 002) */
@@ -3704,6 +4042,216 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description {data: AuditEntry[], meta} */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthorizationController_permissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthorizationController_listRoles: {
+        parameters: {
+            query?: {
+                page?: components["schemas"]["Object"];
+                pageSize?: components["schemas"]["Object"];
+                order?: "asc" | "desc";
+                /** @description Matches the role key or name */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthorizationController_createRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRoleDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthorizationController_getRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthorizationController_deleteRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthorizationController_updateRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRoleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthorizationController_replaceRolePermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplaceRolePermissionsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthorizationController_adminAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthorizationController_replaceAdminRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplaceAdminRolesDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthorizationController_replaceAdminPermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplaceAdminPermissionsDto"];
+            };
+        };
+        responses: {
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5087,6 +5635,8 @@ export interface operations {
                 area?: string;
                 /** @description Minimum approved average rating */
                 minRating?: number;
+                /** @description Only listings open at the moment of the request, in Melbourne time (SRS DIR 008). Conditional: ignored while published hours coverage is below the threshold, which `meta.openNow.available` reports. Listings without published hours are never included — an absent schedule is not evidence of being open. */
+                openNow?: boolean;
                 /** @description Defaults to relevance with q, otherwise name */
                 sort?: "relevance" | "rating" | "newest" | "name";
                 page?: components["schemas"]["Object"];
@@ -6907,6 +7457,25 @@ export interface operations {
             };
         };
     };
+    SiteSettingsPublicController_settingsPayload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicSiteSettingsDto"];
+                };
+            };
+        };
+    };
     SettingsAdminController_get: {
         parameters: {
             query?: never;
@@ -6945,6 +7514,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HomeSettingsRecordDto"];
+                };
+            };
+        };
+    };
+    SettingsAdminController_getGeneral: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeneralSettingsRecordDto"];
+                };
+            };
+        };
+    };
+    SettingsAdminController_putGeneral: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateGeneralSettingsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeneralSettingsRecordDto"];
                 };
             };
         };

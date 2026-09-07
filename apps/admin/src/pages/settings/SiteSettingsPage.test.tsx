@@ -42,7 +42,10 @@ describe('site settings page', () => {
     await ue.click(screen.getByRole('button', { name: /save settings/i }));
     const put = calls.filter((c) => c.method === 'PUT').at(-1)!;
     expect(JSON.parse(put.body!)).toEqual({ heroHeadline: 'Discover Melbourne businesses', heroPhrases: ['local services', 'places to eat'], heroSlides: [], countersEnabled: true, expectedVersion: 3 });
-    expect(screen.getByRole('link', { name: 'Site settings' })).toBeInTheDocument();
+    // The navigation distinguishes the two settings screens: general (identity,
+    // branding, footer) and this one (the home page banner).
+    expect(screen.getByRole('link', { name: 'Home page settings' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'General settings' })).toBeInTheDocument();
   });
 
   it('hides the navigation entry without settings.manage', async () => {

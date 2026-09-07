@@ -112,3 +112,24 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+## Authorization (SRS RBAC 001–012)
+
+`src/authorization/` owns access control: the effective-permission resolver (`roles ∪ direct`, active only, cached in Redis under an authorization version that every change increments), the CASL ability factory the default-deny guard decides with, and the access administration API (`/admin/roles`, `/admin/permissions`, `/admin/admins/{id}/access|roles|permissions`).
+
+- Declare a permission on every admin route: `@RequirePermissions('listings.publish')`. A route that declares nothing is refused and logged — nothing ships open.
+- Permission codes live in `src/identity/permissions.ts` and are synchronised by `pnpm --filter api admin:seed-rbac` (idempotent; run it after every permission change and on deployment). Codes outside the catalogue can never satisfy a requirement.
+- 401 for missing/invalid authentication, 403 for a valid identity without the permission; neither says which permission was missing.
+- Access changes are transactional with their `authz.*` audit record and their cache invalidation. Editing the tables directly does not signal a change: bump `admin_users.authzVersion` the way the API does.
+
+Model, invariants, recipes and the recovery procedure: `docs/authorization.md`. Technology decision: `docs/decisions/0001-authorization-casl.md`.
+
+
+## Integration test isolation
+
+`test:integration` runs the real application against the real local MySQL and Redis, one file at a time (`fileParallelism: false`). Two rules keep it deterministic:
+
+- **One HTTP port per file.** `createIntegrationApp` (and the bespoke bootstrap in `auth.integration-spec.ts`) bind the server once through `listenForTests`. supertest otherwise calls `server.listen(0)` for *every* request and closes it afterwards; across a full suite that is thousands of bind/close cycles, and an ephemeral port reused while its predecessor is still in `TIME_WAIT` lets a client read the previous connection's response. That produced the 2026-09-07 order-dependent failures — a public route answering `401`, a `403` assertion receiving `401`, and `Parse Error: Expected HTTP/, RTSP/ or ICE/`.
+- **A real budget for the truncation transaction.** `truncateApplicationTables` empties more than fifty tables inside one interactive transaction so `FOREIGN_KEY_CHECKS = 0` applies to all of them. Prisma's default 5 s timeout can expire mid-loop on a loaded machine and break the suite's `beforeAll`, so the timeout is set explicitly.
+
+After a run that exercised authentication, `pnpm --filter api auth:artifacts:check` confirms no reset link or session survived.

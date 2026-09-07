@@ -20,7 +20,18 @@ function contextOf(req: AuthenticatedRequest): RequestContext {
 function toAuthenticated(admin: AdminPrincipal, session: SessionSummary) {
   return {
     data: {
-      admin: { id: admin.id, email: admin.email, displayName: admin.displayName, roles: admin.roles, permissions: admin.permissions, totpEnabled: admin.totpEnabled },
+      admin: {
+        id: admin.id,
+        email: admin.email,
+        displayName: admin.displayName,
+        roles: admin.roles,
+        // The effective set the API enforces, and the two halves it is made of,
+        // so the interface can show where a capability comes from (SRS RBAC 007).
+        permissions: admin.permissions,
+        inheritedPermissions: admin.inheritedPermissions,
+        directPermissions: admin.directPermissions,
+        totpEnabled: admin.totpEnabled,
+      },
       session: { id: session.id, createdAt: session.createdAt.toISOString(), idleExpiresAt: session.idleExpiresAt.toISOString(), expiresAt: session.expiresAt.toISOString() },
     },
   };

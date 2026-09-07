@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, App, Avatar, Button, Col, Form, Input, Row, Select, Space, Typography } from 'antd';
 import { DeleteOutlined, PictureOutlined, PlusOutlined, UserOutlined } from '@ant-design/icons';
-import { useOnError, usePermissions } from '@refinedev/core';
+import { useOnError } from '@refinedev/core';
 import { useNavigate, useParams } from 'react-router';
 import { blogApi } from '@/api/blog';
 import { toNamePath } from '@/api/businesses';
@@ -9,13 +9,17 @@ import type { MediaAsset } from '@/api/media';
 import { isApiError } from '@/api/errors';
 import { MediaPicker } from '@/components/MediaPicker';
 import { RichTextEditorLazy } from '@/components/RichTextEditorLazy';
-import { PageHeader, SectionCard, StatusTag, StickyActions } from '@/components/ui';
+import { PageLoader, PageHeader, SectionCard, StatusTag, StickyActions } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { BrandOptionLabel } from '@/components/BrandIcon';
+import { brandLabel } from '@/shared/brands';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 /** Networks an author profile can link to; the API validates the host of each one. */
-const LINK_KINDS = ['website', 'facebook', 'instagram', 'x', 'linkedin', 'youtube', 'tiktok', 'threads', 'mastodon', 'github', 'other'] as const;
+const LINK_KINDS = ['website', 'facebook', 'instagram', 'x', 'linkedin', 'youtube', 'tiktok', 'pinterest', 'threads', 'mastodon', 'github', 'other'] as const;
 
 interface FormValues {
   displayName: string;
@@ -50,8 +54,8 @@ export function AuthorEditorPage() {
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
   const api = blogApi();
-  const { data: permissions } = usePermissions<string[]>({});
-  const canWrite = (permissions ?? []).includes('posts.write');
+  const { can, loading: capabilitiesLoading } = useCapabilities();
+  const canWrite = can(PERMISSION.postsWrite);
   const [form] = Form.useForm<FormValues>();
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -122,6 +126,14 @@ export function AuthorEditorPage() {
 
   const photo = photoDraft !== undefined ? photoDraft : (author?.image ? { url: author.image.url, alt: author.image.alt } : null);
 
+  // The screen is empty until its record arrives; say so rather than showing a blank disabled form.
+  // Capabilities decide whether this form is editable, so the screen waits for
+  // them rather than rendering a form that is disabled and then is not
+  // (SRS RBAC 010). Behind the route guard they are already known, so this is
+  // normally invisible.
+  if (capabilitiesLoading) return <PageLoader label="Checking your permissions…" />;
+
+  if (!isNew && state.status === 'loading') return <PageLoader label="Loading this author…" />;
   if (state.status === 'error') return <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} />;
   if (!isNew && !author) return <p role="status">Loading author…</p>;
   const readOnly = !canWrite;
@@ -185,7 +197,7 @@ export function AuthorEditorPage() {
                       <Row key={field.key} gutter={8} align="middle" style={{ marginBottom: 8 }}>
                         <Col xs={24} md={6}>
                           <Form.Item name={[field.name, 'kind']} rules={[{ required: true, message: 'Choose a network' }]} style={{ marginBottom: 0 }}>
-                            <Select options={LINK_KINDS.map((kind) => ({ value: kind, label: kind }))} aria-label="Network" />
+                            <Select optionLabelProp="title" options={LINK_KINDS.map((kind) => ({ value: kind, title: brandLabel(kind), label: <BrandOptionLabel kind={kind} /> }))} aria-label="Network" />
                           </Form.Item>
                         </Col>
                         <Col xs={24} md={12}>

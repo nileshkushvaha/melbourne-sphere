@@ -16,8 +16,9 @@ export type {
   DatabaseConnectionState,
   MinimalClient,
 } from './connection.js';
-export { parseMysqlUrl } from './url.js';
-export type { MysqlConnectionSettings } from './url.js';
+export { parseMysqlUrl, hasVerifiedTls, MYSQL_SSL_MODES, VERIFIED_SSL_MODES } from './url.js';
+export type { MysqlConnectionSettings, MysqlSslMode } from './url.js';
+export { sslOptionFor } from './client.js';
 export { Prisma, AdminUserStatus, AdminTokenPurpose, BusinessStatus, AddressVisibility, HoursMode, HoursExceptionKind, BusinessLinkKind, ReviewStatus, AbuseReportReason, AbuseReportStatus, AbuseReportOutcome, EnquiryKind, EnquiryHandlingStatus, EnquiryDeliveryStatus, OutboxStatus, PostStatus, MediaStatus, MediaVariantKind, RedirectKind, PostBodyFormat, AuthorLinkKind, StaticPageStatus } from './generated/prisma/client.js';
 export type {
   AdminLoginChallenge,

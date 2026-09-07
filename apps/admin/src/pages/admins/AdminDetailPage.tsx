@@ -7,7 +7,8 @@ import type { AdminSummary } from '@/api/auth';
 import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
-import { PageHeader } from '@/components/ui';
+import { PageLoader, PageHeader } from '@/components/ui';
+import { AdminAccessCard } from '@/pages/access/AdminAccessCard';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
 export function AdminDetailPage() {
@@ -36,7 +37,7 @@ export function AdminDetailPage() {
   };
 
   if (state.status === 'error') return <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} />;
-  if (!admin) return <p role="status">Loading…</p>;
+  if (!admin) return <PageLoader label="Loading this administrator…" />;
   const isSelf = me?.id === admin.id;
 
   return (
@@ -51,6 +52,8 @@ export function AdminDetailPage() {
       />
       {saveError && <Alert type="error" showIcon message={saveError} style={{ marginBottom: 16 }} role="alert" />}
       <Space direction="vertical" size={24} style={{ width: '100%' }}>
+        {/* Roles, direct permissions and the effective set with its sources (SRS RBAC 010). */}
+        <AdminAccessCard adminId={admin.id} isSelf={isSelf} />
         <Card title="Account">
           <Descriptions column={{ xs: 1, md: 2 }} size="small">
             <Descriptions.Item label="Email">{admin.email}</Descriptions.Item>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, App, Button, Card, Col, Descriptions, Form, Input, InputNumber, List, Modal, Row, Select, Space, Switch, Tag, Typography } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { useInvalidate, useOnError, useOne, usePermissions } from '@refinedev/core';
+import { useInvalidate, useOnError, useOne } from '@refinedev/core';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ACTIONS_BY_STATUS, businessesApi, LINK_KINDS, toNamePath, type BusinessAction, type BusinessRecord, type CreateBusinessInput, type UpdateBusinessInput } from '@/api/businesses';
 import { GalleryEditor } from './GalleryEditor';
@@ -11,6 +11,11 @@ import { taxonomyApi, type CategoryItem, type LocalAreaItem, type ServiceItem } 
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { BrandOptionLabel } from '@/components/BrandIcon';
+import { brandLabel } from '@/shared/brands';
+import { PageLoader } from '@/components/ui';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 const ACTION_LABELS: Record<BusinessAction, { label: string; title: string; hint: string; danger?: boolean }> = {
   publish: { label: 'Publish', title: 'Publish this listing?', hint: 'It becomes visible in the public directory immediately.' },
@@ -87,9 +92,9 @@ export function BusinessEditorPage() {
   const invalidate = useInvalidate();
   const { mutate: onAuthError } = useOnError();
   const api = businessesApi();
-  const { data: permissions } = usePermissions<string[]>({});
-  const canWrite = (permissions ?? []).includes('listings.write');
-  const canPublish = (permissions ?? []).includes('listings.publish');
+  const { can, loading: capabilitiesLoading } = useCapabilities();
+  const canWrite = can(PERMISSION.listingsWrite);
+  const canPublish = can(PERMISSION.listingsPublish);
   const [form] = Form.useForm<FormValues>();
   const hasAddress = Form.useWatch('hasAddress', form);
   const [formError, setFormError] = useState<string | null>(null);
@@ -165,7 +170,12 @@ export function BusinessEditorPage() {
     const error = record.query.error;
     return <Alert type="error" showIcon message={isApiError(error) ? error.userMessage : 'Could not load this business.'} description={isApiError(error) ? error.reference : null} action={<Link to="/businesses">Back to businesses</Link>} />;
   }
-  if (!isNew && !business) return <p role="status">Loading business…</p>;
+  // Capabilities decide whether this form is editable, so the screen waits for
+  // them rather than rendering a form that is disabled and then is not
+  // (SRS RBAC 010). Behind the route guard they are already known, so this is
+  // normally invisible.
+  if (capabilitiesLoading) return <PageLoader label="Checking your permissions…" />;
+  if (!isNew && !business) return <PageLoader label="Loading this listing…" />;
   const readOnly = !canWrite || business?.status === 'archived';
   const actions = business ? ACTIONS_BY_STATUS[business.status].filter((a) => (a === 'publish' || a === 'unpublish' ? canPublish : canWrite)) : [];
   const options = (items: { id: string; name: string }[]) => items.map((i) => ({ value: i.id, label: i.name }));
@@ -239,7 +249,7 @@ export function BusinessEditorPage() {
                     {fields.map((field) => (
                       <Space key={field.key} align="baseline" wrap>
                         <Form.Item name={[field.name, 'kind']} style={{ marginBottom: 8 }}>
-                          <Select aria-label="Link type" style={{ width: 130 }} options={LINK_KINDS.map((k) => ({ value: k, label: k === 'x' ? 'X (Twitter)' : k.charAt(0).toUpperCase() + k.slice(1) }))} />
+                          <Select aria-label="Link type" style={{ width: 150 }} optionLabelProp="title" options={LINK_KINDS.map((k) => ({ value: k, title: brandLabel(k), label: <BrandOptionLabel kind={k} /> }))} />
                         </Form.Item>
                         <Form.Item name={[field.name, 'url']} rules={[{ required: true, message: 'URL is required' }]} style={{ marginBottom: 8 }}>
                           <Input aria-label="Link URL" placeholder="https://" maxLength={500} style={{ width: 300 }} inputMode="url" />

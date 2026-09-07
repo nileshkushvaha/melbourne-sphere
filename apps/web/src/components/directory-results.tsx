@@ -21,16 +21,23 @@ interface Props {
  */
 export async function DirectoryResults({ basePath, state, fixed = {} }: Props) {
   const [result, categories, areas] = await Promise.all([searchBusinesses(state, fixed), fetchCategories(), fetchAreas()]);
+  const { data, meta } = result;
   const names = {
     categories: Object.fromEntries(flattenCategories(categories).map((c) => [c.slug, c.name])),
     areas: Object.fromEntries(areas.map((a) => [a.slug, a.name])),
   };
   const chips = buildChips(state, basePath, names);
-  const { data, meta } = result;
   const beyond = data.length === 0 && meta.total > 0;
   return (
     <div className="flex flex-col gap-6">
-      <DirectoryFilters action={basePath} state={state} categories={categories} areas={areas} fixed={{ category: Boolean(fixed.category), area: Boolean(fixed.area) }} />
+      <DirectoryFilters
+        action={basePath}
+        state={state}
+        categories={categories}
+        areas={areas}
+        fixed={{ category: Boolean(fixed.category), area: Boolean(fixed.area) }}
+        openNowAvailable={meta.openNow?.available ?? false}
+      />
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
         <p role="status" className="text-sm">
           <span className="font-semibold">{meta.total === 0 ? 'No businesses match' : `${meta.total} business${meta.total === 1 ? '' : 'es'}`}</span>

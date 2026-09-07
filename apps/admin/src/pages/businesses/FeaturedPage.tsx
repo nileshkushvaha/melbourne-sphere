@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Alert, App, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Table, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { useOnError, usePermissions } from '@refinedev/core';
+import { useOnError } from '@refinedev/core';
 import { Link } from 'react-router';
 import { businessesApi, featuredApi, type FeaturedPlacement } from '@/api/businesses';
 import { isApiError } from '@/api/errors';
@@ -10,6 +10,8 @@ import { EmptyState, PageHeader, SectionCard, StatusTag } from '@/components/ui'
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 interface FormValues {
   businessId: string;
@@ -30,8 +32,8 @@ export function FeaturedPage() {
   const listings = businessesApi();
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
-  const { data: permissions } = usePermissions<string[]>({});
-  const canManage = (permissions ?? []).includes('listings.publish');
+  const { can } = useCapabilities();
+  const canManage = can(PERMISSION.listingsPublish);
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [form] = Form.useForm<FormValues>();

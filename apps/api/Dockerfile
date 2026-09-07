@@ -10,12 +10,13 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/api/package.json apps/api/
 COPY packages/database/package.json packages/database/
 COPY packages/domain/package.json packages/domain/
+COPY packages/mail/package.json packages/mail/
 COPY packages/contracts/package.json packages/contracts/
-RUN pnpm install --frozen-lockfile --filter api... --filter @melbourne-sphere/database... --filter @melbourne-sphere/domain...
+RUN pnpm install --frozen-lockfile --filter api... --filter @melbourne-sphere/database... --filter @melbourne-sphere/domain... --filter @melbourne-sphere/mail...
 
 FROM deps AS build
 COPY . .
-RUN pnpm db:build && pnpm domain:build && pnpm --filter api build
+RUN pnpm db:build && pnpm domain:build && pnpm mail:build && pnpm --filter api build
 
 FROM base AS runtime
 ENV NODE_ENV=production

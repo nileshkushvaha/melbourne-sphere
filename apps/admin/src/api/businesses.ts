@@ -16,7 +16,7 @@ export type DayHours = components['schemas']['DayHoursDto'];
 export type HoursInterval = components['schemas']['HoursIntervalDto'];
 export type HoursException = components['schemas']['HoursExceptionDto'];
 
-export const LINK_KINDS = ['facebook', 'instagram', 'x', 'linkedin', 'youtube', 'tiktok', 'other'] as const;
+export const LINK_KINDS = ['facebook', 'instagram', 'x', 'linkedin', 'youtube', 'tiktok', 'pinterest', 'other'] as const;
 export const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 
 /** Converts an API field path such as `weekly.monday.intervals.1.start` into an antd name path. */

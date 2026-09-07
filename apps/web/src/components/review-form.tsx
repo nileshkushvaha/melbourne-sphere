@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { StarIcon } from 'lucide-react';
 import { Button, Input, Label } from '@melbourne-sphere/ui';
 import { newIdempotencyKey, validateReviewForm, type FieldErrors, type ReviewFormValues } from '@/lib/submissions';
 
@@ -9,7 +10,8 @@ interface Props {
   businessName: string;
   /** Cloudflare Turnstile site key; without it the API cannot verify submissions, so the form is not offered. */
   turnstileSiteKey: string | null;
-  guidelinesHref: string;
+  /** Link for the acknowledgement wording; null while the guidelines page is unpublished. */
+  guidelinesHref: string | null;
 }
 
 const EMPTY: ReviewFormValues = { rating: null, displayName: '', email: '', text: '', acknowledged: false };
@@ -90,13 +92,34 @@ export function ReviewForm({ businessId, businessName, turnstileSiteKey, guideli
       )}
       <fieldset>
         <legend className="mb-1 block text-sm font-medium text-text">Your rating</legend>
-        <div className="flex flex-wrap gap-2">
-          {[1, 2, 3, 4, 5].map((value) => (
-            <label key={value} className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm ${values.rating === value ? 'border-sky-600 bg-sky-100 font-semibold' : 'border-border'}`}>
-              <input type="radio" name="rating" value={value} checked={values.rating === value} onChange={() => set('rating', value)} className="size-4" />
-              {value} star{value === 1 ? '' : 's'}
-            </label>
-          ))}
+        {/*
+          Five radios, one per star: still a native radio group (keyboard and
+          no-JavaScript behaviour unchanged), but each control shows the star it
+          selects rather than the words. The stars up to the chosen rating are
+          filled, so the row reads like the rating it will publish; the wording
+          stays as each control's accessible name (SRS NFR 011).
+        */}
+        <div className="flex flex-wrap items-center gap-1">
+          {[1, 2, 3, 4, 5].map((value) => {
+            const selected = values.rating !== null && value <= values.rating;
+            return (
+              <label
+                key={value}
+                className={`inline-flex size-11 cursor-pointer items-center justify-center rounded-lg border transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-sky-600 ${
+                  selected ? 'border-warning bg-warning/10 text-warning' : 'border-border text-border-strong hover:border-border-strong'
+                }`}
+              >
+                <input type="radio" name="rating" value={value} checked={values.rating === value} onChange={() => set('rating', value)} className="sr-only" />
+                <StarIcon size={22} strokeWidth={1.5} aria-hidden="true" className={selected ? 'fill-current' : undefined} />
+                <span className="sr-only">
+                  {value} star{value === 1 ? '' : 's'}
+                </span>
+              </label>
+            );
+          })}
+          <span aria-hidden="true" className="ml-2 text-sm text-text-muted">
+            {values.rating === null ? 'Choose a rating' : `${values.rating} of 5`}
+          </span>
         </div>
         {fieldError('rating') && <p className="mt-1 text-sm text-danger">{fieldError('rating')}</p>}
       </fieldset>
@@ -125,9 +148,13 @@ export function ReviewForm({ businessId, businessName, turnstileSiteKey, guideli
           <input type="checkbox" name="acknowledged" checked={values.acknowledged} onChange={(e) => set('acknowledged', e.target.checked)} className="mt-1 size-4" aria-describedby={fieldError('acknowledged') ? 'review-ack-error' : undefined} />
           <span>
             I have read the{' '}
-            <a href={guidelinesHref} className="text-link underline-offset-2 hover:underline">
-              review guidelines and privacy notice
-            </a>
+            {guidelinesHref ? (
+              <a href={guidelinesHref} className="text-link underline underline-offset-2">
+                review guidelines and privacy notice
+              </a>
+            ) : (
+              'review guidelines and privacy notice'
+            )}
             , and this review is my own experience.
           </span>
         </label>

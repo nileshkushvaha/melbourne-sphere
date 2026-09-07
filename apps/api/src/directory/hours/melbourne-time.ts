@@ -96,3 +96,12 @@ export function fromLocal(date: LocalDate, minuteOfDay: number): Date {
   }
   return new Date(Math.min(...candidates));
 }
+
+/**
+ * The Melbourne wall-clock minute an instant falls in, as `YYYY-MM-DDTHH:MM`.
+ * Used as a cache discriminator for answers that depend on the current time.
+ */
+export function melbourneMinuteKey(instant: Date): string {
+  const local = toLocal(instant);
+  return `${localDateKey(local)}T${String(local.hour).padStart(2, '0')}:${String(local.minute).padStart(2, '0')}`;
+}

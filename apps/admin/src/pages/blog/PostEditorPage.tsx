@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, App, Button, Col, Form, Input, List, Modal, Row, Select, Space, Switch, Tooltip, Typography } from 'antd';
 import { PictureOutlined } from '@ant-design/icons';
-import { useOnError, usePermissions } from '@refinedev/core';
+import { useOnError } from '@refinedev/core';
 import { useNavigate, useParams } from 'react-router';
 import { blogApi, melbourneLocalToUtc, melbourneOffsetLabel, utcToMelbourneLocal, type Post, type PostAction } from '@/api/blog';
 import { toNamePath } from '@/api/businesses';
@@ -11,8 +11,10 @@ import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { MediaPicker } from '@/components/MediaPicker';
 import { RichTextEditorLazy } from '@/components/RichTextEditorLazy';
-import { PageHeader, SectionCard, StatusTag, StickyActions } from '@/components/ui';
+import { PageLoader, PageHeader, SectionCard, StatusTag, StickyActions } from '@/components/ui';
 import type { MediaAsset } from '@/api/media';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 const ACTION_LABELS: Record<PostAction, { label: string; title: string; hint: string; danger?: boolean }> = {
   publish: { label: 'Publish', title: 'Publish this article?', hint: 'It becomes visible on the public blog immediately.' },
@@ -62,9 +64,9 @@ export function PostEditorPage() {
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
   const api = blogApi();
-  const { data: permissions } = usePermissions<string[]>({});
-  const canWrite = (permissions ?? []).includes('posts.write');
-  const canPublish = (permissions ?? []).includes('posts.publish');
+  const { can, loading: capabilitiesLoading } = useCapabilities();
+  const canWrite = can(PERMISSION.postsWrite);
+  const canPublish = can(PERMISSION.postsPublish);
   const [form] = Form.useForm<FormValues>();
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -192,6 +194,14 @@ export function PostEditorPage() {
     }
   };
 
+  // The screen is empty until its record arrives; say so rather than showing a blank disabled form.
+  // Capabilities decide whether this form is editable, so the screen waits for
+  // them rather than rendering a form that is disabled and then is not
+  // (SRS RBAC 010). Behind the route guard they are already known, so this is
+  // normally invisible.
+  if (capabilitiesLoading) return <PageLoader label="Checking your permissions…" />;
+
+  if (!isNew && state.status === 'loading') return <PageLoader label="Loading this article…" />;
   if (state.status === 'error') return <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} />;
   if (!isNew && !post) return <p role="status">Loading article…</p>;
   const readOnly = !canWrite || post?.status === 'archived';

@@ -37,7 +37,7 @@ export default function GlobalNotFound() {
           <NotFoundContent />
           <p className="mx-auto max-w-lg px-4 pb-16 text-center text-sm text-text-muted">
             If you followed a link from elsewhere on the site,{' '}
-            <Link href="/" className="text-link underline-offset-2 hover:underline">
+            <Link href="/" className="text-link underline underline-offset-2">
               tell us
             </Link>{' '}
             so we can fix it.

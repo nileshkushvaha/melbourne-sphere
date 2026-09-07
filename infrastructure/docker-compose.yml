@@ -1,4 +1,4 @@
-# Melbourne Sphere — local development infrastructure (MySQL + Redis).
+# Melbourne Sphere — local development infrastructure (MySQL, Redis, MinIO, Mailpit).
 #
 # Run from the repository root via the pnpm scripts (pnpm infra:up / infra:down /
 # infra:status / infra:logs), which pass this file and infrastructure/.env
@@ -132,12 +132,42 @@ services:
       retries: 20
       start_period: 5s
 
+  mailpit:
+    # Local SMTP catcher (SRS ENQ 005 / decision D03). The API and worker use
+    # the same SMTP adapter they use in production, pointed at this relay, so
+    # password-reset and enquiry mail can be read at http://127.0.0.1:8025
+    # instead of being printed to a console. Nothing here ever leaves the
+    # machine: Mailpit accepts messages and stores them; it does not relay.
+    # Development only; production requires an authenticated TLS relay.
+    image: axllent/mailpit:v1.31.1
+    container_name: melbourne-sphere-mailpit
+    restart: unless-stopped
+    environment:
+      # Persist captured mail across restarts and cap the store.
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: "5000"
+    ports:
+      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+    volumes:
+      - mailpit-data:/data
+    networks:
+      - local
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
 volumes:
   # Compose prefixes these with the project name: melbourne-sphere_mysql-data,
-  # melbourne-sphere_redis-data, melbourne-sphere_minio-data.
+  # melbourne-sphere_redis-data, melbourne-sphere_minio-data,
+  # melbourne-sphere_mailpit-data.
   mysql-data:
   redis-data:
   minio-data:
+  mailpit-data:
 
 networks:
   # Internal bridge for service-to-service traffic; host access is via the

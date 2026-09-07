@@ -1,11 +1,15 @@
 import { validateEnv } from './env.validation.js';
 
 const DB = 'mysql://app:secret@127.0.0.1:3307/melbourne_sphere_dev';
+/** Production requires verified TLS, so production cases use a URL that has it. */
+const DB_TLS = `${DB}?sslmode=verify-identity`;
 const REDIS = 'redis://:pw@127.0.0.1:6380/0';
 const SECRET = 'a-test-secret-that-is-at-least-32-characters-long';
 /** Required settings beyond the one under test. */
 const KEY = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
 const BASE = { DATABASE_URL: DB, REDIS_URL: REDIS, APP_SECRET_KEY: SECRET, FIELD_ENCRYPTION_KEY: KEY };
+/** A production-shaped SMTP relay (placeholders, not credentials). */
+const SMTP_PROD = { MAIL_TRANSPORT: 'smtp', SMTP_HOST: 'smtp.relay.example', SMTP_PORT: '587', SMTP_USER: 'relay-user', SMTP_PASSWORD: 'relay-placeholder' };
 const DEFAULTS = {
   NODE_ENV: 'development',
   PORT: 3001,
@@ -35,6 +39,11 @@ const DEFAULTS = {
   MEDIA_PUBLIC_BUCKET: 'melbourne-sphere-media',
   MEDIA_PUBLIC_BASE_URL: undefined,
   MAIL_FROM_ADDRESS: undefined,
+  SMTP_HOST: undefined,
+  SMTP_PORT: undefined,
+  SMTP_SECURE: undefined,
+  SMTP_USER: undefined,
+  SMTP_PASSWORD: undefined,
   MAIL_TRANSPORT: 'none',
   OPENAPI_ENABLED: false,
   FIELD_ENCRYPTION_KEY: KEY,
@@ -52,8 +61,8 @@ describe('validateEnv', () => {
 
   it('parses a valid PORT string and NODE_ENV', () => {
     expect(
-      validateEnv({ ...BASE, NODE_ENV: 'production', PORT: '8080', TRUSTED_ORIGINS: 'https://example.com', PUBLIC_ADMIN_URL: 'https://example.com/admin', PUBLIC_SITE_URL: 'https://example.com', TURNSTILE_SECRET_KEY: 'a'.repeat(20), MAIL_FROM_ADDRESS: 'no-reply@example.com', MEDIA_S3_ACCESS_KEY_ID: 'key', MEDIA_S3_SECRET_ACCESS_KEY: 'secret', MEDIA_PUBLIC_BASE_URL: 'https://cdn.example.com' }),
-    ).toEqual({ ...DEFAULTS, NODE_ENV: 'production', PORT: 8080, TRUSTED_ORIGINS: ['https://example.com'], PUBLIC_ADMIN_URL: 'https://example.com/admin', PUBLIC_SITE_URL: 'https://example.com', TURNSTILE_SECRET_KEY: 'a'.repeat(20), MAIL_FROM_ADDRESS: 'no-reply@example.com', MEDIA_S3_ACCESS_KEY_ID: 'key', MEDIA_S3_SECRET_ACCESS_KEY: 'secret', MEDIA_PUBLIC_BASE_URL: 'https://cdn.example.com' });
+      validateEnv({ ...BASE, DATABASE_URL: DB_TLS, NODE_ENV: 'production', PORT: '8080', TRUSTED_ORIGINS: 'https://example.com', PUBLIC_ADMIN_URL: 'https://example.com/admin', PUBLIC_SITE_URL: 'https://example.com', TURNSTILE_SECRET_KEY: 'a'.repeat(20), MAIL_FROM_ADDRESS: 'no-reply@example.com', MEDIA_S3_ACCESS_KEY_ID: 'key', MEDIA_S3_SECRET_ACCESS_KEY: 'secret', MEDIA_PUBLIC_BASE_URL: 'https://cdn.example.com', ...SMTP_PROD }),
+    ).toEqual({ ...DEFAULTS, DATABASE_URL: DB_TLS, NODE_ENV: 'production', PORT: 8080, TRUSTED_ORIGINS: ['https://example.com'], PUBLIC_ADMIN_URL: 'https://example.com/admin', PUBLIC_SITE_URL: 'https://example.com', TURNSTILE_SECRET_KEY: 'a'.repeat(20), MAIL_FROM_ADDRESS: 'no-reply@example.com', MEDIA_S3_ACCESS_KEY_ID: 'key', MEDIA_S3_SECRET_ACCESS_KEY: 'secret', MEDIA_PUBLIC_BASE_URL: 'https://cdn.example.com', ...SMTP_PROD });
   });
 
   it('ignores unrelated variables', () => {
@@ -172,11 +181,62 @@ describe('validateEnv', () => {
     });
 
     it('refuses insecure production settings', () => {
-      const prod = { ...BASE, NODE_ENV: 'production', TRUSTED_ORIGINS: 'https://example.com', PUBLIC_ADMIN_URL: 'https://example.com/admin' };
+      const prod = { ...BASE, DATABASE_URL: DB_TLS, NODE_ENV: 'production', TRUSTED_ORIGINS: 'https://example.com', PUBLIC_ADMIN_URL: 'https://example.com/admin' };
       expect(() => validateEnv({ ...prod, SESSION_COOKIE_SECURE: 'false' })).toThrow(/SESSION_COOKIE_SECURE: must be true/);
       expect(() => validateEnv({ ...prod, MAIL_TRANSPORT: 'console' })).toThrow(/MAIL_TRANSPORT: console/);
       expect(() => validateEnv({ ...prod, DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL: 'true' })).toThrow(/DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL/);
       expect(() => validateEnv({ ...prod, TRUSTED_ORIGINS: 'http://example.com' })).toThrow(/https origins/);
+    });
+
+    /**
+     * Without verified TLS the MySQL handshake can be downgraded on the path and
+     * the account password read in clear — the precondition for the mariadb and
+     * mysql2 advisories. Production must refuse to start, not warn.
+     */
+    it('refuses a production database connection without verified TLS', () => {
+      const prod = { ...BASE, NODE_ENV: 'production', TRUSTED_ORIGINS: 'https://example.com', PUBLIC_ADMIN_URL: 'https://example.com/admin' };
+      for (const url of [
+        'mysql://app:secret@db.internal:3306/melbourne_sphere',
+        'mysql://app:secret@db.internal:3306/melbourne_sphere?sslmode=disabled',
+        'mysql://app:secret@db.internal:3306/melbourne_sphere?sslmode=required',
+      ]) {
+        let message = '';
+        try {
+          validateEnv({ ...prod, DATABASE_URL: url });
+        } catch (error) {
+          message = (error as Error).message;
+        }
+        expect(message, url).toMatch(/DATABASE_URL: must use verified TLS in production/);
+        // The failure never echoes the connection string or its password.
+        expect(message).not.toContain('secret');
+      }
+
+      for (const url of [
+        'mysql://app:secret@db.internal:3306/melbourne_sphere?sslmode=verify-ca&sslca=%2Fetc%2Fssl%2Fca.pem',
+        'mysql://app:secret@db.internal:3306/melbourne_sphere?sslmode=verify-identity',
+      ]) {
+        expect(() =>
+          validateEnv({
+            ...prod,
+            DATABASE_URL: url,
+            PUBLIC_SITE_URL: 'https://example.com',
+            TURNSTILE_SECRET_KEY: 'a'.repeat(20),
+            MAIL_FROM_ADDRESS: 'no-reply@example.com',
+            ...SMTP_PROD,
+            MEDIA_S3_ACCESS_KEY_ID: 'key',
+            MEDIA_S3_SECRET_ACCESS_KEY: 'secret-value',
+            MEDIA_PUBLIC_BASE_URL: 'https://cdn.example.com',
+          }),
+        ).not.toThrow();
+      }
+    });
+
+    it('keeps public-key retrieval a development-only setting', () => {
+      // It exists because the MySQL 8 handshake needs an RSA exchange without
+      // TLS; allowing it in production would be exactly the unprotected path.
+      expect(validateEnv({ ...BASE, DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL: 'true' }).DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL).toBe(true);
+      const prod = { ...BASE, DATABASE_URL: DB_TLS, NODE_ENV: 'production', TRUSTED_ORIGINS: 'https://example.com', PUBLIC_ADMIN_URL: 'https://example.com/admin' };
+      expect(() => validateEnv({ ...prod, DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL: 'true' })).toThrow(/must be false in production/);
     });
   });
 
@@ -198,6 +258,9 @@ describe('validateEnv', () => {
 describe('public submission configuration (SRS SEC 002/003)', () => {
   const PROD = {
     ...BASE,
+    // Production also requires verified TLS to the database; that rule has its
+    // own test, so this block supplies a compliant URL and checks the rest.
+    DATABASE_URL: DB_TLS,
     NODE_ENV: 'production',
     SESSION_COOKIE_SECURE: 'true',
     TRUSTED_ORIGINS: 'https://admin.example',
@@ -209,7 +272,37 @@ describe('public submission configuration (SRS SEC 002/003)', () => {
     expect(() => validateEnv({ ...PROD, TURNSTILE_SECRET_KEY: 'a'.repeat(20) })).toThrow(/PUBLIC_SITE_URL/);
     expect(() => validateEnv({ ...PROD, TURNSTILE_SECRET_KEY: 'a'.repeat(20), PUBLIC_SITE_URL: 'https://melbournesphere.example/' })).toThrow(/MAIL_FROM_ADDRESS/);
     expect(() => validateEnv({ ...PROD, TURNSTILE_SECRET_KEY: 'a'.repeat(20), PUBLIC_SITE_URL: 'https://melbournesphere.example/', MAIL_FROM_ADDRESS: 'no-reply@example.com' })).toThrow(/MEDIA_S3_ACCESS_KEY_ID/);
-    expect(validateEnv({ ...PROD, TURNSTILE_SECRET_KEY: 'a'.repeat(20), PUBLIC_SITE_URL: 'https://melbournesphere.example/', MAIL_FROM_ADDRESS: 'no-reply@melbournesphere.example', MEDIA_S3_ACCESS_KEY_ID: 'key', MEDIA_S3_SECRET_ACCESS_KEY: 'secret', MEDIA_PUBLIC_BASE_URL: 'https://cdn.melbournesphere.example' }).PUBLIC_SITE_URL).toBe('https://melbournesphere.example');
+    expect(validateEnv({ ...PROD, TURNSTILE_SECRET_KEY: 'a'.repeat(20), PUBLIC_SITE_URL: 'https://melbournesphere.example/', MAIL_FROM_ADDRESS: 'no-reply@melbournesphere.example', MEDIA_S3_ACCESS_KEY_ID: 'key', MEDIA_S3_SECRET_ACCESS_KEY: 'secret', MEDIA_PUBLIC_BASE_URL: 'https://cdn.melbournesphere.example', ...SMTP_PROD }).PUBLIC_SITE_URL).toBe('https://melbournesphere.example');
+  });
+
+  describe('transactional mail (SRS ENQ 005, decision D03)', () => {
+    const COMPLETE = { ...PROD, TURNSTILE_SECRET_KEY: 'a'.repeat(20), PUBLIC_SITE_URL: 'https://melbournesphere.example', MAIL_FROM_ADDRESS: 'no-reply@melbournesphere.example', MEDIA_S3_ACCESS_KEY_ID: 'key', MEDIA_S3_SECRET_ACCESS_KEY: 'secret', MEDIA_PUBLIC_BASE_URL: 'https://cdn.melbournesphere.example' };
+
+    it('requires the smtp transport in production', () => {
+      expect(() => validateEnv({ ...COMPLETE })).toThrow(/MAIL_TRANSPORT: must be smtp in production/);
+      expect(() => validateEnv({ ...COMPLETE, MAIL_TRANSPORT: 'console' })).toThrow(/MAIL_TRANSPORT: console/);
+    });
+
+    it('refuses smtp without a relay, without credentials in production, and never echoes values', () => {
+      expect(() => validateEnv({ ...COMPLETE, MAIL_TRANSPORT: 'smtp' })).toThrow(/SMTP_HOST: required/);
+      const message = (() => {
+        try {
+          validateEnv({ ...COMPLETE, MAIL_TRANSPORT: 'smtp', SMTP_HOST: '127.0.0.1', SMTP_PORT: '1025', SMTP_PASSWORD: 'leaky-secret' });
+          return '';
+        } catch (error) {
+          return (error as Error).message;
+        }
+      })();
+      expect(message).toMatch(/SMTP_USER \/ SMTP_PASSWORD/);
+      expect(message).toMatch(/loopback host/);
+      expect(message).not.toContain('leaky-secret');
+    });
+
+    it('accepts a plaintext loopback catcher outside production but still needs a sender', () => {
+      expect(() => validateEnv({ ...BASE, MAIL_TRANSPORT: 'smtp', SMTP_HOST: '127.0.0.1', SMTP_PORT: '1025' })).toThrow(/MAIL_FROM_ADDRESS: required when MAIL_TRANSPORT=smtp/);
+      expect(validateEnv({ ...BASE, MAIL_TRANSPORT: 'smtp', SMTP_HOST: '127.0.0.1', SMTP_PORT: '1025', MAIL_FROM_ADDRESS: 'no-reply@melbournesphere.example' })).toMatchObject({ MAIL_TRANSPORT: 'smtp', SMTP_HOST: '127.0.0.1', SMTP_PORT: '1025' });
+      expect(() => validateEnv({ ...BASE, MAIL_TRANSPORT: 'smtp', SMTP_HOST: '127.0.0.1', SMTP_PORT: 'abc', MAIL_FROM_ADDRESS: 'no-reply@melbournesphere.example' })).toThrow(/SMTP_PORT/);
+    });
   });
 
   it('accepts a missing Turnstile secret outside production and rejects short ones', () => {

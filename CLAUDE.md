@@ -50,5 +50,5 @@ Focused runs: `pnpm --filter api exec vitest run src/<dir>`, `pnpm --filter api 
 4. Reuse recorded dependency decisions (current-state "Dependency decisions"); research only new/upgraded/broken dependencies, from official sources.
 5. Run focused checks while implementing; run `pnpm check` and `pnpm test:integration` once at the phase gate (again only after a relevant fix).
 6. Verify at runtime (curl/browser) including failure paths, permissions and 320 px layout for public pages; never type real credentials into the browser — use the reset-link flow with a temporary value and rotate it afterwards.
-7. At the gate: update `docs/ai/current-state.md` (overwrite, keep it current), `docs/traceability.md`, add a concise phase record to `docs/setup-progress.md`, update READMEs touched by the phase.
+7. At the gate: update `docs/ai/current-state.md` (overwrite, keep it current), `docs/requirements-traceability.md`, add a concise phase record to `docs/setup-progress.md`, update READMEs touched by the phase.
 8. Continue to the next phase from the roadmap in `docs/setup-progress.md` unless genuinely blocked (missing secret/account/business decision, destructive step, material SRS ambiguity, unavailable dependency). Keep phase reports under ~500 words; put durable detail in docs, not chat.

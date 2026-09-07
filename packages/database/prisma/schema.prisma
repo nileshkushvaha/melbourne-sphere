@@ -64,10 +64,18 @@ model AdminUser {
   totpPendingSecretEncrypted String?         @db.VarChar(255)
   totpEnabledAt              DateTime?       @db.DateTime(3)
   version                    Int             @default(1)
+  /// Bumped by every change to this administrator's roles, direct permissions or
+  /// status, and by any change to a role they hold. It scopes the effective-permission
+  /// cache key, so a withdrawn permission cannot survive to a TTL (SRS RBAC 009).
+  authzVersion               Int             @default(1)
   createdAt                  DateTime        @default(now()) @db.DateTime(3)
   updatedAt                  DateTime        @updatedAt @db.DateTime(3)
 
   roles              AdminRole[]
+  directPermissions  AdminPermission[]     @relation("AdminDirectPermission")
+  grantedRoles       AdminRole[]           @relation("AdminRoleAssignedBy")
+  grantedPermissions AdminPermission[]     @relation("AdminPermissionAssignedBy")
+  grantedRolePerms   RolePermission[]      @relation("RolePermissionAssignedBy")
   sessions           AdminSession[]
   resetTokens        PasswordResetToken[]
   recoveryCodes      AdminRecoveryCode[]
@@ -88,13 +96,18 @@ model AdminUser {
   @@map("admin_users")
 }
 
-/// Role with a stable key (e.g. super_admin). isSystem roles cannot be deleted.
+/// Role with a stable key (e.g. super_admin). isSystem roles are protected: they
+/// cannot be deleted, renamed at the key, deactivated or unprotected (SRS RBAC 003).
 model Role {
   id          String   @id @default(cuid())
   key         String   @unique @db.VarChar(64)
   name        String   @db.VarChar(80)
   description String   @db.VarChar(255)
   isSystem    Boolean  @default(false)
+  /// An inactive role grants nothing (SRS RBAC 003/005).
+  isActive    Boolean  @default(true)
+  /// Optimistic concurrency for role edits and permission replacement (RBAC 008).
+  version     Int      @default(1)
   createdAt   DateTime @default(now()) @db.DateTime(3)
   updatedAt   DateTime @updatedAt @db.DateTime(3)
 
@@ -104,42 +117,80 @@ model Role {
   @@map("roles")
 }
 
-/// Permission catalogue entry, key = "<resource>.<action>" (SRS RBAC 001).
+/// Permission catalogue entry, key = "<resource>.<action>" (SRS RBAC 001/002).
+/// Rows are synchronised from the code catalogue; nothing creates them at runtime.
 model Permission {
   id          String   @id @default(cuid())
   key         String   @unique @db.VarChar(64)
+  /// Human-readable name for the admin permission matrix.
+  label       String   @default("") @db.VarChar(80)
   description String   @db.VarChar(255)
+  /// Grouping used by the admin interface, e.g. "Directory", "Editorial".
+  module      String   @default("General") @db.VarChar(40)
+  /// An inactive (retired) permission grants nothing and is not offered for assignment.
+  isActive    Boolean  @default(true)
+  /// Declared in code and owned by the synchronisation command, not by editors.
+  isSystem    Boolean  @default(true)
   createdAt   DateTime @default(now()) @db.DateTime(3)
+  updatedAt   DateTime @updatedAt @db.DateTime(3)
 
-  roles RolePermission[]
+  roles  RolePermission[]
+  admins AdminPermission[]
 
+  @@index([module])
   @@map("permissions")
 }
 
 model RolePermission {
   roleId       String
   permissionId String
+  /// Administrator who granted it, kept for the audit trail; null for seeded rows.
+  assignedById String?
   createdAt    DateTime @default(now()) @db.DateTime(3)
 
   role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+  assignedBy AdminUser? @relation("RolePermissionAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
 
   @@id([roleId, permissionId])
   @@index([permissionId])
+  @@index([assignedById])
   @@map("role_permissions")
 }
 
 model AdminRole {
-  adminId   String
-  roleId    String
-  createdAt DateTime @default(now()) @db.DateTime(3)
+  adminId      String
+  roleId       String
+  /// Administrator who assigned the role; null for the bootstrap procedure.
+  assignedById String?
+  createdAt    DateTime @default(now()) @db.DateTime(3)
 
-  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
-  role  Role      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  admin      AdminUser  @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  assignedBy AdminUser? @relation("AdminRoleAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
 
   @@id([adminId, roleId])
   @@index([roleId])
+  @@index([assignedById])
   @@map("admin_roles")
+}
+
+/// Permission granted directly to one administrator, in addition to anything their
+/// roles carry (SRS RBAC 004). Grant-only: there are no deny rows in this revision.
+model AdminPermission {
+  adminId      String
+  permissionId String
+  assignedById String?
+  createdAt    DateTime @default(now()) @db.DateTime(3)
+
+  admin      AdminUser  @relation("AdminDirectPermission", fields: [adminId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+  assignedBy AdminUser? @relation("AdminPermissionAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@id([adminId, permissionId])
+  @@index([permissionId])
+  @@index([assignedById])
+  @@map("admin_permissions")
 }
 
 /// Opaque server-side session (SRS AUTH 002). The browser holds only the random
@@ -230,6 +281,8 @@ model AuditLog {
   metadata     Json?
   requestId    String?  @db.VarChar(64)
   ipAddress    String?  @db.VarChar(45)
+  /// Recorded for authorization events only, within PRIV 001 limits.
+  userAgent    String?  @db.VarChar(255)
   createdAt    DateTime @default(now()) @db.DateTime(3)
 
   actor AdminUser? @relation("AuditActor", fields: [actorAdminId], references: [id], onDelete: SetNull)
@@ -492,6 +545,7 @@ enum BusinessLinkKind {
   linkedin
   youtube
   tiktok
+  pinterest
   other
 }
 
@@ -803,6 +857,7 @@ enum AuthorLinkKind {
   linkedin
   youtube
   tiktok
+  pinterest
   threads
   mastodon
   github

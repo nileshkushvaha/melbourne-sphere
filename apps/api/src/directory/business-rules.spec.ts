@@ -65,6 +65,9 @@ describe('contact and link rules (SRS BUS 003)', () => {
     expect(errors['links.5.kind']).toEqual(['Only one instagram link is allowed']);
     expect(normalised.map((l) => [l.kind, l.label, l.sortOrder])).toEqual([['instagram', null, 0], ['other', 'Menu', 4], ['youtube', null, 6]]);
     expect(validateLinks(Array.from({ length: 9 }, () => ({ kind: 'other' as const, url: 'https://example.com' }))).errors.links).toBeDefined();
+    // Pinterest joined the vocabulary with the site's own profiles; it is host-checked like every other known kind.
+    expect(validateLinks([{ kind: 'pinterest', url: 'https://www.pinterest.com.au/melbournesphere/' }]).errors).toEqual({});
+    expect(validateLinks([{ kind: 'pinterest', url: 'https://example.com/melbournesphere' }]).errors['links.0.url']?.[0]).toMatch(/pinterest\.com/);
     expect(validatePublicUrl('javascript:alert(1)')).toBeNull();
     expect(validatePublicUrl('https://localhost/')).toBeNull();
   });

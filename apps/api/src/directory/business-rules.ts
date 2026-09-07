@@ -108,7 +108,7 @@ export function parseAustralianPhone(input: string): AustralianPhone | null {
   return null;
 }
 
-export const LINK_KINDS = ['facebook', 'instagram', 'x', 'linkedin', 'youtube', 'tiktok', 'other'] as const;
+export const LINK_KINDS = ['facebook', 'instagram', 'x', 'linkedin', 'youtube', 'tiktok', 'pinterest', 'other'] as const;
 export type LinkKind = (typeof LINK_KINDS)[number];
 export const MAX_LINKS = 8;
 
@@ -120,6 +120,7 @@ const LINK_HOSTS: Record<Exclude<LinkKind, 'other'>, string[]> = {
   linkedin: ['linkedin.com'],
   youtube: ['youtube.com', 'youtu.be'],
   tiktok: ['tiktok.com'],
+  pinterest: ['pinterest.com', 'pinterest.com.au', 'pin.it'],
 };
 
 export interface LinkInput {
@@ -143,6 +144,22 @@ export function validatePublicUrl(value: string): string | null {
 }
 
 const hostMatches = (hostname: string, domains: string[]) => domains.some((d) => hostname === d || hostname.endsWith(`.${d}`));
+
+/** The domains a known link kind may point at; shared with the site's own social links (SRS CFG 001). */
+export function linkHostsFor(kind: Exclude<LinkKind, 'other'>): string[] {
+  return [...LINK_HOSTS[kind]];
+}
+
+/**
+ * Validates one social link of a known kind: a public http(s) URL on that
+ * platform's own domain. Returns the normalised URL, or null when either rule
+ * fails — a link in the site header must never send visitors somewhere else.
+ */
+export function validatePlatformUrl(kind: Exclude<LinkKind, 'other'>, value: string): string | null {
+  const url = validatePublicUrl(value);
+  if (!url) return null;
+  return hostMatches(new URL(url).hostname.toLowerCase(), LINK_HOSTS[kind]) ? url : null;
+}
 
 /** Link rules (SRS BUS 003): http(s) only, known kinds on their own domains, one per known kind, at most MAX_LINKS. */
 export function validateLinks(links: LinkInput[]): { errors: Record<string, string[]>; normalised: { kind: LinkKind; url: string; label: string | null; sortOrder: number }[] } {

@@ -2,7 +2,8 @@ import { plainToInstance } from 'class-transformer';
 import { ArrayNotEmpty, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUrl, Max, MaxLength, Min, MinLength, Validate, validateSync } from 'class-validator';
 import type { ValidationArguments, ValidatorConstraintInterface } from 'class-validator';
 import { ValidatorConstraint } from 'class-validator';
-import { parseMysqlUrl } from '@melbourne-sphere/database';
+import { hasVerifiedTls, parseMysqlUrl } from '@melbourne-sphere/database';
+import { smtpConfigFromEnv } from '@melbourne-sphere/mail';
 
 export const NODE_ENVS = ['development', 'test', 'production'] as const;
 export type NodeEnv = (typeof NODE_ENVS)[number];
@@ -153,9 +154,13 @@ export class EnvironmentVariables {
   @IsUrl({ require_tld: false, require_protocol: true, protocols: ['http', 'https'], disallow_auth: true }, { message: 'PUBLIC_ADMIN_URL must be an http(s) URL' })
   PUBLIC_ADMIN_URL = 'http://127.0.0.1:3002/admin';
 
-  /** "none" or "console" (console only outside production). */
-  @IsIn(['none', 'console'], { message: 'MAIL_TRANSPORT must be none or console' })
-  MAIL_TRANSPORT: 'none' | 'console' = 'none';
+  /**
+   * "none" (nothing is sent; delivery reports as unavailable), "console"
+   * (development only: prints the message) or "smtp" (the provider-independent
+   * production transport, SRS ENQ 005 / decision D03). Production requires smtp.
+   */
+  @IsIn(['none', 'console', 'smtp'], { message: 'MAIL_TRANSPORT must be none, console or smtp' })
+  MAIL_TRANSPORT: 'none' | 'console' | 'smtp' = 'none';
 
   @IsBoolean({ message: 'OPENAPI_ENABLED must be true or false' })
   OPENAPI_ENABLED = false;
@@ -182,6 +187,32 @@ export class EnvironmentVariables {
   @IsString()
   @MaxLength(254)
   MAIL_FROM_ADDRESS?: string;
+
+  /** SMTP relay for MAIL_TRANSPORT=smtp; validated by @melbourne-sphere/mail (auth and TLS mandatory in production). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(253)
+  SMTP_HOST?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  SMTP_PORT?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  SMTP_SECURE?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  SMTP_USER?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1024)
+  SMTP_PASSWORD?: string;
 
   /** Version string recorded with each acknowledgement of the review guidelines and privacy notice (SRS PRIV 001). */
   @IsString()
@@ -256,6 +287,7 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
     'SESSION_ABSOLUTE_HOURS', 'ARGON2_MEMORY_KIB', 'ARGON2_TIME_COST', 'ARGON2_PARALLELISM',
     'PUBLIC_ADMIN_URL', 'PUBLIC_SITE_URL', 'MAIL_TRANSPORT', 'OPENAPI_ENABLED', 'FIELD_ENCRYPTION_KEY',
     'TURNSTILE_SECRET_KEY', 'SUBMISSION_TERMS_VERSION', 'SITE_ENQUIRY_RECIPIENT', 'MAIL_FROM_ADDRESS',
+    'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_USER', 'SMTP_PASSWORD',
     'MEDIA_S3_ENDPOINT', 'MEDIA_S3_REGION', 'MEDIA_S3_ACCESS_KEY_ID', 'MEDIA_S3_SECRET_ACCESS_KEY',
     'MEDIA_QUARANTINE_BUCKET', 'MEDIA_PUBLIC_BUCKET', 'MEDIA_PUBLIC_BASE_URL',
   ] as const;
@@ -291,16 +323,32 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
         'Fix the variables above (see apps/api/.env.example).',
     );
   }
+  // The SMTP relay is checked in every environment so a misconfigured
+  // transport fails at start-up rather than at the first password reset.
+  if (validated.MAIL_TRANSPORT === 'smtp') {
+    const smtp = smtpConfigFromEnv(validated, { production: validated.NODE_ENV === 'production' });
+    const problems = smtp.problems.map((line) => `  - ${line}`);
+    if (!validated.MAIL_FROM_ADDRESS) problems.push('  - MAIL_FROM_ADDRESS: required when MAIL_TRANSPORT=smtp (verified sender)');
+    if (problems.length) throw new Error(`Invalid mail configuration:\n${problems.join('\n')}`);
+  }
   if (validated.NODE_ENV === 'production') {
     const production: string[] = [];
     if (!validated.SESSION_COOKIE_SECURE) production.push('  - SESSION_COOKIE_SECURE: must be true in production');
     if (validated.MAIL_TRANSPORT === 'console') production.push('  - MAIL_TRANSPORT: console is not allowed in production');
+    if (validated.MAIL_TRANSPORT === 'none') production.push('  - MAIL_TRANSPORT: must be smtp in production (password resets and account set-up cannot be delivered otherwise; decision D03)');
     if (!validated.TURNSTILE_SECRET_KEY) production.push('  - TURNSTILE_SECRET_KEY: required in production (public submissions are verified server side)');
     if (!validated.PUBLIC_SITE_URL) production.push('  - PUBLIC_SITE_URL: required in production (canonical links and Turnstile hostname check)');
     if (!validated.MAIL_FROM_ADDRESS) production.push('  - MAIL_FROM_ADDRESS: required in production (verified sender for enquiry mail)');
     if (!validated.MEDIA_S3_ACCESS_KEY_ID || !validated.MEDIA_S3_SECRET_ACCESS_KEY) production.push('  - MEDIA_S3_ACCESS_KEY_ID / MEDIA_S3_SECRET_ACCESS_KEY: required in production (least-privilege media credentials)');
     if (!validated.MEDIA_PUBLIC_BASE_URL) production.push('  - MEDIA_PUBLIC_BASE_URL: required in production (public/CDN base URL for media variants)');
     if (validated.DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL) production.push('  - DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL: must be false in production (use TLS)');
+    // Without verified TLS the MySQL handshake can be downgraded by an active
+    // attacker on the path and the account password read in clear — the
+    // precondition for the mariadb/mysql2 advisories. Refuse to start rather
+    // than run unprotected (SRS SEC 004, DAT 002).
+    if (!hasVerifiedTls(validated.DATABASE_URL)) {
+      production.push('  - DATABASE_URL: must use verified TLS in production (append ?sslmode=verify-identity, or ?sslmode=verify-ca&sslca=/path/to/ca.pem)');
+    }
     if (validated.TRUSTED_ORIGINS.some((o) => o.startsWith('http://'))) production.push('  - TRUSTED_ORIGINS: must be https origins in production');
     if (production.length) {
       throw new Error(`Invalid environment configuration for production:\n${production.join('\n')}`);
@@ -328,6 +376,11 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
     SUBMISSION_TERMS_VERSION: validated.SUBMISSION_TERMS_VERSION,
     SITE_ENQUIRY_RECIPIENT: validated.SITE_ENQUIRY_RECIPIENT,
     MAIL_FROM_ADDRESS: validated.MAIL_FROM_ADDRESS,
+    SMTP_HOST: validated.SMTP_HOST,
+    SMTP_PORT: validated.SMTP_PORT,
+    SMTP_SECURE: validated.SMTP_SECURE,
+    SMTP_USER: validated.SMTP_USER,
+    SMTP_PASSWORD: validated.SMTP_PASSWORD,
     MEDIA_S3_ENDPOINT: validated.MEDIA_S3_ENDPOINT,
     MEDIA_S3_REGION: validated.MEDIA_S3_REGION,
     MEDIA_S3_ACCESS_KEY_ID: validated.MEDIA_S3_ACCESS_KEY_ID,

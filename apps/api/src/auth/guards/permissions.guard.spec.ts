@@ -1,4 +1,5 @@
 import { Reflector } from '@nestjs/core';
+import { AbilityFactory } from '../../authorization/ability.factory.js';
 import { PERMISSIONS_KEY, PUBLIC_ROUTE_KEY, SESSION_ONLY_KEY } from '../decorators.js';
 import { PermissionsGuard } from './permissions.guard.js';
 
@@ -9,7 +10,7 @@ function make(metadata: Record<string, unknown>, admin?: { permissions: string[]
     getClass: () => undefined,
     switchToHttp: () => ({ getRequest: () => ({ method: 'GET', path, admin }) }),
   } as never;
-  return { guard: new PermissionsGuard(reflector), ctx };
+  return { guard: new PermissionsGuard(reflector, new AbilityFactory()), ctx };
 }
 
 describe('PermissionsGuard (default deny)', () => {
@@ -36,6 +37,23 @@ describe('PermissionsGuard (default deny)', () => {
     expect(() => missing.guard.canActivate(missing.ctx)).toThrow(/permission/);
     const unknown = make({ [PERMISSIONS_KEY]: ['listings.everything'] }, { permissions: ['listings.everything'] });
     expect(() => unknown.guard.canActivate(unknown.ctx)).toThrow();
+  });
+
+  it('never satisfies a requirement from a code outside the catalogue', () => {
+    // A stale database row or a hand-edited assignment cannot grant access: the
+    // ability is built only from codes the application still declares.
+    const stale = make({ [PERMISSIONS_KEY]: ['listings.read'] }, { permissions: ['listings.read', 'listings.everything'] });
+    expect(stale.guard.canActivate(stale.ctx)).toBe(true);
+    const bogus = make({ [PERMISSIONS_KEY]: ['listings.read'] }, { permissions: ['listings.everything'] });
+    expect(() => bogus.guard.canActivate(bogus.ctx)).toThrow(/permission/);
+  });
+
+  it('keeps two codes on one resource apart', () => {
+    // 'admins.manage' must not satisfy 'admins.access.manage'.
+    const { guard, ctx } = make({ [PERMISSIONS_KEY]: ['admins.access.manage'] }, { permissions: ['admins.manage'] });
+    expect(() => guard.canActivate(ctx)).toThrow(/permission/);
+    const granted = make({ [PERMISSIONS_KEY]: ['admins.access.manage'] }, { permissions: ['admins.access.manage'] });
+    expect(granted.guard.canActivate(granted.ctx)).toBe(true);
   });
 
   it('denies when no principal is attached', () => {

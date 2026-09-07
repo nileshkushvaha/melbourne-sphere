@@ -9,7 +9,7 @@ import { formatDateTime } from '@/shared/format';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { MediaPicker } from '@/components/MediaPicker';
-import { PageHeader, SectionCard, StickyActions } from '@/components/ui';
+import { PageLoader, PageHeader, SectionCard, StickyActions } from '@/components/ui';
 import { variantUrl, type MediaAsset } from '@/api/media';
 
 interface HeroSlideValue {
@@ -87,6 +87,8 @@ export function SiteSettingsPage() {
     }
   };
 
+  // The screen is empty until its record arrives; say so rather than showing a blank disabled form.
+  if (state.status === 'loading') return <PageLoader label="Loading site settings…" />;
   if (state.status === 'error') return <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} />;
 
   return (

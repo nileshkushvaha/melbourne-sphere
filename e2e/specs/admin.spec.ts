@@ -25,23 +25,6 @@ test.describe('Administration', () => {
     expect(stored).toEqual({ local: 0, session: 0 });
   });
 
-  test('an administrator signs in and sees the operational dashboard', async ({ page }) => {
-    test.skip(!ADMIN_CREDENTIALS, 'Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD to run the authenticated journey');
-    await signInToAdmin(page);
-    await expect(page.getByRole('heading', { level: 1, name: /dashboard/i })).toBeVisible();
-    await expect(page.getByRole('navigation', { name: /admin navigation/i })).toBeVisible();
-  });
-
-  test('an administrator can open the moderation queues', async ({ page }) => {
-    test.skip(!ADMIN_CREDENTIALS, 'Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD to run the authenticated journey');
-    await signInToAdmin(page);
-    for (const [href, heading] of [
-      ['/reviews', /reviews/i],
-      ['/comments', /comments/i],
-      ['/enquiries', /enquiries/i],
-    ] as const) {
-      await page.goto(`${ADMIN_URL}${href}`);
-      await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
-    }
-  });
+  // The authenticated journeys live in `authorization.spec.ts`, which provisions
+  // its own administrators rather than skipping for want of credentials.
 });

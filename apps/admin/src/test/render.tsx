@@ -34,6 +34,24 @@ export function authenticatedProvider(): AuthProvider {
   };
 }
 
+/**
+ * A provider holding exactly the given permission codes, for access-control
+ * tests. Anything not listed is absent, which is what the server would say.
+ */
+export function providerWithPermissions(permissions: string[], overrides: Partial<AuthProvider> = {}): AuthProvider {
+  return {
+    ...authenticatedProvider(),
+    getIdentity: async () => ({ ...principal.admin, permissions }),
+    getPermissions: async () => permissions,
+    ...overrides,
+  };
+}
+
+/** A provider whose permissions never resolve, for the "still loading" case. */
+export function providerWithPendingPermissions(): AuthProvider {
+  return { ...authenticatedProvider(), getPermissions: () => new Promise<string[]>(() => {}) };
+}
+
 export function anonymousProvider(): AuthProvider {
   return { ...authenticatedProvider(), check: async () => ({ authenticated: false, redirectTo: '/login', logout: false }), getIdentity: async () => null };
 }

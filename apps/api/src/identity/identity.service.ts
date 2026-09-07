@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { AdminUser } from '@melbourne-sphere/database';
 import { DatabaseService } from '../database/database.service.js';
-import { ALL_PERMISSION_KEYS, PERMISSIONS, SUPER_ADMIN_ROLE } from './permissions.js';
+import { EffectivePermissionsService } from '../authorization/effective-permissions.service.js';
+import { ACTIVE_PERMISSION_KEYS, ALL_PERMISSION_KEYS, permissionDefinition, SUPER_ADMIN_ROLE } from './permissions.js';
 
 export interface AdminPrincipal {
   id: string;
@@ -10,7 +11,11 @@ export interface AdminPrincipal {
   status: 'invited' | 'active' | 'disabled';
   totpEnabled: boolean;
   roles: string[];
+  /** Effective permissions: role-inherited ∪ direct, active only (SRS RBAC 005). */
   permissions: string[];
+  /** The two halves of the union, so the interface can show where access comes from. */
+  inheritedPermissions: string[];
+  directPermissions: string[];
 }
 
 export function normaliseEmail(email: string): string {
@@ -26,32 +31,51 @@ export function normaliseEmail(email: string): string {
 export class IdentityService {
   private readonly logger = new Logger(IdentityService.name);
 
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly effective: EffectivePermissionsService,
+  ) {}
 
-  /** Idempotent: creates missing permissions and the Super Admin role with every permission. */
-  async seedRbac(): Promise<{ permissionsCreated: number; roleCreated: boolean }> {
+  /**
+   * Synchronises the code catalogue into the database and keeps the protected
+   * Super Admin role carrying every active permission (SRS RBAC 002/011).
+   * Idempotent: safe to run on every deployment.
+   *
+   * Retired entries are deactivated rather than deleted, so history and any
+   * existing assignment survive while granting nothing.
+   */
+  async seedRbac(): Promise<{ permissionsCreated: number; permissionsRetired: number; roleCreated: boolean }> {
     const db = await this.database.client();
     const before = await db.permission.count({ where: { key: { in: ALL_PERMISSION_KEYS } } });
     for (const key of ALL_PERMISSION_KEYS) {
-      await db.permission.upsert({
-        where: { key },
-        create: { key, description: PERMISSIONS[key] },
-        update: { description: PERMISSIONS[key] },
-      });
+      const definition = permissionDefinition(key);
+      const row = { label: definition.label, description: definition.description, module: definition.module, isActive: definition.active !== false, isSystem: true };
+      await db.permission.upsert({ where: { key }, create: { key, ...row }, update: row });
     }
     const permissionsCreated = (await db.permission.count({ where: { key: { in: ALL_PERMISSION_KEYS } } })) - before;
+    // A permission no longer declared in code cannot grant access; the row stays
+    // for the audit trail and for any assignment still pointing at it.
+    const retired = await db.permission.updateMany({ where: { key: { notIn: ALL_PERMISSION_KEYS }, isActive: true }, data: { isActive: false } });
+
     const existingRole = await db.role.findUnique({ where: { key: SUPER_ADMIN_ROLE.key } });
     const role =
       existingRole ??
       (await db.role.create({
         data: { key: SUPER_ADMIN_ROLE.key, name: SUPER_ADMIN_ROLE.name, description: SUPER_ADMIN_ROLE.description, isSystem: true },
       }));
-    const permissions = await db.permission.findMany({ where: { key: { in: ALL_PERMISSION_KEYS } }, select: { id: true } });
+    // The protected role is repaired if it was tampered with: it is always active
+    // and always carries every active permission (RBAC 011).
+    if (existingRole && (!existingRole.isActive || !existingRole.isSystem)) {
+      await db.role.update({ where: { id: role.id }, data: { isActive: true, isSystem: true, version: { increment: 1 } } });
+    }
+    const permissions = await db.permission.findMany({ where: { key: { in: ACTIVE_PERMISSION_KEYS }, isActive: true }, select: { id: true } });
     await db.rolePermission.createMany({
       data: permissions.map((p) => ({ roleId: role.id, permissionId: p.id })),
       skipDuplicates: true,
     });
-    return { permissionsCreated, roleCreated: !existingRole };
+    // Everyone holding the repaired role must see the change on their next request.
+    await db.adminUser.updateMany({ where: { roles: { some: { roleId: role.id } } }, data: { authzVersion: { increment: 1 } } });
+    return { permissionsCreated, permissionsRetired: retired.count, roleCreated: !existingRole };
   }
 
   async countAdmins(): Promise<number> {
@@ -88,23 +112,28 @@ export class IdentityService {
     });
   }
 
-  /** Principal projection (no password hash) with resolved permissions. */
+  /**
+   * Principal projection (no password hash). Permissions come from the one
+   * resolver (SRS RBAC 005); this service never recalculates the union itself.
+   */
   async getPrincipal(adminId: string): Promise<AdminPrincipal | null> {
     const db = await this.database.client();
     const admin = await db.adminUser.findUnique({
       where: { id: adminId },
-      select: {
-        id: true,
-        email: true,
-        displayName: true,
-        status: true,
-        totpEnabledAt: true,
-        roles: { select: { role: { select: { key: true, permissions: { select: { permission: { select: { key: true } } } } } } } },
-      },
+      select: { id: true, email: true, displayName: true, status: true, totpEnabledAt: true },
     });
     if (!admin) return null;
-    const roles = admin.roles.map((r) => r.role.key);
-    const permissions = [...new Set(admin.roles.flatMap((r) => r.role.permissions.map((p) => p.permission.key)))].sort();
-    return { id: admin.id, email: admin.email, displayName: admin.displayName, status: admin.status, totpEnabled: admin.totpEnabledAt !== null, roles, permissions };
+    const access = await this.effective.resolve(adminId);
+    return {
+      id: admin.id,
+      email: admin.email,
+      displayName: admin.displayName,
+      status: admin.status,
+      totpEnabled: admin.totpEnabledAt !== null,
+      roles: access.roles.map((role) => role.key),
+      permissions: access.effective,
+      inheritedPermissions: access.inherited,
+      directPermissions: access.direct,
+    };
   }
 }
