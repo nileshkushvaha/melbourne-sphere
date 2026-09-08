@@ -4,7 +4,7 @@ import { AuditService } from '../audit/audit.service.js';
 import type { RequestContext } from '../auth/auth.service.js';
 import { FieldEncryptionService } from '../common/field-encryption.service.js';
 import { collectionMeta, skipFor } from '../common/pagination.js';
-import { isValidSlug, slugify } from '../common/slug.js';
+import { isReservedBusinessSlug, isValidSlug, slugify } from '../common/slug.js';
 import { RedirectsService } from '../seo/redirects.service.js';
 import { CacheService } from '../cache/cache.service.js';
 import { CACHE_TAGS } from '@melbourne-sphere/domain';
@@ -208,6 +208,7 @@ export class DirectoryService {
     const db = await this.database.client();
     const slug = input.slug ?? slugify(input.name);
     if (!isValidSlug(slug)) throw validation('slug', 'Slug must be lowercase letters, numbers and single hyphens');
+    if (isReservedBusinessSlug(slug)) throw validation('slug', 'That slug is reserved by a curated page address');
     if (await db.business.findUnique({ where: { slug } })) throw new ConflictException({ code: 'SLUG_IN_USE', message: 'That slug is already used', fields: { slug: ['That slug is already used'] } });
     await this.assertTaxonomy(input.primaryCategoryId, input.secondaryCategoryIds ?? [], input.serviceIds ?? [], input.localAreaId);
     const phone = phoneOrThrow(input.publicPhone);
@@ -262,6 +263,7 @@ export class DirectoryService {
     }
     if (input.slug !== undefined && input.slug !== current.slug) {
       if (!isValidSlug(input.slug)) throw validation('slug', 'Slug must be lowercase letters, numbers and single hyphens');
+      if (isReservedBusinessSlug(input.slug)) throw validation('slug', 'That slug is reserved by a curated page address');
       if (current.firstPublishedAt) throw new ConflictException({ code: 'SLUG_LOCKED', message: 'The slug of a published listing changes through the slug-change endpoint, which creates a redirect' });
       if (await db.business.findUnique({ where: { slug: input.slug } })) throw new ConflictException({ code: 'SLUG_IN_USE', message: 'That slug is already used', fields: { slug: ['That slug is already used'] } });
       data.slug = input.slug;
@@ -327,6 +329,7 @@ export class DirectoryService {
     if (current.status === 'archived') throw new ConflictException({ code: 'INVALID_STATE', message: 'Restore the listing before changing its slug' });
     const slug = input.slug.trim().toLowerCase();
     if (!isValidSlug(slug)) throw validation('slug', 'Slug must be lowercase letters, numbers and single hyphens');
+    if (isReservedBusinessSlug(slug)) throw validation('slug', 'That slug is reserved by a curated page address');
     if (slug === current.slug) throw validation('slug', 'That is already the slug of this listing');
     if (await db.business.findUnique({ where: { slug } })) throw new ConflictException({ code: 'SLUG_IN_USE', message: 'That slug is already used', fields: { slug: ['That slug is already used'] } });
     const row = await db.$transaction(async (tx) => {

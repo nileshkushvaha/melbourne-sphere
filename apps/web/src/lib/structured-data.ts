@@ -216,3 +216,59 @@ export function blogPostingJsonLd(post: PostDetail): JsonLd {
     publisher: { '@id': `${siteOrigin()}/#organization` },
   });
 }
+
+/**
+ * `FAQPage` structured data (SRS 1.2 FAQ 005). Only the questions actually
+ * rendered on the page are described, and the answer is reduced to text: an
+ * enhancement that claims content the visitor cannot see is a policy breach as
+ * well as a lie. Emission is gated by `faqRichResultsEnabled()`.
+ */
+export function faqPageJsonLd(faqs: { question: string; answerHtml: string }[]): JsonLd {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((faq) => ({
+      '@type': 'Question',
+      name: faq.question,
+      acceptedAnswer: { '@type': 'Answer', text: htmlToText(faq.answerHtml) },
+    })),
+  };
+}
+
+/** Tags out, entities decoded, whitespace collapsed. The HTML was sanitised server-side. */
+function htmlToText(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    // A tag between a word and its punctuation must not leave a gap: "details ."
+    .replace(/\s+([.,;:!?])/g, '$1')
+    .trim()
+    .slice(0, 1000);
+}
+
+/**
+ * The About page as an `AboutPage` about the organisation (SRS SEO 005). Only
+ * what the page shows is described: the title, its own description and the
+ * organisation it is about, which is defined once by `organizationJsonLd`.
+ */
+export function aboutPageJsonLd(options: { name: string; description?: string | null; updatedAt?: string | null }): JsonLd {
+  return compact({
+    '@context': 'https://schema.org',
+    '@type': 'AboutPage',
+    '@id': `${absoluteUrl('/about')}#about`,
+    url: absoluteUrl('/about'),
+    name: options.name,
+    description: options.description ?? undefined,
+    dateModified: options.updatedAt ?? undefined,
+    inLanguage: 'en-AU',
+    isPartOf: { '@id': `${siteOrigin()}/#website` },
+    about: { '@id': `${siteOrigin()}/#organization` },
+    publisher: { '@id': `${siteOrigin()}/#organization` },
+  });
+}

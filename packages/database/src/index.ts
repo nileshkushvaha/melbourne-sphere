@@ -19,7 +19,7 @@ export type {
 export { parseMysqlUrl, hasVerifiedTls, MYSQL_SSL_MODES, VERIFIED_SSL_MODES } from './url.js';
 export type { MysqlConnectionSettings, MysqlSslMode } from './url.js';
 export { sslOptionFor } from './client.js';
-export { Prisma, AdminUserStatus, AdminTokenPurpose, BusinessStatus, AddressVisibility, HoursMode, HoursExceptionKind, BusinessLinkKind, ReviewStatus, AbuseReportReason, AbuseReportStatus, AbuseReportOutcome, EnquiryKind, EnquiryHandlingStatus, EnquiryDeliveryStatus, OutboxStatus, PostStatus, MediaStatus, MediaVariantKind, RedirectKind, PostBodyFormat, AuthorLinkKind, StaticPageStatus } from './generated/prisma/client.js';
+export { Prisma, AdminUserStatus, AdminTokenPurpose, BusinessStatus, AddressVisibility, HoursMode, HoursExceptionKind, BusinessLinkKind, ReviewStatus, AbuseReportReason, AbuseReportStatus, AbuseReportOutcome, EnquiryKind, EnquiryHandlingStatus, EnquiryDeliveryStatus, OutboxStatus, PostStatus, MediaStatus, MediaVariantKind, RedirectKind, PostBodyFormat, AuthorLinkKind, StaticPageStatus, EmailDeliveryStatus, WebsiteContentStatus, ServiceAlertSeverity, ScheduledRunTrigger, ScheduledRunOutcome } from './generated/prisma/client.js';
 export type {
   AdminLoginChallenge,
   AdminRecoveryCode,
@@ -40,4 +40,4 @@ export type {
   Permission,
   Role,
   RolePermission,
-  SystemProbe, OpeningInterval, HoursException, BusinessLink, SiteSetting, Review, AbuseReport, IdempotencyRecord, Enquiry, OutboxEvent, ProviderMessageEvent, Post, Author, BlogCategory, BlogTag, PostTag, ContentRevision, Comment, MediaAsset, MediaVariant, BusinessMedia, Redirect, AuthorLink, StaticPage, FeaturedPlacement } from './generated/prisma/client.js';
+  SystemProbe, OpeningInterval, HoursException, BusinessLink, Setting, EmailDelivery, EmailDeliveryEvent, Faq, ServiceAlert, Testimonial, PartnerOrganisation, Review, AbuseReport, IdempotencyRecord, Enquiry, OutboxEvent, ProviderMessageEvent, Post, Author, BlogCategory, BlogTag, PostTag, ContentRevision, Comment, MediaAsset, MediaVariant, BusinessMedia, Redirect, AuthorLink, StaticPage, FeaturedPlacement, ScheduledTaskRun, ScheduledTaskState } from './generated/prisma/client.js';

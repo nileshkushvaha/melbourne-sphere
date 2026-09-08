@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
-import { Alert, App, Button, Card, Form, Input, InputNumber, Modal, Select, Space, Tag, Typography } from 'antd';
+import { Alert, App, Button, Card, Form, Input, Select, Space, Tag, Typography } from 'antd';
 import { DeleteOutlined, UploadOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { MEDIA_STATUSES, localFileProblem, mediaApi, uploadImage, variantUrl, type MediaAsset, type MediaStatus } from '@/api/media';
 import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
@@ -30,11 +30,8 @@ export function MediaLibraryPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [editing, setEditing] = useState<MediaAsset | null>(null);
-  const [dialogError, setDialogError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [uploadForm] = Form.useForm<{ altText: string }>();
-  const [editForm] = Form.useForm<{ altText: string; credit: string; rightsNote: string; focalX: number; focalY: number }>();
 
   const setParam = (key: string, value: string | undefined) => {
     const next = new URLSearchParams(params);
@@ -75,28 +72,6 @@ export function MediaLibraryPage() {
       handleError(error, setUploadError);
     } finally {
       setUploading(false);
-    }
-  };
-
-  const saveDetails = async () => {
-    if (!editing) return;
-    setDialogError(null);
-    const values = await editForm.validateFields().catch(() => null);
-    if (!values) return;
-    try {
-      await api.update(editing.id, {
-        expectedVersion: editing.version,
-        altText: values.altText || null,
-        credit: values.credit || null,
-        rightsNote: values.rightsNote || null,
-        ...(values.focalX === undefined ? {} : { focalX: values.focalX }),
-        ...(values.focalY === undefined ? {} : { focalY: values.focalY }),
-      });
-      message.success('Image details saved');
-      setEditing(null);
-      reload();
-    } catch (error) {
-      handleError(error, setDialogError);
     }
   };
 
@@ -163,9 +138,9 @@ export function MediaLibraryPage() {
                   )
                 }
                 actions={[
-                  <Button key="edit" type="link" onClick={() => { setDialogError(null); editForm.setFieldsValue({ altText: asset.altText ?? '', credit: asset.credit ?? '', rightsNote: asset.rightsNote ?? '', focalX: asset.focalX ?? undefined, focalY: asset.focalY ?? undefined }); setEditing(asset); }}>
+                  <Link key="edit" to={`/media/${asset.id}`} aria-label={`Details for ${asset.sourceName}`}>
                     Details
-                  </Button>,
+                  </Link>,
                   <Button key="delete" type="link" danger icon={<DeleteOutlined aria-hidden="true" />} aria-label={`Delete ${asset.sourceName}`} onClick={() => remove(asset)} />,
                 ]}
               >
@@ -204,28 +179,6 @@ export function MediaLibraryPage() {
           </Button>
         </Space>
       )}
-      <Modal open={editing !== null} title="Image details" okText="Save" onOk={() => void saveDetails()} onCancel={() => setEditing(null)} destroyOnHidden>
-        {dialogError && <Alert type="error" showIcon role="alert" message={dialogError} style={{ marginBottom: 12 }} />}
-        <Form form={editForm} layout="vertical" requiredMark={false}>
-          <Form.Item label="Alt text" name="altText" extra="Required before the image can be used on a page.">
-            <Input maxLength={255} />
-          </Form.Item>
-          <Form.Item label="Credit" name="credit">
-            <Input maxLength={255} />
-          </Form.Item>
-          <Form.Item label="Rights or source note" name="rightsNote">
-            <Input.TextArea rows={2} maxLength={500} />
-          </Form.Item>
-          <Space>
-            <Form.Item label="Focal point X" name="focalX" extra="0 = left, 1 = right">
-              <InputNumber min={0} max={1} step={0.05} />
-            </Form.Item>
-            <Form.Item label="Focal point Y" name="focalY" extra="0 = top, 1 = bottom">
-              <InputNumber min={0} max={1} step={0.05} />
-            </Form.Item>
-          </Space>
-        </Form>
-      </Modal>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { ConflictException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
-import type { Author, BlogCategory, BlogTag, Prisma } from '@melbourne-sphere/database';
+import type { BlogCategory, BlogTag, Prisma } from '@melbourne-sphere/database';
 import { AuditService } from '../audit/audit.service.js';
 import type { RequestContext } from '../auth/auth.service.js';
 import { collectionMeta, skipFor } from '../common/pagination.js';

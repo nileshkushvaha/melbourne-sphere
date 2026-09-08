@@ -78,10 +78,21 @@ model AdminUser {
   grantedRolePerms   RolePermission[]      @relation("RolePermissionAssignedBy")
   sessions           AdminSession[]
   resetTokens        PasswordResetToken[]
+  passwordHistory    AdminPasswordHistory[]
   recoveryCodes      AdminRecoveryCode[]
   loginChallenges    AdminLoginChallenge[]
   auditEntries       AuditLog[]            @relation("AuditActor")
-  siteSettings       SiteSetting[]         @relation("SiteSettingUpdatedBy")
+  settings           Setting[]             @relation("SettingUpdatedBy")
+  faqsCreated        Faq[]                 @relation("FaqCreatedBy")
+  faqsUpdated        Faq[]                 @relation("FaqUpdatedBy")
+  alertsCreated      ServiceAlert[]        @relation("ServiceAlertCreatedBy")
+  alertsUpdated      ServiceAlert[]        @relation("ServiceAlertUpdatedBy")
+  testimonialsApproved Testimonial[]       @relation("TestimonialApprovedBy")
+  testimonialsCreated  Testimonial[]       @relation("TestimonialCreatedBy")
+  testimonialsUpdated  Testimonial[]       @relation("TestimonialUpdatedBy")
+  partnersAuthorised   PartnerOrganisation[] @relation("PartnerAuthorisedBy")
+  partnersCreated      PartnerOrganisation[] @relation("PartnerCreatedBy")
+  partnersUpdated      PartnerOrganisation[] @relation("PartnerUpdatedBy")
   moderatedReviews   Review[]              @relation("ReviewModerator")
   contentRevisions   ContentRevision[]     @relation("ContentRevisionActor")
   handledEnquiries   Enquiry[]             @relation("EnquiryHandler")
@@ -91,6 +102,8 @@ model AdminUser {
   redirects          Redirect[]            @relation("RedirectAuthor")
   staticPages        StaticPage[]          @relation("StaticPageEditor")
   featuredPlacements FeaturedPlacement[]   @relation("FeaturedPlacementAuthor")
+  scheduledTaskRuns  ScheduledTaskRun[]
+  scheduledTaskStates ScheduledTaskState[] @relation("ScheduledTaskStateUpdatedBy")
 
   @@index([status])
   @@map("admin_users")
@@ -430,6 +443,7 @@ model Business {
   services           BusinessService[]
   rating             BusinessRating?
   reviews            Review[]
+  testimonials       Testimonial[]
   enquiries          Enquiry[]
   media              BusinessMedia[]
   openingHours       OpeningInterval[]
@@ -579,18 +593,37 @@ model BusinessRating {
 /// Editable site settings (SRS CFG 001). One row per settings key; the payload
 /// is a validated JSON document owned by the API, never free-form content.
 /// Secrets never live here.
-model SiteSetting {
-  key              String   @id @db.VarChar(64)
+/// One row per declared settings group and key (SRS 1.2 SET 001–005).
+///
+/// Configuration is separated by *ownership* — which module reads and writes it,
+/// which permissions it needs, how it validates, what its change invalidates —
+/// and that separation lives in the typed registry in
+/// `apps/api/src/settings/registry.ts`, not in the table layout. Four tables
+/// with identical columns would add storage, migrations and joins without
+/// adding a single guarantee the registry does not already enforce, so one
+/// table carries them all, keyed by (group, key).
+///
+/// It is not an untyped dumping ground: a group and key that the registry does
+/// not declare cannot be read or written through the API, every value is
+/// validated against its declaration, every change is version-checked and
+/// audited, and no secret is ever stored here (SET 004).
+model Setting {
+  /// Owned group: security, email, operations or website.
+  group            String   @db.VarChar(32)
+  /// Declared key within that group.
+  key              String   @db.VarChar(64)
   data             Json
   version          Int      @default(1)
   updatedByAdminId String?
   createdAt        DateTime @default(now()) @db.DateTime(3)
   updatedAt        DateTime @updatedAt @db.DateTime(3)
 
-  updatedBy AdminUser? @relation("SiteSettingUpdatedBy", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
+  updatedBy AdminUser? @relation("SettingUpdatedBy", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
 
-  @@map("site_settings")
+  @@id([group, key])
+  @@map("settings")
 }
+
 
 enum ReviewStatus {
   pending
@@ -800,6 +833,91 @@ model OutboxEvent {
 /// Provider callback deduplication (SRS ENQ 006). Webhook ingestion itself
 /// arrives with the chosen provider (decision D03); this table exists so
 /// repeated provider event ids can never be processed twice.
+/// Terminal states outrank earlier ones: a late or replayed event can add its
+/// own timestamp but can never reverse a more meaningful status (SRS 1.2 MAIL 008).
+enum EmailDeliveryStatus {
+  queued
+  sent
+  delivered
+  delayed
+  failed
+  bounced
+  complained
+  suppressed
+}
+
+/// One outgoing transactional message (SRS 1.2 MAIL 005).
+///
+/// Operational metadata only. The rendered body is never stored, and the
+/// recipient is held encrypted with a masked form for display: revealing it
+/// needs a permission distinct from viewing the record, and every reveal is
+/// recorded.
+model EmailDelivery {
+  id                 String              @id @default(cuid())
+  provider           String              @db.VarChar(20)
+  /// Set once the provider accepts the message; unique so a duplicate accept cannot create a second record.
+  providerMessageId  String?             @unique @db.VarChar(191)
+  /// Which message this is, e.g. "auth.password_reset"; the vocabulary is declared in code.
+  templateKey        String              @db.VarChar(64)
+  category           String              @db.VarChar(32)
+  /// Display form, e.g. "v•••••r@example.com" (SRS PRIV 001).
+  recipientMasked    String              @db.VarChar(254)
+  /// AES-256-GCM ciphertext of the address; readable only through the unmask permission.
+  recipientEncrypted String              @db.VarChar(512)
+  /// Kept only where the category permits it; never a rendered body.
+  subject            String?             @db.VarChar(255)
+  relatedType        String?             @db.VarChar(32)
+  relatedId          String?             @db.VarChar(64)
+  status             EmailDeliveryStatus @default(queued)
+  attempts           Int                 @default(0)
+  /// Bounded classification, never raw provider text (MAIL 006).
+  failureCode        String?             @db.VarChar(64)
+  failureSummary     String?             @db.VarChar(300)
+  requestId          String?             @db.VarChar(64)
+  /// The attempt this one replaces, when an administrator resent it (MAIL 009).
+  resentFromId       String?
+  queuedAt           DateTime            @default(now()) @db.DateTime(3)
+  sentAt             DateTime?           @db.DateTime(3)
+  deliveredAt        DateTime?           @db.DateTime(3)
+  delayedAt          DateTime?           @db.DateTime(3)
+  failedAt           DateTime?           @db.DateTime(3)
+  bouncedAt          DateTime?           @db.DateTime(3)
+  complainedAt       DateTime?           @db.DateTime(3)
+  suppressedAt       DateTime?           @db.DateTime(3)
+  createdAt          DateTime            @default(now()) @db.DateTime(3)
+  updatedAt          DateTime            @updatedAt @db.DateTime(3)
+
+  resentFrom EmailDelivery?       @relation("EmailDeliveryResend", fields: [resentFromId], references: [id], onDelete: SetNull)
+  resends    EmailDelivery[]      @relation("EmailDeliveryResend")
+  events     EmailDeliveryEvent[]
+
+  @@index([status, createdAt])
+  @@index([category, createdAt])
+  @@index([templateKey, createdAt])
+  @@index([relatedType, relatedId])
+  @@index([resentFromId])
+  @@map("email_deliveries")
+}
+
+/// One provider event for a delivery (SRS 1.2 MAIL 007). `providerEventId` is
+/// unique, which is what makes duplicate webhook delivery idempotent.
+model EmailDeliveryEvent {
+  id              String   @id @default(cuid())
+  deliveryId      String
+  providerEventId String   @unique @db.VarChar(191)
+  /// Normalised event name, e.g. "delivered" or "bounced".
+  type            String   @db.VarChar(32)
+  occurredAt      DateTime @db.DateTime(3)
+  receivedAt      DateTime @default(now()) @db.DateTime(3)
+  /// Safe summary of the event, never the message body or the raw payload.
+  detail          Json?
+
+  delivery EmailDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId, occurredAt])
+  @@map("email_delivery_events")
+}
+
 model ProviderMessageEvent {
   providerEventId String   @id @db.VarChar(191)
   kind            String   @db.VarChar(32)
@@ -1071,6 +1189,8 @@ model MediaAsset {
   variants   MediaVariant[]
   businesses BusinessMedia[]
   coverOf    Post[]          @relation("PostCover")
+  testimonials Testimonial[]  @relation("TestimonialMedia")
+  partners   PartnerOrganisation[] @relation("PartnerMedia")
   authorOf   Author[]        @relation("AuthorImage")
 
   @@index([status, createdAt])
@@ -1147,6 +1267,180 @@ model Redirect {
   @@map("redirects")
 }
 
+/// Publication state shared by the website content modules (SRS 1.2 section 26).
+/// One enum rather than four identical ones: the four modules genuinely differ
+/// in their fields, but not in what "published" means.
+enum WebsiteContentStatus {
+  draft
+  published
+}
+
+/// Severity of a service alert (SRS 1.2 ALRT 001/004). It decides the accessible
+/// semantics as well as the appearance, so it is a closed set, not free text.
+enum ServiceAlertSeverity {
+  informational
+  warning
+  emergency
+}
+
+/// A frequently asked question (SRS 1.2 FAQ 001).
+model Faq {
+  id               String               @id @default(cuid())
+  question         String               @db.VarChar(300)
+  /// Sanitised HTML actually rendered publicly.
+  answerHtml       String               @db.MediumText
+  /// Source exactly as the editor wrote it, in answerFormat.
+  answerSource     String               @db.MediumText
+  answerFormat     PostBodyFormat       @default(html)
+  /// Optional grouping heading, e.g. "Listing your business".
+  groupName        String?              @db.VarChar(80)
+  displayOrder     Int                  @default(0)
+  status           WebsiteContentStatus @default(draft)
+  publishedAt      DateTime?            @db.DateTime(3)
+  version          Int                  @default(1)
+  createdByAdminId String?
+  updatedByAdminId String?
+  createdAt        DateTime             @default(now()) @db.DateTime(3)
+  updatedAt        DateTime             @updatedAt @db.DateTime(3)
+
+  createdBy AdminUser? @relation("FaqCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  updatedBy AdminUser? @relation("FaqUpdatedBy", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
+
+  /// The public read is "published, ordered"; the admin list adds status.
+  @@index([status, displayOrder])
+  @@index([groupName])
+  @@map("faqs")
+}
+
+/// A service alert shown above the public header (SRS 1.2 ALRT 001).
+model ServiceAlert {
+  id               String               @id @default(cuid())
+  title            String               @db.VarChar(120)
+  message          String               @db.VarChar(400)
+  severity         ServiceAlertSeverity @default(informational)
+  linkLabel        String?              @db.VarChar(60)
+  /// Validated at write time against an allowlisted scheme, never sniffed at render (ALRT 005).
+  linkUrl          String?              @db.VarChar(300)
+  /// Display window, stored as instants and authored in Australia/Melbourne (ALRT 003).
+  startsAt         DateTime?            @db.DateTime(3)
+  endsAt           DateTime?            @db.DateTime(3)
+  dismissible      Boolean              @default(true)
+  /// Higher shows first among alerts of the same severity.
+  priority         Int                  @default(0)
+  displayOrder     Int                  @default(0)
+  status           WebsiteContentStatus @default(draft)
+  /// Bumped by every content change, so an edited alert reappears for a viewer
+  /// who dismissed the earlier wording (ALRT 006).
+  contentVersion   Int                  @default(1)
+  publishedAt      DateTime?            @db.DateTime(3)
+  version          Int                  @default(1)
+  createdByAdminId String?
+  updatedByAdminId String?
+  createdAt        DateTime             @default(now()) @db.DateTime(3)
+  updatedAt        DateTime             @updatedAt @db.DateTime(3)
+
+  createdBy AdminUser? @relation("ServiceAlertCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  updatedBy AdminUser? @relation("ServiceAlertUpdatedBy", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
+
+  /// Matches the public selection exactly: published, inside its window, ordered.
+  @@index([status, startsAt, endsAt])
+  @@index([severity, priority, displayOrder])
+  @@map("service_alerts")
+}
+
+/// A testimonial (SRS 1.2 TSTM 001). Approval is evidence, not a flag: it names
+/// the administrator who recorded that the quote may be used, and publication is
+/// refused without it.
+model Testimonial {
+  id                String               @id @default(cuid())
+  /// How the person is credited publicly.
+  displayName       String               @db.VarChar(120)
+  /// Their role or relationship to the business, e.g. "Owner, Little Collins Cafe".
+  relationship      String?              @db.VarChar(160)
+  /// Plain text, sanitised and bounded; no markup is accepted.
+  quote             String               @db.VarChar(1000)
+  /// Optional link to the listing the person is associated with.
+  businessId        String?
+  /// Optional portrait; an approved asset from the media pipeline (MED 001-004).
+  mediaId           String?
+  /// Recorded consent/approval. Publication is refused while these are null.
+  approvedByAdminId String?
+  approvedAt        DateTime?            @db.DateTime(3)
+  /// How the consent was obtained, for the record, e.g. "Email 3 Sep 2026".
+  approvalNote      String?              @db.VarChar(300)
+  displayOrder      Int                  @default(0)
+  status            WebsiteContentStatus @default(draft)
+  publishedAt       DateTime?            @db.DateTime(3)
+  version           Int                  @default(1)
+  createdByAdminId  String?
+  updatedByAdminId  String?
+  createdAt         DateTime             @default(now()) @db.DateTime(3)
+  updatedAt         DateTime             @updatedAt @db.DateTime(3)
+
+  business   Business?   @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  media      MediaAsset? @relation("TestimonialMedia", fields: [mediaId], references: [id], onDelete: SetNull)
+  approvedBy AdminUser?  @relation("TestimonialApprovedBy", fields: [approvedByAdminId], references: [id], onDelete: SetNull)
+  createdBy  AdminUser?  @relation("TestimonialCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  updatedBy  AdminUser?  @relation("TestimonialUpdatedBy", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([status, displayOrder])
+  @@index([businessId])
+  @@index([mediaId])
+  @@map("testimonials")
+}
+
+/// A client or partner organisation displayed publicly (SRS 1.2 PTNR 001).
+/// Content only: it is not an account, and it grants no authentication or
+/// authorization to anyone.
+model PartnerOrganisation {
+  id                  String               @id @default(cuid())
+  name                String               @db.VarChar(150)
+  /// How the organisation is related, e.g. "Community partner".
+  relationshipLabel   String?              @db.VarChar(120)
+  /// Approved logo from the media pipeline; publication is refused without it.
+  mediaId             String?
+  /// Accessible alternative text; mandatory before publication (PTNR 003).
+  logoAlt             String?              @db.VarChar(200)
+  websiteUrl          String?              @db.VarChar(300)
+  /// Recorded authorisation to display the organisation's mark.
+  authorisedByAdminId String?
+  authorisedAt        DateTime?            @db.DateTime(3)
+  authorisationNote   String?              @db.VarChar(300)
+  displayOrder        Int                  @default(0)
+  status              WebsiteContentStatus @default(draft)
+  publishedAt         DateTime?            @db.DateTime(3)
+  version             Int                  @default(1)
+  createdByAdminId    String?
+  updatedByAdminId    String?
+  createdAt           DateTime             @default(now()) @db.DateTime(3)
+  updatedAt           DateTime             @updatedAt @db.DateTime(3)
+
+  media        MediaAsset? @relation("PartnerMedia", fields: [mediaId], references: [id], onDelete: SetNull)
+  authorisedBy AdminUser?  @relation("PartnerAuthorisedBy", fields: [authorisedByAdminId], references: [id], onDelete: SetNull)
+  createdBy    AdminUser?  @relation("PartnerCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  updatedBy    AdminUser?  @relation("PartnerUpdatedBy", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([status, displayOrder])
+  @@index([mediaId])
+  @@map("partner_organisations")
+}
+
+/// Previous password hashes for an administrator (SRS 1.2 SECS 003).
+/// Only hashes are kept, and only as many as the configured history depth needs;
+/// the rows exist to refuse reuse, never to reveal anything about the password.
+model AdminPasswordHistory {
+  id           String   @id @default(cuid())
+  adminId      String
+  /// Argon2id PHC string of a password this administrator used before.
+  passwordHash String   @db.VarChar(255)
+  createdAt    DateTime @default(now()) @db.DateTime(3)
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId, createdAt])
+  @@map("admin_password_history")
+}
+
 enum StaticPageStatus {
   draft
   published
@@ -1157,7 +1451,7 @@ enum StaticPageStatus {
 /// and every change keeps a revision.
 model StaticPage {
   id               String           @id @default(cuid())
-  /// One of: about, contact, privacy, terms, review-guidelines.
+  /// One of: about, privacy, terms, review-guidelines (SRS 1.6 CFG 002).
   slug             String           @unique @db.VarChar(64)
   title            String           @db.VarChar(180)
   /// Sanitised HTML actually rendered on the public page.
@@ -1202,4 +1496,58 @@ model FeaturedPlacement {
   @@index([startsAt, endsAt])
   @@index([businessId])
   @@map("featured_placements")
+}
+
+enum ScheduledRunTrigger {
+  scheduled
+  manual
+}
+
+enum ScheduledRunOutcome {
+  running
+  succeeded
+  failed
+  skipped
+  timedOut
+}
+
+/// Execution history for a registered scheduled task (SRS 1.2 TASK 002).
+/// Outcomes and durations only: nothing here records task output, and a task
+/// that touched personal data records how many rows it changed, never which.
+model ScheduledTaskRun {
+  id            String              @id @default(cuid())
+  /// Registry code (packages/domain scheduled-tasks). Not a foreign key: the
+  /// registry lives in code, and history outlives a task being retired.
+  taskCode      String              @db.VarChar(64)
+  trigger       ScheduledRunTrigger
+  outcome       ScheduledRunOutcome @default(running)
+  startedAt     DateTime            @default(now()) @db.DateTime(3)
+  finishedAt    DateTime?           @db.DateTime(3)
+  durationMs    Int?
+  /// One short line: a count, or the first line of an error. Never a payload.
+  detail        String?             @db.VarChar(300)
+  /// Set for a manual run; null for a scheduled one.
+  actorAdminId  String?
+  /// Which worker replica ran it, for support on a multi-replica deployment.
+  runnerId      String?             @db.VarChar(64)
+
+  actor AdminUser? @relation(fields: [actorAdminId], references: [id], onDelete: SetNull)
+
+  @@index([taskCode, startedAt])
+  @@index([startedAt])
+  @@map("scheduled_task_runs")
+}
+
+/// Runtime enable/disable for a registered task (SRS 1.2 TASK 006). A row
+/// exists only once someone has changed the default; a task the registry marks
+/// as required for correctness can never be disabled, whatever a row says.
+model ScheduledTaskState {
+  taskCode        String   @id @db.VarChar(64)
+  enabled         Boolean  @default(true)
+  updatedByAdminId String?
+  updatedAt       DateTime @updatedAt @db.DateTime(3)
+
+  updatedBy AdminUser? @relation("ScheduledTaskStateUpdatedBy", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
+
+  @@map("scheduled_task_states")
 }

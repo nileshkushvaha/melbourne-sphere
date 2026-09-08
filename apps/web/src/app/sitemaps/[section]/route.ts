@@ -7,7 +7,7 @@ import { urlSetXml } from '@/lib/sitemap-xml';
 // not depend on a running API.
 export const dynamic = 'force-dynamic';
 
-const SECTIONS = ['businesses', 'editorial', 'taxonomies'] as const;
+const SECTIONS = ['businesses', 'editorial', 'taxonomies', 'pages'] as const;
 type Section = (typeof SECTIONS)[number];
 
 /** One child sitemap; only canonical pages that return 200 are listed (SRS SEO 002). */

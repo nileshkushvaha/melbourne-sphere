@@ -47,6 +47,12 @@ describe('light surfaces', () => {
   it('keeps borders visible against the surfaces they divide', () => {
     expect(Math.abs(luminance(token('ms-border')) - luminance(token('ms-surface')))).toBeGreaterThan(0.01);
   });
+
+  it('keeps the keyboard focus indicator visible on every light surface', () => {
+    for (const background of backgrounds) {
+      expect(contrast(token('ms-focus'), background), `focus on ${background}`).toBeGreaterThanOrEqual(3);
+    }
+  });
 });
 
 describe('dark bands', () => {

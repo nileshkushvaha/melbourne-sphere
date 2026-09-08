@@ -2,6 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import helmet from 'helmet';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { createApiPrefixGuard } from './common/api-prefix-guard.js';
+import type { IncomingMessage } from 'node:http';
 import { bodyParserErrorHandler } from './common/body-parser-errors.js';
 import { HttpExceptionFilter } from './common/http-exception.filter.js';
 import { requestIdMiddleware } from './common/request-id.js';
@@ -44,7 +45,15 @@ export function configureApp(app: NestExpressApplication, options: ConfigureAppO
   );
   app.use(requestIdMiddleware);
   app.use(createApiPrefixGuard(API_PREFIX));
-  app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
+  // The provider webhook is signed over the exact bytes it sent, so the raw body
+  // is kept alongside the parsed one for that route only (SRS 1.2 MAIL 007). The
+  // express type for this option does not carry `verify`, but body-parser does.
+  app.useBodyParser('json', {
+    limit: JSON_BODY_LIMIT,
+    verify: (req: IncomingMessage & { rawBody?: string; url?: string }, _res: unknown, buffer: Buffer) => {
+      if (req.url?.startsWith(`${API_PREFIX}/webhooks/`)) req.rawBody = buffer.toString('utf8');
+    },
+  } as Parameters<typeof app.useBodyParser<'json'>>[1]);
   app.useBodyParser('urlencoded', { limit: JSON_BODY_LIMIT, extended: false });
   app.use(bodyParserErrorHandler);
   app.setGlobalPrefix(API_PREFIX);

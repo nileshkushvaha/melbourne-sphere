@@ -23,7 +23,7 @@ test.describe('Home → search → business', () => {
     // The hero field is a combobox (it offers suggestions); the directory filter is a plain search box.
     await page.getByRole('combobox', { name: /what are you looking for/i }).fill(business!.name.split(' ')[0]!);
     await page.getByRole('button', { name: /^search$/i }).click();
-    await expect(page).toHaveURL(/\/directory\?/);
+    await expect(page).toHaveURL(/\/business\?/);
 
     // 3. open the listing
     await page.getByRole('link', { name: business!.name }).first().click();
@@ -39,7 +39,7 @@ test.describe('Home → search → business', () => {
     await page.goto('/');
     await page.getByRole('combobox', { name: /what are you looking for/i }).fill(business!.name.split(' ')[0]!);
     await page.getByRole('button', { name: /^search$/i }).click();
-    await expect(page).toHaveURL(/\/directory\?/);
+    await expect(page).toHaveURL(/\/business\?/);
     await expect(page.getByRole('link', { name: business!.name }).first()).toBeVisible();
     await context.close();
   });

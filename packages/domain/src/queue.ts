@@ -69,6 +69,12 @@ export const CACHE_TAGS = {
   page: (slug: string) => `page:${slug}`,
   sitemap: 'sitemap',
   redirects: 'redirects',
+  // Website content modules (SRS 1.2 section 26). Service alerts render above
+  // the header on every public page, so their tag purges the shell.
+  faqs: 'faqs',
+  alerts: 'alerts',
+  testimonials: 'testimonials',
+  partners: 'partners',
 } as const;
 
 /** Bounded, de-duplicated tag list; the API and worker both enforce it. */

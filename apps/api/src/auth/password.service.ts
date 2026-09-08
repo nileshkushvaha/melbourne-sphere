@@ -36,9 +36,15 @@ export class PasswordService {
     };
   }
 
-  static validate(password: string): string | null {
+  /**
+   * The baseline of AUTH 001. A deployment may require a longer password
+   * through the security settings, never a shorter one — `validateWithPolicy`
+   * is what callers inside the application use.
+   */
+  static validate(password: string, minLength: number = PASSWORD_MIN_LENGTH): string | null {
+    const floor = Math.max(minLength, PASSWORD_MIN_LENGTH);
     if (typeof password !== 'string') return 'Password is required';
-    if (password.length < PASSWORD_MIN_LENGTH) return `Password must be at least ${PASSWORD_MIN_LENGTH} characters`;
+    if (password.length < floor) return `Password must be at least ${floor} characters`;
     if (password.length > PASSWORD_MAX_LENGTH) return `Password must be at most ${PASSWORD_MAX_LENGTH} characters`;
     return null;
   }

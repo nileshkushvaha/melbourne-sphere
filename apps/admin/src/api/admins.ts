@@ -22,6 +22,10 @@ export interface AdminListQuery {
 export interface AuditEntry {
   id: string;
   action: string;
+  /** Derived by the server from the activity catalogue (SRS 1.2 ACT 002). */
+  category?: string;
+  domainLabel?: string;
+  outcome?: 'success' | 'failure';
   actor: { id: string | null; email: string; displayName: string } | null;
   targetType: string | null;
   targetId: string | null;
@@ -36,6 +40,9 @@ export interface AuditQuery {
   page?: number;
   pageSize?: number;
   action?: string;
+  category?: string;
+  outcome?: 'success' | 'failure';
+  requestId?: string;
   actorAdminId?: string;
   targetType?: string;
   targetId?: string;
@@ -81,7 +88,7 @@ export const adminsApi = {
 
 export const auditApi = {
   list(query: AuditQuery = {}, client: HttpClient = httpClient) {
-    return client.request<{ data: AuditEntry[]; meta: CollectionMeta }>('/admin/audit', { query: asQuery(query) }).then((r) => r.data);
+    return client.request<{ data: AuditEntry[]; meta: CollectionMeta }>('/admin/activity', { query: asQuery(query) }).then((r) => r.data);
   },
 };
 

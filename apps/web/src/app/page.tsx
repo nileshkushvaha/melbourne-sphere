@@ -7,7 +7,7 @@ import { CategoryIcon } from '@/components/category-icon';
 import { PostCard } from '@/components/post-card';
 import { FeaturedPostCard } from '@/components/featured-post-card';
 import { Band, SectionHeading, gridColumns } from '@/components/page-shell';
-import { fetchAreas, fetchCategories, fetchHome, fetchPosts, fetchSiteSettings, flattenCategories, searchBusinesses, type BusinessCard as BusinessCardData, type PublicArea, type PublicCategory, type PostCard as PostCardData, type SearchMeta } from '@/lib/api';
+import { fetchAreas, fetchCategories, fetchHome, fetchPosts, fetchSiteSettings, flattenCategories, searchBusinesses, type BusinessCard as BusinessCardData, type PublicArea, type PublicCategory, type PostCard as PostCardData, type SearchMeta, fetchTestimonials, fetchPartners } from '@/lib/api';
 import { HeroHeadline } from '@/components/hero-headline';
 import { HeroSearch } from '@/components/hero-search';
 import { HeroBanner } from '@/components/hero-banner';
@@ -64,13 +64,15 @@ export default async function HomePage() {
   // Started first so it runs alongside the band data; it never rejects, because
   // the shell must render even when the settings endpoint is unavailable.
   const settingsPromise = fetchSiteSettings();
-  const [homeResult, categoriesResult, areasResult, newestResult, topRatedResult, postsResult] = await Promise.allSettled([
+  const [homeResult, categoriesResult, areasResult, newestResult, topRatedResult, postsResult, testimonialsResult, partnersResult] = await Promise.allSettled([
     fetchHome(),
     fetchCategories(),
     fetchAreas(),
     searchBusinesses({ q: '', category: null, area: null, minRating: null, openNow: false, sort: 'newest', page: 1 }),
     searchBusinesses({ q: '', category: null, area: null, minRating: 4, openNow: false, sort: 'rating', page: 1 }),
     fetchPosts({ page: 1 }),
+    fetchTestimonials(),
+    fetchPartners(),
   ]);
   const settings = await settingsPromise;
 
@@ -87,6 +89,10 @@ export default async function HomePage() {
   const featured = newest.ok ? (newest.data.meta.featured ?? []) : [];
   const channel = contactChannelFrom(settings);
   const areasWithIntro = areas.ok ? areas.data.filter((area) => (area.editorialIntro ?? '').trim().length > 0) : [];
+  // Both fetchers already fall back to an empty list, so an unavailable API
+  // omits the band rather than failing the page.
+  const testimonials = testimonialsResult.status === 'fulfilled' ? testimonialsResult.value : [];
+  const partners = partnersResult.status === 'fulfilled' ? partnersResult.value : [];
   const leadPost = posts.ok ? posts.data.data[0] : undefined;
   const supportingPosts = posts.ok ? posts.data.data.slice(1, 4) : [];
 
@@ -95,17 +101,14 @@ export default async function HomePage() {
       <JsonLdScript data={[organizationJsonLd({ name: settings.name, logoUrl: settings.branding.logo?.url ?? null, sameAs: settings.social.map((link) => link.url) }), webSiteJsonLd(settings.name)]} />
 
       <HeroBanner slides={heroSlides(heroContent.heroSlides)}>
-        <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white backdrop-blur">
+        <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white backdrop-blur">
           <MapPinIcon aria-hidden="true" className="size-3.5" />
           Melbourne, Victoria
         </p>
         <HeroHeadline headline={heroContent.heroHeadline} phrases={phrases} />
-        <p className="mt-5 max-w-xl text-lg leading-relaxed text-hero-text">
-          Independent listings for Melbourne businesses — opening hours, contact details and the local area they serve, each one checked by our editors.
-        </p>
         <HeroSearch categories={categoryOptions} />
         {home.ok && home.data.counters && (
-          <dl className="mt-10 flex flex-wrap gap-x-12 gap-y-5">
+          <dl className="mt-6 flex flex-wrap gap-x-10 gap-y-4">
             {[
               { label: 'Published businesses', value: home.data.counters.businesses },
               { label: 'Categories', value: home.data.counters.categories },
@@ -127,7 +130,7 @@ export default async function HomePage() {
           eyebrow="Browse"
           title="Start with a category"
           description="Every category is curated by our editors and lists only published Melbourne businesses."
-          href="/directory"
+          href="/business"
           linkLabel="View all categories"
         />
         {!categories.ok ? (
@@ -139,10 +142,10 @@ export default async function HomePage() {
             {categories.data.map((category) => (
               <li key={category.id}>
                 <Link
-                  href={`/directory/category/${category.slug}`}
-                  className="ms-card-lift group flex h-full flex-col rounded-card-lg border border-border bg-surface-raised p-6 shadow-sm"
+                  href={`/business/category/${category.slug}`}
+                  className="ms-card-lift group flex h-full flex-col rounded-card-lg border border-white/80 bg-white/75 p-7 shadow-md backdrop-blur-md"
                 >
-                  <span className="inline-flex size-12 items-center justify-center rounded-card bg-sky-50 text-sky-700">
+                  <span className="inline-flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-white text-sky-700 shadow-sm ring-1 ring-sky-500/10">
                     <CategoryIcon slug={category.slug} className="size-6" />
                   </span>
                   <h3 className="mt-5 text-lg font-semibold tracking-tight group-hover:text-link">{category.name}</h3>
@@ -160,11 +163,11 @@ export default async function HomePage() {
             ))}
             {/* Completes the grid and gives the section its own way out. */}
             <li>
-              <Link href="/directory" className="ms-on-dark ms-card-lift group flex h-full min-h-44 flex-col justify-end rounded-card-lg bg-band p-6 text-band-text">
+              <Link href="/business" className="ms-on-dark ms-card-lift ms-glass-dark group flex h-full min-h-44 flex-col justify-end rounded-card-lg p-7 text-band-text">
                 <h3 className="font-display text-2xl">Every Melbourne listing</h3>
                 <p className="mt-2 text-sm leading-relaxed text-band-muted">Search the full directory by keyword, category, local area or rating.</p>
                 <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-band-link">
-                  Open the directory
+                  Browse businesses
                   <ArrowRightIcon aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-0.5" />
                 </span>
               </Link>
@@ -193,7 +196,7 @@ export default async function HomePage() {
           eyebrow="Recently added"
           title="New on Melbourne Sphere"
           description="The newest listings our editors have verified and published."
-          href="/directory?sort=newest"
+          href="/business?sort=newest"
           linkLabel="All businesses"
         />
         {!newest.ok ? (
@@ -217,7 +220,7 @@ export default async function HomePage() {
               eyebrow="Reviewed by locals"
               title="Highly rated in Melbourne"
               description="Averages come from approved reviews only."
-              href="/directory?sort=rating&minRating=4"
+              href="/business?sort=rating&minRating=4"
               linkLabel="See highly rated"
             />
             <ul className={`mt-10 grid gap-6 ${gridColumns(Math.min(topRated.data.data.length, 4))}`}>
@@ -250,7 +253,7 @@ export default async function HomePage() {
               <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {areasWithIntro.slice(0, 6).map((area) => (
                   <li key={area.id}>
-                    <Link href={`/directory/area/${area.slug}`} className="group flex h-full flex-col rounded-card-lg border border-band-border bg-band-raised p-6 transition-colors hover:border-sky-400">
+                    <Link href={`/business/area/${area.slug}`} className="ms-glass-dark group flex h-full flex-col rounded-card-lg p-7 transition-all hover:-translate-y-1 hover:border-sky-400">
                       <h3 className="font-display text-2xl text-white">{area.name}</h3>
                       <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-band-muted">{area.editorialIntro}</p>
                       <span className="mt-auto inline-flex items-center gap-1.5 pt-6 text-sm font-semibold text-band-link">
@@ -266,8 +269,8 @@ export default async function HomePage() {
               {areas.data.map((area) => (
                 <li key={area.id}>
                   <Link
-                    href={`/directory/area/${area.slug}`}
-                    className="flex min-h-14 items-center gap-3 rounded-card border border-band-border bg-white/[0.04] px-4 text-sm font-medium text-white transition-colors hover:border-sky-400 hover:bg-white/10"
+                    href={`/business/area/${area.slug}`}
+                    className="flex min-h-16 items-center gap-3 rounded-2xl border border-band-border bg-white/[0.05] px-5 text-sm font-semibold text-white backdrop-blur transition-all hover:-translate-y-0.5 hover:border-sky-400 hover:bg-white/10"
                   >
                     <MapPinIcon aria-hidden="true" className="size-4 shrink-0 text-sky-400" />
                     <span className="truncate">{area.name}</span>
@@ -309,6 +312,63 @@ export default async function HomePage() {
         )}
       </Band>
 
+      {/* Testimonials — omitted entirely when nothing is approved and published
+          (SRS 1.2 TSTM 004): an empty band would be a placeholder, and the
+          specification is explicit that the site ships without invented copy. */}
+      {testimonials.length > 0 && (
+        <Band tone="soft" aria-labelledby="testimonials-heading">
+          <SectionHeading id="testimonials-heading" eyebrow="In their words" title="What Melbourne businesses say" description="Quotes published with the permission of the people who gave them." />
+          <ul className={`mt-8 grid gap-6 ${gridColumns(testimonials.length)}`}>
+            {testimonials.map((testimonial) => (
+              <li key={testimonial.id}>
+                <figure className="flex h-full flex-col justify-between rounded-card-lg border border-white/80 bg-white/85 p-6 shadow-md backdrop-blur-sm">
+                  <blockquote className="text-[1.0625rem] leading-relaxed">“{testimonial.quote}”</blockquote>
+                  <figcaption className="mt-5 flex items-center gap-3 border-t border-border pt-4 text-sm">
+                    {testimonial.image && (
+                      // eslint-disable-next-line @next/next/no-img-element -- fixed 48 px avatar from our own media pipeline
+                      <img src={testimonial.image.url} alt="" width={48} height={48} className="size-12 shrink-0 rounded-full object-cover" />
+                    )}
+                    <span className="min-w-0">
+                      <span className="block font-semibold">{testimonial.displayName}</span>
+                      {testimonial.relationship && <span className="block text-text-muted">{testimonial.relationship}</span>}
+                      {testimonial.business && (
+                        <Link href={`/business/${testimonial.business.slug}`} className="text-link underline-offset-4 hover:underline">
+                          {testimonial.business.name}
+                        </Link>
+                      )}
+                    </span>
+                  </figcaption>
+                </figure>
+              </li>
+            ))}
+          </ul>
+        </Band>
+      )}
+
+      {/* Client and partner organisations — public marketing content only; these
+          records grant nobody any access (SRS 1.2 PTNR 001). Omitted when none
+          is published and authorised, rather than rendering an empty strip. */}
+      {partners.length > 0 && (
+        <Band tone="plain" aria-labelledby="partners-heading">
+          <SectionHeading id="partners-heading" eyebrow="Working with" title="Clients and partners" />
+          <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-10 gap-y-8">
+            {partners.map((partner) => (
+              <li key={partner.id} className="flex items-center">
+                {partner.websiteUrl ? (
+                  <a href={partner.websiteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-lg px-1">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- height-constrained logo from our own media pipeline */}
+                    <img src={partner.logo.url} alt={partner.logoAlt} width={partner.logo.width} height={partner.logo.height} className="h-10 w-auto object-contain opacity-80 transition-opacity hover:opacity-100" />
+                  </a>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element -- as above
+                  <img src={partner.logo.url} alt={partner.logoAlt} width={partner.logo.width} height={partner.logo.height} className="h-10 w-auto object-contain opacity-80" />
+                )}
+              </li>
+            ))}
+          </ul>
+        </Band>
+      )}
+
       {/* 6 — Call to action, dark */}
       <Band tone="dark" id="business-listing" aria-labelledby="cta-heading">
         <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
@@ -342,8 +402,8 @@ export default async function HomePage() {
               { icon: ShieldCheckIcon, title: 'Checked before publishing', body: 'Our editors verify the details and the Melbourne location before a listing goes live.' },
               { icon: MapPinIcon, title: 'Melbourne only', body: 'We cover one city properly instead of thousands of generated location pages.' },
             ].map((item) => (
-              <li key={item.title} className="flex gap-4 rounded-card-lg border border-band-border bg-white/[0.04] p-5">
-                <item.icon aria-hidden="true" className="size-5 shrink-0 text-sky-400" />
+              <li key={item.title} className="ms-glass-dark flex gap-4 rounded-card-lg p-6">
+                <item.icon aria-hidden="true" className="size-6 shrink-0 text-sky-400" />
                 <div>
                   <h3 className="text-base font-semibold text-white">{item.title}</h3>
                   <p className="mt-1 text-sm leading-relaxed text-band-muted">{item.body}</p>

@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { SecurityPolicyService } from './security-policy.service.js';
 import { RedisService } from '../redis/redis.service.js';
 import type { EnvironmentVariables } from '../config/env.validation.js';
 
@@ -8,7 +9,12 @@ export type ThrottleScope = 'login' | 'reset';
 
 export type ThrottleDecision = { allowed: true } | { allowed: false; retryAfterSeconds: number };
 
-/** SRS SEC 002 defaults: 5 failed attempts per 15 minutes per IP, plus account throttling. */
+/**
+ * SRS SEC 002 defaults: 5 failed attempts per 15 minutes per IP, plus account
+ * throttling. These are the *ceilings*: the security settings may make login
+ * stricter — fewer attempts, a longer block — and can never loosen them or turn
+ * them off (SRS 1.2 SECS 004).
+ */
 const LIMITS: Record<ThrottleScope, { ip: { max: number; windowSec: number }; account: { max: number; windowSec: number; escalatedWindowSec: number } }> = {
   login: { ip: { max: 5, windowSec: 900 }, account: { max: 5, windowSec: 900, escalatedWindowSec: 3_600 } },
   reset: { ip: { max: 5, windowSec: 900 }, account: { max: 3, windowSec: 900, escalatedWindowSec: 3_600 } },
@@ -35,6 +41,7 @@ export class LoginThrottleService {
 
   constructor(
     private readonly redis: RedisService,
+    private readonly policy: SecurityPolicyService,
     config: ConfigService<EnvironmentVariables, true>,
   ) {
     this.secret = config.get('APP_SECRET_KEY', { infer: true });
@@ -49,9 +56,27 @@ export class LoginThrottleService {
     return `throttle:${scope}:ip:${ip}`;
   }
 
+  /**
+   * The limits in force: the SEC 002 ceilings, narrowed by the security
+   * settings where they are stricter. `Math.min` on attempts and `Math.max` on
+   * windows is the whole rule — a setting can only make login harder.
+   */
+  private async limitsFor(scope: ThrottleScope): Promise<(typeof LIMITS)[ThrottleScope]> {
+    const ceiling = LIMITS[scope];
+    const { loginMaxFailedAttempts, loginBlockSeconds } = await this.policy.policy();
+    return {
+      ip: { max: Math.min(ceiling.ip.max, loginMaxFailedAttempts), windowSec: Math.max(ceiling.ip.windowSec, loginBlockSeconds) },
+      account: {
+        max: Math.min(ceiling.account.max, loginMaxFailedAttempts),
+        windowSec: Math.max(ceiling.account.windowSec, loginBlockSeconds),
+        escalatedWindowSec: Math.max(ceiling.account.escalatedWindowSec, loginBlockSeconds * 4),
+      },
+    };
+  }
+
   /** Checks both counters without incrementing. */
   async check(scope: ThrottleScope, ip: string, normalisedEmail: string): Promise<ThrottleDecision> {
-    const limits = LIMITS[scope];
+    const limits = await this.limitsFor(scope);
     try {
       await this.redis.ensureConnected();
       const [ipCount, ipTtl, acctCount, acctTtl] = await Promise.all([
@@ -72,7 +97,7 @@ export class LoginThrottleService {
 
   /** Records a failure against both counters. */
   async recordFailure(scope: ThrottleScope, ip: string, normalisedEmail: string): Promise<void> {
-    const limits = LIMITS[scope];
+    const limits = await this.limitsFor(scope);
     try {
       await this.redis.ensureConnected();
       const ipKey = this.ipKey(scope, ip);

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, HttpCode, Param, Post, Put, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, HttpCode, Param, Post, Put, Req } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { RequestContext } from '../auth/auth.service.js';
 import { CurrentAdmin, Public, RequirePermissions, type AuthenticatedRequest } from '../auth/decorators.js';
@@ -8,7 +8,7 @@ import { HomeSettingsRecordDto, PublicHomeDto, UpdateHomeSettingsDto } from './d
 import { GeneralSettingsRecordDto, PublicSiteSettingsDto, UpdateGeneralSettingsDto } from './dto/general-settings.dto.js';
 import { SettingsService } from './settings.service.js';
 import { StaticPagesService } from './static-pages.service.js';
-import { PublicStaticPageDto, PublicStaticPageSummaryDto, StaticPageDto, StaticPageStateDto, UpdateStaticPageDto } from './dto/static-page.dto.js';
+import { CreateStaticPageDto, PublicStaticPageDto, PublicStaticPageSummaryDto, StaticPageDto, StaticPageStateDto, UpdateStaticPageDto } from './dto/static-page.dto.js';
 
 const ctxOf = (req: AuthenticatedRequest): RequestContext => ({ ip: req.ip ?? 'unknown', userAgent: req.headers['user-agent'], requestId: getRequestId(req) });
 
@@ -97,10 +97,20 @@ export class StaticPagesAdminController {
   @RequirePermissions('settings.manage')
   @Get()
   @Header('Cache-Control', 'no-store')
-  @ApiOperation({ summary: 'Every information page, including ones never edited' })
+  @ApiOperation({ summary: 'Every page, including ones never edited' })
   @ApiOkResponse({ type: [StaticPageDto] })
   async list() {
     return { data: await this.pages.list() };
+  }
+
+  @RequirePermissions('settings.manage')
+  @Post()
+  @HttpCode(201)
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Create a page at a chosen address; reserved and taken addresses are refused (SRS 1.7)' })
+  @ApiOkResponse({ type: StaticPageDto })
+  async create(@Body() body: CreateStaticPageDto, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest) {
+    return { data: await this.pages.create(body, actor, ctxOf(req)) };
   }
 
   @RequirePermissions('settings.manage')
@@ -109,6 +119,15 @@ export class StaticPagesAdminController {
   @ApiOkResponse({ type: StaticPageDto })
   async get(@Param('slug') slug: string) {
     return { data: await this.pages.get(slug) };
+  }
+
+  @RequirePermissions('settings.manage')
+  @Delete(':slug')
+  @HttpCode(204)
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Delete a custom page. A system page, or one still published, is refused.' })
+  async remove(@Param('slug') slug: string, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest) {
+    await this.pages.remove(slug, actor, ctxOf(req));
   }
 
   @RequirePermissions('settings.manage')

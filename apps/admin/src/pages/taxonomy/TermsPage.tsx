@@ -1,12 +1,12 @@
-import { useState, type ReactNode } from 'react';
-import { Alert, App, Button, Form, Input, InputNumber, Modal, Select, Space, Switch, Table, Tag } from 'antd';
+import type { ReactNode } from 'react';
+import { Alert, App, Button, Input, Select, Space, Switch, Table, Tag } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { taxonomyApi, type TermItem, type TermKind, type TermListQuery } from '@/api/taxonomy';
 import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
-import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
+import { errorMessage, useAsync } from '@/shared/useAsync';
 import { PageHeader } from '@/components/ui';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
@@ -31,9 +31,11 @@ export interface TermsPageConfig {
 const SORTS: NonNullable<TermListQuery['sort']>[] = ['name', 'slug', 'sortOrder', 'createdAt', 'updatedAt'];
 
 /**
- * Generic list + create/edit + activate/deactivate screen for the three
- * taxonomy resources (SRS CFG 003, ADM 002). State lives in the URL so
- * refresh/back preserve filters; edits carry expectedVersion (SRS API 005).
+ * Generic list and activate/deactivate screen for the three taxonomy resources
+ * (SRS CFG 003, ADM 002). State lives in the URL so refresh and back preserve
+ * the filters; creating and editing happen on their own routes
+ * (`TermEditorPage`), and activation stays a confirmation because it changes
+ * what the public site offers.
  */
 export function TermsPage({ config }: { config: TermsPageConfig }) {
   useDocumentTitle(config.title);
@@ -47,12 +49,8 @@ export function TermsPage({ config }: { config: TermsPageConfig }) {
   const sort = (params.get('sort') as TermListQuery['sort']) ?? 'name';
   const order = (params.get('order') as 'asc' | 'desc') ?? 'asc';
   const [state, reload] = useAsync(() => api.list({ page, pageSize: 20, q: q || undefined, status, sort, order }), [config.kind, page, q, status, sort, order]);
-  const [editing, setEditing] = useState<TermItem | 'new' | null>(null);
-  const [form] = Form.useForm();
-  const [formError, setFormError] = useState<string | null>(null);
-  // A term can never be its own parent; null when creating, or when the dialog is closed.
-  const editingTermId = editing && editing !== 'new' ? editing.id : null;
-  const [parents, reloadParents] = useAsync(() => (config.kind === 'categories' ? api.list({ pageSize: 50, status: 'active', sort: 'name' }).then((r) => r.data.filter((c) => !('parentId' in c) || c.parentId === null)) : Promise.resolve([] as TermItem[])), [config.kind]);
+
+  const listHref = `/${config.kind}`;
 
   const setParam = (key: string, value: string | undefined) => {
     const next = new URLSearchParams(params);
@@ -60,42 +58,6 @@ export function TermsPage({ config }: { config: TermsPageConfig }) {
     else next.delete(key);
     if (key !== 'page') next.delete('page');
     setParams(next);
-  };
-
-  const openEditor = (item: TermItem | 'new') => {
-    setFormError(null);
-    setEditing(item);
-    form.resetFields();
-    if (item !== 'new') form.setFieldsValue({ ...item, synonyms: 'synonyms' in item ? item.synonyms : undefined });
-  };
-
-  const submit = async (values: Record<string, unknown>) => {
-    setFormError(null);
-    const body: Record<string, unknown> = {};
-    for (const f of config.fields) if (values[f.name] !== undefined) body[f.name] = values[f.name] === '' ? null : values[f.name];
-    try {
-      if (editing === 'new') {
-        await api.create(body);
-        message.success(`${config.singular} created`);
-      } else if (editing) {
-        await api.update(editing.id, { ...body, expectedVersion: editing.version });
-        message.success(`${config.singular} saved`);
-      }
-      setEditing(null);
-      reload();
-      reloadParents();
-    } catch (error) {
-      if (isApiError(error) && error.kind === 'unauthorized') {
-        onAuthError(error);
-        return;
-      }
-      if (isApiError(error) && error.code === 'STALE_VERSION') {
-        setFormError('This item was changed by someone else. Close, reload the list and try again.');
-        return;
-      }
-      form.setFields(Object.entries(fieldErrors(error)).map(([name, errors]) => ({ name, errors })) as never);
-      setFormError(errorMessage(error));
-    }
   };
 
   const toggleActive = (item: TermItem) => {
@@ -121,15 +83,15 @@ export function TermsPage({ config }: { config: TermsPageConfig }) {
   return (
     <div>
       <PageHeader
-        crumbs={[{ label: 'Directory' }, { label: config.title }]}
+        crumbs={[{ label: 'Business' }, { label: config.title }]}
         title={config.title}
         description={<>{config.intro}</>}
         actions={
-          <>
-            <Button type="primary" icon={<PlusOutlined aria-hidden="true" />} onClick={() => openEditor('new')}>
-          New {config.singular.toLowerCase()}
-        </Button>
-          </>
+          <Link to={`${listHref}/new`}>
+            <Button type="primary" icon={<PlusOutlined aria-hidden="true" />}>
+              New {config.singular.toLowerCase()}
+            </Button>
+          </Link>
         }
       />
       <Space style={{ marginBottom: 16 }} wrap>
@@ -146,7 +108,7 @@ export function TermsPage({ config }: { config: TermsPageConfig }) {
         pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => setParam('page', String(p)) } : false}
         scroll={{ x: 760 }}
         columns={[
-          { title: 'Name', dataIndex: 'name', render: (v: string, item) => <Button type="link" style={{ padding: 0 }} onClick={() => openEditor(item)}>{v}</Button> },
+          { title: 'Name', dataIndex: 'name', render: (v: string, item) => <Link to={`${listHref}/${item.id}`}>{v}</Link> },
           { title: 'Slug', dataIndex: 'slug', render: (v: string) => <code>{v}</code> },
           ...(config.columns ?? []).map((c) => ({ title: c.title, render: (_: unknown, item: TermItem) => c.render(item) })),
           { title: 'Status', dataIndex: 'active', render: (v: boolean) => <Tag color={v ? 'green' : 'default'}>{v ? 'active' : 'inactive'}</Tag> },
@@ -155,26 +117,6 @@ export function TermsPage({ config }: { config: TermsPageConfig }) {
         ]}
         locale={{ emptyText: state.status === 'ready' ? `No ${config.title.toLowerCase()} match.` : ' ' }}
       />
-      <Modal title={editing === 'new' ? `New ${config.singular.toLowerCase()}` : `Edit ${config.singular.toLowerCase()}`} open={editing !== null} onCancel={() => setEditing(null)} okText={editing === 'new' ? 'Create' : 'Save'} onOk={() => form.submit()} destroyOnHidden>
-        {formError && <Alert type="error" showIcon message={formError} style={{ marginBottom: 12 }} role="alert" />}
-        <Form form={form} layout="vertical" requiredMark={false} onFinish={submit}>
-          {config.fields.map((f) => (
-            <Form.Item key={f.name} label={f.label} name={f.name} extra={f.help} rules={f.required ? [{ required: true, message: `${f.label} is required` }] : undefined}>
-              {f.input === 'textarea' ? (
-                <Input.TextArea rows={4} maxLength={f.max} />
-              ) : f.input === 'number' ? (
-                <InputNumber min={0} max={10_000} style={{ width: 160 }} />
-              ) : f.input === 'tags' ? (
-                <Select mode="tags" tokenSeparators={[',']} placeholder="Add synonyms" />
-              ) : f.input === 'parent' ? (
-                <Select allowClear placeholder="None (top-level)" options={parents.status === 'ready' ? parents.data.filter((p) => p.id !== editingTermId).map((p) => ({ value: p.id, label: p.name })) : []} />
-              ) : (
-                <Input maxLength={f.max} />
-              )}
-            </Form.Item>
-          ))}
-        </Form>
-      </Modal>
     </div>
   );
 }

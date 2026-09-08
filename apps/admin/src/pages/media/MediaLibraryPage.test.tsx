@@ -1,5 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import { AppRoutes } from '@/app/routes';
+import { MediaDetailPage } from './MediaDetailPage';
 import { MediaLibraryPage } from './MediaLibraryPage';
 import { renderWithProviders, authenticatedProvider, user } from '@/test/render';
 import { jsonResponse } from '@/test/fetch-fakes';
@@ -24,6 +25,7 @@ describe('media library', () => {
       const method = init?.method ?? 'GET';
       calls.push({ url, method, body: typeof init?.body === 'string' ? init.body : undefined });
       if (url.startsWith('/api/v1/admin/media?') || url === '/api/v1/admin/media') return jsonResponse(200, { data: [ready], meta });
+      if (url === '/api/v1/admin/media/m1' && method === 'GET') return jsonResponse(200, { data: ready });
       if (url === '/api/v1/admin/media/m1' && method === 'PATCH') return jsonResponse(200, { data: { ...ready, credit: 'Photo: Alex', version: 3 } });
       if (url === '/api/v1/admin/media/m1' && method === 'DELETE') return jsonResponse(409, { error: { code: 'MEDIA_IN_USE', message: 'This image is used in 1 place(s).', fields: {}, requestId: 'r' } });
       return jsonResponse(200, { data: { status: 'ok' } });
@@ -44,14 +46,21 @@ describe('media library', () => {
     expect(calls[0]?.url).toBe('/api/v1/admin/media?status=ready&page=1&pageSize=24');
   });
 
-  it('saves image details with the record version', async () => {
-    const ue = user();
+  it('links each image to its own details route rather than opening a dialog', async () => {
     renderWithProviders(<MediaLibraryPage />, { initialEntries: ['/admin/media'] });
     await screen.findByText('laneway.png');
-    await ue.click(screen.getByRole('button', { name: 'Details' }));
-    const dialog = await screen.findByRole('dialog');
-    await ue.type(within(dialog).getByLabelText(/credit/i), 'Photo: Alex');
-    await ue.click(within(dialog).getByRole('button', { name: /^save$/i }));
+    expect(screen.getByRole('link', { name: /details for laneway.png/i })).toHaveAttribute('href', '/admin/media/m1');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('saves image details with the record version, beside the image itself', async () => {
+    const ue = user();
+    renderWithProviders(<MediaDetailPage />, { initialEntries: ['/admin/media/m1'], routePath: '/media/:id' });
+    expect(await screen.findByRole('heading', { level: 1, name: 'laneway.png' })).toBeInTheDocument();
+    // The picture is on screen while the description is written.
+    expect(screen.getByAltText('A Melbourne laneway')).toBeInTheDocument();
+    await ue.type(screen.getByLabelText(/credit/i), 'Photo: Alex');
+    await ue.click(screen.getByRole('button', { name: /^save$/i }));
     const patch = calls.find((c) => c.method === 'PATCH')!;
     expect(JSON.parse(patch.body!)).toMatchObject({ expectedVersion: 2, altText: 'A Melbourne laneway', credit: 'Photo: Alex' });
   });

@@ -12,7 +12,7 @@ export function PostCard({ post }: { post: PostCardData }) {
   const cover = post.cover.find((variant) => variant.kind === 'card') ?? post.cover[0];
   const href = `/blog/${encodeURIComponent(post.slug)}`;
   return (
-    <article className="ms-card-lift group relative flex h-full flex-col overflow-hidden rounded-card-lg border border-border bg-surface-raised shadow-sm">
+    <article className="ms-card-lift group relative flex h-full flex-col overflow-hidden rounded-card-lg border border-white/80 bg-white/82 shadow-md backdrop-blur-sm">
       <div className="relative aspect-[16/10] overflow-hidden bg-navy-900">
         {cover ? (
           <Image src={cover.url} alt={post.coverAlt ?? ''} fill sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="object-cover transition-transform duration-500 group-hover:scale-[1.03]" />

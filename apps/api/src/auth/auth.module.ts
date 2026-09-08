@@ -17,6 +17,12 @@ import { LoginThrottleService } from './login-throttle.service.js';
 import { ConsoleMailer } from './mailer/console-mailer.js';
 import { MailerPort } from './mailer/mailer.port.js';
 import { NullMailer } from './mailer/null-mailer.js';
+import { EmailDeliveryService } from '../email/email-delivery.service.js';
+import { PasswordHistoryService } from './password-history.service.js';
+import { SecurityConsequenceService } from './security-consequence.service.js';
+import { SecurityPolicyService } from './security-policy.service.js';
+import { RecordingMailer } from './mailer/recording-mailer.js';
+import { ResendMailer } from './mailer/resend-mailer.js';
 import { SmtpMailer } from './mailer/smtp-mailer.js';
 import { PasswordService } from './password.service.js';
 import { SessionService } from './session.service.js';
@@ -33,18 +39,30 @@ import { SessionService } from './session.service.js';
     PasswordService,
     SessionService,
     LoginThrottleService,
+    SecurityPolicyService,
+    SecurityConsequenceService,
+    PasswordHistoryService,
     AuthService,
     AccountService,
     TotpService,
     FieldEncryptionService,
     {
       provide: MailerPort,
-      useFactory: (config: ConfigService<EnvironmentVariables, true>) => {
+      useFactory: (config: ConfigService<EnvironmentVariables, true>, deliveries: EmailDeliveryService) => {
         const transport = config.get('MAIL_TRANSPORT', { infer: true });
-        if (transport === 'smtp') return SmtpMailer.fromConfig(config);
-        return transport === 'console' ? new ConsoleMailer() : new NullMailer();
+        const mailer =
+          transport === 'smtp'
+            ? SmtpMailer.fromConfig(config)
+            : transport === 'resend'
+              ? ResendMailer.fromConfig(config)
+              : transport === 'console'
+                ? new ConsoleMailer()
+                : new NullMailer();
+        // Every transport is recorded the same way (SRS 1.2 MAIL 005), except
+        // the null transport, which sends nothing and so has nothing to record.
+        return transport === 'none' ? mailer : new RecordingMailer(mailer, deliveries);
       },
-      inject: [ConfigService],
+      inject: [ConfigService, EmailDeliveryService],
     },
     { provide: APP_GUARD, useClass: CsrfOriginGuard },
     { provide: APP_GUARD, useClass: SessionAuthGuard },
@@ -53,6 +71,6 @@ import { SessionService } from './session.service.js';
     // do in a burst, and never converts a missing permission into a 429.
     { provide: APP_GUARD, useClass: SensitiveThrottleGuard },
   ],
-  exports: [SessionService, PasswordService, MailerPort, FieldEncryptionService],
+  exports: [SessionService, PasswordService, MailerPort, FieldEncryptionService, SecurityPolicyService, SecurityConsequenceService],
 })
 export class AuthModule {}

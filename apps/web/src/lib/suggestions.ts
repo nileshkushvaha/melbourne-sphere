@@ -27,8 +27,8 @@ export function flattenSuggestions(groups: SuggestionGroups | null): FlatSuggest
 /** Where selecting a suggestion goes (SRS HERO 006: categories and services filter, a business opens directly). */
 export function suggestionHref(suggestion: Suggestion): string {
   if (suggestion.kind === 'business') return `/business/${encodeURIComponent(suggestion.slug)}`;
-  if (suggestion.kind === 'category') return `/directory?category=${encodeURIComponent(suggestion.slug)}`;
-  return `/directory?q=${encodeURIComponent(suggestion.label)}`;
+  if (suggestion.kind === 'category') return `/business?category=${encodeURIComponent(suggestion.slug)}`;
+  return `/business?q=${encodeURIComponent(suggestion.label)}`;
 }
 
 /** Arrow-key movement with wrap-around; -1 means "no active option". */

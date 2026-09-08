@@ -61,7 +61,10 @@ class FakeRedisClient {
 function make() {
   const client = new FakeRedisClient();
   const redis = { client, ensureConnected: async () => client.fail() } as never;
-  const service = new LoginThrottleService(redis, { get: () => 'unit-test-secret-key-0123456789-0123456789' } as never);
+  // Defaults: these tests cover the SEC 002 ceilings; narrowing them through
+  // the security settings is covered by the security settings suite.
+  const policy = { policy: async () => ({ sessionIdleMs: 0, sessionAbsoluteMs: 0, maxConcurrentSessions: 10, passwordResetMs: 0, passwordMinLength: 12, passwordHistoryDepth: 0, loginMaxFailedAttempts: 5, loginBlockSeconds: 900 }) } as never;
+  const service = new LoginThrottleService(redis, policy, { get: () => 'unit-test-secret-key-0123456789-0123456789' } as never);
   return { client, service };
 }
 

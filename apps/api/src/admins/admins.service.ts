@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto';
-import { ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { AdminUser, Prisma } from '@melbourne-sphere/database';
+import { deviceSummary } from '../auth/device-summary.js';
 import { AuditService } from '../audit/audit.service.js';
 import { AuthorizationService } from '../authorization/authorization.service.js';
 import { hashResetToken, type RequestContext } from '../auth/auth.service.js';
@@ -246,6 +247,8 @@ export class AdminsService {
       expiresAt: s.expiresAt.toISOString(),
       ipAddress: s.ipAddress,
       userAgent: s.userAgent,
+      // Browser family and platform only; not device identification (SECS 005).
+      device: deviceSummary(s.userAgent),
       current: s.id === currentSessionId,
     }));
   }

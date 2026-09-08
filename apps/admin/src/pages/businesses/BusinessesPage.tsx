@@ -62,7 +62,7 @@ export function BusinessesPage() {
   return (
     <div>
       <PageHeader
-        crumbs={[{ label: 'Directory' }, { label: 'Businesses' }]}
+        crumbs={[{ label: 'Business' }, { label: 'Businesses' }]}
         title="Businesses"
         description="Melbourne-only listings. Drafts are private; publishing requires verified eligibility, reviewed content rights and a contact route."
         actions={

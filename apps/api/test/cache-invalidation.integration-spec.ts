@@ -54,14 +54,14 @@ describe('Cache invalidation (integration)', () => {
     const afterPublish = await db.outboxEvent.findMany({ where: { type: 'cache.invalidate', resourceId: business.id }, orderBy: { occurredAt: 'asc' } });
     expect(afterPublish).toHaveLength(1);
     expect(tagsOf(afterPublish[0]?.payload)).toEqual(expect.arrayContaining(['businesses', `business:${business.slug}`, 'sitemap']));
-    expect((afterPublish[0]?.payload as { urgent?: boolean }).urgent).toBe(false);
+    expect((afterPublish[0]!.payload as { urgent?: boolean }).urgent).toBe(false);
 
     const unpublished = await post(`/api/v1/admin/businesses/${business.id}/unpublish`).send({ expectedVersion: business.version, reason: 'temporary' }).expect(200);
     business.version = unpublished.body.data.version;
     const afterUnpublish = await db.outboxEvent.findMany({ where: { type: 'cache.invalidate', resourceId: business.id }, orderBy: { occurredAt: 'asc' } });
     expect(afterUnpublish).toHaveLength(2);
     // A removal is urgent: it must not wait for a TTL (SRS CACHE 002).
-    expect((afterUnpublish[1]?.payload as { urgent?: boolean }).urgent).toBe(true);
+    expect((afterUnpublish[1]!.payload as { urgent?: boolean }).urgent).toBe(true);
   });
 
   it('serves the search from cache but never a stale publication state', async () => {

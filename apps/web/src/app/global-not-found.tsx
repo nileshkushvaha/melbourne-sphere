@@ -1,13 +1,13 @@
 import Link from 'next/link';
-import { Geist, Instrument_Serif } from 'next/font/google';
+import { Manrope, Sora } from 'next/font/google';
 import type { Metadata } from 'next';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { NotFoundContent } from '@/components/not-found-content';
 import './globals.css';
 
-const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'], display: 'swap' });
-const displaySerif = Instrument_Serif({ variable: '--font-display', subsets: ['latin'], weight: '400', display: 'swap' });
+const bodyFont = Manrope({ variable: '--font-body', subsets: ['latin'], display: 'swap' });
+const displayFont = Sora({ variable: '--font-display', subsets: ['latin'], display: 'swap' });
 
 export const metadata: Metadata = {
   title: 'Page not found · Melbourne Sphere',
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
  */
 export default function GlobalNotFound() {
   return (
-    <html lang="en-AU" className={`${geistSans.variable} ${displaySerif.variable} h-full antialiased`}>
+    <html lang="en-AU" className={`${bodyFont.variable} ${displayFont.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col font-sans">
         <a className="ms-skip-link" href="#main-content">
           Skip to main content

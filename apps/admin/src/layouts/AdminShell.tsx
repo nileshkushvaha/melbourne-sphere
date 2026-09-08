@@ -5,6 +5,9 @@ import {
   AppstoreOutlined,
   CommentOutlined,
   DashboardOutlined,
+  DatabaseOutlined,
+  ThunderboltOutlined,
+  ClockCircleOutlined,
   EditOutlined,
   EnvironmentOutlined,
   FileSearchOutlined,
@@ -14,6 +17,7 @@ import {
   MailOutlined,
   MenuOutlined,
   PictureOutlined,
+  QuestionCircleOutlined,
   ReadOutlined,
   SafetyOutlined,
   LayoutOutlined,
@@ -58,8 +62,8 @@ const NAV_GROUPS: NavGroup[] = [
     items: [{ key: '/', label: 'Dashboard', icon: <DashboardOutlined aria-hidden="true" /> }],
   },
   {
-    key: 'directory',
-    label: 'Directory',
+    key: 'business',
+    label: 'Business',
     items: [
       { key: '/businesses', label: 'Businesses', icon: <ShopOutlined aria-hidden="true" />, permission: 'listings.read' },
       { key: '/businesses/featured', label: 'Featured listings', icon: <StarOutlined aria-hidden="true" />, permission: 'listings.read' },
@@ -95,12 +99,39 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: '/settings/general', label: 'General settings', icon: <SettingOutlined aria-hidden="true" />, permission: 'settings.manage' },
       { key: '/settings', label: 'Home page settings', icon: <LayoutOutlined aria-hidden="true" />, permission: 'settings.manage' },
-      { key: '/pages', label: 'Information pages', icon: <FileTextOutlined aria-hidden="true" />, permission: 'settings.manage' },
       { key: '/redirects', label: 'SEO redirects', icon: <LinkOutlined aria-hidden="true" />, permission: 'redirects.manage' },
       { key: '/admins', label: 'Administrators', icon: <TeamOutlined aria-hidden="true" />, permission: 'admins.manage' },
       { key: '/roles', label: 'Roles', icon: <SafetyCertificateOutlined aria-hidden="true" />, permission: 'roles.view' },
       { key: '/permissions', label: 'Permissions', icon: <KeyOutlined aria-hidden="true" />, permission: 'permissions.view' },
-      { key: '/audit', label: 'Audit log', icon: <FileSearchOutlined aria-hidden="true" />, permission: 'audit.read' },
+      { key: '/audit', label: 'Activity log', icon: <FileSearchOutlined aria-hidden="true" />, permission: 'audit.read' },
+    ],
+  },
+  {
+    key: 'website',
+    label: 'Website',
+    items: [
+      { key: '/website/pages', label: 'Pages', icon: <FileTextOutlined aria-hidden="true" />, permission: 'settings.manage' },
+      { key: '/website/faqs', label: 'FAQs', icon: <QuestionCircleOutlined aria-hidden="true" />, permission: 'website.faqs.view' },
+      { key: '/website/service-alerts', label: 'Service alerts', icon: <AlertOutlined aria-hidden="true" />, permission: 'website.alerts.view' },
+      { key: '/website/testimonials', label: 'Testimonials', icon: <CommentOutlined aria-hidden="true" />, permission: 'website.testimonials.view' },
+      { key: '/website/partners', label: 'Clients and partners', icon: <ShopOutlined aria-hidden="true" />, permission: 'website.clients.view' },
+    ],
+  },
+  {
+    key: 'security',
+    label: 'Security',
+    items: [
+      { key: '/security/settings', label: 'Security settings', icon: <SafetyOutlined aria-hidden="true" />, permission: 'security.settings.view' },
+    ],
+  },
+  {
+    key: 'system',
+    label: 'System',
+    items: [
+      { key: '/system/email-logs', label: 'Email logs', icon: <MailOutlined aria-hidden="true" />, permission: 'system.email_logs.view' },
+      { key: '/system/cache', label: 'Cache manager', icon: <DatabaseOutlined aria-hidden="true" />, permission: 'system.cache.view' },
+      { key: '/system/queues', label: 'Queue monitor', icon: <ThunderboltOutlined aria-hidden="true" />, permission: 'system.queues.view' },
+      { key: '/system/schedules', label: 'Scheduled tasks', icon: <ClockCircleOutlined aria-hidden="true" />, permission: 'system.schedules.view' },
     ],
   },
 ];

@@ -140,12 +140,12 @@ describe('Administrator lifecycle, sessions, audit and TOTP (integration)', () =
       const own = await agent().get('/api/v1/admin/auth/sessions').set('Cookie', superCookie).expect(200);
       expect(own.body.data.filter((s: { current: boolean }) => s.current)).toHaveLength(1);
 
-      const audit = await agent().get('/api/v1/admin/audit?action=admin.*&pageSize=5').set('Cookie', superCookie).expect(200);
+      const audit = await agent().get('/api/v1/admin/activity?action=admin.*&pageSize=5').set('Cookie', superCookie).expect(200);
       expect(audit.body.meta.pageSize).toBe(5);
       expect(audit.body.data.every((e: { action: string }) => e.action.startsWith('admin.'))).toBe(true);
       expect(audit.body.data[0].actor).toMatchObject({ email: expect.any(String) });
       expect(JSON.stringify(audit.body)).not.toMatch(/passwordHash|tokenHash|\$argon2/);
-      await agent().get('/api/v1/admin/audit?action=drop;table').set('Cookie', superCookie).expect(400);
+      await agent().get('/api/v1/admin/activity?action=drop;table').set('Cookie', superCookie).expect(400);
     });
 
     it('change-password requires the current password and revokes other sessions', async () => {

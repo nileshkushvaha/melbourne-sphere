@@ -16,7 +16,7 @@ export function FeaturedPostCard({ post, headingLevel = 2 }: { post: PostCardDat
   const Heading = `h${headingLevel}` as const;
   const href = `/blog/${encodeURIComponent(post.slug)}`;
   return (
-    <article className="ms-card-lift group relative grid overflow-hidden rounded-card-lg border border-border bg-surface-raised shadow-sm lg:grid-cols-2">
+    <article className="ms-card-lift group relative grid overflow-hidden rounded-card-lg border border-white/80 bg-white/82 shadow-md backdrop-blur-sm lg:grid-cols-2">
       <div className="relative aspect-[16/9] overflow-hidden bg-navy-900 lg:aspect-auto lg:h-full lg:min-h-80">
         {cover ? (
           <Image src={cover.url} alt={post.coverAlt ?? ''} fill priority sizes="(min-width: 1024px) 50vw, 100vw" className="object-cover" />

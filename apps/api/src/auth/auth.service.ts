@@ -7,6 +7,8 @@ import { IdentityService, normaliseEmail, type AdminPrincipal } from '../identit
 import type { EnvironmentVariables } from '../config/env.validation.js';
 import { LoginThrottleService, ThrottleUnavailableError } from './login-throttle.service.js';
 import { MailerPort } from './mailer/mailer.port.js';
+import { PasswordHistoryService } from './password-history.service.js';
+import { SecurityPolicyService } from './security-policy.service.js';
 import { PasswordService } from './password.service.js';
 import { SessionService, type SessionSummary } from './session.service.js';
 
@@ -20,6 +22,7 @@ export type LoginResult =
   | { kind: 'session'; token: string; admin: AdminPrincipal; session: SessionSummary }
   | { kind: 'challenge'; adminId: string };
 
+/** The AUTH 001 maximum; the security settings may narrow it, never widen it. */
 const RESET_TOKEN_TTL_MS = 30 * 60_000;
 
 export class RateLimitedException extends HttpException {
@@ -47,6 +50,8 @@ export class AuthService {
     private readonly throttle: LoginThrottleService,
     private readonly audit: AuditService,
     private readonly mailer: MailerPort,
+    private readonly policy: SecurityPolicyService,
+    private readonly history: PasswordHistoryService,
     config: ConfigService<EnvironmentVariables, true>,
   ) {
     this.adminBaseUrl = config.get('PUBLIC_ADMIN_URL', { infer: true });
@@ -119,7 +124,7 @@ export class AuthService {
     const db = await this.database.client();
     const token = randomBytes(32).toString('base64url');
     await db.passwordResetToken.create({
-      data: { tokenHash: hashResetToken(token), adminId: admin.id, expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS), requestedIp: ctx.ip.slice(0, 45) },
+      data: { tokenHash: hashResetToken(token), adminId: admin.id, expiresAt: new Date(Date.now() + Math.min((await this.policy.policy()).passwordResetMs, RESET_TOKEN_TTL_MS)), requestedIp: ctx.ip.slice(0, 45) },
     });
     let delivered = true;
     try {
@@ -149,7 +154,8 @@ export class AuthService {
   }
 
   async resetPassword(token: string, newPassword: string, ctx: RequestContext): Promise<void> {
-    const policyError = PasswordService.validate(newPassword);
+    const { passwordMinLength } = await this.policy.policy();
+    const policyError = PasswordService.validate(newPassword, passwordMinLength);
     if (policyError) throw new HttpException({ code: 'VALIDATION_ERROR', message: policyError }, HttpStatus.BAD_REQUEST);
     const db = await this.database.client();
     const record = await db.passwordResetToken.findUnique({ where: { tokenHash: hashResetToken(token) }, include: { admin: true } });
@@ -158,6 +164,10 @@ export class AuthService {
     if (normaliseEmail(record.admin.email) === newPassword.trim().toLowerCase()) {
       throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Password must not be your email address' }, HttpStatus.BAD_REQUEST);
     }
+    // Checked before the token is consumed, so a refused password does not cost
+    // the person their reset link (SRS 1.2 SECS 003).
+    await this.history.assertNotReused(record.adminId, newPassword, record.admin.passwordHash);
+    const previousHash = record.admin.passwordHash;
     const passwordHash = await this.passwords.hash(newPassword);
     await db.$transaction(async (tx) => {
       const consumed = await tx.passwordResetToken.updateMany({ where: { id: record.id, usedAt: null }, data: { usedAt: new Date() } });
@@ -165,6 +175,7 @@ export class AuthService {
       await tx.adminUser.update({ where: { id: record.adminId }, data: { passwordHash, passwordChangedAt: new Date(), version: { increment: 1 } } });
       await tx.adminSession.updateMany({ where: { adminId: record.adminId, revokedAt: null }, data: { revokedAt: new Date(), revokedReason: 'password_reset' } });
     });
+    await this.history.record(record.adminId, previousHash);
     await this.throttle.reset('login', record.admin.email);
     await this.audit.record({ action: 'auth.password_reset.completed', actorAdminId: record.adminId, targetType: 'admin_user', targetId: record.adminId, requestId: ctx.requestId, ipAddress: ctx.ip });
   }

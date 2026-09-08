@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { GlobeIcon, MapPinIcon, PhoneIcon } from 'lucide-react';
+import { ArrowRightIcon, GlobeIcon, MailIcon, MapPinIcon, PhoneIcon, ShieldCheckIcon } from 'lucide-react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { JsonLdScript } from '@/components/json-ld';
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/structured-data';
@@ -43,11 +43,16 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
   // is configured, and then no correction link is offered rather than a dead one.
   const editorsEmail = contactChannelFrom(settings).email;
   const { contact, address } = business;
-  const crumbs = [{ label: 'Home', href: '/' }, { label: 'Directory', href: '/directory' }, { label: business.primaryCategory.name, href: `/directory/category/${business.primaryCategory.slug}` }, { label: business.name }];
+  const crumbs = [{ label: 'Home', href: '/' }, { label: 'Businesses', href: '/business' }, { label: business.primaryCategory.name, href: `/business/category/${business.primaryCategory.slug}` }, { label: business.name }];
   const hasContact = contact.phone || contact.email || contact.website || business.links.length > 0;
   const status = business.hours?.status;
   const statusTone = status?.state === 'open' ? 'bg-success/15 text-white' : status?.state === 'closed' ? 'bg-white/10 text-band-muted' : 'bg-white/10 text-band-muted';
-  const action = 'inline-flex min-h-12 items-center gap-2 rounded-full px-6 text-sm font-semibold transition-colors';
+  const action = 'inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-bold transition-all hover:-translate-y-0.5';
+  const enquiryHref = contact.email
+    ? `mailto:${contact.email}?subject=${encodeURIComponent(`Enquiry from Melbourne Sphere about ${business.name}`)}`
+    : business.acceptsEnquiries
+      ? '#enquiry-heading'
+      : null;
 
   return (
     <article>
@@ -55,25 +60,25 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
 
       {/* Identity band: who this is, where it is, how it rates and the three
           things a visitor actually wants to do (SRS BUS 001/003). */}
-      <div className="ms-on-dark bg-band text-band-text">
-        <div className="ms-container py-10 sm:py-14">
+      <div className="ms-on-dark bg-band text-band-text [background-image:radial-gradient(circle_at_78%_20%,rgba(25,158,216,.2),transparent_30%),linear-gradient(135deg,#0d2848,#071426)]">
+        <div className="ms-container py-9 sm:py-12">
           <Breadcrumbs items={crumbs} tone="dark" />
-          <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_26rem] lg:items-start">
+          <div className="mt-7 grid gap-10 lg:grid-cols-[minmax(0,1fr)_27rem] lg:items-center">
             <div>
               <p className="flex flex-wrap items-center gap-2 text-xs">
-                <Link href={`/directory/category/${business.primaryCategory.slug}`} className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-white/12 px-3.5 font-semibold text-white transition-colors hover:bg-white/20">
+                <Link href={`/business/category/${business.primaryCategory.slug}`} className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-white/12 px-3.5 font-semibold text-white transition-colors hover:bg-white/20">
                   <CategoryIcon slug={business.primaryCategory.slug} className="size-3.5" />
                   {business.primaryCategory.name}
                 </Link>
                 {business.secondaryCategories.map((category) => (
-                  <Link key={category.slug} href={`/directory/category/${category.slug}`} className="inline-flex min-h-9 items-center rounded-full border border-band-border px-3.5 font-medium text-band-muted transition-colors hover:border-sky-400 hover:text-white">
+                  <Link key={category.slug} href={`/business/category/${category.slug}`} className="inline-flex min-h-9 items-center rounded-full border border-band-border px-3.5 font-medium text-band-muted transition-colors hover:border-sky-400 hover:text-white">
                     {category.name}
                   </Link>
                 ))}
               </p>
-              <h1 className="font-display mt-5 text-[clamp(2.25rem,4.5vw,3.5rem)] leading-[1.06] tracking-tight">{business.name}</h1>
+              <h1 className="font-display mt-5 max-w-4xl text-[clamp(2.4rem,4.8vw,4.6rem)] leading-[1.02]">{business.name}</h1>
               <p className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-                <Link href={`/directory/area/${business.localArea.slug}`} className="inline-flex items-center gap-1.5 text-band-muted underline-offset-4 hover:text-white hover:underline">
+                <Link href={`/business/area/${business.localArea.slug}`} className="inline-flex items-center gap-1.5 text-band-muted underline-offset-4 hover:text-white hover:underline">
                   <MapPinIcon aria-hidden="true" className="size-4" />
                   {business.localArea.name}, Melbourne
                 </Link>
@@ -92,20 +97,27 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
+                {enquiryHref && (
+                  <a href={enquiryHref} className={`${action} bg-gradient-to-r from-sky-400 to-sky-500 px-7 text-navy-950 shadow-[0_16px_35px_-18px_rgba(25,158,216,.95)] hover:from-[#83d8f7] hover:to-sky-400`}>
+                    <MailIcon aria-hidden="true" className="size-4" />
+                    Send enquiry
+                    <ArrowRightIcon aria-hidden="true" className="size-4" />
+                  </a>
+                )}
                 {contact.phone && (
-                  <a href={contact.phone.telHref} className={`${action} bg-sky-500 text-navy-950 hover:bg-sky-400`}>
+                  <a href={contact.phone.telHref} className={`${action} border border-white/20 bg-white/[0.08] text-white backdrop-blur hover:bg-white/[0.14]`}>
                     <PhoneIcon aria-hidden="true" className="size-4" />
                     Call {contact.phone.display}
                   </a>
                 )}
                 {address && (
-                  <a href={address.directionsUrl} target="_blank" rel="noopener noreferrer" className={`${action} border border-band-border bg-white/[0.06] text-white hover:bg-white/12`}>
+                  <a href={address.directionsUrl} target="_blank" rel="noopener noreferrer" className={`${action} border border-white/20 bg-white/[0.08] text-white backdrop-blur hover:bg-white/[0.14]`}>
                     <MapPinIcon aria-hidden="true" className="size-4" />
                     Directions
                   </a>
                 )}
                 {contact.website && (
-                  <a href={contact.website} target="_blank" rel="noopener noreferrer nofollow" className={`${action} border border-band-border bg-white/[0.06] text-white hover:bg-white/12`}>
+                  <a href={contact.website} target="_blank" rel="noopener noreferrer nofollow" className={`${action} border border-white/20 bg-white/[0.08] text-white backdrop-blur hover:bg-white/[0.14]`}>
                     <GlobeIcon aria-hidden="true" className="size-4" />
                     Website
                   </a>
@@ -114,7 +126,7 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
             </div>
 
             <div className="flex flex-col gap-3">
-              <div className="relative aspect-[4/3] overflow-hidden rounded-card-lg bg-navy-950 shadow-lg">
+              <div className="ms-glass-dark relative aspect-[4/3] overflow-hidden rounded-[2rem] bg-navy-950 shadow-lg ring-1 ring-white/10">
                 {business.image ? (
                   <Image src={business.image.url} alt={business.image.alt ?? ''} fill priority sizes="(min-width: 1024px) 26rem, 100vw" className="object-cover" />
                 ) : (
@@ -148,9 +160,9 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
         </div>
       </div>
 
-      <div className="ms-container grid gap-12 py-12 sm:py-16 lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-16">
-        <div className="flex flex-col gap-12">
-          <section aria-labelledby="about-heading">
+      <div className="ms-dot-grid bg-surface-muted"><div className="ms-container grid gap-10 py-12 sm:py-16 lg:grid-cols-[minmax(0,1fr)_28rem] lg:gap-12">
+        <div className="flex flex-col gap-8">
+          <section aria-labelledby="about-heading" className="rounded-card-lg border border-white/80 bg-white/82 p-6 shadow-md backdrop-blur-sm sm:p-8">
             <h2 id="about-heading" className="font-display text-2xl tracking-tight">
               About {business.name}
             </h2>
@@ -171,7 +183,7 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
 
           <HoursTable hours={business.hours} correctionEmail={editorsEmail} businessName={business.name} />
 
-          <section aria-labelledby="reviews-heading" className="flex flex-col gap-6 scroll-mt-24">
+          <section aria-labelledby="reviews-heading" className="flex scroll-mt-24 flex-col gap-6 rounded-card-lg border border-white/80 bg-white/82 p-6 shadow-md backdrop-blur-sm sm:p-8">
             <h2 id="reviews-heading" className="font-display text-2xl tracking-tight">
               Reviews{reviews.meta.total > 0 ? ` (${reviews.meta.total})` : ''}
             </h2>
@@ -183,33 +195,15 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
               <ReviewForm businessId={business.id} businessName={business.name} turnstileSiteKey={turnstileSiteKey()} guidelinesHref={await reviewGuidelinesHref()} />
             </div>
           </section>
-
-          <section aria-labelledby="enquiry-heading" className="flex flex-col gap-3">
-            <h2 id="enquiry-heading" className="font-display text-2xl tracking-tight">
-              Contact {business.name}
-            </h2>
-            {business.acceptsEnquiries ? (
-              <EnquiryForm businessId={business.id} businessName={business.name} turnstileSiteKey={turnstileSiteKey()} />
-            ) : (
-              <p className="text-text-muted">
-                This business does not take messages through Melbourne Sphere. Use the phone number or website above
-                {editorsEmail ? (
-                  <>
-                    , or{' '}
-                    <a className="text-link underline underline-offset-2" href={`mailto:${editorsEmail}?subject=${encodeURIComponent(`Listing correction: ${business.name}`)}`}>
-                      tell us about a missing contact detail
-                    </a>
-                  </>
-                ) : null}
-                .
-              </p>
-            )}
-          </section>
         </div>
 
-        <aside className="lg:sticky lg:top-24 lg:self-start">
-          <div id="contact" className="scroll-mt-24 rounded-card-lg border border-border bg-surface-raised p-6 shadow-sm">
-            <h2 className="text-base font-semibold tracking-tight">Contact and location</h2>
+        {/* Contact details and the enquiry form share the sidebar: the form used
+            to sit under the reviews, which left the sidebar column empty for most
+            of the page. The column is no longer sticky because it is now taller
+            than the viewport on ordinary screens. */}
+        <aside className="flex flex-col gap-8 lg:self-start">
+          <div id="contact" className="scroll-mt-24 rounded-card-lg border border-white/80 bg-white/84 p-6 shadow-lg backdrop-blur-md">
+            <div className="flex items-center gap-3"><span className="inline-flex size-10 items-center justify-center rounded-2xl bg-sky-100 text-sky-700"><ShieldCheckIcon aria-hidden="true" className="size-5" /></span><div><p className="text-[0.68rem] font-bold uppercase tracking-[0.16em] text-sky-700">Verified details</p><h2 className="text-base font-bold tracking-tight">Contact and location</h2></div></div>
             {!hasContact && !address && <p className="mt-3 text-sm text-text-muted">Contact details have not been published.</p>}
             <dl className="mt-4 flex flex-col gap-4 text-sm">
               {contact.phone && (
@@ -282,8 +276,36 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
               </ul>
             )}
           </div>
+
+            <section aria-labelledby="enquiry-heading" className="flex scroll-mt-24 flex-col gap-4 rounded-card-lg border border-sky-500/20 bg-[linear-gradient(135deg,rgba(255,255,255,.92),rgba(239,248,254,.9))] p-6 shadow-lg backdrop-blur-md">
+              <div className="flex items-start gap-3">
+                <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
+                  <MailIcon aria-hidden="true" className="size-5" />
+                </span>
+                <div>
+                  <h2 id="enquiry-heading" className="font-display text-xl tracking-tight">Send an enquiry</h2>
+                  <p className="mt-1 text-sm text-text-muted">Your message is delivered securely to {business.name}; their private contact address is never shown.</p>
+                </div>
+              </div>
+              {business.acceptsEnquiries ? (
+                <EnquiryForm businessId={business.id} businessName={business.name} turnstileSiteKey={turnstileSiteKey()} compact />
+              ) : (
+                <p className="text-text-muted">
+                  This business does not take messages through Melbourne Sphere. Use the phone number or website above
+                  {editorsEmail ? (
+                    <>
+                      , or{' '}
+                      <a className="text-link underline underline-offset-2" href={`mailto:${editorsEmail}?subject=${encodeURIComponent(`Listing correction: ${business.name}`)}`}>
+                        tell us about a missing contact detail
+                      </a>
+                    </>
+                  ) : null}
+                  .
+                </p>
+              )}
+          </section>
         </aside>
-      </div>
+      </div></div>
 
       {business.related.length > 0 && (
         <section aria-labelledby="related-heading" className="ms-section bg-surface-sunken">

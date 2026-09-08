@@ -12,10 +12,6 @@ import { EVENT_TYPES, OutboxService } from '../outbox/outbox.service.js';
 import { ObjectStoragePort } from './storage.port.js';
 import type { CompleteUploadDto, GalleryEntryDto, ListMediaQueryDto, MediaAssetDto, RequestUploadDto, SetGalleryDto, UpdateMediaDto, UploadTicketDto } from './dto/media.dto.js';
 
-/** SRS MED 004 retention windows. */
-export const QUARANTINE_MAX_AGE_HOURS = 24;
-export const UNUSED_READY_MAX_AGE_DAYS = 30;
-
 const notFound = () => new NotFoundException({ code: 'NOT_FOUND', message: 'Media not found' });
 const stale = () => new ConflictException({ code: 'STALE_VERSION', message: 'This asset was changed by someone else. Reload and try again.' });
 
@@ -276,32 +272,13 @@ export class MediaService {
   }
 
   // ---- retention ------------------------------------------------------------
-
-  /** Removes abandoned quarantine objects and long-unused ready assets (SRS MED 004). */
-  async runRetention(now = new Date()): Promise<{ quarantineRemoved: number; unusedRemoved: number }> {
-    const db = await this.database.client();
-    const abandoned = await db.mediaAsset.findMany({
-      where: { status: { in: ['quarantined', 'rejected'] }, createdAt: { lt: new Date(now.getTime() - QUARANTINE_MAX_AGE_HOURS * 3_600_000) } },
-      select: { id: true, objectKey: true },
-      take: 100,
-    });
-    for (const asset of abandoned) {
-      await this.storage.delete('quarantine', asset.objectKey).catch(() => undefined);
-      await db.mediaAsset.delete({ where: { id: asset.id } }).catch(() => undefined);
-    }
-    const unused = await db.mediaAsset.findMany({
-      where: { status: 'ready', readyAt: { lt: new Date(now.getTime() - UNUSED_READY_MAX_AGE_DAYS * 86_400_000) }, businesses: { none: {} }, coverOf: { none: {} }, authorOf: { none: {} } },
-      select: { id: true, objectKey: true, variants: { select: { objectKey: true } } },
-      take: 100,
-    });
-    for (const asset of unused) {
-      for (const variant of asset.variants) await this.storage.delete('public', variant.objectKey).catch(() => undefined);
-      await this.storage.delete('quarantine', asset.objectKey).catch(() => undefined);
-      await db.mediaAsset.delete({ where: { id: asset.id } }).catch(() => undefined);
-    }
-    if (abandoned.length || unused.length) this.logger.log(`media retention removed ${abandoned.length} quarantined and ${unused.length} unused assets`);
-    return { quarantineRemoved: abandoned.length, unusedRemoved: unused.length };
-  }
+  //
+  // MED 004 retention runs in the worker, as the `media.retention` scheduled
+  // task: it deletes stored objects as well as rows, and every other scheduled
+  // job already runs there under a lock. The windows it applies are declared
+  // once in `packages/domain/src/scheduled-tasks.ts`; the copy that used to sit
+  // here was never called by anything, which is exactly the way a retention
+  // policy silently stops being applied.
 
   private variantDtos(variants: MediaVariant[]): MediaAssetDto['variants'] {
     return variants

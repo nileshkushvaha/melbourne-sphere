@@ -6,11 +6,13 @@ import { ConsoleEnquiryMailer } from './mailer/console-mailer.js';
 import { EnquiryMailerPort } from './mailer/mailer.port.js';
 import { SmtpEnquiryMailer } from './mailer/smtp-mailer.js';
 import { randomBytes } from 'node:crypto';
-import { CACHE_INVALIDATE_JOB, ENQUIRY_EMAIL_JOB, MEDIA_PROCESS_JOB, QUEUE_NAME, buildEnquiryMail, redisConnectionFromUrl } from '@melbourne-sphere/domain';
+import { CACHE_INVALIDATE_JOB, ENQUIRY_EMAIL_JOB, MEDIA_PROCESS_JOB, QUEUE_NAME, SCHEDULED_TASK_JOB, buildEnquiryMail, redisConnectionFromUrl } from '@melbourne-sphere/domain';
+import { ScheduleRunner } from './schedule-runner.js';
+import type { ScheduledTaskJobData } from './scheduled-tasks.js';
 import { processMediaAsset, type MediaJobData } from './media-processing.js';
 import { invalidateCache, type CacheInvalidationJobData } from './cache-invalidation.js';
 import { S3Storage } from './s3-storage.js';
-import { decryptField } from './field-encryption.js';
+import { decryptField, encryptField } from './field-encryption.js';
 
 /**
  * Worker entrypoint (SRS ARC 003): an independently operable process that
@@ -27,9 +29,15 @@ async function main(): Promise<void> {
 
   const storage = new S3Storage(config.media);
 
-  const worker = new Worker<DeliveryJobData & MediaJobData & CacheInvalidationJobData>(
+  // One identity per replica, so a run record says which process did the work
+  // and a lock can only be released by its holder (SRS TASK 004/005).
+  const runnerId = `${process.pid}-${randomBytes(4).toString('hex')}`;
+  const schedules = new ScheduleRunner(db, config.redisUrl, runnerId, (line) => process.stdout.write(`${line}\n`), storage);
+
+  const worker = new Worker<DeliveryJobData & MediaJobData & CacheInvalidationJobData & ScheduledTaskJobData>(
     QUEUE_NAME,
-    async (job: Job<DeliveryJobData & MediaJobData & CacheInvalidationJobData>) => {
+    async (job: Job<DeliveryJobData & MediaJobData & CacheInvalidationJobData & ScheduledTaskJobData>) => {
+      if (job.name === SCHEDULED_TASK_JOB) return schedules.run(job.data);
       if (job.name === CACHE_INVALIDATE_JOB) return invalidateCache(job.data, { target: config.revalidate });
       if (job.name === MEDIA_PROCESS_JOB) return processMediaAsset(job.data, { db, storage, randomKey: () => randomBytes(12).toString('hex') });
       if (job.name !== ENQUIRY_EMAIL_JOB) throw new Error(`Unknown job ${job.name}`);
@@ -37,6 +45,7 @@ async function main(): Promise<void> {
         db,
         mailer,
         decrypt: (stored, aad) => decryptField(config.fieldEncryptionKey, stored, aad),
+        encrypt: (plaintext, aad) => encryptField(config.fieldEncryptionKey, plaintext, aad),
         buildMail: buildEnquiryMail,
         fromAddress,
         siteRecipient: config.siteEnquiryRecipient,
@@ -56,11 +65,14 @@ async function main(): Promise<void> {
     }
   });
 
+  await schedules.start();
+
   process.stdout.write(`[worker] listening on ${QUEUE_NAME} (transport: ${mailer.describe?.() ?? mailer.transportName}, concurrency: ${config.concurrency})\n`);
 
   const shutdown = async (signal: string) => {
     process.stdout.write(`[worker] ${signal} received, draining\n`);
     await worker.close();
+    await schedules.close();
     mailer.close?.();
     await db.$disconnect();
     process.exit(0);

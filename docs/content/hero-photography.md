@@ -22,6 +22,17 @@ requirement is satisfied.
 | `flinders-street-evening.webp` | A tram passing Flinders Street Station at night | Caroline Jones | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0) | [Wikimedia Commons: "Melbourne in the early evening (50883666706).jpg"](https://commons.wikimedia.org/wiki/File:Melbourne_in_the_early_evening_(50883666706).jpg) |
 | `degraves-street-laneway.webp` | Cafés and hanging signs along Degraves Street | -wuppertaler | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0) | [Wikimedia Commons: "AUS Melbourne, Central Business District, Degraves Street 001.jpg"](https://commons.wikimedia.org/wiki/File:AUS_Melbourne,_Central_Business_District,_Degraves_Street_001.jpg) |
 
+## Where else these images are used
+
+The About page (`/about`) uses the same two files directly, because it has no
+media picker of its own: Degraves Street as its hero, Flinders Street beside the
+introduction, each with the credit its licence requires. They are a documented
+stand-in — the About page is expected to carry the client's own commissioned
+Melbourne photography, and replacing them means editing
+`apps/web/src/app/about/page.tsx` (`HERO_IMAGE` and the aside image) or, better,
+moving both to media-library assets once approved photography exists. That
+replacement is outstanding client content, listed with the other open items.
+
 ## When the client supplies its own photography
 
 1. Upload the images through the admin media library and configure them as hero

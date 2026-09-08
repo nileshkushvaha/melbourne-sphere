@@ -11,7 +11,7 @@ interface CategoryOption {
 }
 
 /**
- * Hero search panel (SRS HERO 004–006). It is a real GET form to /directory, so
+ * Hero search panel (SRS HERO 004–006). It is a real GET form to /business, so
  * it works without client JavaScript; suggestions are progressive enhancement
  * that fail silently. The location is fixed text, never an input, and no client
  * city parameter is ever sent.
@@ -88,15 +88,15 @@ export function HeroSearch({ categories }: { categories: CategoryOption[] }) {
 
   return (
     <form
-      action="/directory"
+      action="/business"
       method="get"
       role="search"
       aria-label="Search Melbourne businesses"
-      className="mt-8 w-full max-w-4xl rounded-card-lg bg-panel p-2 text-panel-text shadow-lg"
+      className="ms-glass-light mt-6 w-full max-w-5xl rounded-[1.75rem] p-2.5 text-panel-text"
     >
       <div className="flex flex-col gap-2 lg:flex-row lg:items-stretch lg:gap-0">
         {/* Location is fixed text, never an input: the city is not client supplied (SRS HERO 004). */}
-        <p className="flex min-h-14 shrink-0 flex-col justify-center rounded-card bg-panel-muted px-4 py-2 lg:rounded-none lg:rounded-l-card lg:pr-6">
+        <p className="flex min-h-14 shrink-0 flex-col justify-center rounded-[1.15rem] bg-panel-muted/90 px-4 py-2 lg:rounded-none lg:rounded-l-card lg:pr-6">
           <span className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-panel-text-muted">Location</span>
           <span className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold">
             <MapPinIcon aria-hidden="true" className="size-4 text-sky-700" />
@@ -177,7 +177,7 @@ export function HeroSearch({ categories }: { categories: CategoryOption[] }) {
 
         <button
           type="submit"
-          className="inline-flex min-h-14 shrink-0 items-center justify-center gap-2 rounded-card bg-sky-700 px-7 text-base font-semibold text-white transition-colors hover:bg-navy-800 lg:rounded-card-lg"
+          className="inline-flex min-h-14 shrink-0 items-center justify-center gap-2 rounded-[1.15rem] bg-navy-900 px-8 text-base font-semibold text-white transition-colors hover:bg-sky-700 lg:rounded-card-lg"
         >
           <SearchIcon aria-hidden="true" className="size-5" />
           Search

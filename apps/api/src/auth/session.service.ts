@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { SecurityPolicyService } from './security-policy.service.js';
 import type { CookieOptions, Response } from 'express';
 import { DatabaseService } from '../database/database.service.js';
 import type { EnvironmentVariables } from '../config/env.validation.js';
@@ -34,33 +35,42 @@ export function hashSessionToken(token: string): string {
  */
 @Injectable()
 export class SessionService {
-  private readonly idleMs: number;
-  private readonly absoluteMs: number;
+  /** The deployment's outer bounds; a security setting may narrow them, never widen them (SRS 1.2 SECS 002). */
+  private readonly maxIdleMs: number;
+  private readonly maxAbsoluteMs: number;
   private readonly cookieSecure: boolean;
 
   constructor(
     private readonly database: DatabaseService,
+    private readonly policy: SecurityPolicyService,
     config: ConfigService<EnvironmentVariables, true>,
   ) {
-    this.idleMs = config.get('SESSION_IDLE_MINUTES', { infer: true }) * 60_000;
-    this.absoluteMs = config.get('SESSION_ABSOLUTE_HOURS', { infer: true }) * 3_600_000;
+    this.maxIdleMs = config.get('SESSION_IDLE_MINUTES', { infer: true }) * 60_000;
+    this.maxAbsoluteMs = config.get('SESSION_ABSOLUTE_HOURS', { infer: true }) * 3_600_000;
     this.cookieSecure = config.get('SESSION_COOKIE_SECURE', { infer: true });
   }
 
   get cookieOptions(): CookieOptions {
-    return { httpOnly: true, secure: this.cookieSecure, sameSite: 'strict', path: SESSION_COOKIE_PATH, maxAge: this.absoluteMs };
+    // The cookie's own lifetime stays at the deployment maximum: the server
+    // decides when a session ends, and a shorter cookie would only mean the
+    // browser forgets a session the server still considers valid.
+    return { httpOnly: true, secure: this.cookieSecure, sameSite: 'strict', path: SESSION_COOKIE_PATH, maxAge: this.maxAbsoluteMs };
   }
 
   async create(adminId: string, context: { ipAddress?: string | null; userAgent?: string | null }): Promise<{ token: string; session: SessionSummary }> {
     const db = await this.database.client();
+    const { sessionIdleMs, sessionAbsoluteMs, maxConcurrentSessions } = await this.policy.policy();
+    // The new session counts towards the limit, so room is made for it before
+    // it exists: the oldest sessions go first (SRS 1.2 SECS 002).
+    await this.enforceConcurrencyLimit(adminId, maxConcurrentSessions - 1, 'session_limit');
     const token = randomBytes(32).toString('base64url');
     const now = new Date();
     const record = await db.adminSession.create({
       data: {
         tokenHash: hashSessionToken(token),
         adminId,
-        idleExpiresAt: new Date(now.getTime() + this.idleMs),
-        expiresAt: new Date(now.getTime() + this.absoluteMs),
+        idleExpiresAt: new Date(now.getTime() + sessionIdleMs),
+        expiresAt: new Date(now.getTime() + sessionAbsoluteMs),
         ipAddress: context.ipAddress?.slice(0, 45) ?? null,
         userAgent: context.userAgent?.slice(0, 255) ?? null,
       },
@@ -85,9 +95,17 @@ export class SessionService {
       await this.markRevoked(record.id, 'idle_timeout');
       return { ok: false, reason: 'idle' };
     }
+    // Shortening the idle window applies to sessions that already exist: the
+    // deadline is recomputed from the current policy, not from the one in force
+    // when the session began (SECS 006).
+    const { sessionIdleMs } = await this.policy.policy();
+    if (record.lastSeenAt.getTime() + sessionIdleMs <= now) {
+      await this.markRevoked(record.id, 'idle_timeout');
+      return { ok: false, reason: 'idle' };
+    }
     let idleExpiresAt = record.idleExpiresAt;
     if (now - record.lastSeenAt.getTime() > TOUCH_INTERVAL_MS) {
-      idleExpiresAt = new Date(Math.min(now + this.idleMs, record.expiresAt.getTime()));
+      idleExpiresAt = new Date(Math.min(now + sessionIdleMs, record.expiresAt.getTime()));
       await db.adminSession.update({ where: { id: record.id }, data: { lastSeenAt: new Date(now), idleExpiresAt } });
     }
     return {
@@ -99,6 +117,28 @@ export class SessionService {
 
   async revoke(sessionId: string, reason: string): Promise<void> {
     await this.markRevoked(sessionId, reason);
+  }
+
+  /**
+   * Ends an administrator's oldest sessions until at most `keep` remain
+   * (SRS 1.2 SECS 002/006). Used when a session is created and when the limit
+   * is lowered, so the setting takes effect on sessions that already exist.
+   */
+  async enforceConcurrencyLimit(adminId: string, keep: number, reason: string): Promise<number> {
+    if (keep < 0) return 0;
+    const db = await this.database.client();
+    const active = await db.adminSession.findMany({
+      where: { adminId, revokedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { lastSeenAt: 'desc' },
+      select: { id: true },
+    });
+    const surplus = active.slice(keep);
+    if (surplus.length === 0) return 0;
+    const result = await db.adminSession.updateMany({
+      where: { id: { in: surplus.map((session) => session.id) }, revokedAt: null },
+      data: { revokedAt: new Date(), revokedReason: reason.slice(0, 64) },
+    });
+    return result.count;
   }
 
   /** Revokes every active session of an admin (password reset, disable, privilege change). */

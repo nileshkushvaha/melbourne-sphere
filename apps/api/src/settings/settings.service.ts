@@ -1,14 +1,14 @@
-import { ConflictException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@melbourne-sphere/database';
-import { AuditService } from '../audit/audit.service.js';
 import type { RequestContext } from '../auth/auth.service.js';
 import { DatabaseService } from '../database/database.service.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import { DEFAULT_HOME_SETTINGS, HOME_SETTINGS_KEY, validateHomeSettings, type HomeSettings } from './home-settings.js';
 import { DEFAULT_GENERAL_SETTINGS, GENERAL_SETTINGS_KEY, SOCIAL_PLATFORMS, validateGeneralSettings, type GeneralSettings } from './general-settings.js';
 import { MediaService } from '../media/media.service.js';
-import { CacheService } from '../cache/cache.service.js';
 import { CACHE_TAGS } from '@melbourne-sphere/domain';
+import { SettingsStoreService } from './settings-store.service.js';
+import { WEBSITE_GROUP } from './registry.js';
 import type { HomeSettingsRecordDto, PublicHeroSlideDto, PublicHomeDto, UpdateHomeSettingsDto } from './dto/settings.dto.js';
 import type { GeneralSettingsRecordDto, PublicSiteSettingsDto, SettingsImageDto, UpdateGeneralSettingsDto } from './dto/general-settings.dto.js';
 
@@ -23,9 +23,8 @@ export class SettingsService {
 
   constructor(
     private readonly database: DatabaseService,
-    private readonly audit: AuditService,
     private readonly media: MediaService,
-    private readonly cache: CacheService,
+    private readonly store: SettingsStoreService,
   ) {}
 
   /**
@@ -54,37 +53,35 @@ export class SettingsService {
   }
 
   async homeSettings(): Promise<HomeSettingsRecordDto> {
-    const db = await this.database.client();
-    const row = await db.siteSetting.findUnique({ where: { key: HOME_SETTINGS_KEY } });
-    if (!row) return { ...DEFAULT_HOME_SETTINGS, heroSlidePreviews: [], version: 0, updatedAt: new Date(0).toISOString(), updatedByAdminId: null };
+    const row = await this.store.readDocument(WEBSITE_GROUP, HOME_SETTINGS_KEY);
+    if (row.data === null) return { ...DEFAULT_HOME_SETTINGS, heroSlidePreviews: [], version: 0, updatedAt: row.updatedAt, updatedByAdminId: null };
     const { errors, value } = validateHomeSettings(row.data);
     if (Object.keys(errors).length > 0) {
       // A stored document that no longer validates (e.g. after a rule change) must not break the public site.
       this.logger.warn('stored home settings failed validation; serving defaults');
-      return { ...DEFAULT_HOME_SETTINGS, heroSlidePreviews: [], version: row.version, updatedAt: row.updatedAt.toISOString(), updatedByAdminId: row.updatedByAdminId };
+      return { ...DEFAULT_HOME_SETTINGS, heroSlidePreviews: [], version: row.version, updatedAt: row.updatedAt, updatedByAdminId: row.updatedByAdminId };
     }
-    return { ...value, heroSlidePreviews: await this.resolveSlides(value.heroSlides), version: row.version, updatedAt: row.updatedAt.toISOString(), updatedByAdminId: row.updatedByAdminId };
+    return { ...value, heroSlidePreviews: await this.resolveSlides(value.heroSlides), version: row.version, updatedAt: row.updatedAt, updatedByAdminId: row.updatedByAdminId };
   }
 
   async updateHomeSettings(input: UpdateHomeSettingsDto, actor: AdminPrincipal, ctx: RequestContext): Promise<HomeSettingsRecordDto> {
     const { errors, value } = validateHomeSettings(input);
     if (Object.keys(errors).length > 0) throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Some settings are invalid', fields: errors }, HttpStatus.BAD_REQUEST);
-    const db = await this.database.client();
-    const current = await db.siteSetting.findUnique({ where: { key: HOME_SETTINGS_KEY } });
-    const currentVersion = current?.version ?? 0;
-    if (currentVersion !== input.expectedVersion) throw new ConflictException({ code: 'STALE_VERSION', message: 'These settings were changed by someone else. Reload and try again.' });
-    const data = value as unknown as Prisma.InputJsonObject;
-    const row = await db.$transaction(async (tx) => {
-      const saved = current
-        ? await tx.siteSetting.update({ where: { key: HOME_SETTINGS_KEY }, data: { data, version: { increment: 1 }, updatedByAdminId: actor.id } })
-        : await tx.siteSetting.create({ data: { key: HOME_SETTINGS_KEY, data, version: 1, updatedByAdminId: actor.id } });
+    // The version check, the transaction, the audit record and the cache purge
+    // are the shared settings path (SET 003); only the validation above is
+    // specific to the home settings.
+    const row = await this.store.writeDocument({
+      group: WEBSITE_GROUP,
+      key: HOME_SETTINGS_KEY,
+      data: value as unknown as Prisma.InputJsonObject,
+      expectedVersion: input.expectedVersion,
+      actor,
+      ctx,
+      audit: { action: 'settings.home.update', metadata: { phrases: value.heroPhrases.length, slides: value.heroSlides.length, countersEnabled: value.countersEnabled } },
       // The home page renders these settings, so its cached copy must be purged.
-      await this.cache.recordInvalidation(tx, { resourceType: 'site_setting', resourceId: HOME_SETTINGS_KEY, correlationId: ctx.requestId, tags: [CACHE_TAGS.settings] });
-      return saved;
+      tags: [CACHE_TAGS.settings],
     });
-    await this.cache.bumpNamespace();
-    await this.audit.record({ action: 'settings.home.update', actorAdminId: actor.id, targetType: 'site_setting', targetId: HOME_SETTINGS_KEY, metadata: { phrases: value.heroPhrases.length, slides: value.heroSlides.length, countersEnabled: value.countersEnabled }, requestId: ctx.requestId, ipAddress: ctx.ip });
-    return { ...value, heroSlidePreviews: await this.resolveSlides(value.heroSlides), version: row.version, updatedAt: row.updatedAt.toISOString(), updatedByAdminId: row.updatedByAdminId };
+    return { ...value, heroSlidePreviews: await this.resolveSlides(value.heroSlides), version: row.version, updatedAt: row.updatedAt, updatedByAdminId: row.updatedByAdminId };
   }
 
   /** Public home payload: hero content plus counters only when enabled and available (SRS HERO 007). */
@@ -117,15 +114,14 @@ export class SettingsService {
    * public shell.
    */
   private async storedGeneral(): Promise<{ value: GeneralSettings; version: number; updatedAt: string; updatedByAdminId: string | null }> {
-    const db = await this.database.client();
-    const row = await db.siteSetting.findUnique({ where: { key: GENERAL_SETTINGS_KEY } });
-    if (!row) return { value: SettingsService.generalDefaults(), version: 0, updatedAt: new Date(0).toISOString(), updatedByAdminId: null };
+    const row = await this.store.readDocument(WEBSITE_GROUP, GENERAL_SETTINGS_KEY);
+    if (row.data === null) return { value: SettingsService.generalDefaults(), version: 0, updatedAt: row.updatedAt, updatedByAdminId: null };
     const { errors, value } = validateGeneralSettings(row.data);
     if (Object.keys(errors).length > 0) {
       this.logger.warn('stored general settings failed validation; serving defaults');
-      return { value: SettingsService.generalDefaults(), version: row.version, updatedAt: row.updatedAt.toISOString(), updatedByAdminId: row.updatedByAdminId };
+      return { value: SettingsService.generalDefaults(), version: row.version, updatedAt: row.updatedAt, updatedByAdminId: row.updatedByAdminId };
     }
-    return { value, version: row.version, updatedAt: row.updatedAt.toISOString(), updatedByAdminId: row.updatedByAdminId };
+    return { value, version: row.version, updatedAt: row.updatedAt, updatedByAdminId: row.updatedByAdminId };
   }
 
   /** Resolves the three branding assets; an asset that is missing or unprocessed simply is not published (SRS MED 002). */
@@ -169,35 +165,26 @@ export class SettingsService {
     }
     if (Object.keys(mediaErrors).length > 0) throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Some settings are invalid', fields: mediaErrors }, HttpStatus.BAD_REQUEST);
 
-    const db = await this.database.client();
-    const current = await db.siteSetting.findUnique({ where: { key: GENERAL_SETTINGS_KEY } });
-    const currentVersion = current?.version ?? 0;
-    if (currentVersion !== input.expectedVersion) throw new ConflictException({ code: 'STALE_VERSION', message: 'These settings were changed by someone else. Reload and try again.' });
-    const data = value as unknown as Prisma.InputJsonObject;
-    const row = await db.$transaction(async (tx) => {
-      const saved = current
-        ? await tx.siteSetting.update({ where: { key: GENERAL_SETTINGS_KEY }, data: { data, version: { increment: 1 }, updatedByAdminId: actor.id } })
-        : await tx.siteSetting.create({ data: { key: GENERAL_SETTINGS_KEY, data, version: 1, updatedByAdminId: actor.id } });
-      // Every public page renders the shell, so the whole web tier is purged.
-      await this.cache.recordInvalidation(tx, { resourceType: 'site_setting', resourceId: GENERAL_SETTINGS_KEY, correlationId: ctx.requestId, tags: [CACHE_TAGS.settings] });
-      return saved;
-    });
-    await this.cache.bumpNamespace();
-    await this.audit.record({
-      action: 'settings.general.update',
-      actorAdminId: actor.id,
-      targetType: 'site_setting',
-      targetId: GENERAL_SETTINGS_KEY,
-      // Metadata records what changed shape, never the values themselves.
-      metadata: {
-        headerTopBarEnabled: value.headerTopBarEnabled,
-        socialLinks: SOCIAL_PLATFORMS.filter((platform) => value.social[platform] !== null).length,
-        hasSupportEmail: value.supportEmail !== null,
-        hasSupportPhone: value.supportPhone !== null,
-        brandingAssets: [value.logoMediaId, value.faviconMediaId, value.shareImageMediaId].filter(Boolean).length,
+    const row = await this.store.writeDocument({
+      group: WEBSITE_GROUP,
+      key: GENERAL_SETTINGS_KEY,
+      data: value as unknown as Prisma.InputJsonObject,
+      expectedVersion: input.expectedVersion,
+      actor,
+      ctx,
+      audit: {
+        action: 'settings.general.update',
+        // Metadata records what changed shape, never the values themselves.
+        metadata: {
+          headerTopBarEnabled: value.headerTopBarEnabled,
+          socialLinks: SOCIAL_PLATFORMS.filter((platform) => value.social[platform] !== null).length,
+          hasSupportEmail: value.supportEmail !== null,
+          hasSupportPhone: value.supportPhone !== null,
+          brandingAssets: [value.logoMediaId, value.faviconMediaId, value.shareImageMediaId].filter(Boolean).length,
+        },
       },
-      requestId: ctx.requestId,
-      ipAddress: ctx.ip,
+      // Every public page renders the shell, so the whole web tier is purged.
+      tags: [CACHE_TAGS.settings],
     });
     const branding = await this.resolveBranding(value);
     return {
@@ -206,7 +193,7 @@ export class SettingsService {
       supportPhoneDisplay: value.supportPhone,
       ...branding,
       version: row.version,
-      updatedAt: row.updatedAt.toISOString(),
+      updatedAt: row.updatedAt,
       updatedByAdminId: row.updatedByAdminId,
     };
   }

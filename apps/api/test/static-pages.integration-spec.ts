@@ -31,7 +31,13 @@ describe('Static pages (integration)', () => {
 
   it('lists the fixed page set, including pages that have never been edited', async () => {
     const res = await agent().get('/api/v1/admin/pages').set('Cookie', cookie).expect(200);
-    expect(res.body.data.map((page: { slug: string }) => page.slug)).toEqual(['about', 'contact', 'privacy', 'terms', 'review-guidelines']);
+    expect(res.body.data.map((page: { slug: string }) => page.slug)).toEqual(['about', 'privacy', 'terms', 'review-guidelines']);
+    for (const page of res.body.data) expect(page.isSystem).toBe(true);
+    // The template decides which public page renders the record, and therefore
+    // which editor opens it (SRS 1.6 CFG 002).
+    expect(res.body.data.map((page: { template: string }) => page.template)).toEqual(['about', 'generic', 'generic', 'generic']);
+    // There is no editable contact page: `/contact` routes from the settings.
+    await agent().get('/api/v1/admin/pages/contact').set('Cookie', cookie).expect(404);
     expect(res.body.data[0]).toMatchObject({ status: 'draft', version: 0 });
     expect(res.body.data[0].publicationBlockers.length).toBeGreaterThan(0);
     await agent().get('/api/v1/admin/pages/not-a-page').set('Cookie', cookie).expect(404);
@@ -74,20 +80,10 @@ describe('Static pages (integration)', () => {
     expect(revisions[0]?.reason).toBe('Clarified retention');
   });
 
-  it('validates contact routing before the contact page can go live', async () => {
-    const saved = await put('/api/v1/admin/pages/contact').send({ expectedVersion: 0, title: 'Contact us', body: realCopy }).expect(200);
-    const noEmail = await post('/api/v1/admin/pages/contact/publish').send({ expectedVersion: saved.body.data.version }).expect(409);
-    expect(noEmail.body.error.fields.publication.join(' ')).toMatch(/contact address is required/i);
-
-    const sample = await put('/api/v1/admin/pages/contact').send({ expectedVersion: saved.body.data.version, title: 'Contact us', body: realCopy, contactEmail: 'hello@example.com' }).expect(200);
-    const sampleBlocked = await post('/api/v1/admin/pages/contact/publish').send({ expectedVersion: sample.body.data.version }).expect(409);
-    expect(sampleBlocked.body.error.fields.publication.join(' ')).toMatch(/example domain/i);
-
-    const real = await put('/api/v1/admin/pages/contact').send({ expectedVersion: sample.body.data.version, title: 'Contact us', body: realCopy, contactEmail: 'Editors@MelbourneSphere.au' }).expect(200);
-    const live = await post('/api/v1/admin/pages/contact/publish').send({ expectedVersion: real.body.data.version }).expect(200);
-    expect(live.body.data.status).toBe('published');
-    const publicPage = await agent().get('/api/v1/pages/contact').expect(200);
-    expect(publicPage.body.data.contactEmail).toBe('Editors@MelbourneSphere.au');
+  it('refuses to write a page the registry does not know', async () => {
+    await put('/api/v1/admin/pages/contact').send({ expectedVersion: 0, title: 'Contact us', body: realCopy }).expect(404);
+    await post('/api/v1/admin/pages/contact/publish').send({ expectedVersion: 1 }).expect(404);
+    await agent().get('/api/v1/pages/contact').expect(404);
   });
 
   it('refuses stale saves and unauthenticated access', async () => {
@@ -95,5 +91,79 @@ describe('Static pages (integration)', () => {
     expect(stale.body.error.code).toBe('STALE_VERSION');
     await agent().get('/api/v1/admin/pages').expect(401);
     await agent().put('/api/v1/admin/pages/terms').set('Origin', ORIGIN).send({ expectedVersion: 0, title: 'Terms', body: realCopy }).expect(401);
+  });
+
+  /**
+   * Pages an administrator creates (SRS 1.7). The closed slug set is gone; what
+   * replaced it is validation, and these are the cases that matter.
+   */
+  describe('pages an administrator creates', () => {
+    const create = (body: Record<string, unknown>) => post('/api/v1/admin/pages').send({ slug: 'community-guidelines', title: 'Community guidelines', body: realCopy, ...body });
+
+    it('creates a page at a chosen address, as a draft, and serves it once published', async () => {
+      const created = await create({}).expect(201);
+      expect(created.body.data).toMatchObject({ slug: 'community-guidelines', status: 'draft', isSystem: false, canDelete: true, template: 'generic', version: 1 });
+
+      // A draft is invisible, exactly as a system page's draft is.
+      await agent().get('/api/v1/pages/community-guidelines').expect(404);
+
+      await post('/api/v1/admin/pages/community-guidelines/publish').send({ expectedVersion: created.body.data.version }).expect(200);
+      const publicPage = await agent().get('/api/v1/pages/community-guidelines').expect(200);
+      expect(publicPage.body.data).toMatchObject({ slug: 'community-guidelines', title: 'Community guidelines' });
+
+      // It joins the footer list and the sitemap on the same terms as any other.
+      expect((await agent().get('/api/v1/pages').expect(200)).body.data.map((page: { slug: string }) => page.slug)).toContain('community-guidelines');
+      expect((await agent().get('/api/v1/seo/sitemap/pages').expect(200)).body.data.map((entry: { path: string }) => entry.path)).toContain('/community-guidelines');
+
+      // And it appears in the admin list after the system pages.
+      const list = await agent().get('/api/v1/admin/pages').set('Cookie', cookie).expect(200);
+      expect(list.body.data.map((page: { slug: string }) => page.slug)).toEqual(['about', 'privacy', 'terms', 'review-guidelines', 'community-guidelines']);
+    });
+
+    it('refuses an address the site itself serves, or one already taken', async () => {
+      for (const slug of ['blog', 'business', 'contact', 'about', 'api', 'admin', 'sitemap.xml']) {
+        const res = await create({ slug }).expect(400);
+        expect(res.body.error.fields.slug[0], slug).toMatch(/used by the site itself/i);
+      }
+      const taken = await create({ slug: 'community-guidelines' }).expect(400);
+      expect(taken.body.error.fields.slug[0]).toMatch(/already uses that address/i);
+    });
+
+    it('refuses an address that is not a plain lower-case slug', async () => {
+      for (const slug of ['Community Guidelines', '../etc/passwd', 'a/b', 'x'.repeat(80)]) {
+        await create({ slug }).expect(400);
+      }
+      // Nothing was created by any of those attempts.
+      const list = await agent().get('/api/v1/admin/pages').set('Cookie', cookie).expect(200);
+      expect(list.body.data).toHaveLength(5);
+    });
+
+    it('will not delete a system page, or a page that is still published', async () => {
+      const system = await agent().delete('/api/v1/admin/pages/privacy').set('Origin', ORIGIN).set('Cookie', cookie).expect(409);
+      expect(system.body.error.code).toBe('PAGE_IS_SYSTEM');
+
+      const published = await agent().delete('/api/v1/admin/pages/community-guidelines').set('Origin', ORIGIN).set('Cookie', cookie).expect(409);
+      expect(published.body.error.code).toBe('PAGE_PUBLISHED');
+      // Still there, still served.
+      await agent().get('/api/v1/pages/community-guidelines').expect(200);
+    });
+
+    it('deletes an unpublished page and stops serving its address', async () => {
+      const current = await agent().get('/api/v1/admin/pages/community-guidelines').set('Cookie', cookie).expect(200);
+      await post('/api/v1/admin/pages/community-guidelines/unpublish').send({ expectedVersion: current.body.data.version }).expect(200);
+      await agent().delete('/api/v1/admin/pages/community-guidelines').set('Origin', ORIGIN).set('Cookie', cookie).expect(204);
+
+      await agent().get('/api/v1/pages/community-guidelines').expect(404);
+      await agent().get('/api/v1/admin/pages/community-guidelines').set('Cookie', cookie).expect(404);
+      expect((await agent().get('/api/v1/seo/sitemap/pages').expect(200)).body.data.map((entry: { path: string }) => entry.path)).not.toContain('/community-guidelines');
+
+      const actions = (await testDatabase().auditLog.findMany({ where: { action: { startsWith: 'settings.page.' } }, select: { action: true } })).map((row) => row.action);
+      expect(actions).toEqual(expect.arrayContaining(['settings.page.create', 'settings.page.publish', 'settings.page.unpublish', 'settings.page.delete']));
+    });
+
+    it('refuses creation and deletion without settings.manage', async () => {
+      await agent().post('/api/v1/admin/pages').set('Origin', ORIGIN).send({ slug: 'x-page', title: 'X', body: realCopy }).expect(401);
+      await agent().delete('/api/v1/admin/pages/x-page').set('Origin', ORIGIN).expect(401);
+    });
   });
 });

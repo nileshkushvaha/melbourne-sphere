@@ -106,6 +106,93 @@ export async function fetchSiteSettings(): Promise<SiteSettings> {
   }
 }
 
+export interface PublicFaq {
+  id: string;
+  question: string;
+  /** Sanitised server-side; rendered inside `.ms-prose` like every other editorial body. */
+  answerHtml: string;
+  groupName: string | null;
+}
+
+/**
+ * Published questions (SRS 1.2 FAQ 004). A failure returns an empty list so the
+ * section is omitted rather than breaking the page it sits on.
+ */
+export async function fetchFaqs(): Promise<PublicFaq[]> {
+  try {
+    return (await apiGet<{ data: PublicFaq[] }>('/faqs', { revalidate: 300, tags: ['faqs'] })).data;
+  } catch {
+    return [];
+  }
+}
+
+export interface PublicServiceAlert {
+  id: string;
+  title: string;
+  message: string;
+  severity: 'informational' | 'warning' | 'emergency';
+  linkLabel: string | null;
+  linkUrl: string | null;
+  linkExternal: boolean;
+  dismissible: boolean;
+  contentVersion: number;
+  role: 'alert' | 'status';
+  ariaLive: 'assertive' | 'polite';
+}
+
+/**
+ * Alerts to render above the header (SRS 1.2 ALRT 002). A failure returns an
+ * empty list: a site that cannot reach its API must still render its pages, and
+ * an alert nobody can fetch is better than a page nobody can read.
+ */
+export async function fetchServiceAlerts(): Promise<PublicServiceAlert[]> {
+  try {
+    return (await apiGet<{ data: PublicServiceAlert[] }>('/service-alerts', { revalidate: 60, tags: ['alerts'] })).data;
+  } catch {
+    return [];
+  }
+}
+
+export interface PublicTestimonial {
+  id: string;
+  displayName: string;
+  relationship: string | null;
+  quote: string;
+  business: { name: string; slug: string } | null;
+  image: { url: string; alt: string; width: number; height: number } | null;
+}
+
+export interface PublicPartner {
+  id: string;
+  name: string;
+  relationshipLabel: string | null;
+  websiteUrl: string | null;
+  logo: { url: string; width: number; height: number };
+  logoAlt: string;
+}
+
+/**
+ * Approved and published testimonials (SRS 1.2 TSTM 004). An empty list means
+ * the section is omitted; a failure means the same, because a home page missing
+ * one band is better than a home page that will not render.
+ */
+export async function fetchTestimonials(): Promise<PublicTestimonial[]> {
+  try {
+    return (await apiGet<{ data: PublicTestimonial[] }>('/testimonials', { revalidate: 300, tags: ['testimonials'] })).data;
+  } catch {
+    return [];
+  }
+}
+
+/** Published, authorised client and partner organisations (SRS 1.2 PTNR 005). */
+export async function fetchPartners(): Promise<PublicPartner[]> {
+  try {
+    return (await apiGet<{ data: PublicPartner[] }>('/partners', { revalidate: 300, tags: ['partners'] })).data;
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchCategories(): Promise<PublicCategory[]> {
   return (await apiGet<{ data: PublicCategory[] }>('/categories', { revalidate: 300, tags: ['taxonomy'] })).data;
 }
@@ -170,7 +257,7 @@ export interface SitemapEntry {
 }
 
 /** Canonical, indexable paths for one sitemap section (SRS SEO 002). */
-export async function fetchSitemapSection(section: 'businesses' | 'editorial' | 'taxonomies'): Promise<SitemapEntry[]> {
+export async function fetchSitemapSection(section: 'businesses' | 'editorial' | 'taxonomies' | 'pages'): Promise<SitemapEntry[]> {
   return (await apiGet<{ data: SitemapEntry[] }>(`/seo/sitemap/${section}`, { revalidate: 300, tags: ['sitemap', `sitemap:${section}`] })).data;
 }
 
@@ -196,7 +283,6 @@ export interface StaticPageContent {
   body: string;
   seoTitle: string | null;
   seoDescription: string | null;
-  contactEmail: string | null;
   updatedAt: string;
 }
 
@@ -218,6 +304,27 @@ export async function fetchStaticPage(slug: string): Promise<StaticPageContent |
 export async function reviewGuidelinesHref(): Promise<string | null> {
   const pages = await fetchStaticPages();
   return pages.some((page) => page.slug === 'review-guidelines') ? '/review-guidelines' : null;
+}
+
+export interface SiteMetrics {
+  businesses: number | null;
+  categories: number | null;
+  areas: number | null;
+  articles: number | null;
+  countedAt: string;
+}
+
+/**
+ * Live published counts for the About page (SRS CFG 002). Every field is
+ * `null` when the count could not be taken, and the page omits what it cannot
+ * state truthfully — a failure here must never take the page down.
+ */
+export async function fetchSiteMetrics(): Promise<SiteMetrics> {
+  try {
+    return (await apiGet<{ data: SiteMetrics }>('/site/metrics', { revalidate: 300, tags: ['businesses', 'posts'] })).data;
+  } catch {
+    return { businesses: null, categories: null, areas: null, articles: null, countedAt: new Date().toISOString() };
+  }
 }
 
 /** Published information pages, for footer navigation; never links to a draft. */

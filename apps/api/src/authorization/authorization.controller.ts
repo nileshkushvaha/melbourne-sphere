@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Header, HttpCode, Param, Post, Put, Patch, Query, Req } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { CurrentAdmin, RequirePermissions, type AuthenticatedRequest } from '../auth/decorators.js';
 import { SensitiveMutation } from './decorators.js';

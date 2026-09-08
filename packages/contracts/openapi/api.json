@@ -1,7 +1,61 @@
 {
   "openapi": "3.0.0",
   "paths": {
-    "/api/v1/admin/audit": {
+    "/api/v1/admin/system/cache": {
+      "get": {
+        "operationId": "CacheAdminController_status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CacheStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Cache availability, registered caches and when each was last cleared",
+        "tags": [
+          "admin-system"
+        ]
+      }
+    },
+    "/api/v1/admin/system/cache/clear": {
+      "post": {
+        "operationId": "CacheAdminController_clear",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClearCacheDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClearCacheResultDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Clear one registered cache. Unknown keys are refused; nothing accepts a pattern.",
+        "tags": [
+          "admin-system"
+        ]
+      }
+    },
+    "/api/v1/admin/activity": {
       "get": {
         "operationId": "AuditController_list",
         "parameters": [
@@ -100,6 +154,47 @@
             }
           },
           {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "description": "Groups events by what they are about (SRS 1.2 ACT 002/005).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "authentication",
+                "access_control",
+                "content",
+                "moderation",
+                "communication",
+                "configuration",
+                "system"
+              ]
+            }
+          },
+          {
+            "name": "outcome",
+            "required": false,
+            "in": "query",
+            "description": "Derived from the event code; a refused privileged operation is a failure.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "success",
+                "failure"
+              ]
+            }
+          },
+          {
+            "name": "requestId",
+            "required": false,
+            "in": "query",
+            "description": "Exact request id, so one request can be followed across events.",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          {
             "name": "sort",
             "required": false,
             "in": "query",
@@ -119,7 +214,7 @@
         },
         "summary": "List audit entries, newest first",
         "tags": [
-          "admin-audit"
+          "admin-activity"
         ]
       }
     },
@@ -5681,7 +5776,7 @@
             }
           }
         },
-        "summary": "Canonical indexable paths for one sitemap section (businesses, editorial, taxonomies)",
+        "summary": "Canonical indexable paths for one sitemap section (businesses, editorial, taxonomies, pages)",
         "tags": [
           "public-seo"
         ]
@@ -5986,6 +6081,184 @@
         ]
       }
     },
+    "/api/v1/admin/settings/registry": {
+      "get": {
+        "operationId": "SettingsGroupsController_registry",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SettingGroupDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Declared settings groups and their setting metadata, filtered to what the caller may view",
+        "tags": [
+          "admin-settings"
+        ]
+      }
+    },
+    "/api/v1/admin/settings/security": {
+      "get": {
+        "operationId": "SettingsGroupsController_security",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingGroupValuesDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Security settings values (SECS 001–008)",
+        "tags": [
+          "admin-settings"
+        ]
+      },
+      "put": {
+        "operationId": "SettingsGroupsController_updateSecurity",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingGroupDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingGroupValuesDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-settings"
+        ]
+      }
+    },
+    "/api/v1/admin/settings/email": {
+      "get": {
+        "operationId": "SettingsGroupsController_email",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingGroupValuesDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Email settings values. The provider API key and signing secret are environment-managed and never appear here (SET 004).",
+        "tags": [
+          "admin-settings"
+        ]
+      },
+      "put": {
+        "operationId": "SettingsGroupsController_updateEmail",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingGroupDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingGroupValuesDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-settings"
+        ]
+      }
+    },
+    "/api/v1/admin/settings/operations": {
+      "get": {
+        "operationId": "SettingsGroupsController_operations",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingGroupValuesDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Operational settings values (cache, queue and scheduled task behaviour)",
+        "tags": [
+          "admin-settings"
+        ]
+      },
+      "put": {
+        "operationId": "SettingsGroupsController_updateOperations",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingGroupDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingGroupValuesDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-settings"
+        ]
+      }
+    },
     "/api/v1/admin/pages": {
       "get": {
         "operationId": "StaticPagesAdminController_list",
@@ -6005,7 +6278,37 @@
             }
           }
         },
-        "summary": "Every information page, including ones never edited",
+        "summary": "Every page, including ones never edited",
+        "tags": [
+          "admin-settings"
+        ]
+      },
+      "post": {
+        "operationId": "StaticPagesAdminController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateStaticPageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticPageDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a page at a chosen address; reserved and taken addresses are refused (SRS 1.7)",
         "tags": [
           "admin-settings"
         ]
@@ -6036,6 +6339,28 @@
             }
           }
         },
+        "tags": [
+          "admin-settings"
+        ]
+      },
+      "delete": {
+        "operationId": "StaticPagesAdminController_remove",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a custom page. A system page, or one still published, is refused.",
         "tags": [
           "admin-settings"
         ]
@@ -6217,6 +6542,1951 @@
         ]
       }
     },
+    "/api/v1/admin/email-logs": {
+      "get": {
+        "operationId": "EmailLogsController_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "asc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "sent",
+                "delivered",
+                "delayed",
+                "failed",
+                "bounced",
+                "complained",
+                "suppressed"
+              ]
+            }
+          },
+          {
+            "name": "category",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "auth",
+                "enquiry",
+                "moderation",
+                "system"
+              ]
+            }
+          },
+          {
+            "name": "templateKey",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "auth.password_reset",
+                "auth.account_setup",
+                "enquiry.business",
+                "enquiry.site_contact"
+              ]
+            }
+          },
+          {
+            "name": "provider",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Exact internal id, provider message id or related record id. Recipients are never searchable.",
+            "schema": {
+              "maxLength": 191,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EmailDeliveryDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delivery log with masked recipients, filtered and paginated",
+        "tags": [
+          "admin-email-logs"
+        ]
+      }
+    },
+    "/api/v1/admin/email-logs/{id}": {
+      "get": {
+        "operationId": "EmailLogsController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailDeliveryDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-email-logs"
+        ]
+      }
+    },
+    "/api/v1/admin/email-logs/{id}/recipient": {
+      "get": {
+        "operationId": "EmailLogsController_recipient",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailRecipientDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reveal the recipient address. Every reveal is recorded (MAIL 005).",
+        "tags": [
+          "admin-email-logs"
+        ]
+      }
+    },
+    "/api/v1/admin/email-logs/{id}/resend": {
+      "post": {
+        "operationId": "EmailLogsController_resend",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResendResultDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a new attempt linked to the original. Refused for delivered, complained or suppressed messages.",
+        "tags": [
+          "admin-email-logs"
+        ]
+      }
+    },
+    "/api/v1/faqs": {
+      "get": {
+        "operationId": "FaqPublicController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicFaqDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Published questions in display order",
+        "tags": [
+          "public-site"
+        ]
+      }
+    },
+    "/api/v1/admin/faqs": {
+      "get": {
+        "operationId": "FaqAdminController_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "asc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "published"
+              ]
+            }
+          },
+          {
+            "name": "groupName",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 80,
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FaqDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      },
+      "post": {
+        "operationId": "FaqAdminController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertFaqDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaqDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/faqs/{id}": {
+      "get": {
+        "operationId": "FaqAdminController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaqDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      },
+      "put": {
+        "operationId": "FaqAdminController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFaqDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaqDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      },
+      "delete": {
+        "operationId": "FaqAdminController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/faqs/reorder": {
+      "post": {
+        "operationId": "FaqAdminController_reorder",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderFaqsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Apply a new display order in one transaction",
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/faqs/{id}/publish": {
+      "post": {
+        "operationId": "FaqAdminController_publish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishFaqDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaqDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/faqs/{id}/unpublish": {
+      "post": {
+        "operationId": "FaqAdminController_unpublish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishFaqDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaqDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/service-alerts": {
+      "get": {
+        "operationId": "AlertPublicController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicAlertDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Published alerts inside their display window, in the defined order",
+        "tags": [
+          "public-site"
+        ]
+      }
+    },
+    "/api/v1/admin/service-alerts": {
+      "get": {
+        "operationId": "AlertAdminController_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "asc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "published"
+              ]
+            }
+          },
+          {
+            "name": "severity",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "informational",
+                "warning",
+                "emergency"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServiceAlertDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      },
+      "post": {
+        "operationId": "AlertAdminController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertAlertDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceAlertDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/service-alerts/{id}": {
+      "get": {
+        "operationId": "AlertAdminController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceAlertDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      },
+      "put": {
+        "operationId": "AlertAdminController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAlertDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceAlertDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      },
+      "delete": {
+        "operationId": "AlertAdminController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/service-alerts/{id}/publish": {
+      "post": {
+        "operationId": "AlertAdminController_publish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishAlertDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceAlertDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/service-alerts/{id}/unpublish": {
+      "post": {
+        "operationId": "AlertAdminController_unpublish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishAlertDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceAlertDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/testimonials": {
+      "get": {
+        "operationId": "TestimonialPublicController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Approved, published testimonials in display order",
+        "tags": [
+          "public-site"
+        ]
+      }
+    },
+    "/api/v1/admin/testimonials": {
+      "get": {
+        "operationId": "TestimonialAdminController_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "asc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "published"
+              ]
+            }
+          },
+          {
+            "name": "approved",
+            "required": false,
+            "in": "query",
+            "description": "true for approved only, false for those still awaiting consent.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TestimonialDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      },
+      "post": {
+        "operationId": "TestimonialAdminController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertTestimonialDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestimonialDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/testimonials/{id}": {
+      "get": {
+        "operationId": "TestimonialAdminController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestimonialDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      },
+      "put": {
+        "operationId": "TestimonialAdminController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTestimonialDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestimonialDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Editing the quote clears the recorded approval: consent was given for particular words.",
+        "tags": [
+          "admin-website"
+        ]
+      },
+      "delete": {
+        "operationId": "TestimonialAdminController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/testimonials/{id}/approve": {
+      "post": {
+        "operationId": "TestimonialAdminController_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestimonialDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Record who confirmed the quote may be used, and when. Publication is refused without it.",
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/testimonials/{id}/publish": {
+      "post": {
+        "operationId": "TestimonialAdminController_publish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionOnlyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestimonialDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/testimonials/{id}/unpublish": {
+      "post": {
+        "operationId": "TestimonialAdminController_unpublish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionOnlyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestimonialDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/partners": {
+      "get": {
+        "operationId": "PartnerPublicController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Published, authorised organisations with a processed logo",
+        "tags": [
+          "public-site"
+        ]
+      }
+    },
+    "/api/v1/admin/partners": {
+      "get": {
+        "operationId": "PartnerAdminController_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "asc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "published"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PartnerDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      },
+      "post": {
+        "operationId": "PartnerAdminController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertPartnerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/partners/{id}": {
+      "get": {
+        "operationId": "PartnerAdminController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      },
+      "put": {
+        "operationId": "PartnerAdminController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePartnerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Changing the logo clears the recorded authorisation: it was given for a particular mark.",
+        "tags": [
+          "admin-website"
+        ]
+      },
+      "delete": {
+        "operationId": "PartnerAdminController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/partners/{id}/authorise": {
+      "post": {
+        "operationId": "PartnerAdminController_authorise",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Record written authorisation to display the organisation's mark. Publication is refused without it.",
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/partners/{id}/publish": {
+      "post": {
+        "operationId": "PartnerAdminController_publish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionOnlyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/partners/{id}/unpublish": {
+      "post": {
+        "operationId": "PartnerAdminController_unpublish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionOnlyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/system/queues": {
+      "get": {
+        "operationId": "QueueMonitorController_overview",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QueueSummaryDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Registered queues with depths, worker availability and the oldest waiting job",
+        "tags": [
+          "admin-system"
+        ]
+      }
+    },
+    "/api/v1/admin/system/queues/{name}/jobs": {
+      "get": {
+        "operationId": "QueueMonitorController_jobs",
+        "parameters": [
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QueueJobDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "One page of jobs in one state, with the payload reduced to allowlisted fields",
+        "tags": [
+          "admin-system"
+        ]
+      }
+    },
+    "/api/v1/admin/system/queues/{name}/retry": {
+      "post": {
+        "operationId": "QueueMonitorController_retry",
+        "parameters": [
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueueBulkDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueBulkResultDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Retry an explicit selection of failed jobs; each is applied independently",
+        "tags": [
+          "admin-system"
+        ]
+      }
+    },
+    "/api/v1/admin/system/queues/{name}/remove": {
+      "post": {
+        "operationId": "QueueMonitorController_remove",
+        "parameters": [
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueueBulkDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueBulkResultDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Remove an explicit selection of jobs that have not completed",
+        "tags": [
+          "admin-system"
+        ]
+      }
+    },
+    "/api/v1/admin/system/queues/{name}/pause": {
+      "post": {
+        "operationId": "QueueMonitorController_pause",
+        "parameters": [
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueuePauseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Pause or resume a queue the registry allows to be paused",
+        "tags": [
+          "admin-system"
+        ]
+      }
+    },
+    "/api/v1/admin/system/queues/{name}/clean": {
+      "post": {
+        "operationId": "QueueMonitorController_clean",
+        "parameters": [
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueueCleanDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Remove finished job metadata older than a stated age, within retention bounds",
+        "tags": [
+          "admin-system"
+        ]
+      }
+    },
+    "/api/v1/admin/system/schedules": {
+      "get": {
+        "operationId": "SchedulesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduledTaskDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Registered tasks with their schedule, state and last outcome",
+        "tags": [
+          "admin-system"
+        ]
+      }
+    },
+    "/api/v1/admin/system/schedules/{code}/runs": {
+      "get": {
+        "operationId": "SchedulesController_runs",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduledRunDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Execution history for one task; outcomes and durations only (TASK 002)",
+        "tags": [
+          "admin-system"
+        ]
+      }
+    },
+    "/api/v1/admin/system/schedules/{code}/run": {
+      "post": {
+        "operationId": "SchedulesController_run",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "summary": "Dispatch one registered task to the worker; it never runs inside this request (TASK 003)",
+        "tags": [
+          "admin-system"
+        ]
+      }
+    },
+    "/api/v1/admin/system/schedules/{code}/enabled": {
+      "post": {
+        "operationId": "SchedulesController_setEnabled",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTaskEnabledDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Enable or disable a task the registry allows to be controlled at runtime (TASK 006)",
+        "tags": [
+          "admin-system"
+        ]
+      }
+    },
     "/api/v1/site/context": {
       "get": {
         "operationId": "SiteController_context",
@@ -6227,6 +8497,28 @@
           }
         },
         "summary": "Fixed Melbourne context: city, state, country, timezone",
+        "tags": [
+          "public-site"
+        ]
+      }
+    },
+    "/api/v1/site/metrics": {
+      "get": {
+        "operationId": "SiteController_siteMetrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteMetricsDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Live published counts for the About page",
         "tags": [
           "public-site"
         ]
@@ -6278,6 +8570,71 @@
       }
     },
     "schemas": {
+      "CacheStatusDto": {
+        "type": "object",
+        "properties": {
+          "redis": {
+            "type": "object",
+            "description": "Whether Redis is reachable, and what it means for the site if it is not."
+          },
+          "namespaces": {
+            "description": "Caches this API holds. Entry counts are approximate and capped.",
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "tags": {
+            "description": "Public page caches, cleared through the ordinary invalidation pipeline.",
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "redis",
+          "namespaces",
+          "tags"
+        ]
+      },
+      "ClearCacheDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "namespace",
+              "tag"
+            ],
+            "description": "Which registry the key belongs to."
+          },
+          "key": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "A registered cache key. Patterns and raw Redis keys are not accepted."
+          }
+        },
+        "required": [
+          "kind",
+          "key"
+        ]
+      },
+      "ClearCacheResultDto": {
+        "type": "object",
+        "properties": {
+          "cleared": {
+            "type": "number",
+            "description": "Entries removed, for a namespace held by this API."
+          },
+          "accepted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accepted"
+        ]
+      },
       "Object": {
         "type": "object",
         "properties": {}
@@ -6682,6 +9039,10 @@
             "type": "string",
             "nullable": true
           },
+          "device": {
+            "type": "string",
+            "description": "Browser family and platform, e.g. \"Chrome on macOS\". Not device identification (SRS 1.2 SECS 005)."
+          },
           "current": {
             "type": "boolean",
             "description": "True for the session making the request"
@@ -6695,6 +9056,7 @@
           "expiresAt",
           "ipAddress",
           "userAgent",
+          "device",
           "current"
         ]
       },
@@ -12555,18 +14917,185 @@
           "expectedVersion"
         ]
       },
+      "SettingDeclarationDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "boolean",
+              "integer",
+              "string",
+              "enum",
+              "email",
+              "url"
+            ]
+          },
+          "bounds": {
+            "type": "object",
+            "description": "Validation bounds: min/max, permitted enum values, and the requirement that fixes the outer bound."
+          },
+          "default": {
+            "type": "object",
+            "description": "Value used when nothing has been stored."
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "private"
+            ]
+          },
+          "effect": {
+            "type": "string",
+            "enum": [
+              "runtime",
+              "restart_required"
+            ]
+          },
+          "viewPermission": {
+            "type": "string"
+          },
+          "updatePermission": {
+            "type": "string"
+          },
+          "invalidates": {
+            "description": "Cache tags a change to this setting invalidates.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "consequence": {
+            "type": "object",
+            "nullable": true,
+            "description": "Consequence an operator must be warned about before confirming."
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "description",
+          "type",
+          "bounds",
+          "default",
+          "visibility",
+          "effect",
+          "viewPermission",
+          "updatePermission",
+          "invalidates"
+        ]
+      },
+      "SettingGroupDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "security",
+              "email",
+              "operations",
+              "website"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Server module that owns reads, writes and invariants for this group."
+          },
+          "viewPermission": {
+            "type": "string"
+          },
+          "updatePermission": {
+            "type": "string"
+          },
+          "note": {
+            "type": "object",
+            "nullable": true
+          },
+          "settings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SettingDeclarationDto"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "description",
+          "owner",
+          "viewPermission",
+          "updatePermission",
+          "settings"
+        ]
+      },
+      "SettingGroupValuesDto": {
+        "type": "object",
+        "properties": {
+          "group": {
+            "type": "string"
+          },
+          "values": {
+            "type": "object",
+            "description": "Declared settings only; a value for an undeclared key is never returned."
+          },
+          "version": {
+            "type": "number",
+            "description": "0 when nothing has been stored and the declared defaults are being served."
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "updatedByAdminId": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "group",
+          "values",
+          "version",
+          "updatedAt"
+        ]
+      },
+      "UpdateSettingGroupDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number",
+            "description": "Version last read. A concurrent change is refused with 409 STALE_VERSION."
+          },
+          "values": {
+            "type": "object",
+            "description": "Settings to change, by declared key. Omitted keys keep their stored value; an unknown key is rejected rather than ignored."
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "values"
+        ]
+      },
       "StaticPageDto": {
         "type": "object",
         "properties": {
           "slug": {
             "type": "string",
-            "enum": [
-              "about",
-              "contact",
-              "privacy",
-              "terms",
-              "review-guidelines"
-            ]
+            "description": "Public address. The system pages are about, privacy, terms, review-guidelines; anything else is a page an administrator created."
           },
           "title": {
             "type": "string"
@@ -12601,11 +15130,6 @@
               "published"
             ]
           },
-          "contactEmail": {
-            "type": "string",
-            "nullable": true,
-            "description": "Contact routing address; only meaningful on the contact page"
-          },
           "publishedAt": {
             "type": "string",
             "format": "date-time",
@@ -12621,6 +15145,22 @@
           "purpose": {
             "type": "string",
             "description": "Editor-facing explanation of what the page is for"
+          },
+          "template": {
+            "type": "string",
+            "enum": [
+              "generic",
+              "about"
+            ],
+            "description": "Which public template renders this page"
+          },
+          "isSystem": {
+            "type": "boolean",
+            "description": "True for a page the product refers to by address: not creatable, renameable or deletable"
+          },
+          "canDelete": {
+            "type": "boolean",
+            "description": "True only for a custom page that is not currently published"
           },
           "version": {
             "type": "number"
@@ -12643,13 +15183,58 @@
           "seoTitle",
           "seoDescription",
           "status",
-          "contactEmail",
           "publishedAt",
           "publicationBlockers",
           "purpose",
+          "template",
+          "isSystem",
+          "canDelete",
           "version",
           "updatedAt",
           "updatedByAdminId"
+        ]
+      },
+      "CreateStaticPageDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "maxLength": 64,
+            "example": "community-guidelines",
+            "description": "Public address; lower-case letters, numbers and single hyphens. Reserved and taken addresses are refused."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 180
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 200000
+          },
+          "bodyFormat": {
+            "type": "string",
+            "enum": [
+              "html",
+              "markdown"
+            ],
+            "default": "html"
+          },
+          "seoTitle": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 180
+          },
+          "seoDescription": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "slug",
+          "title",
+          "body"
         ]
       },
       "UpdateStaticPageDto": {
@@ -12686,12 +15271,6 @@
             "type": "string",
             "nullable": true,
             "maxLength": 300
-          },
-          "contactEmail": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 255,
-            "description": "Contact routing address (contact page only); validated before activation"
           },
           "revisionReason": {
             "type": "string",
@@ -12757,10 +15336,6 @@
             "type": "string",
             "nullable": true
           },
-          "contactEmail": {
-            "type": "string",
-            "nullable": true
-          },
           "updatedAt": {
             "type": "string",
             "format": "date-time"
@@ -12772,8 +15347,1470 @@
           "body",
           "seoTitle",
           "seoDescription",
-          "contactEmail",
           "updatedAt"
+        ]
+      },
+      "EmailDeliveryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "providerMessageId": {
+            "type": "object",
+            "nullable": true
+          },
+          "templateKey": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string",
+            "description": "Masked address, e.g. \"v••••r@example.com\". Revealing it needs a separate permission."
+          },
+          "subject": {
+            "type": "object",
+            "nullable": true,
+            "description": "Kept only where the template permits it; withheld when it could carry a visitor’s words."
+          },
+          "relatedType": {
+            "type": "object",
+            "nullable": true
+          },
+          "relatedId": {
+            "type": "object",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "sent",
+              "delivered",
+              "delayed",
+              "failed",
+              "bounced",
+              "complained",
+              "suppressed"
+            ]
+          },
+          "attempts": {
+            "type": "number"
+          },
+          "failureCode": {
+            "type": "object",
+            "nullable": true,
+            "description": "Bounded classification, never raw provider text."
+          },
+          "failureSummary": {
+            "type": "object",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "object",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "sentAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "deliveredAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "failedAt": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "templateKey",
+          "category",
+          "recipient",
+          "status",
+          "attempts",
+          "createdAt"
+        ]
+      },
+      "EmailDeliveryEventDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string"
+          },
+          "receivedAt": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "object",
+            "nullable": true,
+            "description": "Safe summary of the provider event; never a payload or a body."
+          }
+        },
+        "required": [
+          "type",
+          "occurredAt",
+          "receivedAt"
+        ]
+      },
+      "EmailDeliveryDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "providerMessageId": {
+            "type": "object",
+            "nullable": true
+          },
+          "templateKey": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "recipient": {
+            "type": "string",
+            "description": "Masked address, e.g. \"v••••r@example.com\". Revealing it needs a separate permission."
+          },
+          "subject": {
+            "type": "object",
+            "nullable": true,
+            "description": "Kept only where the template permits it; withheld when it could carry a visitor’s words."
+          },
+          "relatedType": {
+            "type": "object",
+            "nullable": true
+          },
+          "relatedId": {
+            "type": "object",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "sent",
+              "delivered",
+              "delayed",
+              "failed",
+              "bounced",
+              "complained",
+              "suppressed"
+            ]
+          },
+          "attempts": {
+            "type": "number"
+          },
+          "failureCode": {
+            "type": "object",
+            "nullable": true,
+            "description": "Bounded classification, never raw provider text."
+          },
+          "failureSummary": {
+            "type": "object",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "object",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "sentAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "deliveredAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "failedAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "resentFromId": {
+            "type": "object",
+            "nullable": true,
+            "description": "The delivery this one was created to replace."
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmailDeliveryEventDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "templateKey",
+          "category",
+          "recipient",
+          "status",
+          "attempts",
+          "createdAt",
+          "events"
+        ]
+      },
+      "EmailRecipientDto": {
+        "type": "object",
+        "properties": {
+          "recipient": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipient"
+        ]
+      },
+      "ResendResultDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "resentFromId": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ]
+      },
+      "PublicFaqDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
+          },
+          "answerHtml": {
+            "type": "string"
+          },
+          "groupName": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "question",
+          "answerHtml"
+        ]
+      },
+      "FaqDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
+          },
+          "answerHtml": {
+            "type": "string",
+            "description": "Sanitised HTML; the only form ever rendered publicly."
+          },
+          "answerSource": {
+            "type": "string",
+            "description": "Source exactly as the editor wrote it."
+          },
+          "answerFormat": {
+            "type": "string",
+            "enum": [
+              "markdown",
+              "html"
+            ]
+          },
+          "groupName": {
+            "type": "object",
+            "nullable": true
+          },
+          "displayOrder": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published"
+            ]
+          },
+          "publishedAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "version": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "question",
+          "answerHtml",
+          "answerSource",
+          "answerFormat",
+          "displayOrder",
+          "status",
+          "version",
+          "updatedAt"
+        ]
+      },
+      "UpsertFaqDto": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "answer": {
+            "type": "string",
+            "maxLength": 8000
+          },
+          "answerFormat": {
+            "type": "string",
+            "enum": [
+              "markdown",
+              "html"
+            ]
+          },
+          "groupName": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 80
+          },
+          "displayOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "question",
+          "answer"
+        ]
+      },
+      "UpdateFaqDto": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "answer": {
+            "type": "string",
+            "maxLength": 8000
+          },
+          "answerFormat": {
+            "type": "string",
+            "enum": [
+              "markdown",
+              "html"
+            ]
+          },
+          "groupName": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 80
+          },
+          "displayOrder": {
+            "type": "number"
+          },
+          "expectedVersion": {
+            "type": "number",
+            "description": "Version last read; a concurrent change is refused with 409."
+          }
+        },
+        "required": [
+          "question",
+          "answer",
+          "expectedVersion"
+        ]
+      },
+      "ReorderEntryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "displayOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "displayOrder"
+        ]
+      },
+      "ReorderFaqsDto": {
+        "type": "object",
+        "properties": {
+          "order": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReorderEntryDto"
+            }
+          }
+        },
+        "required": [
+          "order"
+        ]
+      },
+      "PublishFaqDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "PublicAlertDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "informational",
+              "warning",
+              "emergency"
+            ]
+          },
+          "linkLabel": {
+            "type": "object",
+            "nullable": true
+          },
+          "linkUrl": {
+            "type": "object",
+            "nullable": true
+          },
+          "linkExternal": {
+            "type": "boolean"
+          },
+          "dismissible": {
+            "type": "boolean"
+          },
+          "contentVersion": {
+            "type": "number",
+            "description": "Dismissal is keyed to this, so an edited alert reappears."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "alert",
+              "status"
+            ]
+          },
+          "ariaLive": {
+            "type": "string",
+            "enum": [
+              "assertive",
+              "polite"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "message",
+          "severity",
+          "linkExternal",
+          "dismissible",
+          "contentVersion",
+          "role",
+          "ariaLive"
+        ]
+      },
+      "ServiceAlertDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "informational",
+              "warning",
+              "emergency"
+            ]
+          },
+          "linkLabel": {
+            "type": "object",
+            "nullable": true
+          },
+          "linkUrl": {
+            "type": "object",
+            "nullable": true
+          },
+          "linkExternal": {
+            "type": "boolean"
+          },
+          "dismissible": {
+            "type": "boolean"
+          },
+          "contentVersion": {
+            "type": "number",
+            "description": "Dismissal is keyed to this, so an edited alert reappears."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "alert",
+              "status"
+            ]
+          },
+          "ariaLive": {
+            "type": "string",
+            "enum": [
+              "assertive",
+              "polite"
+            ]
+          },
+          "startsAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "endsAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "priority": {
+            "type": "number"
+          },
+          "displayOrder": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published"
+            ]
+          },
+          "publishedAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "version": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "message",
+          "severity",
+          "linkExternal",
+          "dismissible",
+          "contentVersion",
+          "role",
+          "ariaLive",
+          "priority",
+          "displayOrder",
+          "status",
+          "version",
+          "updatedAt"
+        ]
+      },
+      "UpsertAlertDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "informational",
+              "warning",
+              "emergency"
+            ]
+          },
+          "linkLabel": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 60
+          },
+          "linkUrl": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 300,
+            "description": "A path on this site (starting with /) or an http(s) address. Validated on save."
+          },
+          "startsAt": {
+            "type": "object",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "object",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "dismissible": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "number"
+          },
+          "displayOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "title",
+          "message",
+          "severity"
+        ]
+      },
+      "UpdateAlertDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "informational",
+              "warning",
+              "emergency"
+            ]
+          },
+          "linkLabel": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 60
+          },
+          "linkUrl": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 300,
+            "description": "A path on this site (starting with /) or an http(s) address. Validated on save."
+          },
+          "startsAt": {
+            "type": "object",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "object",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "dismissible": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "number"
+          },
+          "displayOrder": {
+            "type": "number"
+          },
+          "expectedVersion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "title",
+          "message",
+          "severity",
+          "expectedVersion"
+        ]
+      },
+      "PublishAlertDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "TestimonialDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "relationship": {
+            "type": "object",
+            "nullable": true
+          },
+          "quote": {
+            "type": "string"
+          },
+          "businessId": {
+            "type": "object",
+            "nullable": true
+          },
+          "mediaId": {
+            "type": "object",
+            "nullable": true
+          },
+          "approvedAt": {
+            "type": "object",
+            "nullable": true,
+            "description": "When consent to use the quote was recorded. Publication is refused while it is null."
+          },
+          "approvedByAdminId": {
+            "type": "object",
+            "nullable": true
+          },
+          "approvalNote": {
+            "type": "object",
+            "nullable": true
+          },
+          "displayOrder": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published"
+            ]
+          },
+          "publishedAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "version": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "quote",
+          "displayOrder",
+          "status",
+          "version",
+          "updatedAt"
+        ]
+      },
+      "UpsertTestimonialDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "relationship": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 160
+          },
+          "quote": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "businessId": {
+            "type": "object",
+            "nullable": true
+          },
+          "mediaId": {
+            "type": "object",
+            "nullable": true
+          },
+          "displayOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "displayName",
+          "quote"
+        ]
+      },
+      "UpdateTestimonialDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "relationship": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 160
+          },
+          "quote": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "businessId": {
+            "type": "object",
+            "nullable": true
+          },
+          "mediaId": {
+            "type": "object",
+            "nullable": true
+          },
+          "displayOrder": {
+            "type": "number"
+          },
+          "expectedVersion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "displayName",
+          "quote",
+          "expectedVersion"
+        ]
+      },
+      "ApproveDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          },
+          "note": {
+            "type": "object",
+            "nullable": true,
+            "description": "How the consent or authorisation was obtained, for the record."
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "VersionOnlyDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "PartnerDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "relationshipLabel": {
+            "type": "object",
+            "nullable": true
+          },
+          "mediaId": {
+            "type": "object",
+            "nullable": true
+          },
+          "logoAlt": {
+            "type": "object",
+            "nullable": true
+          },
+          "websiteUrl": {
+            "type": "object",
+            "nullable": true
+          },
+          "authorisedAt": {
+            "type": "object",
+            "nullable": true,
+            "description": "When authorisation to display the mark was recorded. Publication is refused while it is null."
+          },
+          "authorisedByAdminId": {
+            "type": "object",
+            "nullable": true
+          },
+          "authorisationNote": {
+            "type": "object",
+            "nullable": true
+          },
+          "displayOrder": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "published"
+            ]
+          },
+          "publishedAt": {
+            "type": "object",
+            "nullable": true
+          },
+          "version": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "displayOrder",
+          "status",
+          "version",
+          "updatedAt"
+        ]
+      },
+      "UpsertPartnerDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "relationshipLabel": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "mediaId": {
+            "type": "object",
+            "nullable": true
+          },
+          "logoAlt": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 200,
+            "description": "Names the organisation; required before publication."
+          },
+          "websiteUrl": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 300
+          },
+          "displayOrder": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdatePartnerDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "relationshipLabel": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "mediaId": {
+            "type": "object",
+            "nullable": true
+          },
+          "logoAlt": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 200,
+            "description": "Names the organisation; required before publication."
+          },
+          "websiteUrl": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 300
+          },
+          "displayOrder": {
+            "type": "number"
+          },
+          "expectedVersion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "expectedVersion"
+        ]
+      },
+      "QueueSummaryDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "pausable": {
+            "type": "boolean"
+          },
+          "pauseConsequence": {
+            "type": "string",
+            "description": "What stops happening while this queue is paused; shown before the action is confirmed."
+          },
+          "paused": {
+            "type": "boolean"
+          },
+          "counts": {
+            "type": "object",
+            "nullable": true,
+            "description": "Job counts by state; null while the queue is unreachable."
+          },
+          "oldestWaitingSeconds": {
+            "type": "number",
+            "nullable": true
+          },
+          "workers": {
+            "type": "object",
+            "description": "Worker availability, always labelled an estimate (QMON 005)."
+          },
+          "available": {
+            "type": "boolean"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "jobs": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "purpose",
+          "pausable",
+          "pauseConsequence",
+          "paused",
+          "counts",
+          "oldestWaitingSeconds",
+          "workers",
+          "available",
+          "detail",
+          "jobs"
+        ]
+      },
+      "QueueJobDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "waiting",
+              "active",
+              "delayed",
+              "failed",
+              "completed"
+            ]
+          },
+          "attemptsMade": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "processedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "failedReason": {
+            "type": "string",
+            "nullable": true,
+            "description": "First line of the failure only; never a stack trace."
+          },
+          "progress": {
+            "type": "number",
+            "nullable": true
+          },
+          "data": {
+            "type": "object",
+            "description": "Allowlisted payload summary; unrecognised payloads carry no fields (QMON 002)."
+          },
+          "canRetry": {
+            "type": "boolean"
+          },
+          "canRemove": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "label",
+          "state",
+          "attemptsMade",
+          "createdAt",
+          "processedAt",
+          "finishedAt",
+          "failedReason",
+          "progress",
+          "data",
+          "canRetry",
+          "canRemove"
+        ]
+      },
+      "QueueBulkDto": {
+        "type": "object",
+        "properties": {
+          "jobIds": {
+            "maxItems": 25,
+            "description": "An explicit selection. There is no \"all failed\" sweep (QMON 004).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "jobIds"
+        ]
+      },
+      "QueueBulkResultDto": {
+        "type": "object",
+        "properties": {
+          "requested": {
+            "type": "number"
+          },
+          "succeeded": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "failed": {
+            "description": "Per-item reasons; one failure never hides another item’s result.",
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "requested",
+          "succeeded",
+          "failed"
+        ]
+      },
+      "QueuePauseDto": {
+        "type": "object",
+        "properties": {
+          "paused": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "paused"
+        ]
+      },
+      "QueueCleanDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "failed"
+            ]
+          },
+          "olderThanHours": {
+            "type": "number",
+            "minimum": 24,
+            "maximum": 8760
+          }
+        },
+        "required": [
+          "state",
+          "olderThanHours"
+        ]
+      },
+      "ScheduledTaskDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Stable registry code; the only thing a request may name (TASK 003)."
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "scheduleLabel": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "missedRunPolicy": {
+            "type": "string",
+            "enum": [
+              "catch-up-once",
+              "skip-to-next",
+              "run-on-recovery"
+            ]
+          },
+          "timeoutMs": {
+            "type": "number"
+          },
+          "retries": {
+            "type": "number"
+          },
+          "manualRunAllowed": {
+            "type": "boolean"
+          },
+          "highImpact": {
+            "type": "boolean",
+            "description": "Publishes or deletes; the interface asks twice (TASK 005)."
+          },
+          "requiredForCorrectness": {
+            "type": "boolean",
+            "description": "Cannot be switched off from the interface (TASK 006)."
+          },
+          "safeToOverlap": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "lastStartedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "lastFinishedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "lastOutcome": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastDurationMs": {
+            "type": "number",
+            "nullable": true
+          },
+          "lastDetail": {
+            "type": "string",
+            "nullable": true
+          },
+          "running": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "description",
+          "scheduleLabel",
+          "timezone",
+          "missedRunPolicy",
+          "timeoutMs",
+          "retries",
+          "manualRunAllowed",
+          "highImpact",
+          "requiredForCorrectness",
+          "safeToOverlap",
+          "enabled",
+          "lastStartedAt",
+          "lastFinishedAt",
+          "lastOutcome",
+          "lastDurationMs",
+          "lastDetail",
+          "running"
+        ]
+      },
+      "ScheduledRunDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "taskCode": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string",
+            "enum": [
+              "scheduled",
+              "manual"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "running",
+              "succeeded",
+              "failed",
+              "skipped",
+              "timedOut"
+            ]
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "durationMs": {
+            "type": "number",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true,
+            "description": "One short line: a count or the first line of an error, never task output."
+          },
+          "actorAdminId": {
+            "type": "string",
+            "nullable": true
+          },
+          "runnerId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "taskCode",
+          "trigger",
+          "outcome",
+          "startedAt",
+          "finishedAt",
+          "durationMs",
+          "detail",
+          "actorAdminId",
+          "runnerId"
+        ]
+      },
+      "SetTaskEnabledDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "SiteMetricsDto": {
+        "type": "object",
+        "properties": {
+          "businesses": {
+            "type": "number",
+            "nullable": true,
+            "description": "Published listings; null when the count could not be taken"
+          },
+          "categories": {
+            "type": "number",
+            "nullable": true
+          },
+          "areas": {
+            "type": "number",
+            "nullable": true
+          },
+          "articles": {
+            "type": "number",
+            "nullable": true
+          },
+          "countedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "businesses",
+          "categories",
+          "areas",
+          "articles",
+          "countedAt"
         ]
       }
     }

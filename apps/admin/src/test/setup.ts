@@ -2,9 +2,14 @@ import '@testing-library/jest-dom/vitest';
 import { configure } from '@testing-library/react';
 
 // Ant Design renders are slow in jsdom and the suite runs files in parallel, so
-// the 1 s default for findBy* queries produces load-dependent flakes. Failing
-// assertions still fail; they just get a realistic window to settle.
-configure({ asyncUtilTimeout: 2_500 });
+// the 1 s default for findBy* queries produces load-dependent flakes: a render
+// that takes longer than the query's own window fails an assertion that would
+// have passed. The per-test timeout (30 s, in vitest.config.ts) still bounds a
+// genuinely stuck test, and a failing assertion still fails — this only gives a
+// slow render a realistic window to settle. Raised from 2.5 s as the suite grew
+// past 35 files: the worst case is a lazily-loaded editor route mounting while
+// every other file is competing for the same CPU.
+configure({ asyncUtilTimeout: 15_000 });
 
 /**
  * jsdom lacks a few browser APIs that Ant Design's responsive helpers use.

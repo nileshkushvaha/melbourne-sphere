@@ -1,20 +1,14 @@
 import { useState } from 'react';
-import { Alert, App, Button, Form, Input, Modal, Popconfirm, Radio, Space, Table, Typography } from 'antd';
+import { Alert, App, Button, Input, Popconfirm, Space, Table, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
+import { Link } from 'react-router';
 import { isApiError } from '@/api/errors';
-import { seoApi, type Redirect, type RedirectKind } from '@/api/seo';
+import { seoApi, type Redirect } from '@/api/seo';
 import { EmptyState, PageHeader, StatusTag } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
-import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
+import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
-
-interface FormValues {
-  sourcePath: string;
-  targetPath?: string;
-  kind: RedirectKind;
-  reason?: string;
-}
 
 /**
  * Redirect rules (SRS SEO 004). Slug changes create these automatically; this
@@ -27,34 +21,7 @@ export function RedirectsPage() {
   const { mutate: onAuthError } = useOnError();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [creating, setCreating] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [form] = Form.useForm<FormValues>();
-  const kind = Form.useWatch('kind', form) ?? 'permanent';
   const [state, reload] = useAsync((signal) => api.list({ q: search || undefined, page, pageSize: 25 }, signal), [search, page]);
-
-  const handleError = (error: unknown) => {
-    if (isApiError(error) && error.kind === 'unauthorized') {
-      onAuthError(error);
-      return;
-    }
-    const errors = fieldErrors(error);
-    if (Object.keys(errors).length > 0) form.setFields(Object.entries(errors).map(([name, list]) => ({ name, errors: list })) as never);
-    setFormError(Object.values(errors).flat()[0] ?? errorMessage(error));
-  };
-
-  const submit = async (values: FormValues) => {
-    setFormError(null);
-    try {
-      await api.create({ sourcePath: values.sourcePath, targetPath: values.kind === 'gone' ? null : values.targetPath, kind: values.kind, reason: values.reason });
-      message.success('Redirect saved');
-      setCreating(false);
-      form.resetFields();
-      reload();
-    } catch (error) {
-      handleError(error);
-    }
-  };
 
   const remove = async (row: Redirect) => {
     try {
@@ -76,18 +43,11 @@ export function RedirectsPage() {
         title="SEO redirects"
         description="Old addresses that should send visitors and search engines somewhere else. Changing a published slug creates one of these automatically."
         actions={
-          <Button
-            type="primary"
-            icon={<PlusOutlined aria-hidden="true" />}
-            onClick={() => {
-              setFormError(null);
-              form.resetFields();
-              form.setFieldsValue({ kind: 'permanent' });
-              setCreating(true);
-            }}
-          >
-            New redirect
-          </Button>
+          <Link to="/redirects/new">
+            <Button type="primary" icon={<PlusOutlined aria-hidden="true" />}>
+              New redirect
+            </Button>
+          </Link>
         }
       />
       {state.status === 'error' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} />}
@@ -136,32 +96,6 @@ export function RedirectsPage() {
           },
         ]}
       />
-
-      <Modal open={creating} title="New redirect" okText="Save" onOk={() => form.submit()} onCancel={() => setCreating(false)} destroyOnHidden>
-        {formError && <Alert type="error" showIcon role="alert" message={formError} style={{ marginBottom: 12 }} />}
-        <Form form={form} layout="vertical" requiredMark={false} onFinish={submit} initialValues={{ kind: 'permanent' }}>
-          <Form.Item label="Type" name="kind">
-            <Radio.Group
-              options={[
-                { value: 'permanent', label: 'Moved permanently (301)' },
-                { value: 'gone', label: 'Removed for good (410)' },
-              ]}
-              optionType="button"
-            />
-          </Form.Item>
-          <Form.Item label="Old address" name="sourcePath" rules={[{ required: true, message: 'Enter the old path' }]} extra="Site-relative, for example /business/old-name">
-            <Input placeholder="/business/old-name" />
-          </Form.Item>
-          {kind === 'permanent' && (
-            <Form.Item label="New address" name="targetPath" rules={[{ required: true, message: 'Enter the new path' }]} extra="Must be a path on this site.">
-              <Input placeholder="/business/new-name" />
-            </Form.Item>
-          )}
-          <Form.Item label="Reason" name="reason" extra="Recorded with the redirect and in the audit log.">
-            <Input maxLength={500} />
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   );
 }

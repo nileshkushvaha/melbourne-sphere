@@ -78,6 +78,8 @@ export class SessionListItemDto {
   @ApiProperty({ format: 'date-time' }) expiresAt!: string;
   @ApiProperty({ type: String, nullable: true }) ipAddress!: string | null;
   @ApiProperty({ type: String, nullable: true }) userAgent!: string | null;
+  @ApiProperty({ description: 'Browser family and platform, e.g. "Chrome on macOS". Not device identification (SRS 1.2 SECS 005).' })
+  device!: string;
   @ApiProperty({ description: 'True for the session making the request' }) current!: boolean;
 }
 

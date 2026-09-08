@@ -18,7 +18,7 @@ import { RatingSummary } from './rating-summary';
 export function BusinessCard({ business, featured = false }: { business: BusinessCardData; featured?: boolean }) {
   const href = `/business/${encodeURIComponent(business.slug)}`;
   return (
-    <article className="ms-card-lift group relative flex h-full flex-col overflow-hidden rounded-card-lg border border-border bg-surface-raised shadow-sm">
+    <article className="ms-card-lift group relative flex h-full flex-col overflow-hidden rounded-card-lg border border-white/80 bg-white/82 shadow-md backdrop-blur-sm">
       <div className="relative aspect-[4/3] overflow-hidden">
         {business.image ? (
           <Image

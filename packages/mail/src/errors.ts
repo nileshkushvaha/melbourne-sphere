@@ -30,3 +30,19 @@ const ANGLE_ADDRESS = /<[^>\s]+@[^>\s]+>/g;
 export function redactAddresses(text: string): string {
   return text.replace(ANGLE_ADDRESS, '<redacted>').replace(ADDRESS, '[redacted]');
 }
+
+
+/**
+ * Display form of a recipient (SRS 1.2 MAIL 005, PRIV 001). Enough to recognise
+ * an address you already know, not enough to learn one you do not: the first and
+ * last character of the local part survive, and the domain is kept because it is
+ * what an operator diagnoses with.
+ */
+export function maskEmail(address: string): string {
+  const at = address.lastIndexOf('@');
+  if (at <= 0) return '\u2022\u2022\u2022';
+  const local = address.slice(0, at);
+  const domain = address.slice(at);
+  if (local.length <= 2) return `${local[0] ?? '\u2022'}\u2022\u2022\u2022${domain}`;
+  return `${local[0]}${'\u2022'.repeat(Math.min(local.length - 2, 6))}${local[local.length - 1]}${domain}`;
+}

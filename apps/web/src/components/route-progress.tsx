@@ -11,7 +11,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
  *
  * Deliberately not a `loading.tsx` boundary: a streaming boundary replaces the
  * server-rendered page, and with JavaScript disabled the placeholder is all a
- * visitor ever sees — the defect found during the UAT journeys on /directory.
+ * visitor ever sees — the defect found during the UAT journeys on /business.
  * This indicator is additive instead, so with JavaScript off nothing renders
  * and every page is still served complete.
  */

@@ -123,7 +123,7 @@ It seeds permissions/roles, refuses to run if any administrator exists, and reco
 ## Public directory (Phase 14)
 
 - Public API: `GET /api/v1/businesses` (`q`, `category`, `area`, `minRating`, `sort` ∈ relevance/rating/newest/name, `page`, `pageSize ≤ 50`, result window ≤ 10 000) returning `{data, meta}` with category and area facets; `GET /api/v1/businesses/{slug}` (404 unless published) and `GET /api/v1/businesses/{id}/related` (≤ 4). Keyword search covers public fields only and ranks exact name, name prefix, name contains, category/service/synonym labels, then description. Published projections omit every private field; the street address appears only when the listing publishes it, with a directions link built from coordinates or the address.
-- Public site (`apps/web`): home, `/directory` with URL-driven filters, chips, sort and pagination, curated `/directory/category/{slug}` and `/directory/area/{slug}` pages, and `/business/{slug}` with hours, contact actions, links and related listings. Design tokens and primitives live in `packages/ui` (Tailwind v4 + shadcn-style); public bundles contain no Refine or Ant Design.
+- Public site (`apps/web`): home, `/business` with URL-driven filters, chips, sort and pagination, curated `/business/category/{slug}` and `/business/area/{slug}` pages, and `/business/{slug}` with hours, contact actions, links and related listings. Design tokens and primitives live in `packages/ui` (Tailwind v4 + shadcn-style); public bundles contain no Refine or Ant Design.
 - New web environment variables: `SITE_ORIGIN` (absolute public origin for canonical URLs) and `SITE_CONTACT_EMAIL` (receives listing requests and hours corrections). See `apps/web/README.md`.
 
 ## Hero, home settings and suggestions (Phase 15)
@@ -131,7 +131,7 @@ It seeds permissions/roles, refuses to run if any administrator exists, and reco
 - `GET /api/v1/home`: hero headline, 2–5 rotating phrases and optional counters (published businesses, categories and areas), returned only when an administrator enables them.
 - `GET/PUT /api/v1/admin/settings/home` (`settings.manage`): validated, versioned (`expectedVersion`, 0 before the first save) and audited site settings stored in `site_settings`.
 - `GET /api/v1/search/suggestions?q=` (≥ 2 characters): grouped category, service (label or synonym) and published-business suggestions, at most eight, with a per-IP ceiling of 30 requests a minute (429 + `Retry-After`; 503 if the limiter is unavailable).
-- Home page: server-rendered hero with a stable H1, a rotating phrase that respects `prefers-reduced-motion`, pauses when the tab is hidden and has a pause/resume control, plus the fixed-Melbourne search panel (GET to `/directory`) with progressive suggestions. Admin: the Site settings screen edits the headline, phrases and counter toggle.
+- Home page: server-rendered hero with a stable H1, a rotating phrase that respects `prefers-reduced-motion`, pauses when the tab is hidden and has a pause/resume control, plus the fixed-Melbourne search panel (GET to `/business`) with progressive suggestions. Admin: the Site settings screen edits the headline, phrases and counter toggle.
 
 ## Reviews, ratings and moderation (Phase 16)
 

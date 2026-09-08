@@ -32,6 +32,16 @@ export function generalSettingsApi(client: HttpClient = httpClient) {
 
 export type StaticPage = components['schemas']['StaticPageDto'];
 
+export interface CreateStaticPage {
+  /** Public address; the API refuses reserved and taken ones. */
+  slug: string;
+  title: string;
+  body: string;
+  bodyFormat?: 'html' | 'markdown';
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+}
+
 export interface UpdateStaticPage {
   expectedVersion: number;
   title: string;
@@ -39,7 +49,6 @@ export interface UpdateStaticPage {
   bodyFormat?: 'html' | 'markdown';
   seoTitle?: string | null;
   seoDescription?: string | null;
-  contactEmail?: string | null;
   revisionReason?: string;
 }
 
@@ -48,6 +57,8 @@ export function pagesApi(client: HttpClient = httpClient) {
   return {
     list: (signal?: AbortSignal) => client.request<{ data: StaticPage[] }>('/admin/pages', { signal }).then((r) => r.data.data),
     get: (slug: string, signal?: AbortSignal) => client.request<{ data: StaticPage }>(`/admin/pages/${encodeURIComponent(slug)}`, { signal }).then((r) => r.data.data),
+    create: (body: CreateStaticPage) => client.request<{ data: StaticPage }>('/admin/pages', { method: 'POST', body }).then((r) => r.data.data),
+    remove: (slug: string) => client.request<void>(`/admin/pages/${encodeURIComponent(slug)}`, { method: 'DELETE' }).then(() => undefined),
     save: (slug: string, body: UpdateStaticPage) => client.request<{ data: StaticPage }>(`/admin/pages/${encodeURIComponent(slug)}`, { method: 'PUT', body }).then((r) => r.data.data),
     setStatus: (slug: string, action: 'publish' | 'unpublish', body: { expectedVersion: number; reason?: string }) =>
       client.request<{ data: StaticPage }>(`/admin/pages/${encodeURIComponent(slug)}/${action}`, { method: 'POST', body }).then((r) => r.data.data),

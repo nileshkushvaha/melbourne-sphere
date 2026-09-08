@@ -13,7 +13,7 @@ describe('StatusPage', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
     // The reference is what a visitor can quote; the error text itself is never printed.
     expect(screen.getByText('abc123')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Browse the directory' })).toHaveAttribute('href', '/directory');
+    expect(screen.getByRole('link', { name: 'Browse businesses' })).toHaveAttribute('href', '/business');
 
     const results = await axe.run(container, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'] } });
     expect(results.violations.map((violation) => violation.id)).toEqual([]);

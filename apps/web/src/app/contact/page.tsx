@@ -2,34 +2,23 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { MailIcon, PenLineIcon, PhoneIcon, ShieldCheckIcon, StoreIcon } from 'lucide-react';
 import { InformationPage } from '@/components/information-page';
-import { fetchSiteSettings, fetchStaticPage } from '@/lib/api';
+import { fetchSiteSettings } from '@/lib/api';
 import { contactChannelFrom, turnstileSiteKey } from '@/lib/site';
 import { ContactForm } from '@/components/contact-form';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * `/contact` is in the public route contract (SRS UX 003), but the page's own
- * copy is admin-managed and cannot be published until it carries a validated
- * contact address (CFG 002). Until an editor publishes it, this route explains
- * how to reach the editors using facts about how the product actually works —
- * no invented policy — and stays out of the index, because that copy has not
- * been through the client's approval. The moment the page is published, its
- * approved title, body and contact address take over completely.
+ * `/contact` is a product route, not an editable document (SRS UX 003, and CFG
+ * 002 as amended in SRS 1.6). It describes how the product actually works and
+ * routes messages to the address configured in the site settings, so an editor
+ * cannot redirect enquiries by typing a different address into page copy. The
+ * contact details themselves come from settings and change without a release.
  */
-export async function generateMetadata(): Promise<Metadata> {
-  const page = await fetchStaticPage('contact');
-  if (!page) {
-    return {
-      title: 'Contact us',
-      description: 'How to reach the Melbourne Sphere editors about a listing, a correction or a review.',
-      alternates: { canonical: '/contact' },
-      robots: { index: false, follow: true },
-    };
-  }
+export function generateMetadata(): Metadata {
   return {
-    title: page.seoTitle ?? page.title,
-    description: page.seoDescription ?? undefined,
+    title: 'Contact us',
+    description: 'How to reach the Melbourne Sphere editors about a listing, a correction or a review.',
     alternates: { canonical: '/contact' },
   };
 }
@@ -53,11 +42,10 @@ const ROUTES = [
 ];
 
 export default async function ContactPage() {
-  const [page, settings] = await Promise.all([fetchStaticPage('contact'), fetchSiteSettings()]);
-  // The page's own address wins when an editor set one; otherwise the site-wide
-  // support address from the general settings (SRS CFG 001/002).
+  const settings = await fetchSiteSettings();
+  // One source for the address: the site-wide support address (SRS CFG 001).
   const channel = contactChannelFrom(settings);
-  const email = page?.contactEmail ?? channel.email;
+  const email = channel.email;
   const phone = settings.contact.phone;
 
   const aside = (
@@ -88,8 +76,8 @@ export default async function ContactPage() {
       <h2 className="text-base font-semibold tracking-tight">Where else to look</h2>
       <ul className="mt-3 flex flex-col gap-1.5 text-sm">
         <li>
-          <Link href="/directory" className="inline-flex min-h-9 items-center text-link underline-offset-4 hover:underline">
-            Browse the directory
+          <Link href="/business" className="inline-flex min-h-9 items-center text-link underline-offset-4 hover:underline">
+            Browse businesses
           </Link>
         </li>
         <li>
@@ -103,8 +91,6 @@ export default async function ContactPage() {
     </div>
   );
 
-  // The form is the same on both variants: the approved copy replaces the
-  // explanation above it, not the way people reach the editors.
   const form = (
     <section aria-labelledby="contact-form-heading" className="mt-10">
       <h2 id="contact-form-heading" className="font-display text-2xl">
@@ -118,16 +104,6 @@ export default async function ContactPage() {
       </div>
     </section>
   );
-
-  if (page) {
-    return (
-      <InformationPage title={page.title} updatedAt={page.updatedAt} aside={aside}>
-        {/* Sanitised by the API with an allowlist before storage (SRS SEC 001). */}
-        <div dangerouslySetInnerHTML={{ __html: page.body }} />
-        {form}
-      </InformationPage>
-    );
-  }
 
   return (
     <InformationPage
@@ -152,9 +128,6 @@ export default async function ContactPage() {
       <h2>Response times</h2>
       <p>
         We are a small team and read messages during Melbourne business hours. Listing requests are checked before publication, so a new listing usually takes a few days rather than minutes. Corrections to a published listing are prioritised.
-      </p>
-      <p className="text-sm text-text-muted">
-        This page describes how the site works today. Our full contact and complaints policy is being prepared and will replace this page once it is approved.
       </p>
       {form}
     </InformationPage>

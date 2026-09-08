@@ -26,6 +26,7 @@
     "admin:seed-rbac": "nest build && node dist/cli/bootstrap-admin.js --seed-only",
     "openapi:generate": "nest build && node dist/cli/generate-openapi.js",
     "taxonomy:seed": "nest build && node dist/cli/seed-taxonomy.js",
+    "pages:seed": "nest build && node dist/cli/seed-pages.js",
     "authz:verify": "nest build && node dist/cli/verify-authorization.js",
     "auth:revoke-test-artifacts": "nest build && node dist/cli/revoke-auth-artifacts.js",
     "auth:artifacts:check": "nest build && node dist/cli/revoke-auth-artifacts.js --check"

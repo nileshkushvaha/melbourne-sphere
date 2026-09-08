@@ -13,7 +13,7 @@ import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { BrandOptionLabel } from '@/components/BrandIcon';
 import { brandLabel } from '@/shared/brands';
-import { PageLoader } from '@/components/ui';
+import { PageHeader, PageLoader } from '@/components/ui';
 import { useCapabilities } from '@/auth/access-control';
 import { PERMISSION } from '@/auth/permissions';
 
@@ -182,26 +182,41 @@ export function BusinessEditorPage() {
 
   return (
     <div>
-      <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 8 }} align="start" wrap>
-        <div>
-          <Typography.Title level={1} style={{ fontSize: 26, margin: 0 }}>
-            {isNew ? 'New business' : business!.name}
-          </Typography.Title>
-          <Link to="/businesses">← Back to businesses</Link>
-        </div>
-        {business && (
-          <Space wrap>
-            <Tag color={business.status === 'published' ? 'green' : business.status === 'archived' ? 'orange' : 'default'} style={{ fontSize: 14, padding: '4px 10px' }}>
-              {business.status}
-            </Tag>
-            {actions.map((a) => (
-              <Button key={a} danger={ACTION_LABELS[a].danger} type={a === 'publish' ? 'primary' : 'default'} onClick={() => { actionForm.resetFields(); setPendingAction({ action: a, needsOverride: a === 'publish' && business.duplicateWarnings.length > 0 }); }}>
-                {ACTION_LABELS[a].label}
-              </Button>
-            ))}
-          </Space>
-        )}
-      </Space>
+      <PageHeader
+        crumbs={[{ label: 'Business', href: '/businesses' }, { label: isNew ? 'New business' : business!.name }]}
+        title={isNew ? 'New business' : business!.name}
+        meta={
+          business ? (
+            <Tag color={business.status === 'published' ? 'green' : business.status === 'archived' ? 'orange' : 'default'}>{business.status}</Tag>
+          ) : null
+        }
+        actions={
+          business ? (
+            <Space wrap>
+              <Link to="/businesses">
+                <Button>All businesses</Button>
+              </Link>
+              {actions.map((a) => (
+                <Button
+                  key={a}
+                  danger={ACTION_LABELS[a].danger}
+                  type={a === 'publish' ? 'primary' : 'default'}
+                  onClick={() => {
+                    actionForm.resetFields();
+                    setPendingAction({ action: a, needsOverride: a === 'publish' && business.duplicateWarnings.length > 0 });
+                  }}
+                >
+                  {ACTION_LABELS[a].label}
+                </Button>
+              ))}
+            </Space>
+          ) : (
+            <Link to="/businesses">
+              <Button>All businesses</Button>
+            </Link>
+          )
+        }
+      />
       {business && business.status === 'draft' && business.publicationBlockers.length > 0 && (
         <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="Not ready to publish" description={<List size="small" dataSource={business.publicationBlockers} renderItem={(b) => <List.Item>{b}</List.Item>} />} />
       )}

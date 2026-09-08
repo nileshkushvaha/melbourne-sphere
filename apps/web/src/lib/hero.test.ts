@@ -35,8 +35,8 @@ describe('suggestion list behaviour', () => {
 
   it('links businesses directly and terms into the directory', () => {
     expect(suggestionHref(groups.businesses[0]!)).toBe('/business/cafe-lumen');
-    expect(suggestionHref(groups.categories[0]!)).toBe('/directory?category=cafes');
-    expect(suggestionHref(groups.services[0]!)).toBe('/directory?q=Specialty%20coffee');
+    expect(suggestionHref(groups.categories[0]!)).toBe('/business?category=cafes');
+    expect(suggestionHref(groups.services[0]!)).toBe('/business?q=Specialty%20coffee');
   });
 
   it('moves the active option with wrap-around', () => {

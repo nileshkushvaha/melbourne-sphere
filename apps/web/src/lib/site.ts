@@ -43,6 +43,15 @@ export function reviewRichResultsEnabled(): boolean {
   return (process.env.REVIEW_RICH_RESULTS ?? '').trim().toLowerCase() === 'true';
 }
 
+/**
+ * Emit `FAQPage` structured data (SRS 1.2 FAQ 005). Off unless the technical
+ * lead has confirmed current search-engine eligibility for the site and set
+ * FAQ_RICH_RESULTS=true; the visible questions are unaffected either way.
+ */
+export function faqRichResultsEnabled(): boolean {
+  return (process.env.FAQ_RICH_RESULTS ?? '').trim().toLowerCase() === 'true';
+}
+
 export interface ContactChannel {
   /** True only when an editor has published a routable support address. */
   available: boolean;

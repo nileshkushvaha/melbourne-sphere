@@ -43,7 +43,7 @@ export function StatusPage({ status, title, description, reference, actions, chi
           <div className="flex flex-wrap gap-3">
             {actions}
             <Button asChild>
-              <Link href="/directory">Browse the directory</Link>
+              <Link href="/business">Browse businesses</Link>
             </Button>
             <Button asChild variant="outline">
               <Link href="/blog">Read the blog</Link>

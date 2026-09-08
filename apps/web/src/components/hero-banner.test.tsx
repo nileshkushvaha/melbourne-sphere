@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import axe from 'axe-core';
 import { HeroBanner, type HeroSlide } from './hero-banner';
 
@@ -35,7 +35,7 @@ describe('HeroBanner', () => {
     expect(await runAxe(container)).toBe('');
   });
 
-  it('offers keyboard-reachable previous, next, pause and per-image controls', async () => {
+  it('offers keyboard-reachable previous, next and per-image controls, and a pause control that is reachable but not part of the visual composition', async () => {
     const { container } = render(
       <HeroBanner slides={[slide(1), slide(2), slide(3)]}>
         <h1>Discover Melbourne businesses</h1>
@@ -43,7 +43,13 @@ describe('HeroBanner', () => {
     );
     expect(screen.getByRole('button', { name: /previous banner image/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /next banner image/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /pause the banner/i })).toHaveAttribute('aria-pressed', 'false');
+    // Present in the accessibility tree and focusable — the WCAG 2.2 SC 2.2.2
+    // mechanism — but rendered off-screen until it is focused, so the banner
+    // carries no visible pause button (client instruction, 7 Sep 2026).
+    const pause = screen.getByRole('button', { name: /pause the banner/i });
+    expect(pause).toHaveAttribute('aria-pressed', 'false');
+    expect(pause.className).toContain('sr-only');
+    expect(pause.className).toContain('focus-visible:not-sr-only');
     const dots = screen.getAllByRole('button', { name: /show banner image \d of 3/i });
     expect(dots).toHaveLength(3);
     expect(dots[0]).toHaveAttribute('aria-current', 'true');
@@ -60,5 +66,51 @@ describe('HeroBanner', () => {
     // Background photography carries no information the text does not; empty alt
     // keeps it out of the accessibility tree (SRS HERO 001, NFR 011).
     for (const image of document.querySelectorAll('img')) expect(image.getAttribute('alt')).toBe('');
+  });
+});
+
+describe('hero motion', () => {
+  it('advances on its own while the page is visible and motion is allowed', async () => {
+    vi.useFakeTimers();
+    try {
+      render(
+        <HeroBanner slides={[slide(1), slide(2), slide(3)]}>
+          <h1>Discover Melbourne businesses</h1>
+        </HeroBanner>,
+      );
+      const currentDot = () => screen.getAllByRole('button', { name: /show banner image \d of 3/i }).findIndex((dot) => dot.getAttribute('aria-current') === 'true');
+      expect(currentDot()).toBe(0);
+      await act(async () => {
+        vi.advanceTimersByTime(7100);
+      });
+      expect(currentDot()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stops rotating once the visitor steps through the images', async () => {
+    vi.useFakeTimers();
+    try {
+      render(
+        <HeroBanner slides={[slide(1), slide(2), slide(3)]}>
+          <h1>Discover Melbourne businesses</h1>
+        </HeroBanner>,
+      );
+      const currentDot = () => screen.getAllByRole('button', { name: /show banner image \d of 3/i }).findIndex((dot) => dot.getAttribute('aria-current') === 'true');
+
+      // Using a control is itself a request to stop the rotation, so a mouse
+      // user has a way to stop it without a visible pause button.
+      await act(async () => {
+        screen.getByRole('button', { name: /next banner image/i }).click();
+      });
+      expect(currentDot()).toBe(1);
+      await act(async () => {
+        vi.advanceTimersByTime(30_000);
+      });
+      expect(currentDot()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

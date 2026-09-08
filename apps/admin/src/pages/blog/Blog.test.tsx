@@ -1,7 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import { AppRoutes } from '@/app/routes';
 import { EditorialTermsPage } from './EditorialTermsPage';
-import { AUTHORS_CONFIG } from './editorial-configs';
+import { BLOG_CATEGORIES_CONFIG } from './editorial-configs';
 import { PostsPage } from './PostsPage';
 import { renderWithProviders, authenticatedProvider, user } from '@/test/render';
 import { jsonResponse } from '@/test/fetch-fakes';
@@ -96,16 +96,12 @@ describe('blog admin screens', () => {
     expect(JSON.parse(scheduled.body!)).toMatchObject({ expectedVersion: 2, scheduledAt: '2026-10-03T23:00:00.000Z' });
   });
 
-  it('creates an author and hides the editorial navigation without the permission', async () => {
-    const ue = user();
-    renderWithProviders(<EditorialTermsPage config={AUTHORS_CONFIG} />, { initialEntries: ['/admin/authors'] });
-    expect(await screen.findByRole('heading', { level: 1, name: 'Authors' })).toBeInTheDocument();
-    await ue.click(screen.getByRole('button', { name: /new author/i }));
-    const dialog = await screen.findByRole('dialog');
-    await ue.type(within(dialog).getByLabelText(/display name/i), 'Sam Writer');
-    await ue.click(within(dialog).getByRole('button', { name: /^create$/i }));
-    const post = calls.find((c) => c.method === 'POST' && c.url === '/api/v1/admin/authors')!;
-    expect(JSON.parse(post.body!)).toEqual({ displayName: 'Sam Writer', bio: null });
+  it('lists blog categories and links each to its own editable address', async () => {
+    renderWithProviders(<EditorialTermsPage config={BLOG_CATEGORIES_CONFIG} />, { initialEntries: ['/admin/blog-categories'] });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Blog categories' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /new category/i })).toHaveAttribute('href', '/admin/blog-categories/new');
+    // Editing is a route, so the list itself opens no dialog.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('hides the editorial navigation without posts.write', async () => {

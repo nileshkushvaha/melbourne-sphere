@@ -18,50 +18,52 @@
  */
 :root {
   /* Brand */
-  --ms-navy-950: #08152b;
-  --ms-navy-900: #0e2242;
-  --ms-navy-800: #153260;
-  --ms-navy-700: #1d447f;
-  --ms-sky-700: #0b5f8f;
-  --ms-sky-600: #0284c7;
-  --ms-sky-500: #0ea5e9;
-  --ms-sky-400: #38bdf8;
-  --ms-sky-100: #e0f2fe;
-  --ms-sky-50: #f0f9ff;
+  --ms-navy-950: #071426;
+  --ms-navy-900: #0d2340;
+  --ms-navy-800: #15365f;
+  --ms-navy-700: #1d4c82;
+  --ms-sky-700: #075d9b;
+  --ms-sky-600: #087fc4;
+  --ms-sky-500: #199ed8;
+  --ms-sky-400: #5ec8f2;
+  --ms-sky-100: #dceffc;
+  --ms-sky-50: #eff8fe;
+  --ms-gold-500: #6889b5;
+  --ms-gold-100: #e8eef7;
 
   /* Light surfaces: white cards on a warm off-white page, with a cooler
      neutral for the alternating "soft" band. */
   --ms-surface: #ffffff;
-  --ms-surface-muted: #faf8f4;
+  --ms-surface-muted: #f7f9fc;
   --ms-surface-raised: #ffffff;
-  --ms-surface-sunken: #eff2f7;
-  --ms-border: #e2e5ec;
-  --ms-border-strong: #c4cbd8;
-  --ms-text: #16233c;
-  --ms-text-muted: #55637d;
+  --ms-surface-sunken: #edf3f8;
+  --ms-border: #dce5ef;
+  --ms-border-strong: #bdcad9;
+  --ms-text: #13243a;
+  --ms-text-muted: #53657b;
   --ms-text-inverse: #ffffff;
-  --ms-link: #0b5f8f;
+  --ms-link: #075d9b;
 
   /* Dark bands (hero, header, locality feature, call to action, footer). These
      never follow a colour scheme: they are a fixed part of the composition. */
-  --ms-band: #0e2242;
-  --ms-band-deep: #08152b;
-  --ms-band-raised: #16305a;
+  --ms-band: #0d2848;
+  --ms-band-deep: #071426;
+  --ms-band-raised: #15375d;
   --ms-band-text: #ffffff;
-  --ms-band-muted: #b9c9e2;
-  --ms-band-border: #24406e;
-  --ms-band-link: #8ed0ff;
+  --ms-band-muted: #bdcde0;
+  --ms-band-border: #28496f;
+  --ms-band-link: #8dd8f7;
 
   /* The hero search panel sits on photography, so it keeps its own light
      colours whatever the image looks like (#16233c on #ffffff 14.4:1). */
   --ms-panel: #ffffff;
-  --ms-panel-muted: #eff2f7;
-  --ms-panel-text: #16233c;
-  --ms-panel-text-muted: #55637d;
-  --ms-panel-border: #d5dae3;
-  --ms-hero-text: #dbe8f8;
+  --ms-panel-muted: #eef4f9;
+  --ms-panel-text: #13243a;
+  --ms-panel-text-muted: #53657b;
+  --ms-panel-border: #d7e1eb;
+  --ms-hero-text: #d6e2f0;
 
-  --ms-focus: #b45309;
+  --ms-focus: #9a5b12;
   --ms-success: #15803d;
   --ms-warning: #b45309;
   --ms-danger: #b91c1c;
@@ -69,12 +71,12 @@
   /* Shape and elevation: restrained, so cards read as editorial rather than
      as dashboard widgets. */
   --ms-radius-sm: 0.5rem;
-  --ms-radius: 0.875rem;
-  --ms-radius-lg: 1.25rem;
+  --ms-radius: 1rem;
+  --ms-radius-lg: 1.5rem;
   --ms-radius-pill: 999px;
-  --ms-shadow-sm: 0 1px 2px rgba(14, 34, 66, 0.05), 0 1px 3px rgba(14, 34, 66, 0.06);
-  --ms-shadow-md: 0 8px 24px -12px rgba(14, 34, 66, 0.22);
-  --ms-shadow-lg: 0 28px 60px -28px rgba(14, 34, 66, 0.4);
+  --ms-shadow-sm: 0 1px 2px rgba(6, 24, 33, 0.05), 0 8px 24px -20px rgba(6, 24, 33, 0.25);
+  --ms-shadow-md: 0 22px 50px -30px rgba(6, 24, 33, 0.48);
+  --ms-shadow-lg: 0 38px 90px -38px rgba(6, 24, 33, 0.62);
 
   /* Layout rhythm: wide section composition, readable text measure. */
   --ms-content: 1520px;
@@ -87,6 +89,12 @@
   --ms-motion-fast: 150ms;
   --ms-motion-base: 300ms;
   --ms-motion-slow: 700ms;
+
+  /* Premium glass surfaces: reserved for overlays and information panels. */
+  --ms-glass-light: rgba(255, 255, 255, 0.78);
+  --ms-glass-dark: rgba(13, 35, 64, 0.72);
+  --ms-glass-border-light: rgba(255, 255, 255, 0.72);
+  --ms-glass-border-dark: rgba(141, 216, 247, 0.2);
 }
 
 @theme inline {
@@ -100,6 +108,8 @@
   --color-sky-400: var(--ms-sky-400);
   --color-sky-100: var(--ms-sky-100);
   --color-sky-50: var(--ms-sky-50);
+  --color-gold-500: var(--ms-gold-500);
+  --color-gold-100: var(--ms-gold-100);
   --color-surface: var(--ms-surface);
   --color-surface-muted: var(--ms-surface-muted);
   --color-surface-raised: var(--ms-surface-raised);
@@ -194,4 +204,14 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/*
+ * Service alert region above the header (SRS 1.2 ALRT 004). It carries no
+ * height of its own: an alert supplies its own padding, and the region exists so
+ * the alerts share one landmark rather than each becoming a separate one.
+ */
+.ms-alert-region {
+  display: flex;
+  flex-direction: column;
 }

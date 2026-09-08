@@ -8,6 +8,12 @@ interface Props {
   businessId: string;
   businessName: string;
   turnstileSiteKey: string | null;
+  /**
+   * Renders for a narrow column (the listing sidebar): fields stack in one
+   * column at every width, because the two-column layout below is keyed to the
+   * viewport, not to the space this form actually has.
+   */
+  compact?: boolean;
 }
 
 interface Values {
@@ -36,7 +42,7 @@ function validate(values: Values): FieldErrors {
  * the message from the listing. A 202 means the message was accepted durably,
  * so the confirmation never claims it was delivered.
  */
-export function EnquiryForm({ businessId, businessName, turnstileSiteKey }: Props) {
+export function EnquiryForm({ businessId, businessName, turnstileSiteKey, compact = false }: Props) {
   const [values, setValues] = useState<Values>(EMPTY);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -106,7 +112,7 @@ export function EnquiryForm({ businessId, businessName, turnstileSiteKey }: Prop
           {formError}
         </p>
       )}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className={compact ? 'grid gap-4' : 'grid gap-4 sm:grid-cols-2'}>
         <div>
           <Label htmlFor="enquiry-name">Your name</Label>
           <Input id="enquiry-name" value={values.name} onChange={(e) => set('name', e.target.value)} maxLength={80} aria-invalid={Boolean(fieldError('name'))} />
@@ -129,7 +135,7 @@ export function EnquiryForm({ businessId, businessName, turnstileSiteKey }: Prop
       </div>
       <div>
         <Label htmlFor="enquiry-message">Message</Label>
-        <textarea id="enquiry-message" rows={5} value={values.message} onChange={(e) => set('message', e.target.value)} maxLength={5000} aria-invalid={Boolean(fieldError('message'))} className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-base text-text" />
+        <textarea id="enquiry-message" rows={compact ? 4 : 5} value={values.message} onChange={(e) => set('message', e.target.value)} maxLength={5000} aria-invalid={Boolean(fieldError('message'))} className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-base text-text" />
         {fieldError('message') && <p className="mt-1 text-sm text-danger">{fieldError('message')}</p>}
       </div>
       <div aria-hidden="true" className="hidden">

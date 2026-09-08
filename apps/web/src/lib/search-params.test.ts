@@ -17,15 +17,15 @@ describe('search params', () => {
 
   it('builds removable chips that reset the page and resolve names', () => {
     const state = parseSearchParams({ q: 'cafe', category: 'cafes', minRating: '4', page: '3' });
-    const chips = buildChips(state, '/directory', { categories: { cafes: 'Cafés' } });
+    const chips = buildChips(state, '/business', { categories: { cafes: 'Cafés' } });
     expect(chips.map((c) => [c.label, c.href])).toEqual([
-      ['“cafe”', '/directory?category=cafes&minRating=4'],
-      ['Cafés', '/directory?q=cafe&minRating=4'],
-      ['4+ stars', '/directory?q=cafe&category=cafes'],
+      ['“cafe”', '/business?category=cafes&minRating=4'],
+      ['Cafés', '/business?q=cafe&minRating=4'],
+      ['4+ stars', '/business?q=cafe&category=cafes'],
     ]);
     expect(isFiltered(state)).toBe(true);
     expect(isFiltered(parseSearchParams({ sort: 'name', page: '2' }))).toBe(false);
-    expect(pageHref(state, '/directory', 4)).toBe('/directory?q=cafe&category=cafes&minRating=4&page=4');
+    expect(pageHref(state, '/business', 4)).toBe('/business?q=cafe&category=cafes&minRating=4&page=4');
   });
 
   it('carries the conditional "open now" filter through the URL (SRS DIR 008)', () => {

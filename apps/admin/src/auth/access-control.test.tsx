@@ -40,7 +40,7 @@ describe('access control (SRS RBAC 010)', () => {
       const nav = await screen.findByRole('navigation', { name: /admin navigation/i });
       expect(await within(nav).findByRole('link', { name: 'Roles' })).toBeInTheDocument();
       expect(within(nav).queryByRole('link', { name: 'Administrators' })).not.toBeInTheDocument();
-      expect(within(nav).queryByRole('link', { name: 'Audit log' })).not.toBeInTheDocument();
+      expect(within(nav).queryByRole('link', { name: 'Activity log' })).not.toBeInTheDocument();
       expect(within(nav).queryByRole('link', { name: 'Media library' })).not.toBeInTheDocument();
     });
 

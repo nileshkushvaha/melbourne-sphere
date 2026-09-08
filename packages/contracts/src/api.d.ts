@@ -4,7 +4,41 @@
  */
 
 export interface paths {
-    "/api/v1/admin/audit": {
+    "/api/v1/admin/system/cache": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cache availability, registered caches and when each was last cleared */
+        get: operations["CacheAdminController_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/cache/clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Clear one registered cache. Unknown keys are refused; nothing accepts a pattern. */
+        post: operations["CacheAdminController_clear"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/activity": {
         parameters: {
             query?: never;
             header?: never;
@@ -1909,7 +1943,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Canonical indexable paths for one sitemap section (businesses, editorial, taxonomies) */
+        /** Canonical indexable paths for one sitemap section (businesses, editorial, taxonomies, pages) */
         get: operations["SeoPublicController_section"];
         put?: never;
         post?: never;
@@ -2040,6 +2074,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/settings/registry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Declared settings groups and their setting metadata, filtered to what the caller may view */
+        get: operations["SettingsGroupsController_registry"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings/security": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Security settings values (SECS 001–008) */
+        get: operations["SettingsGroupsController_security"];
+        put: operations["SettingsGroupsController_updateSecurity"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Email settings values. The provider API key and signing secret are environment-managed and never appear here (SET 004). */
+        get: operations["SettingsGroupsController_email"];
+        put: operations["SettingsGroupsController_updateEmail"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings/operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Operational settings values (cache, queue and scheduled task behaviour) */
+        get: operations["SettingsGroupsController_operations"];
+        put: operations["SettingsGroupsController_updateOperations"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/pages": {
         parameters: {
             query?: never;
@@ -2047,10 +2149,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Every information page, including ones never edited */
+        /** Every page, including ones never edited */
         get: operations["StaticPagesAdminController_list"];
         put?: never;
-        post?: never;
+        /** Create a page at a chosen address; reserved and taken addresses are refused (SRS 1.7) */
+        post: operations["StaticPagesAdminController_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2068,7 +2171,8 @@ export interface paths {
         /** Save the page; editing published text keeps a revision */
         put: operations["StaticPagesAdminController_update"];
         post?: never;
-        delete?: never;
+        /** Delete a custom page. A system page, or one still published, is refused. */
+        delete: operations["StaticPagesAdminController_remove"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2141,6 +2245,620 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/email-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Delivery log with masked recipients, filtered and paginated */
+        get: operations["EmailLogsController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/email-logs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["EmailLogsController_detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/email-logs/{id}/recipient": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reveal the recipient address. Every reveal is recorded (MAIL 005). */
+        get: operations["EmailLogsController_recipient"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/email-logs/{id}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a new attempt linked to the original. Refused for delivered, complained or suppressed messages. */
+        post: operations["EmailLogsController_resend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/faqs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Published questions in display order */
+        get: operations["FaqPublicController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/faqs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["FaqAdminController_list"];
+        put?: never;
+        post: operations["FaqAdminController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/faqs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["FaqAdminController_get"];
+        put: operations["FaqAdminController_update"];
+        post?: never;
+        delete: operations["FaqAdminController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/faqs/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply a new display order in one transaction */
+        post: operations["FaqAdminController_reorder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/faqs/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["FaqAdminController_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/faqs/{id}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["FaqAdminController_unpublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/service-alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Published alerts inside their display window, in the defined order */
+        get: operations["AlertPublicController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/service-alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AlertAdminController_list"];
+        put?: never;
+        post: operations["AlertAdminController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/service-alerts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AlertAdminController_get"];
+        put: operations["AlertAdminController_update"];
+        post?: never;
+        delete: operations["AlertAdminController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/service-alerts/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AlertAdminController_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/service-alerts/{id}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AlertAdminController_unpublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/testimonials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Approved, published testimonials in display order */
+        get: operations["TestimonialPublicController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/testimonials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TestimonialAdminController_list"];
+        put?: never;
+        post: operations["TestimonialAdminController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/testimonials/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TestimonialAdminController_get"];
+        /** Editing the quote clears the recorded approval: consent was given for particular words. */
+        put: operations["TestimonialAdminController_update"];
+        post?: never;
+        delete: operations["TestimonialAdminController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/testimonials/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record who confirmed the quote may be used, and when. Publication is refused without it. */
+        post: operations["TestimonialAdminController_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/testimonials/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TestimonialAdminController_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/testimonials/{id}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TestimonialAdminController_unpublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/partners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Published, authorised organisations with a processed logo */
+        get: operations["PartnerPublicController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/partners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PartnerAdminController_list"];
+        put?: never;
+        post: operations["PartnerAdminController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/partners/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PartnerAdminController_get"];
+        /** Changing the logo clears the recorded authorisation: it was given for a particular mark. */
+        put: operations["PartnerAdminController_update"];
+        post?: never;
+        delete: operations["PartnerAdminController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/partners/{id}/authorise": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record written authorisation to display the organisation's mark. Publication is refused without it. */
+        post: operations["PartnerAdminController_authorise"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/partners/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PartnerAdminController_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/partners/{id}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PartnerAdminController_unpublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/queues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Registered queues with depths, worker availability and the oldest waiting job */
+        get: operations["QueueMonitorController_overview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/queues/{name}/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One page of jobs in one state, with the payload reduced to allowlisted fields */
+        get: operations["QueueMonitorController_jobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/queues/{name}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry an explicit selection of failed jobs; each is applied independently */
+        post: operations["QueueMonitorController_retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/queues/{name}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remove an explicit selection of jobs that have not completed */
+        post: operations["QueueMonitorController_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/queues/{name}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pause or resume a queue the registry allows to be paused */
+        post: operations["QueueMonitorController_pause"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/queues/{name}/clean": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remove finished job metadata older than a stated age, within retention bounds */
+        post: operations["QueueMonitorController_clean"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Registered tasks with their schedule, state and last outcome */
+        get: operations["SchedulesController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/schedules/{code}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Execution history for one task; outcomes and durations only (TASK 002) */
+        get: operations["SchedulesController_runs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/schedules/{code}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dispatch one registered task to the worker; it never runs inside this request (TASK 003) */
+        post: operations["SchedulesController_run"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/schedules/{code}/enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enable or disable a task the registry allows to be controlled at runtime (TASK 006) */
+        post: operations["SchedulesController_setEnabled"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/site/context": {
         parameters: {
             query?: never;
@@ -2150,6 +2868,23 @@ export interface paths {
         };
         /** Fixed Melbourne context: city, state, country, timezone */
         get: operations["SiteController_context"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/site/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Live published counts for the About page */
+        get: operations["SiteController_siteMetrics"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2194,6 +2929,28 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        CacheStatusDto: {
+            /** @description Whether Redis is reachable, and what it means for the site if it is not. */
+            redis: Record<string, never>;
+            /** @description Caches this API holds. Entry counts are approximate and capped. */
+            namespaces: Record<string, never>[];
+            /** @description Public page caches, cleared through the ordinary invalidation pipeline. */
+            tags: Record<string, never>[];
+        };
+        ClearCacheDto: {
+            /**
+             * @description Which registry the key belongs to.
+             * @enum {string}
+             */
+            kind: "namespace" | "tag";
+            /** @description A registered cache key. Patterns and raw Redis keys are not accepted. */
+            key: string;
+        };
+        ClearCacheResultDto: {
+            /** @description Entries removed, for a namespace held by this API. */
+            cleared?: number;
+            accepted: boolean;
+        };
         Object: Record<string, never>;
         CreateRoleDto: {
             /**
@@ -2325,6 +3082,8 @@ export interface components {
             expiresAt: string;
             ipAddress: string | null;
             userAgent: string | null;
+            /** @description Browser family and platform, e.g. "Chrome on macOS". Not device identification (SRS 1.2 SECS 005). */
+            device: string;
             /** @description True for the session making the request */
             current: boolean;
         };
@@ -3948,9 +4707,57 @@ export interface components {
             /** @description Version returned by GET; 0 when no settings row has been saved yet */
             expectedVersion: number;
         };
-        StaticPageDto: {
+        SettingDeclarationDto: {
+            key: string;
+            label: string;
+            description: string;
             /** @enum {string} */
-            slug: "about" | "contact" | "privacy" | "terms" | "review-guidelines";
+            type: "boolean" | "integer" | "string" | "enum" | "email" | "url";
+            /** @description Validation bounds: min/max, permitted enum values, and the requirement that fixes the outer bound. */
+            bounds: Record<string, never>;
+            /** @description Value used when nothing has been stored. */
+            default: Record<string, never>;
+            /** @enum {string} */
+            visibility: "public" | "private";
+            /** @enum {string} */
+            effect: "runtime" | "restart_required";
+            viewPermission: string;
+            updatePermission: string;
+            /** @description Cache tags a change to this setting invalidates. */
+            invalidates: string[];
+            /** @description Consequence an operator must be warned about before confirming. */
+            consequence?: Record<string, never> | null;
+        };
+        SettingGroupDto: {
+            /** @enum {string} */
+            key: "security" | "email" | "operations" | "website";
+            label: string;
+            description: string;
+            /** @description Server module that owns reads, writes and invariants for this group. */
+            owner: string;
+            viewPermission: string;
+            updatePermission: string;
+            note?: Record<string, never> | null;
+            settings: components["schemas"]["SettingDeclarationDto"][];
+        };
+        SettingGroupValuesDto: {
+            group: string;
+            /** @description Declared settings only; a value for an undeclared key is never returned. */
+            values: Record<string, never>;
+            /** @description 0 when nothing has been stored and the declared defaults are being served. */
+            version: number;
+            updatedAt: string;
+            updatedByAdminId?: Record<string, never> | null;
+        };
+        UpdateSettingGroupDto: {
+            /** @description Version last read. A concurrent change is refused with 409 STALE_VERSION. */
+            expectedVersion: number;
+            /** @description Settings to change, by declared key. Omitted keys keep their stored value; an unknown key is rejected rather than ignored. */
+            values: Record<string, never>;
+        };
+        StaticPageDto: {
+            /** @description Public address. The system pages are about, privacy, terms, review-guidelines; anything else is a page an administrator created. */
+            slug: string;
             title: string;
             /** @description Sanitised HTML actually rendered (SRS SEC 001) */
             sanitizedBody: string;
@@ -3962,18 +4769,41 @@ export interface components {
             seoDescription: string | null;
             /** @enum {string} */
             status: "draft" | "published";
-            /** @description Contact routing address; only meaningful on the contact page */
-            contactEmail: string | null;
             /** Format: date-time */
             publishedAt: string | null;
             /** @description Reasons this page cannot be published yet (SRS CFG 002) */
             publicationBlockers: string[];
             /** @description Editor-facing explanation of what the page is for */
             purpose: string;
+            /**
+             * @description Which public template renders this page
+             * @enum {string}
+             */
+            template: "generic" | "about";
+            /** @description True for a page the product refers to by address: not creatable, renameable or deletable */
+            isSystem: boolean;
+            /** @description True only for a custom page that is not currently published */
+            canDelete: boolean;
             version: number;
             /** Format: date-time */
             updatedAt: string;
             updatedByAdminId: string | null;
+        };
+        CreateStaticPageDto: {
+            /**
+             * @description Public address; lower-case letters, numbers and single hyphens. Reserved and taken addresses are refused.
+             * @example community-guidelines
+             */
+            slug: string;
+            title: string;
+            body: string;
+            /**
+             * @default html
+             * @enum {string}
+             */
+            bodyFormat: "html" | "markdown";
+            seoTitle?: string | null;
+            seoDescription?: string | null;
         };
         UpdateStaticPageDto: {
             /** @description 0 for a page that has never been saved */
@@ -3987,8 +4817,6 @@ export interface components {
             bodyFormat: "html" | "markdown";
             seoTitle?: string | null;
             seoDescription?: string | null;
-            /** @description Contact routing address (contact page only); validated before activation */
-            contactEmail?: string | null;
             /** @description Stored with the revision of the previous published text */
             revisionReason?: string;
         };
@@ -4007,9 +4835,396 @@ export interface components {
             body: string;
             seoTitle: string | null;
             seoDescription: string | null;
-            contactEmail: string | null;
             /** Format: date-time */
             updatedAt: string;
+        };
+        EmailDeliveryDto: {
+            id: string;
+            provider: string;
+            providerMessageId?: Record<string, never> | null;
+            templateKey: string;
+            category: string;
+            /** @description Masked address, e.g. "v••••r@example.com". Revealing it needs a separate permission. */
+            recipient: string;
+            /** @description Kept only where the template permits it; withheld when it could carry a visitor’s words. */
+            subject?: Record<string, never> | null;
+            relatedType?: Record<string, never> | null;
+            relatedId?: Record<string, never> | null;
+            /** @enum {string} */
+            status: "queued" | "sent" | "delivered" | "delayed" | "failed" | "bounced" | "complained" | "suppressed";
+            attempts: number;
+            /** @description Bounded classification, never raw provider text. */
+            failureCode?: Record<string, never> | null;
+            failureSummary?: Record<string, never> | null;
+            requestId?: Record<string, never> | null;
+            createdAt: string;
+            sentAt?: Record<string, never> | null;
+            deliveredAt?: Record<string, never> | null;
+            failedAt?: Record<string, never> | null;
+        };
+        EmailDeliveryEventDto: {
+            type: string;
+            occurredAt: string;
+            receivedAt: string;
+            /** @description Safe summary of the provider event; never a payload or a body. */
+            detail?: Record<string, never> | null;
+        };
+        EmailDeliveryDetailDto: {
+            id: string;
+            provider: string;
+            providerMessageId?: Record<string, never> | null;
+            templateKey: string;
+            category: string;
+            /** @description Masked address, e.g. "v••••r@example.com". Revealing it needs a separate permission. */
+            recipient: string;
+            /** @description Kept only where the template permits it; withheld when it could carry a visitor’s words. */
+            subject?: Record<string, never> | null;
+            relatedType?: Record<string, never> | null;
+            relatedId?: Record<string, never> | null;
+            /** @enum {string} */
+            status: "queued" | "sent" | "delivered" | "delayed" | "failed" | "bounced" | "complained" | "suppressed";
+            attempts: number;
+            /** @description Bounded classification, never raw provider text. */
+            failureCode?: Record<string, never> | null;
+            failureSummary?: Record<string, never> | null;
+            requestId?: Record<string, never> | null;
+            createdAt: string;
+            sentAt?: Record<string, never> | null;
+            deliveredAt?: Record<string, never> | null;
+            failedAt?: Record<string, never> | null;
+            /** @description The delivery this one was created to replace. */
+            resentFromId?: Record<string, never> | null;
+            events: components["schemas"]["EmailDeliveryEventDto"][];
+        };
+        EmailRecipientDto: {
+            recipient: string;
+        };
+        ResendResultDto: {
+            id: string;
+            status: string;
+            resentFromId?: Record<string, never> | null;
+        };
+        PublicFaqDto: {
+            id: string;
+            question: string;
+            answerHtml: string;
+            groupName?: Record<string, never> | null;
+        };
+        FaqDto: {
+            id: string;
+            question: string;
+            /** @description Sanitised HTML; the only form ever rendered publicly. */
+            answerHtml: string;
+            /** @description Source exactly as the editor wrote it. */
+            answerSource: string;
+            /** @enum {string} */
+            answerFormat: "markdown" | "html";
+            groupName?: Record<string, never> | null;
+            displayOrder: number;
+            /** @enum {string} */
+            status: "draft" | "published";
+            publishedAt?: Record<string, never> | null;
+            version: number;
+            updatedAt: string;
+        };
+        UpsertFaqDto: {
+            question: string;
+            answer: string;
+            /** @enum {string} */
+            answerFormat?: "markdown" | "html";
+            groupName?: Record<string, never> | null;
+            displayOrder?: number;
+        };
+        UpdateFaqDto: {
+            question: string;
+            answer: string;
+            /** @enum {string} */
+            answerFormat?: "markdown" | "html";
+            groupName?: Record<string, never> | null;
+            displayOrder?: number;
+            /** @description Version last read; a concurrent change is refused with 409. */
+            expectedVersion: number;
+        };
+        ReorderEntryDto: {
+            id: string;
+            displayOrder: number;
+        };
+        ReorderFaqsDto: {
+            order: components["schemas"]["ReorderEntryDto"][];
+        };
+        PublishFaqDto: {
+            expectedVersion: number;
+        };
+        PublicAlertDto: {
+            id: string;
+            title: string;
+            message: string;
+            /** @enum {string} */
+            severity: "informational" | "warning" | "emergency";
+            linkLabel?: Record<string, never> | null;
+            linkUrl?: Record<string, never> | null;
+            linkExternal: boolean;
+            dismissible: boolean;
+            /** @description Dismissal is keyed to this, so an edited alert reappears. */
+            contentVersion: number;
+            /** @enum {string} */
+            role: "alert" | "status";
+            /** @enum {string} */
+            ariaLive: "assertive" | "polite";
+        };
+        ServiceAlertDto: {
+            id: string;
+            title: string;
+            message: string;
+            /** @enum {string} */
+            severity: "informational" | "warning" | "emergency";
+            linkLabel?: Record<string, never> | null;
+            linkUrl?: Record<string, never> | null;
+            linkExternal: boolean;
+            dismissible: boolean;
+            /** @description Dismissal is keyed to this, so an edited alert reappears. */
+            contentVersion: number;
+            /** @enum {string} */
+            role: "alert" | "status";
+            /** @enum {string} */
+            ariaLive: "assertive" | "polite";
+            startsAt?: Record<string, never> | null;
+            endsAt?: Record<string, never> | null;
+            priority: number;
+            displayOrder: number;
+            /** @enum {string} */
+            status: "draft" | "published";
+            publishedAt?: Record<string, never> | null;
+            version: number;
+            updatedAt: string;
+        };
+        UpsertAlertDto: {
+            title: string;
+            message: string;
+            /** @enum {string} */
+            severity: "informational" | "warning" | "emergency";
+            linkLabel?: Record<string, never> | null;
+            /** @description A path on this site (starting with /) or an http(s) address. Validated on save. */
+            linkUrl?: Record<string, never> | null;
+            /** Format: date-time */
+            startsAt?: Record<string, never> | null;
+            /** Format: date-time */
+            endsAt?: Record<string, never> | null;
+            dismissible?: boolean;
+            priority?: number;
+            displayOrder?: number;
+        };
+        UpdateAlertDto: {
+            title: string;
+            message: string;
+            /** @enum {string} */
+            severity: "informational" | "warning" | "emergency";
+            linkLabel?: Record<string, never> | null;
+            /** @description A path on this site (starting with /) or an http(s) address. Validated on save. */
+            linkUrl?: Record<string, never> | null;
+            /** Format: date-time */
+            startsAt?: Record<string, never> | null;
+            /** Format: date-time */
+            endsAt?: Record<string, never> | null;
+            dismissible?: boolean;
+            priority?: number;
+            displayOrder?: number;
+            expectedVersion: number;
+        };
+        PublishAlertDto: {
+            expectedVersion: number;
+        };
+        TestimonialDto: {
+            id: string;
+            displayName: string;
+            relationship?: Record<string, never> | null;
+            quote: string;
+            businessId?: Record<string, never> | null;
+            mediaId?: Record<string, never> | null;
+            /** @description When consent to use the quote was recorded. Publication is refused while it is null. */
+            approvedAt?: Record<string, never> | null;
+            approvedByAdminId?: Record<string, never> | null;
+            approvalNote?: Record<string, never> | null;
+            displayOrder: number;
+            /** @enum {string} */
+            status: "draft" | "published";
+            publishedAt?: Record<string, never> | null;
+            version: number;
+            updatedAt: string;
+        };
+        UpsertTestimonialDto: {
+            displayName: string;
+            relationship?: Record<string, never> | null;
+            quote: string;
+            businessId?: Record<string, never> | null;
+            mediaId?: Record<string, never> | null;
+            displayOrder?: number;
+        };
+        UpdateTestimonialDto: {
+            displayName: string;
+            relationship?: Record<string, never> | null;
+            quote: string;
+            businessId?: Record<string, never> | null;
+            mediaId?: Record<string, never> | null;
+            displayOrder?: number;
+            expectedVersion: number;
+        };
+        ApproveDto: {
+            expectedVersion: number;
+            /** @description How the consent or authorisation was obtained, for the record. */
+            note?: Record<string, never> | null;
+        };
+        VersionOnlyDto: {
+            expectedVersion: number;
+        };
+        PartnerDto: {
+            id: string;
+            name: string;
+            relationshipLabel?: Record<string, never> | null;
+            mediaId?: Record<string, never> | null;
+            logoAlt?: Record<string, never> | null;
+            websiteUrl?: Record<string, never> | null;
+            /** @description When authorisation to display the mark was recorded. Publication is refused while it is null. */
+            authorisedAt?: Record<string, never> | null;
+            authorisedByAdminId?: Record<string, never> | null;
+            authorisationNote?: Record<string, never> | null;
+            displayOrder: number;
+            /** @enum {string} */
+            status: "draft" | "published";
+            publishedAt?: Record<string, never> | null;
+            version: number;
+            updatedAt: string;
+        };
+        UpsertPartnerDto: {
+            name: string;
+            relationshipLabel?: Record<string, never> | null;
+            mediaId?: Record<string, never> | null;
+            /** @description Names the organisation; required before publication. */
+            logoAlt?: Record<string, never> | null;
+            websiteUrl?: Record<string, never> | null;
+            displayOrder?: number;
+        };
+        UpdatePartnerDto: {
+            name: string;
+            relationshipLabel?: Record<string, never> | null;
+            mediaId?: Record<string, never> | null;
+            /** @description Names the organisation; required before publication. */
+            logoAlt?: Record<string, never> | null;
+            websiteUrl?: Record<string, never> | null;
+            displayOrder?: number;
+            expectedVersion: number;
+        };
+        QueueSummaryDto: {
+            name: string;
+            label: string;
+            purpose: string;
+            pausable: boolean;
+            /** @description What stops happening while this queue is paused; shown before the action is confirmed. */
+            pauseConsequence: string;
+            paused: boolean;
+            /** @description Job counts by state; null while the queue is unreachable. */
+            counts: Record<string, never> | null;
+            oldestWaitingSeconds: number | null;
+            /** @description Worker availability, always labelled an estimate (QMON 005). */
+            workers: Record<string, never>;
+            available: boolean;
+            detail: string;
+            jobs: Record<string, never>[];
+        };
+        QueueJobDto: {
+            id: string;
+            name: string;
+            label: string;
+            /** @enum {string} */
+            state: "waiting" | "active" | "delayed" | "failed" | "completed";
+            attemptsMade: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            processedAt: string | null;
+            /** Format: date-time */
+            finishedAt: string | null;
+            /** @description First line of the failure only; never a stack trace. */
+            failedReason: string | null;
+            progress: number | null;
+            /** @description Allowlisted payload summary; unrecognised payloads carry no fields (QMON 002). */
+            data: Record<string, never>;
+            canRetry: boolean;
+            canRemove: boolean;
+        };
+        QueueBulkDto: {
+            /** @description An explicit selection. There is no "all failed" sweep (QMON 004). */
+            jobIds: string[];
+        };
+        QueueBulkResultDto: {
+            requested: number;
+            succeeded: string[];
+            /** @description Per-item reasons; one failure never hides another item’s result. */
+            failed: Record<string, never>[];
+        };
+        QueuePauseDto: {
+            paused: boolean;
+        };
+        QueueCleanDto: {
+            /** @enum {string} */
+            state: "completed" | "failed";
+            olderThanHours: number;
+        };
+        ScheduledTaskDto: {
+            /** @description Stable registry code; the only thing a request may name (TASK 003). */
+            code: string;
+            label: string;
+            description: string;
+            scheduleLabel: string;
+            timezone: string;
+            /** @enum {string} */
+            missedRunPolicy: "catch-up-once" | "skip-to-next" | "run-on-recovery";
+            timeoutMs: number;
+            retries: number;
+            manualRunAllowed: boolean;
+            /** @description Publishes or deletes; the interface asks twice (TASK 005). */
+            highImpact: boolean;
+            /** @description Cannot be switched off from the interface (TASK 006). */
+            requiredForCorrectness: boolean;
+            safeToOverlap: boolean;
+            enabled: boolean;
+            /** Format: date-time */
+            lastStartedAt: string | null;
+            /** Format: date-time */
+            lastFinishedAt: string | null;
+            lastOutcome: string | null;
+            lastDurationMs: number | null;
+            lastDetail: string | null;
+            running: boolean;
+        };
+        ScheduledRunDto: {
+            id: string;
+            taskCode: string;
+            /** @enum {string} */
+            trigger: "scheduled" | "manual";
+            /** @enum {string} */
+            outcome: "running" | "succeeded" | "failed" | "skipped" | "timedOut";
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            finishedAt: string | null;
+            durationMs: number | null;
+            /** @description One short line: a count or the first line of an error, never task output. */
+            detail: string | null;
+            actorAdminId: string | null;
+            runnerId: string | null;
+        };
+        SetTaskEnabledDto: {
+            enabled: boolean;
+        };
+        SiteMetricsDto: {
+            /** @description Published listings; null when the count could not be taken */
+            businesses: number | null;
+            categories: number | null;
+            areas: number | null;
+            articles: number | null;
+            /** Format: date-time */
+            countedAt: string;
         };
     };
     responses: never;
@@ -4020,6 +5235,48 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    CacheAdminController_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CacheStatusDto"];
+                };
+            };
+        };
+    };
+    CacheAdminController_clear: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClearCacheDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClearCacheResultDto"];
+                };
+            };
+        };
+    };
     AuditController_list: {
         parameters: {
             query?: {
@@ -4033,6 +5290,12 @@ export interface operations {
                 targetId?: string;
                 from?: string;
                 to?: string;
+                /** @description Groups events by what they are about (SRS 1.2 ACT 002/005). */
+                category?: "authentication" | "access_control" | "content" | "moderation" | "communication" | "configuration" | "system";
+                /** @description Derived from the event code; a refused privileged operation is a failure. */
+                outcome?: "success" | "failure";
+                /** @description Exact request id, so one request can be followed across events. */
+                requestId?: string;
                 sort?: "createdAt";
             };
             header?: never;
@@ -7560,6 +8823,151 @@ export interface operations {
             };
         };
     };
+    SettingsGroupsController_registry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingGroupDto"][];
+                };
+            };
+        };
+    };
+    SettingsGroupsController_security: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingGroupValuesDto"];
+                };
+            };
+        };
+    };
+    SettingsGroupsController_updateSecurity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSettingGroupDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingGroupValuesDto"];
+                };
+            };
+        };
+    };
+    SettingsGroupsController_email: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingGroupValuesDto"];
+                };
+            };
+        };
+    };
+    SettingsGroupsController_updateEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSettingGroupDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingGroupValuesDto"];
+                };
+            };
+        };
+    };
+    SettingsGroupsController_operations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingGroupValuesDto"];
+                };
+            };
+        };
+    };
+    SettingsGroupsController_updateOperations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSettingGroupDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingGroupValuesDto"];
+                };
+            };
+        };
+    };
     StaticPagesAdminController_list: {
         parameters: {
             query?: never;
@@ -7575,6 +8983,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StaticPageDto"][];
+                };
+            };
+        };
+    };
+    StaticPagesAdminController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStaticPageDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaticPageDto"];
                 };
             };
         };
@@ -7622,6 +9053,25 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["StaticPageDto"];
                 };
+            };
+        };
+    };
+    StaticPagesAdminController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -7715,6 +9165,1121 @@ export interface operations {
             };
         };
     };
+    EmailLogsController_list: {
+        parameters: {
+            query?: {
+                page?: components["schemas"]["Object"];
+                pageSize?: components["schemas"]["Object"];
+                order?: "asc" | "desc";
+                status?: "queued" | "sent" | "delivered" | "delayed" | "failed" | "bounced" | "complained" | "suppressed";
+                category?: "auth" | "enquiry" | "moderation" | "system";
+                templateKey?: "auth.password_reset" | "auth.account_setup" | "enquiry.business" | "enquiry.site_contact";
+                provider?: string;
+                from?: string;
+                to?: string;
+                /** @description Exact internal id, provider message id or related record id. Recipients are never searchable. */
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailDeliveryDto"][];
+                };
+            };
+        };
+    };
+    EmailLogsController_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailDeliveryDetailDto"];
+                };
+            };
+        };
+    };
+    EmailLogsController_recipient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailRecipientDto"];
+                };
+            };
+        };
+    };
+    EmailLogsController_resend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResendResultDto"];
+                };
+            };
+        };
+    };
+    FaqPublicController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicFaqDto"][];
+                };
+            };
+        };
+    };
+    FaqAdminController_list: {
+        parameters: {
+            query?: {
+                page?: components["schemas"]["Object"];
+                pageSize?: components["schemas"]["Object"];
+                order?: "asc" | "desc";
+                status?: "draft" | "published";
+                groupName?: string;
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FaqDto"][];
+                };
+            };
+        };
+    };
+    FaqAdminController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertFaqDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FaqDto"];
+                };
+            };
+        };
+    };
+    FaqAdminController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FaqDto"];
+                };
+            };
+        };
+    };
+    FaqAdminController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateFaqDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FaqDto"];
+                };
+            };
+        };
+    };
+    FaqAdminController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FaqAdminController_reorder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderFaqsDto"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FaqAdminController_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishFaqDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FaqDto"];
+                };
+            };
+        };
+    };
+    FaqAdminController_unpublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishFaqDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FaqDto"];
+                };
+            };
+        };
+    };
+    AlertPublicController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicAlertDto"][];
+                };
+            };
+        };
+    };
+    AlertAdminController_list: {
+        parameters: {
+            query?: {
+                page?: components["schemas"]["Object"];
+                pageSize?: components["schemas"]["Object"];
+                order?: "asc" | "desc";
+                status?: "draft" | "published";
+                severity?: "informational" | "warning" | "emergency";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceAlertDto"][];
+                };
+            };
+        };
+    };
+    AlertAdminController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertAlertDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceAlertDto"];
+                };
+            };
+        };
+    };
+    AlertAdminController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceAlertDto"];
+                };
+            };
+        };
+    };
+    AlertAdminController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAlertDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceAlertDto"];
+                };
+            };
+        };
+    };
+    AlertAdminController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AlertAdminController_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishAlertDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceAlertDto"];
+                };
+            };
+        };
+    };
+    AlertAdminController_unpublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishAlertDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceAlertDto"];
+                };
+            };
+        };
+    };
+    TestimonialPublicController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TestimonialAdminController_list: {
+        parameters: {
+            query?: {
+                page?: components["schemas"]["Object"];
+                pageSize?: components["schemas"]["Object"];
+                order?: "asc" | "desc";
+                status?: "draft" | "published";
+                /** @description true for approved only, false for those still awaiting consent. */
+                approved?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestimonialDto"][];
+                };
+            };
+        };
+    };
+    TestimonialAdminController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertTestimonialDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestimonialDto"];
+                };
+            };
+        };
+    };
+    TestimonialAdminController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestimonialDto"];
+                };
+            };
+        };
+    };
+    TestimonialAdminController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTestimonialDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestimonialDto"];
+                };
+            };
+        };
+    };
+    TestimonialAdminController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TestimonialAdminController_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestimonialDto"];
+                };
+            };
+        };
+    };
+    TestimonialAdminController_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionOnlyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestimonialDto"];
+                };
+            };
+        };
+    };
+    TestimonialAdminController_unpublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionOnlyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestimonialDto"];
+                };
+            };
+        };
+    };
+    PartnerPublicController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PartnerAdminController_list: {
+        parameters: {
+            query?: {
+                page?: components["schemas"]["Object"];
+                pageSize?: components["schemas"]["Object"];
+                order?: "asc" | "desc";
+                status?: "draft" | "published";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartnerDto"][];
+                };
+            };
+        };
+    };
+    PartnerAdminController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertPartnerDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartnerDto"];
+                };
+            };
+        };
+    };
+    PartnerAdminController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartnerDto"];
+                };
+            };
+        };
+    };
+    PartnerAdminController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePartnerDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartnerDto"];
+                };
+            };
+        };
+    };
+    PartnerAdminController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PartnerAdminController_authorise: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartnerDto"];
+                };
+            };
+        };
+    };
+    PartnerAdminController_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionOnlyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartnerDto"];
+                };
+            };
+        };
+    };
+    PartnerAdminController_unpublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionOnlyDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartnerDto"];
+                };
+            };
+        };
+    };
+    QueueMonitorController_overview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueSummaryDto"][];
+                };
+            };
+        };
+    };
+    QueueMonitorController_jobs: {
+        parameters: {
+            query: {
+                state: string;
+                page: string;
+                pageSize: string;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueJobDto"][];
+                };
+            };
+        };
+    };
+    QueueMonitorController_retry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueueBulkDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueBulkResultDto"];
+                };
+            };
+        };
+    };
+    QueueMonitorController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueueBulkDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueBulkResultDto"];
+                };
+            };
+        };
+    };
+    QueueMonitorController_pause: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueuePauseDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    QueueMonitorController_clean: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QueueCleanDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchedulesController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduledTaskDto"][];
+                };
+            };
+        };
+    };
+    SchedulesController_runs: {
+        parameters: {
+            query: {
+                page: string;
+                pageSize: string;
+            };
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduledRunDto"][];
+                };
+            };
+        };
+    };
+    SchedulesController_run: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchedulesController_setEnabled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetTaskEnabledDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     SiteController_context: {
         parameters: {
             query?: never;
@@ -7730,6 +10295,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    SiteController_siteMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteMetricsDto"];
+                };
             };
         };
     };

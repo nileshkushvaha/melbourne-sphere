@@ -83,6 +83,11 @@ export class AdminsController {
     return { data: { accepted: true } };
   }
 
+  // Session administration is its own capability (SRS 1.2 SECS 005): a security
+  // operator may end somebody's sessions without being able to create, disable
+  // or re-invite administrators. The method-level declaration replaces the
+  // class-level `admins.manage` for these three routes.
+  @RequirePermissions('security.sessions.view')
   @Get(':id/sessions')
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: [SessionListItemDto] })
@@ -90,6 +95,7 @@ export class AdminsController {
     return { data: await this.admins.listSessions(id, session.id) };
   }
 
+  @RequirePermissions('security.sessions.revoke')
   @Delete(':id/sessions')
   @SensitiveMutation()
   @HttpCode(200)
@@ -100,6 +106,7 @@ export class AdminsController {
     return { data: { revoked } };
   }
 
+  @RequirePermissions('security.sessions.revoke')
   @Delete(':id/sessions/:sessionId')
   @SensitiveMutation()
   @HttpCode(204)

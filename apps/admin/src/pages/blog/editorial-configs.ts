@@ -1,18 +1,11 @@
 import type { BlogTermKind } from '@/api/blog';
 
 export interface EditorialTermsConfig {
-  kind: 'authors' | BlogTermKind;
+  kind: BlogTermKind;
   title: string;
   singular: string;
   intro: string;
 }
-
-export const AUTHORS_CONFIG: EditorialTermsConfig = {
-  kind: 'authors',
-  title: 'Authors',
-  singular: 'Author',
-  intro: 'Public bylines. An author is attribution only: it grants no access and never shows an administrator\u2019s email.',
-};
 
 export const BLOG_CATEGORIES_CONFIG: EditorialTermsConfig = {
   kind: 'blog-categories',

@@ -7,12 +7,13 @@ Next.js 16 (App Router, React 19, Tailwind v4) public site for Melbourne Sphere.
 | Route | Rendering | Index policy |
 | --- | --- | --- |
 | `/` | dynamic (data cached per fetch) | index |
-| `/directory` (route group `(list)`) | dynamic | index; `noindex, follow` once any filter is applied |
-| `/directory/category/[slug]`, `/directory/area/[slug]` | dynamic, 404 for unknown or inactive terms | index if substantive |
+| `/business` (route group `(list)`) | dynamic | index; `noindex, follow` once any filter is applied |
+| `/business/category/[slug]`, `/business/area/[slug]` | dynamic, 404 for unknown or inactive terms | index if substantive |
 | `/business/[slug]` | dynamic, 404 unless published | index |
 | `/blog`, `/blog/[slug]`, `/blog/category/[slug]`, `/blog/tag/[slug]` | dynamic, 404 for drafts and unknown terms | index when published |
-| `/contact` | dynamic; always resolves | index once the approved page is published, `noindex, follow` while the factual fallback is shown |
-| `/about`, `/privacy`, `/terms`, `/review-guidelines` | dynamic, 404 until published | index |
+| `/contact` | dynamic; always resolves. Product route, not editable content: the address, phone and postal details come from the general settings (SRS CFG 001), not from a CMS page | index |
+| `/about` | dynamic, 404 until the `about` information page is published. Custom template (`src/app/about/`, `src/components/about/`) over the CMS record: the administrator owns the title, introduction and SEO fields; the template adds live counts from `GET /site/metrics`, the contact route and the process copy (SRS ABT 001–006) | index when published, `noindex` while a draft |
+| `/privacy`, `/terms`, `/review-guidelines`, and any page an administrator created | dynamic, 404 until published; shared reading template `src/app/(pages)/[slug]/`, which asks the API rather than holding a slug list (SRS CFG 002 as amended in 1.7). The API refuses page addresses that would shadow a route on this table | index when published |
 
 Filter state (`q`, `category`, `area`, `minRating`, `sort`, `page`) lives in the URL and is parsed by `src/lib/search-params.ts`; the filter form is a plain GET form and pagination and chips are links, so the directory works without client JavaScript.
 
@@ -24,7 +25,7 @@ The site is **light-first with designed dark bands** — warm off-white page, wh
 
 `main` carries no width. Sections are full-bleed and bound their own content: `src/components/page-shell.tsx` provides `Band` (`page` / `plain` / `soft` / `dark` / `deep` tones), `SectionHeading`, `gridColumns` (column count follows how many cards exist) and `PageShell` for inner pages. Dark surfaces carry `.ms-on-dark`, which switches the focus ring to a light colour.
 
-Typography pairs Geist (interface) with Instrument Serif (`.font-display`, headings only), both self-hosted through `next/font`.
+Typography pairs Manrope for interface and reading text with Sora for display headings, both self-hosted through `next/font`. Premium glass surfaces use the shared `.ms-glass-light` and `.ms-glass-dark` primitives only for overlays and information panels; both retain opaque, contrast-safe fallbacks.
 
 Hero photography: `src/lib/hero-assets.ts` holds the licensed default slides in `public/hero/`; anything an administrator configures in site settings replaces them. Sources and licences are recorded in `docs/content/hero-photography.md`.
 

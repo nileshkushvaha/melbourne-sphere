@@ -1,7 +1,8 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { Geist, Instrument_Serif } from 'next/font/google';
+import { Manrope, Sora } from 'next/font/google';
 import { SiteFooter } from '@/components/site-footer';
+import { ServiceAlertBar } from '@/components/service-alert-bar';
 import { SiteHeader } from '@/components/site-header';
 import { RouteProgress } from '@/components/route-progress';
 import Script from 'next/script';
@@ -9,9 +10,9 @@ import { siteOrigin, siteTitle, turnstileSiteKey } from '@/lib/site';
 import { fetchSiteSettings } from '@/lib/api';
 import './globals.css';
 
-const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'], display: 'swap' });
-/** Display face for the hero and section headings only — one weight, self-hosted by next/font, so the editorial voice costs one small file. */
-const displaySerif = Instrument_Serif({ variable: '--font-display', subsets: ['latin'], weight: '400', display: 'swap' });
+const bodyFont = Manrope({ variable: '--font-body', subsets: ['latin'], display: 'swap' });
+/** Sora gives display copy a confident contemporary voice while remaining highly legible. */
+const displayFont = Sora({ variable: '--font-display', subsets: ['latin'], display: 'swap' });
 
 /**
  * Site-wide metadata from the general settings (SRS CFG 001, SEO 001): the
@@ -47,7 +48,7 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="en-AU" className={`${geistSans.variable} ${displaySerif.variable} h-full antialiased`}>
+    <html lang="en-AU" className={`${bodyFont.variable} ${displayFont.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col font-sans">
         <a className="ms-skip-link" href="#main-content">
           Skip to main content
@@ -57,6 +58,11 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         <Suspense fallback={null}>
           <RouteProgress />
         </Suspense>
+        {/* Above the header on every public page (SRS 1.2 ALRT 002). Rendered
+            in document order rather than inside a Suspense boundary: a streamed
+            boundary is swapped in after the header, which puts the alert in the
+            wrong place and shifts the page as it arrives (NFR 001). */}
+        <ServiceAlertBar />
         <SiteHeader />
         <main id="main-content" className="w-full flex-1">
           {children}

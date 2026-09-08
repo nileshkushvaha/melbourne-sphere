@@ -1,4 +1,5 @@
 import type { DatabaseClient } from '@melbourne-sphere/database';
+import { maskEmail } from '@melbourne-sphere/mail';
 import { EnquiryMailerPort, PermanentDeliveryError, TransientDeliveryError } from './mailer/mailer.port.js';
 
 export interface DeliveryJobData {
@@ -12,6 +13,8 @@ export interface DeliveryDeps {
   db: DatabaseClient;
   mailer: EnquiryMailerPort;
   decrypt: (stored: string, aad: string) => string;
+  /** Encrypts the recipient for the delivery record (SRS 1.2 MAIL 005). */
+  encrypt: (plaintext: string, aad: string) => string;
   buildMail: (input: BuildMailInput) => { subject: string; replyTo: string; text: string };
   fromAddress: string;
   siteRecipient: string | undefined;
@@ -75,6 +78,28 @@ export async function deliverEnquiry(data: DeliveryJobData, deps: DeliveryDeps):
   });
 
   await deps.db.enquiry.update({ where: { id: enquiry.id }, data: { deliveryStatus: 'retrying', deliveryAttempts: { increment: 1 } } });
+
+  // The operational delivery log (SRS 1.2 MAIL 005). The enquiry keeps its own
+  // domain state above; this row is what the admin log lists and what a
+  // provider bounce or complaint event is matched back to. A log write must
+  // never stop an accepted enquiry from being delivered, so it is best-effort.
+  const delivery = await deps.db.emailDelivery
+    .create({
+      data: {
+        provider: deps.mailer.transportName.slice(0, 20),
+        templateKey: enquiry.businessId ? 'enquiry.business' : 'enquiry.site_contact',
+        category: 'enquiry',
+        recipientMasked: maskEmail(recipient),
+        recipientEncrypted: deps.encrypt(recipient, 'email_delivery'),
+        // The subject is written by a member of the public, so it is not kept.
+        subject: null,
+        relatedType: 'enquiry',
+        relatedId: enquiry.id,
+        status: 'queued',
+      },
+    })
+    .catch(() => null);
+
   try {
     const result = await deps.mailer.send({
       to: recipient,
@@ -89,11 +114,32 @@ export async function deliverEnquiry(data: DeliveryJobData, deps: DeliveryDeps):
       where: { id: enquiry.id },
       data: { deliveryStatus: 'providerAccepted', providerMessageId: result.providerMessageId, lastError: null, deliveredAt: now() },
     });
+    if (delivery) {
+      // Accepted, not delivered: only a provider event may claim delivery (MAIL 008).
+      await deps.db.emailDelivery
+        .update({ where: { id: delivery.id }, data: { status: 'sent', sentAt: now(), attempts: { increment: 1 }, providerMessageId: result.providerMessageId } })
+        .catch(() => undefined);
+    }
     return 'delivered';
   } catch (error) {
     const permanent = error instanceof PermanentDeliveryError;
     const message = error instanceof Error ? error.message.slice(0, 500) : 'Delivery failed';
     await deps.db.enquiry.update({ where: { id: enquiry.id }, data: { deliveryStatus: permanent ? 'failed' : 'retrying', lastError: message } });
+    if (delivery) {
+      await deps.db.emailDelivery
+        .update({
+          where: { id: delivery.id },
+          data: {
+            status: 'failed',
+            failedAt: now(),
+            attempts: { increment: 1 },
+            failureCode: permanent ? 'permanent_provider' : 'transient_provider',
+            // Already redacted by the transport; bounded again here (MAIL 006).
+            failureSummary: message.slice(0, 300),
+          },
+        })
+        .catch(() => undefined);
+    }
     if (permanent) return 'skipped';
     throw error instanceof TransientDeliveryError ? error : new TransientDeliveryError(message, error);
   }

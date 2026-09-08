@@ -1,6 +1,6 @@
 # SRS navigation index
 
-Index into `docs/Melbourne_Sphere_Technical_SRS_v1.md` (670 lines, MD5 `d59de99dc57ecf636012a0e9619e432d` on 2026-09-07; SRS revision 1.1). It maps implementation areas to the SRS's own headings and requirement IDs so a session reads the complete relevant sections instead of the whole document. It is not a specification: when in doubt, open the section. Line numbers are approximate anchors for `sed -n`; headings are exact.
+Index into `docs/Melbourne_Sphere_Technical_SRS_v1.md` (889 lines, MD5 `c444e13d22d55e83a63f152714a354c1` on 2026-09-08; SRS revision 1.7). It maps implementation areas to the SRS's own headings and requirement IDs so a session reads the complete relevant sections instead of the whole document. It is not a specification: when in doubt, open the section. Line numbers are approximate anchors for `sed -n`; headings are exact.
 
 | Area | SRS heading (exact) | IDs | Approx. lines |
 | --- | --- | --- | --- |
@@ -30,5 +30,20 @@ Index into `docs/Melbourne_Sphere_Technical_SRS_v1.md` (670 lines, MD5 `d59de99d
 | Implementation sequence and release gates | `# 22 Implementation sequence and release gates` | — | 582–606 |
 | Client decisions D01–D08, risks, future scope | `# 23 Decisions risks and future scope` (`## Launch decision register`, `## Principal risks and controls`, `## Explicit future scope`) | FUT 001–004 | 607–637 |
 | Sources and audit handover checklist | `# 24 Source register and audit handover` | — | 638–670 |
+| **Shared settings architecture (typed groups, secrets, versioned change)** | `# 25 Operational administration modules` (`## Shared settings architecture`) | SET 001–005 | 698–713 |
+| **Transactional email: Resend provider, delivery records, webhooks, resend** | `# 25 Operational administration modules` (`## Transactional email provider and delivery records`) | MAIL 001–010 | 714–735 |
+| **Activity log (consolidated, append-only, retention)** | `# 25 Operational administration modules` (`## Activity log`) | ACT 001–006 | 736–749 |
+| **Security settings (authentication, password policy, login, session)** | `# 25 Operational administration modules` (`## Security settings`) | SECS 001–008 | 750–767 |
+| **Cache manager (registered namespaces, prohibited capabilities)** | `# 25 Operational administration modules` (`## Cache manager`) | CMGR 001–005 | 768–779 |
+| **Queue monitor (BullMQ surfaces, redaction, bounded actions)** | `# 25 Operational administration modules` (`## Queue monitor`) | QMON 001–005 | 780–791 |
+| **Scheduled tasks (code registry, locking, run now)** | `# 25 Operational administration modules` (`## Scheduled tasks`) | TASK 001–006 | 792–805 |
+| **Permission catalogue for the new modules** | `# 25 Operational administration modules` (`## Permissions for the operational modules`) | RBAC 013 | 806–811 |
+| **About page** | `# 26 Website content modules` (`## About page`) | ABT 001–006 | 821–833 |
+| **FAQs** | `# 26 Website content modules` (`## Frequently asked questions`) | FAQ 001–005 | 835–846 |
+| **Service alerts above the public header** | `# 26 Website content modules` (`## Service alerts`) | ALRT 001–007 | 847–862 |
+| **Testimonials** | `# 26 Website content modules` (`## Testimonials`) | TSTM 001–005 | 863–874 |
+| **Client/partner logos** | `# 26 Website content modules` (`## Client and partner logos`) | PTNR 001–005 | 875–888 |
 
 Per-phase acceptance criteria are written in `docs/setup-progress.md` from these sections; the requirement-level status lives in `docs/requirements-traceability.md`.
+
+Sections 25–26 were added at revision 1.2 and extend the earlier sections; the obligations of sections 10, 16, 17, 18 and 19 apply to every module specified there. The Logimart reference comparison that informed them is `docs/reference/logimart-comparison.md` — a behavioural reference only, never an architecture or security reference.

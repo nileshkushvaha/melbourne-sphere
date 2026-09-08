@@ -16,6 +16,7 @@ describe('SEO: sitemaps and redirects (integration)', () => {
   let postVersion: number;
   const agent = () => request(app.getHttpServer());
   const post = (path: string, c = cookie) => agent().post(path).set('Origin', ORIGIN).set('Cookie', c);
+  const put = (path: string, c = cookie) => agent().put(path).set('Origin', ORIGIN).set('Cookie', c);
   const del = (path: string, c = cookie) => agent().delete(path).set('Origin', ORIGIN).set('Cookie', c);
   const get = (path: string, c = cookie) => agent().get(path).set('Cookie', c);
   const loginAs = async (email: string, password: string, ip: string) => {
@@ -90,13 +91,38 @@ describe('SEO: sitemaps and redirects (integration)', () => {
 
     const taxonomies = await agent().get('/api/v1/seo/sitemap/taxonomies').expect(200);
     const paths = taxonomies.body.data.map((e: { path: string }) => e.path);
-    expect(paths).toContain('/directory/category/cafes');
-    expect(paths).toContain('/directory/area/melbourne-cbd');
+    expect(paths).toContain('/business/category/cafes');
+    expect(paths).toContain('/business/area/melbourne-cbd');
     expect(paths).toContain('/blog/category/guides');
     // Editorial text alone is not enough: an empty taxonomy stays out (SEO 003).
-    expect(paths).not.toContain('/directory/category/empty-category');
+    expect(paths).not.toContain('/business/category/empty-category');
 
     await agent().get('/api/v1/seo/sitemap/private').expect(404);
+  });
+
+  it('counts what is published for the About page, and never reports an unavailable count as zero', async () => {
+    const res = await agent().get('/api/v1/site/metrics').expect(200);
+    expect(res.body.data).toMatchObject({ businesses: 1, articles: 1 });
+    expect(res.body.data.categories).toBeGreaterThan(0);
+    expect(res.body.data.areas).toBeGreaterThan(0);
+    expect(Number.isNaN(Date.parse(res.body.data.countedAt))).toBe(false);
+    // Public, and cacheable, but never stale enough to misstate a figure.
+    expect(res.headers['cache-control']).toContain('max-age=300');
+  });
+
+  it('lists an information page only once it is published, and always lists the contact route', async () => {
+    const draft = await agent().get('/api/v1/seo/sitemap/pages').expect(200);
+    expect(draft.body.data.map((e: { path: string }) => e.path)).toEqual(['/contact']);
+
+    const realCopy = `<p>${'Melbourne Sphere is an independently edited directory of businesses across the city. '.repeat(4)}</p>`;
+    const saved = await put('/api/v1/admin/pages/about').send({ expectedVersion: 0, title: 'About Melbourne Sphere', body: realCopy }).expect(200);
+    // Still a draft: a page that answers 404 must not be advertised (SEO 002).
+    expect((await agent().get('/api/v1/seo/sitemap/pages').expect(200)).body.data.map((e: { path: string }) => e.path)).toEqual(['/contact']);
+
+    await post('/api/v1/admin/pages/about/publish').send({ expectedVersion: saved.body.data.version }).expect(200);
+    const published = await agent().get('/api/v1/seo/sitemap/pages').expect(200);
+    expect(published.body.data.map((e: { path: string }) => e.path)).toEqual(['/about', '/contact']);
+    expect(Number.isNaN(Date.parse(published.body.data[0].lastModified))).toBe(false);
   });
 
   it('drops unpublished content from every feed', async () => {
@@ -104,7 +130,7 @@ describe('SEO: sitemaps and redirects (integration)', () => {
     const feed = await agent().get('/api/v1/seo/sitemap/businesses').expect(200);
     expect(feed.body.data).toEqual([]);
     const taxonomies = await agent().get('/api/v1/seo/sitemap/taxonomies').expect(200);
-    expect(taxonomies.body.data.map((e: { path: string }) => e.path)).not.toContain('/directory/area/melbourne-cbd');
+    expect(taxonomies.body.data.map((e: { path: string }) => e.path)).not.toContain('/business/area/melbourne-cbd');
     const republished = await post(`/api/v1/admin/businesses/${businessId}/publish`).send({ expectedVersion: unpublished.body.data.version }).expect(200);
     businessVersion = republished.body.data.version;
   });

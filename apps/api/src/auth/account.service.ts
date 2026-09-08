@@ -6,6 +6,8 @@ import { DatabaseService } from '../database/database.service.js';
 import { IdentityService, normaliseEmail, type AdminPrincipal } from '../identity/identity.service.js';
 import { hashResetToken, type RequestContext } from './auth.service.js';
 import { LoginThrottleService, ThrottleUnavailableError } from './login-throttle.service.js';
+import { PasswordHistoryService } from './password-history.service.js';
+import { SecurityPolicyService } from './security-policy.service.js';
 import { PasswordService } from './password.service.js';
 import { SessionService, type SessionSummary } from './session.service.js';
 import { TotpService } from './totp/totp.service.js';
@@ -37,6 +39,8 @@ export class AccountService {
     private readonly encryption: FieldEncryptionService,
     private readonly throttle: LoginThrottleService,
     private readonly audit: AuditService,
+    private readonly policy: SecurityPolicyService,
+    private readonly history: PasswordHistoryService,
   ) {}
 
   // ---- recent authentication -------------------------------------------
@@ -52,7 +56,8 @@ export class AccountService {
   // ---- password --------------------------------------------------------
 
   async changePassword(admin: AdminPrincipal, session: SessionSummary, currentPassword: string, newPassword: string, ctx: RequestContext): Promise<void> {
-    const policyError = PasswordService.validate(newPassword);
+    const { passwordMinLength } = await this.policy.policy();
+    const policyError = PasswordService.validate(newPassword, passwordMinLength);
     if (policyError) throw new HttpException({ code: 'VALIDATION_ERROR', message: policyError, fields: { newPassword: [policyError] } }, HttpStatus.BAD_REQUEST);
     if (normaliseEmail(admin.email) === newPassword.trim().toLowerCase()) {
       throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Password must not be your email address', fields: { newPassword: ['Password must not be your email address'] } }, HttpStatus.BAD_REQUEST);
@@ -62,8 +67,10 @@ export class AccountService {
     if (!(await this.passwords.verify(record.passwordHash, currentPassword))) {
       throw new HttpException({ code: 'INVALID_CREDENTIALS', message: 'Current password is incorrect', fields: { currentPassword: ['Current password is incorrect'] } }, HttpStatus.BAD_REQUEST);
     }
+    await this.history.assertNotReused(admin.id, newPassword, record.passwordHash);
     const passwordHash = await this.passwords.hash(newPassword);
     await db.adminUser.update({ where: { id: admin.id }, data: { passwordHash, passwordChangedAt: new Date(), version: { increment: 1 } } });
+    await this.history.record(admin.id, record.passwordHash);
     const revoked = await this.sessions.revokeAllForAdmin(admin.id, 'password_change', session.id);
     await this.audit.record({ action: 'auth.password.changed', actorAdminId: admin.id, targetType: 'admin_user', targetId: admin.id, metadata: { otherSessionsRevoked: revoked }, requestId: ctx.requestId, ipAddress: ctx.ip });
   }
@@ -71,7 +78,8 @@ export class AccountService {
   // ---- setup acceptance (invited accounts) -----------------------------
 
   async acceptSetup(token: string, password: string, ctx: RequestContext): Promise<void> {
-    const policyError = PasswordService.validate(password);
+    const { passwordMinLength } = await this.policy.policy();
+    const policyError = PasswordService.validate(password, passwordMinLength);
     if (policyError) throw new HttpException({ code: 'VALIDATION_ERROR', message: policyError, fields: { password: [policyError] } }, HttpStatus.BAD_REQUEST);
     const db = await this.database.client();
     const invalid = new HttpException({ code: 'INVALID_SETUP_TOKEN', message: 'This setup link is invalid or has expired' }, HttpStatus.BAD_REQUEST);

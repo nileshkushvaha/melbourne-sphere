@@ -6,7 +6,7 @@ import { sitemapIndexXml } from '@/lib/sitemap-xml';
 // not depend on a running API.
 export const dynamic = 'force-dynamic';
 
-const SECTIONS = ['businesses', 'editorial', 'taxonomies'] as const;
+const SECTIONS = ['businesses', 'editorial', 'taxonomies', 'pages'] as const;
 
 /**
  * Sitemap index split by businesses, editorial content and curated taxonomies

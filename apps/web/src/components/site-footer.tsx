@@ -1,15 +1,15 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { fetchSiteSettings, fetchStaticPages } from '@/lib/api';
+import { fetchSiteSettings, fetchStaticPages, fetchFaqs } from '@/lib/api';
 import { contactChannelFrom } from '@/lib/site';
 import { renderCopyright } from '@/lib/copyright';
 import { BrandMark } from './brand-mark';
 import { SocialLinks } from './social-links';
 
 const DIRECTORY_LINKS = [
-  { href: '/directory', label: 'All businesses' },
-  { href: '/directory?sort=rating&minRating=4', label: 'Highly rated' },
-  { href: '/directory?sort=newest', label: 'Recently added' },
+  { href: '/business', label: 'All businesses' },
+  { href: '/business?sort=rating&minRating=4', label: 'Highly rated' },
+  { href: '/business?sort=newest', label: 'Recently added' },
 ];
 
 const EDITORIAL_LINKS = [{ href: '/blog', label: 'Latest articles' }];
@@ -22,14 +22,14 @@ const EDITORIAL_LINKS = [{ href: '/blog', label: 'Latest articles' }];
  * shown only when an editor has published a routable one.
  */
 export async function SiteFooter() {
-  const [settings, pages] = await Promise.all([fetchSiteSettings(), fetchStaticPages()]);
+  const [settings, pages, faqs] = await Promise.all([fetchSiteSettings(), fetchStaticPages(), fetchFaqs()]);
   const channel = contactChannelFrom(settings);
   const { phone, address } = settings.contact;
   const copyright = renderCopyright(settings.footer.copyrightText, { year: new Date().getFullYear(), name: settings.name });
 
   return (
-    <footer className="ms-on-dark border-t border-band-border bg-band-deep text-band-text">
-      <div className="ms-container py-14 sm:py-16">
+    <footer className="ms-on-dark border-t border-band-border bg-band-deep text-band-text [background-image:radial-gradient(circle_at_15%_10%,rgba(25,158,216,.12),transparent_32%)]">
+      <div className="ms-container py-16 sm:py-20">
         <div className="grid gap-10 lg:grid-cols-[1.6fr_1fr_1fr_1fr] lg:gap-12">
           <div className="max-w-sm">
             <p className="flex items-center gap-2.5">
@@ -50,9 +50,9 @@ export async function SiteFooter() {
             </div>
           </div>
 
-          <nav aria-labelledby="footer-directory" className="text-sm">
-            <h2 id="footer-directory" className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-400">
-              Directory
+          <nav aria-labelledby="footer-businesses" className="text-sm">
+            <h2 id="footer-businesses" className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-400">
+              Businesses
             </h2>
             <ul className="mt-4 flex flex-col gap-1">
               {DIRECTORY_LINKS.map((link) => (
@@ -82,10 +82,19 @@ export async function SiteFooter() {
 
           <div className="text-sm">
             <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-400">Information</h2>
-            {pages.length === 0 ? (
+            {pages.length === 0 && faqs.length === 0 ? (
               <p className="mt-4 text-band-muted">Privacy, terms and review guidelines are being prepared and will be linked here once published.</p>
             ) : (
               <ul className="mt-4 flex flex-col gap-1">
+                {/* Linked only once a question is actually published, on the same
+                    rule as the information pages: no link ever points at a 404. */}
+                {faqs.length > 0 && (
+                  <li>
+                    <Link href="/faqs" className="inline-flex min-h-9 items-center text-band-muted underline-offset-4 hover:text-white hover:underline">
+                      FAQs
+                    </Link>
+                  </li>
+                )}
                 {pages.map((page) => (
                   <li key={page.slug}>
                     <Link href={`/${page.slug}`} className="inline-flex min-h-9 items-center text-band-muted underline-offset-4 hover:text-white hover:underline">

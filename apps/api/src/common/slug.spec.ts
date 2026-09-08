@@ -1,4 +1,4 @@
-import { isValidSlug, slugify } from './slug.js';
+import { isReservedBusinessSlug, isValidSlug, slugify } from './slug.js';
 
 describe('slugify', () => {
   it.each([
@@ -25,5 +25,18 @@ describe('isValidSlug', () => {
     expect(isValidSlug('melbourne-cbd')).toBe(true);
     expect(isValidSlug('cafes')).toBe(true);
     for (const bad of ['', 'Cafes', 'cafes-', '-cafes', 'ca--fes', 'ca fes', 'café', 'a'.repeat(101)]) expect(isValidSlug(bad)).toBe(false);
+  });
+});
+
+describe('reserved business slugs (SRS UX 003, revision 1.3)', () => {
+  it('reserves the curated page segments that share the /business prefix', () => {
+    expect(isReservedBusinessSlug('category')).toBe(true);
+    expect(isReservedBusinessSlug('area')).toBe(true);
+  });
+
+  it('reserves nothing else, so ordinary listing slugs are unaffected', () => {
+    for (const slug of ['categories', 'areas', 'carlton-corner-bakery', 'business']) {
+      expect(isReservedBusinessSlug(slug), slug).toBe(false);
+    }
   });
 });

@@ -1,30 +1,131 @@
 /**
- * Static information pages (SRS CFG 002). The slug set is fixed so no one can
- * publish an arbitrary top-level URL, and each page carries the guidance an
- * editor needs before publishing legal or contact copy.
+ * Information pages (SRS CFG 002, amended in SRS 1.6 and 1.7).
+ *
+ * There are two kinds of page, and the difference is only who decided the
+ * address:
+ *
+ *  - **System pages** are declared here. They exist because something in the
+ *    product refers to them — the review form links to the review guidelines,
+ *    the privacy policy is named in the forms' collection notice, and About has
+ *    its own template and navigation item. They cannot be created, renamed or
+ *    deleted from the interface, because the code that points at them would
+ *    then point at nothing.
+ *  - **Custom pages** are created by an administrator with any address that
+ *    passes `pageSlugProblem`. Until SRS 1.7 the slug set was closed, which
+ *    guaranteed that no one could publish an arbitrary top-level URL; that
+ *    guarantee is now kept by validation instead — a reserved list, a strict
+ *    pattern and a uniqueness check — so an editor can add a page without being
+ *    able to shadow a product route or take an address the framework already
+ *    serves.
+ *
+ * There is deliberately no `contact` page of either kind: `/contact` is a
+ * product route whose routing address comes from the site settings (CFG 001),
+ * so an editor cannot redirect enquiries by typing an address into a document.
  */
-export const STATIC_PAGE_SLUGS = ['about', 'contact', 'privacy', 'terms', 'review-guidelines'] as const;
-export type StaticPageSlug = (typeof STATIC_PAGE_SLUGS)[number];
+export type StaticPageTemplate = 'generic' | 'about';
 
 export interface StaticPageDefinition {
-  slug: StaticPageSlug;
+  slug: string;
   defaultTitle: string;
   /** What the page is for; shown to editors, never published. */
   purpose: string;
-  /** Contact routing lives on this page only (CFG 002). */
-  routesContact?: boolean;
+  /** Which public template renders it, and therefore which editor opens it. */
+  template: StaticPageTemplate;
 }
 
-export const STATIC_PAGES: StaticPageDefinition[] = [
-  { slug: 'about', defaultTitle: 'About Melbourne Sphere', purpose: 'Who publishes the directory, how listings are chosen and how editorial decisions are made.' },
-  { slug: 'contact', defaultTitle: 'Contact us', purpose: 'How readers and businesses reach the editors. The contact address is validated before it can be activated.', routesContact: true },
-  { slug: 'privacy', defaultTitle: 'Privacy', purpose: 'What personal data the site collects, why, how long it is kept and how to request deletion.' },
-  { slug: 'terms', defaultTitle: 'Terms of use', purpose: 'The terms visitors accept by using the site, including listing accuracy and liability.' },
-  { slug: 'review-guidelines', defaultTitle: 'Review guidelines', purpose: 'The rules reviewers agree to; linked from the review and comment forms.' },
+/** Pages the product itself refers to. Not creatable, renameable or deletable. */
+export const SYSTEM_PAGES: StaticPageDefinition[] = [
+  {
+    slug: 'about',
+    defaultTitle: 'About Melbourne Sphere',
+    purpose: 'Who publishes the directory, how listings are chosen and how editorial decisions are made. Rendered by the About template, which adds live directory counts.',
+    template: 'about',
+  },
+  { slug: 'privacy', defaultTitle: 'Privacy Policy', purpose: 'What personal data the site collects, why, how long it is kept and how to request deletion.', template: 'generic' },
+  { slug: 'terms', defaultTitle: 'Terms of Use', purpose: 'The terms visitors accept by using the site, including listing accuracy and liability.', template: 'generic' },
+  { slug: 'review-guidelines', defaultTitle: 'Review Guidelines', purpose: 'The rules reviewers agree to; linked from the review and comment forms.', template: 'generic' },
 ];
 
-export function staticPageDefinition(slug: string): StaticPageDefinition | undefined {
-  return STATIC_PAGES.find((page) => page.slug === slug);
+export const SYSTEM_PAGE_SLUGS = SYSTEM_PAGES.map((page) => page.slug);
+
+export function systemPageDefinition(slug: string): StaticPageDefinition | undefined {
+  return SYSTEM_PAGES.find((page) => page.slug === slug);
+}
+
+export function isSystemPage(slug: string): boolean {
+  return SYSTEM_PAGE_SLUGS.includes(slug);
+}
+
+/** Editor-facing description of a page an administrator created. */
+export const CUSTOM_PAGE_PURPOSE = 'A page you created. It is published at this address and listed in the site footer once it goes live.';
+
+/**
+ * Addresses a custom page may not take.
+ *
+ * Two groups, for two different failure modes. The first are routes the public
+ * site already serves: Next.js resolves a static route before the dynamic page
+ * route, so a page slugged `blog` would be created, published, listed in the
+ * footer, and answer with the blog index — a page that exists everywhere except
+ * where you look for it. The second are addresses that are not routes today but
+ * would be surprising to hand to an editor: framework and infrastructure paths,
+ * and the admin surface itself.
+ */
+export const RESERVED_SLUGS = [
+  // Public routes.
+  'about',
+  'blog',
+  'business',
+  'businesses',
+  'contact',
+  'directory',
+  'faqs',
+  'privacy',
+  'terms',
+  'review-guidelines',
+  'robots.txt',
+  'sitemap.xml',
+  'sitemaps',
+  // Framework, infrastructure and the admin surface.
+  '_next',
+  'admin',
+  'api',
+  'assets',
+  'account',
+  'health',
+  'images',
+  'login',
+  'logout',
+  'media',
+  'public',
+  'search',
+  'static',
+  'well-known',
+] as const;
+
+/** Lower-case letters, digits and single hyphens; 2–64 characters. */
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const MAX_SLUG_LENGTH = 64;
+
+/**
+ * Why this address cannot be used, or null when it can.
+ *
+ * Returns a sentence rather than a boolean because every one of these is shown
+ * to the person typing: "invalid" tells an editor nothing they can act on.
+ */
+export function pageSlugProblem(input: string): string | null {
+  const slug = input.trim().toLowerCase();
+  if (slug.length < 2) return 'An address needs at least 2 characters';
+  if (slug.length > MAX_SLUG_LENGTH) return `An address is at most ${MAX_SLUG_LENGTH} characters`;
+  // Reserved before pattern: `sitemap.xml` and `robots.txt` fail both, and
+  // "that address belongs to the site" is the more useful of the two answers.
+  if ((RESERVED_SLUGS as readonly string[]).includes(slug)) return 'That address is used by the site itself, so a page there would never be seen';
+  if (!SLUG_PATTERN.test(slug)) return 'Use lower-case letters, numbers and single hyphens, for example community-guidelines';
+  return null;
+}
+
+/** The address as it will be stored, once `pageSlugProblem` has accepted it. */
+export function normalisePageSlug(input: string): string {
+  return input.trim().toLowerCase();
 }
 
 /** Minimum body length that counts as real content rather than a stub. */
@@ -46,18 +147,12 @@ const PLACEHOLDER_PATTERNS = [
  * Publication gate for an information page. Returns the reasons it cannot be
  * published; an empty list means it is ready.
  */
-export function staticPageBlockers(input: { title: string; plainBody: string; contactEmail?: string | null; routesContact?: boolean }): string[] {
+export function staticPageBlockers(input: { title: string; plainBody: string }): string[] {
   const blockers: string[] = [];
   if (input.title.trim().length < 3) blockers.push('Title must be at least 3 characters');
   const body = input.plainBody.trim();
   if (body.length < MIN_BODY_CHARACTERS) blockers.push(`Page content must be at least ${MIN_BODY_CHARACTERS} characters of real copy`);
   const placeholder = PLACEHOLDER_PATTERNS.find((pattern) => pattern.test(body) || pattern.test(input.title));
   if (placeholder) blockers.push('Remove placeholder or sample wording before publishing');
-  if (input.routesContact) {
-    const email = (input.contactEmail ?? '').trim();
-    if (email === '') blockers.push('A contact address is required before the contact page can be published');
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) blockers.push('The contact address is not a valid email address');
-    else if (/example\.(com|org|net)$/i.test(email)) blockers.push('The contact address must not be an example domain');
-  }
   return blockers;
 }

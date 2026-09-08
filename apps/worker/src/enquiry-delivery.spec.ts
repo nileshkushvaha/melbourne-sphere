@@ -42,7 +42,20 @@ function deps(overrides: Partial<TestEnquiry> & { mailer?: RecordingMailer } = {
   const { mailer = new RecordingMailer(), ...enquiryOverrides } = overrides;
   const enquiry = { ...baseEnquiry, ...enquiryOverrides };
   const updates: Record<string, unknown>[] = [];
+  const deliveries: Record<string, unknown>[] = [];
   const db = {
+    // The operational delivery log (SRS 1.2 MAIL 005): recorded around the
+    // send, and never able to stop it.
+    emailDelivery: {
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        deliveries.push(data);
+        return { id: 'del-1' };
+      },
+      update: async ({ data }: { data: Record<string, unknown> }) => {
+        deliveries.push(data);
+        return { id: 'del-1' };
+      },
+    },
     enquiry: {
       findUnique: async () => (enquiryOverrides.id === null ? null : enquiry),
       update: async ({ data }: { data: Record<string, unknown> }) => {
@@ -60,12 +73,13 @@ function deps(overrides: Partial<TestEnquiry> & { mailer?: RecordingMailer } = {
     db: db as never,
     mailer,
     decrypt: (stored: string) => stored.replace('enc:', ''),
+    encrypt: (plaintext: string) => `enc:${plaintext}`,
     buildMail: () => built,
     fromAddress: 'no-reply@melbournesphere.example',
     siteRecipient: 'site@melbournesphere.example',
     now: () => new Date('2026-09-06T03:00:00Z'),
   } satisfies DeliveryDeps;
-  return { dependencies, updates, mailer, db: db as never };
+  return { dependencies, updates, deliveries, mailer, db: db as never };
 }
 
 describe('enquiry delivery (SRS ENQ 004–006)', () => {
@@ -118,5 +132,43 @@ describe('enquiry delivery (SRS ENQ 004–006)', () => {
     const { db, updates } = deps();
     await markDeliveryFailed(db, 'enq-1234567890abc', 'attempts exhausted');
     expect(updates.at(-1)).toMatchObject({ deliveryStatus: 'failed', lastError: 'attempts exhausted' });
+  });
+});
+
+describe('delivery log records (SRS 1.2 MAIL 005/006/008)', () => {
+  it('records the send with a masked and encrypted recipient, no subject and status "sent"', async () => {
+    const { dependencies, deliveries } = deps();
+    await deliverEnquiry({ eventId: 'e1', enquiryId: 'enq-1234567890abc' }, dependencies);
+
+    expect(deliveries[0]).toMatchObject({
+      templateKey: 'enquiry.business',
+      category: 'enquiry',
+      recipientMasked: 'o•••r@example.com',
+      recipientEncrypted: 'enc:owner@example.com',
+      // A visitor writes the subject, so it is not retained.
+      subject: null,
+      relatedType: 'enquiry',
+      status: 'queued',
+    });
+    // Accepted by the provider is "sent", never "delivered".
+    expect(deliveries.at(-1)).toMatchObject({ status: 'sent', providerMessageId: 'provider-1' });
+  });
+
+  it('records a failed attempt with a bounded code rather than provider text', async () => {
+    const mailer = new RecordingMailer();
+    mailer.failWith = new TransientDeliveryError('SMTP ECONNREFUSED: relay unreachable');
+    const { dependencies, deliveries } = deps({ mailer });
+
+    await expect(deliverEnquiry({ eventId: 'e1', enquiryId: 'enq-1234567890abc' }, dependencies)).rejects.toBeInstanceOf(TransientDeliveryError);
+    expect(deliveries.at(-1)).toMatchObject({ status: 'failed', failureCode: 'transient_provider' });
+  });
+
+  it('never lets a failure to write the log stop an accepted enquiry from being delivered', async () => {
+    const { dependencies, updates } = deps();
+    (dependencies.db as unknown as { emailDelivery: { create: () => Promise<unknown> } }).emailDelivery.create = async () => {
+      throw new Error('log unavailable');
+    };
+    expect(await deliverEnquiry({ eventId: 'e1', enquiryId: 'enq-1234567890abc' }, dependencies)).toBe('delivered');
+    expect(updates.at(-1)).toMatchObject({ deliveryStatus: 'providerAccepted' });
   });
 });

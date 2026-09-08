@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
+import { ACTIVITY_RETENTION_DAYS } from './activity-catalogue.js';
 
 export interface AuditEntry {
   action: string;
@@ -46,6 +47,20 @@ export class AuditService {
   async recordOrThrow(entry: AuditEntry): Promise<void> {
     const db = await this.database.client();
     await this.recordWith(db, entry);
+  }
+
+  /**
+   * Applies the activity retention policy (SRS 1.2 ACT 006, PRIV 001): events
+   * older than 365 days are removed. It reports how many rows went, never what
+   * was in them, and is idempotent, so the scheduled task that calls it can be
+   * re-run safely.
+   */
+  async purgeExpired(now: Date = new Date()): Promise<{ removed: number; olderThan: string }> {
+    const cutoff = new Date(now.getTime() - ACTIVITY_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+    const db = await this.database.client();
+    const { count } = await db.auditLog.deleteMany({ where: { createdAt: { lt: cutoff } } });
+    if (count > 0) this.logger.log(`activity retention: removed ${count} events older than ${cutoff.toISOString()}`);
+    return { removed: count, olderThan: cutoff.toISOString() };
   }
 
   /**

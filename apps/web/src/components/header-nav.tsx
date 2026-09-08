@@ -15,7 +15,9 @@ interface Props {
   action: { href: string; label: string } | null;
 }
 
-function isCurrent(pathname: string, href: string): boolean {
+/** `usePathname` can be null before a path is known; no link is current then. */
+function isCurrent(pathname: string | null, href: string): boolean {
+  if (!pathname) return false;
   return href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -38,7 +40,7 @@ export function HeaderNav({ links, action }: Props) {
               href={link.href}
               aria-current={current ? 'page' : undefined}
               className={`relative inline-flex min-h-11 items-center whitespace-nowrap rounded-lg px-3.5 text-sm font-medium transition-colors ${
-                current ? 'bg-white/12 text-white' : 'text-band-muted hover:bg-white/8 hover:text-white'
+                current ? 'bg-white/10 text-white shadow-inner' : 'text-band-muted hover:bg-white/[0.06] hover:text-white'
               }`}
             >
               {link.label}
@@ -52,7 +54,7 @@ export function HeaderNav({ links, action }: Props) {
         {action && (
           <Link
             href={action.href}
-            className="hidden min-h-11 items-center rounded-full bg-sky-500 px-5 text-sm font-semibold text-navy-950 transition-colors hover:bg-sky-400 sm:inline-flex"
+            className="hidden min-h-11 items-center rounded-full bg-gradient-to-r from-sky-400 to-sky-500 px-5 text-sm font-bold text-navy-950 shadow-[0_10px_28px_-14px_rgba(25,158,216,.85)] transition-transform hover:-translate-y-0.5 sm:inline-flex"
           >
             {action.label}
           </Link>
@@ -78,7 +80,7 @@ export function HeaderNav({ links, action }: Props) {
                     <Link
                       href={link.href}
                       aria-current={current ? 'page' : undefined}
-                      className={`flex min-h-11 items-center rounded-lg px-3 text-sm font-medium ${current ? 'bg-white/12 text-white' : 'text-band-muted hover:bg-white/8 hover:text-white'}`}
+                      className={`flex min-h-11 items-center rounded-lg px-3 text-sm font-medium ${current ? 'bg-white/10 text-white shadow-inner' : 'text-band-muted hover:bg-white/[0.06] hover:text-white'}`}
                     >
                       {link.label}
                     </Link>

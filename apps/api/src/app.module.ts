@@ -18,8 +18,13 @@ import { BlogModule } from './blog/blog.module.js';
 import { EnquiriesModule } from './enquiries/enquiries.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
 import { SeoModule } from './seo/seo.module.js';
+import { EmailModule } from './email/email.module.js';
+import { WebsiteModule } from './website/website.module.js';
 import { SettingsModule } from './settings/settings.module.js';
+import { SettingsStoreModule } from './settings/settings-store.module.js';
 import { SiteModule } from './site/site.module.js';
+import { QueuesModule } from './queues/queues.module.js';
+import { SchedulesModule } from './schedules/schedules.module.js';
 import { TaxonomyModule } from './taxonomy/taxonomy.module.js';
 
 @Module({
@@ -30,7 +35,10 @@ import { TaxonomyModule } from './taxonomy/taxonomy.module.js';
     DashboardModule,
     OperationsModule,
     SeoModule,
+    SettingsStoreModule,
     SettingsModule,
-    SiteModule, HealthModule],
+    EmailModule,
+    WebsiteModule,
+    QueuesModule, SchedulesModule, SiteModule, HealthModule],
 })
 export class AppModule {}

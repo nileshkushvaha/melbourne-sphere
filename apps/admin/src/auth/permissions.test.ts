@@ -8,11 +8,16 @@ import { ALL_PERMISSION_CODES, permissionsForPath, ROUTE_PERMISSIONS } from './p
  * the API source rather than importing it (the two apps do not share a package),
  * so adding a permission on the server fails here until the admin knows about it
  * — the alternative is a screen silently gated on a code that no longer exists.
+ *
+ * Retired entries (`active: false`) are excluded: they grant nothing and are not
+ * offered for assignment (SRS RBAC 002), so the admin must not carry them.
  */
 function apiCatalogueKeys(): string[] {
   const source = apiCatalogueSource;
   const block = source.slice(source.indexOf('export const PERMISSIONS = {'), source.indexOf('} as const satisfies'));
-  return [...block.matchAll(/^\s{2}'([a-z][a-z0-9_.]+)':/gm)].map((match) => match[1]);
+  return [...block.matchAll(/^\s{2}'([a-z][a-z0-9_.]+)':\s*\{([^}]*)\}/gm)]
+    .filter((match) => !/active:\s*false/.test(match[2] ?? ''))
+    .map((match) => match[1]);
 }
 
 describe('admin permission codes', () => {
@@ -33,5 +38,22 @@ describe('admin permission codes', () => {
     expect(permissionsForPath('/permissions')).toEqual(['permissions.view']);
     expect(permissionsForPath('/admins')).toEqual(['admins.manage']);
     expect(permissionsForPath('/audit')).toEqual(['audit.read']);
+  });
+});
+
+describe('route patterns with parameters', () => {
+  it('gives an editor route its own permission rather than the list’s', () => {
+    expect(permissionsForPath('/website/faqs')).toEqual(['website.faqs.view']);
+    expect(permissionsForPath('/website/faqs/new')).toEqual(['website.faqs.create']);
+    expect(permissionsForPath('/website/faqs/cmt123abc')).toEqual(['website.faqs.update']);
+  });
+
+  it('still falls back to the longest matching prefix for nested routes', () => {
+    // `/businesses/:id/anything` has no pattern of its own; the list's mapping covers it.
+    expect(permissionsForPath('/businesses/abc/edit')).toEqual(['listings.read']);
+  });
+
+  it('grants nothing for a path nobody mapped', () => {
+    expect(permissionsForPath('/not-a-route')).toEqual([]);
   });
 });

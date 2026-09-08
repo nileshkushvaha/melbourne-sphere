@@ -2,7 +2,10 @@ import { hashSessionToken, SESSION_COOKIE_PATH, SessionService } from './session
 
 function make(overrides: Record<string, unknown> = {}) {
   const values: Record<string, unknown> = { SESSION_IDLE_MINUTES: 30, SESSION_ABSOLUTE_HOURS: 12, SESSION_COOKIE_SECURE: true, ...overrides };
-  return new SessionService({} as never, { get: (k: string) => values[k] } as never);
+  // The security policy resolves to the specified defaults in these tests; the
+  // settings that narrow it have their own suite.
+  const policy = { policy: async () => ({ sessionIdleMs: 30 * 60_000, sessionAbsoluteMs: 12 * 3_600_000, maxConcurrentSessions: 10, passwordResetMs: 30 * 60_000, passwordMinLength: 12, passwordHistoryDepth: 0, loginMaxFailedAttempts: 5, loginBlockSeconds: 900 }) } as never;
+  return new SessionService({} as never, policy, { get: (k: string) => values[k] } as never);
 }
 
 describe('SessionService', () => {

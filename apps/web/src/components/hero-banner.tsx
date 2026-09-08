@@ -40,9 +40,19 @@ const subscribeToVisibility = (onChange: () => void) => {
  * directional navy gradient, with the headline and search panel fixed on top.
  * Slides cross-fade in place, so the rotation never moves the layout; it stops
  * under `prefers-reduced-motion`, while the tab is hidden, and whenever the
- * visitor pauses it. The first slide is server-rendered and prioritised, and a
- * navy gradient sits underneath so the hero is still a designed banner if the
- * photograph fails to load or none is configured.
+ * visitor pauses it.
+ *
+ * The pause control is present but not part of the visual composition (client
+ * instruction, 7 Sep 2026): it is off-screen until it receives keyboard focus,
+ * then appears in place. HERO 003 and WCAG 2.2 SC 2.2.2 require a mechanism to
+ * stop automatically continuing motion, not a permanently visible button, and
+ * this keeps one reachable by keyboard and announced to screen readers while the
+ * banner stays uncluttered. Stepping through the images with previous, next or a
+ * dot also stops the rotation, so a mouse user has a way to stop it too.
+ *
+ * The first slide is server-rendered and prioritised, and a navy gradient sits
+ * underneath so the hero is still a designed banner if the photograph fails to
+ * load or none is configured.
  */
 export function HeroBanner({ slides, children }: Props) {
   const [index, setIndex] = useState(0);
@@ -61,6 +71,7 @@ export function HeroBanner({ slides, children }: Props) {
   }, [rotating, index, slides.length]);
 
   const go = (next: number) => {
+    // Stepping through the images is itself a request to stop the rotation.
     setPaused(true);
     setIndex((next + slides.length) % slides.length);
   };
@@ -70,10 +81,10 @@ export function HeroBanner({ slides, children }: Props) {
   return (
     <section
       aria-label="Melbourne Sphere"
-      className="ms-on-dark relative isolate flex min-h-[34rem] items-center overflow-hidden bg-navy-950 py-16 text-band-text sm:min-h-[38rem] sm:py-20 lg:min-h-[44rem]"
+      className="ms-on-dark relative isolate flex min-h-[31rem] items-center overflow-hidden bg-navy-950 py-9 text-band-text sm:min-h-[33rem] sm:py-10 lg:min-h-[34rem]"
     >
       {/* Designed fallback: present whether or not a photograph loads (SRS HERO 001). */}
-      <div aria-hidden="true" className="absolute inset-0 -z-30 bg-[radial-gradient(120%_120%_at_10%_-10%,#1d447f_0%,#0e2242_45%,#08152b_100%)]" />
+      <div aria-hidden="true" className="absolute inset-0 -z-30 bg-[radial-gradient(120%_120%_at_10%_-10%,#1d4c82_0%,#0d2848_45%,#071426_100%)]" />
 
       {slides.map((slide, position) => (
         <div key={slide.url} aria-hidden={position !== index} className={`absolute inset-0 -z-20 transition-opacity duration-700 ${position === index ? 'opacity-100' : 'opacity-0'}`}>
@@ -100,7 +111,7 @@ export function HeroBanner({ slides, children }: Props) {
       <div aria-hidden="true" className="absolute inset-0 -z-10 bg-navy-950/80 sm:hidden" />
       <div
         aria-hidden="true"
-        className="absolute inset-0 -z-10 hidden bg-[linear-gradient(90deg,rgba(8,21,43,0.94)_0%,rgba(8,21,43,0.86)_28%,rgba(8,21,43,0.55)_52%,rgba(8,21,43,0.2)_78%,rgba(8,21,43,0.12)_100%)] sm:block"
+        className="absolute inset-0 -z-10 hidden bg-[linear-gradient(90deg,rgba(7,20,38,0.96)_0%,rgba(7,20,38,0.88)_30%,rgba(7,20,38,0.58)_55%,rgba(7,20,38,0.18)_82%,rgba(7,20,38,0.08)_100%)] sm:block"
       />
       <div aria-hidden="true" className="absolute inset-x-0 bottom-0 -z-10 h-1/2 bg-gradient-to-t from-navy-950/70 to-transparent" />
 
@@ -108,7 +119,7 @@ export function HeroBanner({ slides, children }: Props) {
         {children}
 
         {slides.length > 1 && (
-          <div className="mt-10 flex flex-wrap items-center gap-3">
+          <div className="mt-6 flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => go(index - 1)} aria-label="Previous banner image" className={control}>
               <ChevronLeftIcon aria-hidden="true" className="size-5" />
             </button>
@@ -116,11 +127,14 @@ export function HeroBanner({ slides, children }: Props) {
               <ChevronRightIcon aria-hidden="true" className="size-5" />
             </button>
             {!reducedMotion && (
+              // Off-screen until focused, then shown in place: the mechanism
+              // WCAG 2.2 SC 2.2.2 and HERO 003 require, without a button in the
+              // visual composition.
               <button
                 type="button"
                 onClick={() => setPaused((current) => !current)}
                 aria-pressed={paused}
-                className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/30 bg-black/30 px-4 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-black/50"
+                className="sr-only focus-visible:not-sr-only focus-visible:inline-flex focus-visible:min-h-11 focus-visible:items-center focus-visible:gap-2 focus-visible:rounded-full focus-visible:border focus-visible:border-white/30 focus-visible:bg-black/60 focus-visible:px-4 focus-visible:text-sm focus-visible:font-medium focus-visible:text-white focus-visible:backdrop-blur"
               >
                 {paused ? <PlayIcon aria-hidden="true" className="size-4" /> : <PauseIcon aria-hidden="true" className="size-4" />}
                 {paused ? 'Resume the banner' : 'Pause the banner'}

@@ -278,9 +278,30 @@ describe('public submission configuration (SRS SEC 002/003)', () => {
   describe('transactional mail (SRS ENQ 005, decision D03)', () => {
     const COMPLETE = { ...PROD, TURNSTILE_SECRET_KEY: 'a'.repeat(20), PUBLIC_SITE_URL: 'https://melbournesphere.example', MAIL_FROM_ADDRESS: 'no-reply@melbournesphere.example', MEDIA_S3_ACCESS_KEY_ID: 'key', MEDIA_S3_SECRET_ACCESS_KEY: 'secret', MEDIA_PUBLIC_BASE_URL: 'https://cdn.melbournesphere.example' };
 
-    it('requires the smtp transport in production', () => {
-      expect(() => validateEnv({ ...COMPLETE })).toThrow(/MAIL_TRANSPORT: must be smtp in production/);
+    it('requires a real transport in production', () => {
+      expect(() => validateEnv({ ...COMPLETE })).toThrow(/MAIL_TRANSPORT: must be smtp or resend in production/);
       expect(() => validateEnv({ ...COMPLETE, MAIL_TRANSPORT: 'console' })).toThrow(/MAIL_TRANSPORT: console/);
+    });
+
+    it('refuses resend without the API key, a verified sender or the webhook secret (MAIL 002)', () => {
+      const RESEND = { ...COMPLETE, MAIL_TRANSPORT: 'resend', MAIL_FROM_ADDRESS: 'no-reply@mail.melbournesphere.com', RESEND_API_KEY: 're_live_key', RESEND_WEBHOOK_SECRET: 'whsec_c2VjcmV0' };
+      expect(() => validateEnv({ ...RESEND })).not.toThrow();
+      expect(() => validateEnv({ ...RESEND, RESEND_API_KEY: undefined })).toThrow(/RESEND_API_KEY/);
+      expect(() => validateEnv({ ...RESEND, RESEND_WEBHOOK_SECRET: undefined })).toThrow(/RESEND_WEBHOOK_SECRET/);
+      expect(() => validateEnv({ ...RESEND, MAIL_FROM_ADDRESS: 'no-reply@melbournesphere.local' })).toThrow(/verified production sender/);
+    });
+
+    it('never echoes the Resend key in a failure message (SET 004)', () => {
+      const message = (() => {
+        try {
+          validateEnv({ ...COMPLETE, MAIL_TRANSPORT: 'resend', RESEND_API_KEY: 'totally-not-a-resend-key', RESEND_WEBHOOK_SECRET: 'whsec_c2VjcmV0' });
+          return '';
+        } catch (error) {
+          return (error as Error).message;
+        }
+      })();
+      expect(message).toMatch(/RESEND_API_KEY/);
+      expect(message).not.toContain('totally-not-a-resend-key');
     });
 
     it('refuses smtp without a relay, without credentials in production, and never echoes values', () => {

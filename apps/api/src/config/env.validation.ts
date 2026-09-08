@@ -3,7 +3,7 @@ import { ArrayNotEmpty, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUrl, Max
 import type { ValidationArguments, ValidatorConstraintInterface } from 'class-validator';
 import { ValidatorConstraint } from 'class-validator';
 import { hasVerifiedTls, parseMysqlUrl } from '@melbourne-sphere/database';
-import { smtpConfigFromEnv } from '@melbourne-sphere/mail';
+import { resendConfigFromEnv, smtpConfigFromEnv } from '@melbourne-sphere/mail';
 
 export const NODE_ENVS = ['development', 'test', 'production'] as const;
 export type NodeEnv = (typeof NODE_ENVS)[number];
@@ -156,11 +156,12 @@ export class EnvironmentVariables {
 
   /**
    * "none" (nothing is sent; delivery reports as unavailable), "console"
-   * (development only: prints the message) or "smtp" (the provider-independent
-   * production transport, SRS ENQ 005 / decision D03). Production requires smtp.
+   * (development only: prints the message), "smtp" (any authenticated relay,
+   * and Mailpit locally) or "resend" (the planned production provider, SRS 1.2
+   * MAIL 001–002). Production requires smtp or resend.
    */
-  @IsIn(['none', 'console', 'smtp'], { message: 'MAIL_TRANSPORT must be none, console or smtp' })
-  MAIL_TRANSPORT: 'none' | 'console' | 'smtp' = 'none';
+  @IsIn(['none', 'console', 'smtp', 'resend'], { message: 'MAIL_TRANSPORT must be none, console, smtp or resend' })
+  MAIL_TRANSPORT: 'none' | 'console' | 'smtp' | 'resend' = 'none';
 
   @IsBoolean({ message: 'OPENAPI_ENABLED must be true or false' })
   OPENAPI_ENABLED = false;
@@ -187,6 +188,36 @@ export class EnvironmentVariables {
   @IsString()
   @MaxLength(254)
   MAIL_FROM_ADDRESS?: string;
+
+  /** Resend API key for MAIL_TRANSPORT=resend (SRS 1.2 MAIL 002, SET 004: environment only, never a setting, never in a response). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  RESEND_API_KEY?: string;
+
+  /** Signing secret for the Resend delivery webhook (MAIL 007). Required in production so delivery events can be verified. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  RESEND_WEBHOOK_SECRET?: string;
+
+  /** Overridable only outside production, so a test can point at a local stub. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  RESEND_API_BASE_URL?: string;
+
+  /** Display name on outbound mail. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(78)
+  MAIL_FROM_NAME?: string;
+
+  /** Reply-To on outbound mail where the message does not set its own. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(254)
+  MAIL_REPLY_TO_ADDRESS?: string;
 
   /** SMTP relay for MAIL_TRANSPORT=smtp; validated by @melbourne-sphere/mail (auth and TLS mandatory in production). */
   @IsOptional()
@@ -288,6 +319,7 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
     'PUBLIC_ADMIN_URL', 'PUBLIC_SITE_URL', 'MAIL_TRANSPORT', 'OPENAPI_ENABLED', 'FIELD_ENCRYPTION_KEY',
     'TURNSTILE_SECRET_KEY', 'SUBMISSION_TERMS_VERSION', 'SITE_ENQUIRY_RECIPIENT', 'MAIL_FROM_ADDRESS',
     'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_USER', 'SMTP_PASSWORD',
+    'RESEND_API_KEY', 'RESEND_WEBHOOK_SECRET', 'RESEND_API_BASE_URL', 'MAIL_FROM_NAME', 'MAIL_REPLY_TO_ADDRESS',
     'MEDIA_S3_ENDPOINT', 'MEDIA_S3_REGION', 'MEDIA_S3_ACCESS_KEY_ID', 'MEDIA_S3_SECRET_ACCESS_KEY',
     'MEDIA_QUARANTINE_BUCKET', 'MEDIA_PUBLIC_BUCKET', 'MEDIA_PUBLIC_BASE_URL',
   ] as const;
@@ -331,11 +363,18 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
     if (!validated.MAIL_FROM_ADDRESS) problems.push('  - MAIL_FROM_ADDRESS: required when MAIL_TRANSPORT=smtp (verified sender)');
     if (problems.length) throw new Error(`Invalid mail configuration:\n${problems.join('\n')}`);
   }
+  // Same rule for the provider transport: a missing key or an unverifiable
+  // sender must stop start-up, never fall back to a transport that discards
+  // mail (SRS 1.2 MAIL 002).
+  if (validated.MAIL_TRANSPORT === 'resend') {
+    const resend = resendConfigFromEnv(validated, { production: validated.NODE_ENV === 'production' });
+    if (resend.problems.length) throw new Error(`Invalid mail configuration:\n${resend.problems.map((line) => `  - ${line}`).join('\n')}`);
+  }
   if (validated.NODE_ENV === 'production') {
     const production: string[] = [];
     if (!validated.SESSION_COOKIE_SECURE) production.push('  - SESSION_COOKIE_SECURE: must be true in production');
     if (validated.MAIL_TRANSPORT === 'console') production.push('  - MAIL_TRANSPORT: console is not allowed in production');
-    if (validated.MAIL_TRANSPORT === 'none') production.push('  - MAIL_TRANSPORT: must be smtp in production (password resets and account set-up cannot be delivered otherwise; decision D03)');
+    if (validated.MAIL_TRANSPORT === 'none') production.push('  - MAIL_TRANSPORT: must be smtp or resend in production (password resets and account set-up cannot be delivered otherwise; decision D03)');
     if (!validated.TURNSTILE_SECRET_KEY) production.push('  - TURNSTILE_SECRET_KEY: required in production (public submissions are verified server side)');
     if (!validated.PUBLIC_SITE_URL) production.push('  - PUBLIC_SITE_URL: required in production (canonical links and Turnstile hostname check)');
     if (!validated.MAIL_FROM_ADDRESS) production.push('  - MAIL_FROM_ADDRESS: required in production (verified sender for enquiry mail)');

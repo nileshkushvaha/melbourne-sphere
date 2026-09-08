@@ -15,7 +15,7 @@ export default function robots(): MetadataRoute.Robots {
         allow: '/',
         // Filtered searches are noindex,follow; keeping crawlers out of the
         // query space stops them burning budget on infinite combinations.
-        disallow: ['/admin', '/api/', '/directory?', '/blog?', '/*?utm_', '/*?q='],
+        disallow: ['/admin', '/api/', '/business?', '/blog?', '/*?utm_', '/*?q='],
       },
     ],
     sitemap: `${origin}/sitemap.xml`,

@@ -24,9 +24,9 @@ export function Band({
   const tones = {
     page: 'bg-surface-muted text-text',
     plain: 'bg-surface text-text',
-    soft: 'bg-surface-sunken text-text',
-    dark: 'ms-on-dark bg-band text-band-text',
-    deep: 'ms-on-dark bg-band-deep text-band-text',
+    soft: 'ms-dot-grid bg-surface-sunken text-text',
+    dark: 'ms-on-dark bg-band text-band-text [background-image:radial-gradient(circle_at_85%_20%,rgba(25,158,216,.14),transparent_34%),linear-gradient(135deg,#0d2848,#071426)]',
+    deep: 'ms-on-dark bg-band-deep text-band-text [background-image:radial-gradient(circle_at_10%_10%,rgba(94,200,242,.1),transparent_32%)]',
   } as const;
   return (
     <section className={`ms-section ${tones[tone]} ${className}`} {...rest}>
@@ -52,8 +52,8 @@ export function SectionHeading({ id, eyebrow, title, description, href, linkLabe
   return (
     <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
       <div className="max-w-2xl">
-        {eyebrow && <p className={`mb-2 text-xs font-semibold uppercase tracking-[0.18em] ${tone === 'dark' ? 'text-sky-400' : 'text-sky-700'}`}>{eyebrow}</p>}
-        <h2 id={id} className="font-display text-3xl leading-tight tracking-tight sm:text-4xl">
+        {eyebrow && <p className={`mb-3 text-xs font-bold uppercase tracking-[0.2em] ${tone === 'dark' ? 'text-sky-400' : 'text-sky-700'}`}>{eyebrow}</p>}
+        <h2 id={id} className="font-display text-3xl leading-[1.08] sm:text-5xl">
           {title}
         </h2>
         {description && <p className={`mt-3 text-base leading-relaxed sm:text-lg ${muted}`}>{description}</p>}

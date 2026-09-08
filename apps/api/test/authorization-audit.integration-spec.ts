@@ -179,9 +179,9 @@ describe('Access control — attack scenarios (integration)', () => {
       const db = testDatabase();
       await grantDirect(attackerId, ['admins.manage', 'audit.read']);
       const cookie = cookieOf(await login(attacker.email, attacker.password).expect(200));
-      await authed(agent().get('/api/v1/admin/audit'), cookie).expect(200);
+      await authed(agent().get('/api/v1/admin/activity'), cookie).expect(200);
       await db.adminSession.updateMany({ where: { admin: { id: attackerId } }, data: { revokedAt: new Date(), revokedReason: 'audit_test' } });
-      await authed(agent().get('/api/v1/admin/audit'), cookie).expect(401);
+      await authed(agent().get('/api/v1/admin/activity'), cookie).expect(401);
     });
 
     it('fails safe when the cached permission entry is corrupt', async () => {
@@ -324,11 +324,11 @@ describe('Access control — attack scenarios (integration)', () => {
       const db = testDatabase();
       const event = await db.auditLog.findFirstOrThrow({ where: { action: { startsWith: 'authz.' } } });
       // Built one at a time: each supertest call starts its own listener.
-      const del = await authed(agent().delete(`/api/v1/admin/audit/${event.id}`), superCookie);
+      const del = await authed(agent().delete(`/api/v1/admin/activity/${event.id}`), superCookie);
       expect([403, 404, 405]).toContain(del.status);
-      const patch = await authed(agent().patch(`/api/v1/admin/audit/${event.id}`), superCookie).send({ action: 'tampered' });
+      const patch = await authed(agent().patch(`/api/v1/admin/activity/${event.id}`), superCookie).send({ action: 'tampered' });
       expect([403, 404, 405]).toContain(patch.status);
-      const put = await authed(agent().put(`/api/v1/admin/audit/${event.id}`), superCookie).send({ action: 'tampered' });
+      const put = await authed(agent().put(`/api/v1/admin/activity/${event.id}`), superCookie).send({ action: 'tampered' });
       expect([403, 404, 405]).toContain(put.status);
       expect((await db.auditLog.findUniqueOrThrow({ where: { id: event.id } })).action).toBe(event.action);
     });
@@ -370,6 +370,10 @@ describe('Every admin route denies by default (integration)', () => {
     '/api/v1/admin/auth/totp/verify',
     '/api/v1/admin/auth/totp/disable',
     '/api/v1/admin/auth/totp/recovery-codes',
+    // The settings registry is metadata about groups, filtered to the ones the
+    // caller may view (SRS 1.2 SET 002, RBAC 007/010): an administrator with no
+    // permissions gets an empty list, never a group they cannot open.
+    '/api/v1/admin/settings/registry',
     '/api/v1/admin/dashboard',
   ];
   /** Reachable without any session, by design (login and recovery). */

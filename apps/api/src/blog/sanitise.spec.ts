@@ -12,8 +12,8 @@ describe('editorial sanitisation (SRS SEC 001, BLOG 001)', () => {
   it('adds safe relationship attributes to external links and keeps internal ones plain', () => {
     expect(renderSanitisedBody('[out](https://example.com)')).toContain('rel="noopener noreferrer nofollow"');
     expect(renderSanitisedBody('[out](https://example.com)')).toContain('target="_blank"');
-    const internal = renderSanitisedBody('[in](/directory)');
-    expect(internal).toContain('href="/directory"');
+    const internal = renderSanitisedBody('[in](/business)');
+    expect(internal).toContain('href="/business"');
     expect(internal).not.toContain('target="_blank"');
   });
 

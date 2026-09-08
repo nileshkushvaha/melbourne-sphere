@@ -28,7 +28,12 @@ function subscribeToVisibility(onChange: () => void): () => void {
  * Rotating hero phrase (SRS HERO 002/003). The accessible name is one stable
  * sentence; the visible phrase is `aria-hidden`, so screen readers never hear a
  * per-phrase announcement. Rotation stops under `prefers-reduced-motion`, while
- * the tab is hidden, and whenever the user pauses it.
+ * the tab is hidden, and whenever the visitor pauses it.
+ *
+ * The pause control is present but not part of the visual composition (client
+ * instruction, 7 Sep 2026): it is off-screen until it receives keyboard focus,
+ * then appears in place. HERO 003 and WCAG 2.2 SC 2.2.2 require a mechanism to
+ * stop automatically continuing motion, not a permanently visible button.
  */
 export function HeroHeadline({ headline, phrases }: Props) {
   const [index, setIndex] = useState(0);
@@ -53,8 +58,8 @@ export function HeroHeadline({ headline, phrases }: Props) {
   const canPause = phrases.length > 1 && !reducedMotion;
 
   return (
-    <div className="flex flex-col items-start gap-4">
-      <h1 className="font-display max-w-4xl text-[clamp(2rem,5.4vw,4.25rem)] leading-[1.05] tracking-tight text-white">
+    <div className="flex flex-col items-start gap-3">
+      <h1 className="font-display max-w-5xl text-[clamp(2.2rem,5vw,4.5rem)] leading-[1.02] text-white">
         <span className="sr-only">{accessibleHeadline(headline, phrases)}</span>
         <span aria-hidden="true">
           {headline}
@@ -66,7 +71,7 @@ export function HeroHeadline({ headline, phrases }: Props) {
                 <span className="invisible col-start-1 row-start-1 whitespace-nowrap">{phrases.reduce((a, b) => (b.length > a.length ? b : a), '')}</span>
                 <span
                   key={index}
-                  className="col-start-1 row-start-1 text-sky-400 motion-safe:animate-[ms-fade_var(--ms-phrase-transition)_ease-out]"
+                  className="col-start-1 row-start-1 bg-gradient-to-r from-sky-400 to-[#9dc7ff] bg-clip-text text-transparent motion-safe:animate-[ms-fade_var(--ms-phrase-transition)_ease-out]"
                   style={{ ['--ms-phrase-transition' as string]: `${PHRASE_TRANSITION_MS}ms` }}
                 >
                   {current}
@@ -77,14 +82,16 @@ export function HeroHeadline({ headline, phrases }: Props) {
         </span>
       </h1>
       {canPause && (
+        // Off-screen until focused, then shown in place (client instruction,
+        // 7 Sep 2026): the SC 2.2.2 mechanism without a button in the design.
         <button
           type="button"
           onClick={() => setPaused((p) => !p)}
           aria-pressed={paused}
-          className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full border border-white/20 px-3.5 text-xs font-medium text-hero-text/90 transition-colors hover:border-white/40 hover:bg-white/10"
+          aria-label={paused ? 'Resume the rotating text' : 'Pause the rotating text'}
+          className="sr-only focus-visible:not-sr-only focus-visible:inline-flex focus-visible:size-11 focus-visible:items-center focus-visible:justify-center focus-visible:rounded-full focus-visible:border focus-visible:border-white/30 focus-visible:bg-black/60 focus-visible:text-hero-text"
         >
           {paused ? <PlayIcon aria-hidden="true" className="size-4" /> : <PauseIcon aria-hidden="true" className="size-4" />}
-          {paused ? 'Resume the rotating text' : 'Pause the rotating text'}
         </button>
       )}
     </div>

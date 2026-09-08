@@ -44,12 +44,12 @@ test.describe('Public accessibility', () => {
     await search.focus();
     await search.fill('cafe');
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/\/directory\?/);
+    await expect(page).toHaveURL(/\/business\?/);
   });
 
   test('every page has exactly one h1 and a main landmark', async ({ page, request }) => {
     const business = await firstPublishedBusiness(request);
-    const paths = ['/', '/directory', '/blog', '/contact', ...(business ? [`/business/${business.slug}`] : [])];
+    const paths = ['/', '/business', '/blog', '/contact', ...(business ? [`/business/${business.slug}`] : [])];
     for (const path of paths) {
       await page.goto(path);
       await expect(page.locator('main')).toHaveCount(1);
@@ -66,14 +66,14 @@ test.describe('Public accessibility', () => {
 
   test('the directory does not scroll horizontally at 320 px', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 720 });
-    await page.goto('/directory');
+    await page.goto('/business');
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
   });
 
   test('the public pages pass an automated WCAG 2.2 AA scan', async ({ page, request }) => {
     const business = await firstPublishedBusiness(request);
-    const paths = ['/', '/directory', '/blog', '/contact', ...(business ? [`/business/${business.slug}`] : [])];
+    const paths = ['/', '/business', '/blog', '/contact', ...(business ? [`/business/${business.slug}`] : [])];
     for (const path of paths) {
       await page.goto(path);
       // The hero photograph decodes asynchronously and contrast is measured
@@ -90,10 +90,29 @@ test.describe('Public accessibility', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
     const compact = page.getByRole('navigation', { name: /main \(compact\)/i });
-    await expect(compact.getByRole('link', { name: 'Directory' })).toBeHidden();
+    await expect(compact.getByRole('link', { name: 'Businesses' })).toBeHidden();
     // Native <summary> disclosure: it opens on click and on Enter/Space.
     await page.locator('summary[aria-label="Menu"]').click();
-    await expect(compact.getByRole('link', { name: 'Directory' })).toBeVisible();
+    await expect(compact.getByRole('link', { name: 'Businesses' })).toBeVisible();
     expect(await axeViolations(page)).toEqual([]);
+  });
+
+  test('the contact bar scrolls away while the navigation stays pinned', async ({ page }) => {
+    // Client instruction, 7 September 2026: the top bar hides on scroll and the
+    // navigation remains reachable. Sticky positioning, no scroll listener.
+    await page.goto('/');
+    const header = page.locator('header').first();
+    await expect(header).toBeVisible();
+
+    await page.evaluate(() => window.scrollTo(0, 2000));
+    await page.waitForFunction(() => Math.round(document.querySelector('header')!.getBoundingClientRect().top) === 0);
+
+    const contactBar = page.locator('[aria-label="Contact details"]');
+    if ((await contactBar.count()) > 0) {
+      const top = await contactBar.evaluate((element) => element.getBoundingClientRect().top);
+      expect(top).toBeLessThan(0);
+    }
+    // The navigation is still usable from anywhere on the page.
+    await expect(header.getByRole('link', { name: 'Businesses' }).first()).toBeVisible();
   });
 });

@@ -19,6 +19,7 @@ describe('taxonomy terms page (local areas)', () => {
       const url = String(input);
       const method = init?.method ?? 'GET';
       calls.push({ url, method, body: typeof init?.body === 'string' ? init.body : undefined });
+      if (url === '/api/v1/admin/areas/l1' && method === 'GET') return jsonResponse(200, { data: areas[0] });
       if (url.startsWith('/api/v1/admin/areas') && method === 'GET') return jsonResponse(200, { data: areas, meta: { page: 1, pageSize: 20, total: 2, pageCount: 1 } });
       if (url === '/api/v1/admin/areas' && method === 'POST') {
         const body = JSON.parse(String(init?.body));
@@ -44,21 +45,22 @@ describe('taxonomy terms page (local areas)', () => {
     expect(screen.getByRole('link', { name: 'Local areas' })).toBeInTheDocument();
   });
 
-  it('creates through the dialog, maps field errors from the envelope, and confirms deactivation', async () => {
+  it('creates on its own route, maps field errors from the envelope, and confirms deactivation', async () => {
     const ue = user();
-    renderWithProviders(<TermsPage config={AREAS_CONFIG} />, { initialEntries: ['/admin/areas'] });
-    await screen.findByText('Carlton');
-    await ue.click(screen.getByRole('button', { name: /new local area/i }));
-    const dialog = await screen.findByRole('dialog');
-    await ue.type(within(dialog).getByLabelText(/^name/i), 'Carlton');
-    await ue.click(within(dialog).getByRole('button', { name: /^create$/i }));
-    expect(await within(dialog).findByText(/already used/i)).toBeInTheDocument();
-    await ue.clear(within(dialog).getByLabelText(/^name/i));
-    await ue.type(within(dialog).getByLabelText(/^name/i), 'Kensington');
-    await ue.click(within(dialog).getByRole('button', { name: /^create$/i }));
+    renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/areas/new'] });
+    expect(await screen.findByRole('heading', { level: 1, name: /new local area/i })).toBeInTheDocument();
+    await ue.type(screen.getByLabelText(/^name/i), 'Carlton');
+    await ue.click(screen.getByRole('button', { name: /^create$/i }));
+    expect(await screen.findByText(/already used/i)).toBeInTheDocument();
+    await ue.clear(screen.getByLabelText(/^name/i));
+    await ue.type(screen.getByLabelText(/^name/i), 'Kensington');
+    await ue.click(screen.getByRole('button', { name: /^create$/i }));
     const post = calls.find((c) => c.method === 'POST' && c.url === '/api/v1/admin/areas' && c.body?.includes('Kensington'));
     expect(post).toBeDefined();
     expect(JSON.parse(post!.body!)).toMatchObject({ name: 'Kensington' });
+
+    // Creating returns to the list, where activation is still a confirmation.
+    renderWithProviders(<TermsPage config={AREAS_CONFIG} />, { initialEntries: ['/admin/areas'] });
     await ue.click(await screen.findByRole('switch', { name: /deactivate carlton/i }));
     const titles = await screen.findAllByText(/deactivate “carlton”/i);
     const confirm = titles.map((t) => t.closest('.ant-modal-confirm')).find((el): el is HTMLElement => el instanceof HTMLElement)!;
@@ -70,11 +72,16 @@ describe('taxonomy terms page (local areas)', () => {
 
   it('surfaces stale-version conflicts when editing', async () => {
     const ue = user();
+    renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/areas/l1'] });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Carlton' })).toBeInTheDocument();
+    await ue.click(screen.getByRole('button', { name: /^save$/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/changed by someone else/i);
+  });
+
+  it('links each term to its own editable address', async () => {
     renderWithProviders(<TermsPage config={AREAS_CONFIG} />, { initialEntries: ['/admin/areas'] });
-    await ue.click(await screen.findByRole('button', { name: 'Carlton' }));
-    const dialog = await screen.findByRole('dialog');
-    await ue.click(within(dialog).getByRole('button', { name: /^save$/i }));
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(/changed by someone else/i);
+    expect(await screen.findByRole('link', { name: 'Carlton' })).toHaveAttribute('href', '/admin/areas/l1');
+    expect(screen.getByRole('link', { name: /new local area/i })).toHaveAttribute('href', '/admin/areas/new');
   });
 });
 
@@ -88,6 +95,7 @@ describe('taxonomy terms page (categories)', () => {
   beforeEach(() => {
     globalThis.fetch = (async (input: RequestInfo | URL) => {
       const url = String(input);
+      if (url === '/api/v1/admin/categories/c1') return jsonResponse(200, { data: categories[0] });
       if (url.startsWith('/api/v1/admin/categories')) return jsonResponse(200, { data: categories, meta: { page: 1, pageSize: 20, total: 2, pageCount: 1 } });
       return jsonResponse(200, { data: { status: 'ok' } });
     }) as typeof fetch;
@@ -96,25 +104,25 @@ describe('taxonomy terms page (categories)', () => {
     globalThis.fetch = originalFetch;
   });
 
-  it('renders the list while the editor dialog is closed', async () => {
+  it('renders the list with no dialog of its own', async () => {
     renderWithProviders(<TermsPage config={CATEGORIES_CONFIG} />, { initialEntries: ['/admin/categories'] });
     expect(await screen.findByRole('heading', { level: 1, name: 'Categories' })).toBeInTheDocument();
     expect(await screen.findByText('Food & Drink')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('offers every top-level category as a parent when creating, and excludes the term being edited', async () => {
+  it('offers every top-level category as a parent when creating', async () => {
     const ue = user();
-    renderWithProviders(<TermsPage config={CATEGORIES_CONFIG} />, { initialEntries: ['/admin/categories'] });
-    await ue.click(await screen.findByRole('button', { name: /new category/i }));
-    const dialog = await screen.findByRole('dialog');
-    await ue.click(within(dialog).getByLabelText(/parent category/i));
+    renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/categories/new'] });
+    await ue.click(await screen.findByLabelText(/parent category/i));
     expect(await screen.findByTitle('Food & Drink')).toBeInTheDocument();
-    await ue.keyboard('{Escape}');
+  });
 
-    await ue.click(await screen.findByRole('button', { name: 'Food & Drink' }));
-    const editDialog = await screen.findByRole('dialog');
-    await ue.click(within(editDialog).getByLabelText(/parent category/i));
+  it('excludes the category being edited from its own parent options', async () => {
+    const ue = user();
+    renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/categories/c1'] });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Food & Drink' })).toBeInTheDocument();
+    await ue.click(screen.getByLabelText(/parent category/i));
     // A category may not be its own parent.
     expect(screen.queryByTitle('Food & Drink')).not.toBeInTheDocument();
   });
