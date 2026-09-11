@@ -56,10 +56,38 @@ export function mediaApi(client: HttpClient = httpClient) {
  * Full upload flow (SRS MED 002): ask for a signed URL, PUT the bytes straight
  * to storage, then tell the API to validate them. The API never sees the bytes.
  */
-export async function uploadImage(file: File, altText: string | null, api = mediaApi()): Promise<MediaAsset> {
+export async function uploadImage(
+  file: File,
+  altText: string | null,
+  api = mediaApi(),
+  /**
+   * Called with 0–100 as the bytes go up. The browser only reports progress on
+   * an upload through XMLHttpRequest — `fetch` has no equivalent — which is the
+   * one reason this is not a `fetch` call.
+   */
+  onProgress?: (percent: number) => void,
+): Promise<MediaAsset> {
   const ticket = await api.requestUpload({ fileName: file.name, contentType: file.type, bytes: file.size });
-  const response = await fetch(ticket.uploadUrl, { method: 'PUT', headers: ticket.headers, body: file });
-  if (!response.ok) throw new Error(`The upload failed (${response.status}). Please try again.`);
+
+  await new Promise<void>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open('PUT', ticket.uploadUrl);
+    for (const [header, value] of Object.entries(ticket.headers)) request.setRequestHeader(header, value);
+    request.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
+    });
+    request.addEventListener('load', () => {
+      // The storage service answers directly; its status is all we report, never
+      // its body, which can carry the signed request back at us.
+      if (request.status >= 200 && request.status < 300) resolve();
+      else reject(new Error('The image could not be uploaded. Please try again.'));
+    });
+    request.addEventListener('error', () => reject(new Error('The image could not be uploaded. Check your connection and try again.')));
+    request.addEventListener('abort', () => reject(new Error('The upload was cancelled.')));
+    request.send(file);
+  });
+
+  onProgress?.(100);
   return api.complete(ticket.assetId, { checksum: await fileChecksum(file), altText });
 }
 

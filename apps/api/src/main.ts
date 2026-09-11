@@ -12,7 +12,7 @@ async function bootstrap(): Promise<void> {
     ...APP_CREATE_OPTIONS,
   });
   const config = app.get(ConfigService<EnvironmentVariables, true>);
-  configureApp(app, { trustProxy: config.get('TRUST_PROXY', { infer: true }) });
+  configureApp(app, { trustProxy: config.get('TRUST_PROXY', { infer: true }), metricsToken: config.get('METRICS_TOKEN', { infer: true }) });
   if (config.get('OPENAPI_ENABLED', { infer: true })) {
     // JSON only (no UI): keeps the strict API CSP and exposes nothing but the contract.
     const document = buildOpenApiDocument(app);

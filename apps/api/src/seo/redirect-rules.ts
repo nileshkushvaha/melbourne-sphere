@@ -54,11 +54,12 @@ export interface RedirectPair {
 
 /**
  * Validates a redirect before it is written. `gone` entries have no target;
- * permanent entries need a distinct, non-reserved, site-relative target.
- * Cycles longer than one hop cannot exist because the service repoints
- * existing aliases instead of chaining them.
+ * a permanent or temporary entry needs a distinct, non-reserved, site-relative
+ * target — a 302 that leaves the site is exactly as dangerous as a 301 that
+ * does, so both are checked identically. Cycles longer than one hop cannot exist
+ * because the service repoints existing aliases instead of chaining them.
  */
-export function validateRedirect(source: string, target: string | null, kind: 'permanent' | 'gone'): RedirectPair {
+export function validateRedirect(source: string, target: string | null, kind: RedirectKind): RedirectPair {
   const sourcePath = normalisePath(source);
   if (!sourcePath) throw new RedirectRuleError('sourcePath', 'Source must be a site-relative path such as /business/old-slug');
   if (sourcePath === '/') throw new RedirectRuleError('sourcePath', 'The home page cannot be redirected');
@@ -69,4 +70,34 @@ export function validateRedirect(source: string, target: string | null, kind: 'p
   if (isReservedPath(targetPath)) throw new RedirectRuleError('targetPath', 'That path is reserved and cannot be a redirect target');
   if (targetPath === sourcePath) throw new RedirectRuleError('targetPath', 'A path cannot redirect to itself');
   return { sourcePath, targetPath };
+}
+
+export type RedirectKind = 'permanent' | 'gone' | 'temporary';
+
+/** One redirect as the resolver needs to see it. */
+export interface RedirectRow {
+  kind: RedirectKind;
+  targetPath: string | null;
+  isActive: boolean;
+}
+
+/**
+ * What actually happens when a visitor asks for a path, decided in one place so
+ * the public resolver and the admin preview can never disagree about it.
+ *
+ * `because` explains a non-effect for the administrator; the public route never
+ * reveals it, because an inactive rule must be indistinguishable from no rule at
+ * all to an anonymous caller.
+ */
+export type RedirectEffect =
+  | { applies: true; status: 301 | 302 | 410; targetPath: string | null }
+  | { applies: false; because: 'no-rule' | 'inactive' | 'no-target' };
+
+export function redirectEffect(row: RedirectRow | null | undefined): RedirectEffect {
+  if (!row) return { applies: false, because: 'no-rule' };
+  if (!row.isActive) return { applies: false, because: 'inactive' };
+  if (row.kind === 'gone') return { applies: true, status: 410, targetPath: null };
+  // A hand-edited row with no target cannot be served as a redirect to nowhere.
+  if (!row.targetPath) return { applies: false, because: 'no-target' };
+  return { applies: true, status: row.kind === 'temporary' ? 302 : 301, targetPath: row.targetPath };
 }

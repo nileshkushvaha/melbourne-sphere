@@ -3,12 +3,11 @@ import { Alert, App, Button, Drawer, Input, Modal, Space, Switch, Table, Tag, To
 import { schedulesApi, type ScheduledRun, type ScheduledTask } from '@/api/system';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
-import { PageHeader } from '@/components/ui';
+import { PageHeader, StatusTag } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
-const OUTCOME_COLOUR: Record<string, string> = { succeeded: 'green', failed: 'red', timedOut: 'red', skipped: 'default', running: 'blue' };
 
 const duration = (ms: number | null) => (ms === null ? '—' : ms < 1_000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)}s`);
 
@@ -82,7 +81,7 @@ export function ScheduledTasksPage() {
       <PageHeader
         crumbs={[{ label: 'System' }, { label: 'Scheduled tasks' }]}
         title="Scheduled tasks"
-        description="Work the system does on a timetable. Schedules are defined in the application, not here — what you can do is run a task now, see how the last runs went, and switch off the ones that are optional."
+        description="Timed jobs the system runs. Run one now, check recent runs, or pause optional ones."
         actions={<Button onClick={reload}>Refresh</Button>}
       />
 
@@ -104,7 +103,7 @@ export function ScheduledTasksPage() {
               <Space direction="vertical" size={2}>
                 <Space size={8}>
                   <strong>{task.label}</strong>
-                  {task.running && <Tag color="blue">running</Tag>}
+                  {task.running && <StatusTag status="running" />}
                   {!task.enabled && <Tag>off</Tag>}
                 </Space>
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -136,7 +135,7 @@ export function ScheduledTasksPage() {
               ) : (
                 <Space direction="vertical" size={2}>
                   <Space size={8}>
-                    <Tag color={OUTCOME_COLOUR[task.lastOutcome] ?? 'default'}>{task.lastOutcome}</Tag>
+                    <StatusTag status={task.lastOutcome} />
                     <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                       {duration(task.lastDurationMs)}
                     </Typography.Text>
@@ -218,7 +217,7 @@ export function ScheduledTasksPage() {
         destroyOnHidden
       >
         <Typography.Paragraph type="secondary">
-          Outcomes and durations, kept for 30 days. What a task changed is summarised as a count; nothing here records the content it touched.
+          Outcomes and durations, kept for 30 days. Changes are counted, not recorded.
         </Typography.Paragraph>
         <Table<ScheduledRun>
           rowKey="id"
@@ -229,7 +228,7 @@ export function ScheduledTasksPage() {
           columns={[
             { title: 'Started', dataIndex: 'startedAt', width: 180, render: (value: string) => formatDateTime(value) },
             { title: 'Trigger', dataIndex: 'trigger', width: 100 },
-            { title: 'Outcome', dataIndex: 'outcome', width: 110, render: (value: string) => <Tag color={OUTCOME_COLOUR[value] ?? 'default'}>{value}</Tag> },
+            { title: 'Outcome', dataIndex: 'outcome', width: 110, render: (value: string) => <StatusTag status={value} /> },
             { title: 'Took', dataIndex: 'durationMs', width: 90, render: (value: number | null) => duration(value) },
             { title: 'Detail', dataIndex: 'detail', render: (value: string | null) => value ?? '—' },
           ]}

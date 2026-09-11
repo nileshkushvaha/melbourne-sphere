@@ -32,8 +32,19 @@ describe('cookie-session auth provider', () => {
     const provider = createAuthProvider({
       api: fakeApi({ login: async () => { throw new ApiError({ kind: 'unauthorized', status: 401, code: 'INVALID_CREDENTIALS', userMessage: 'Invalid email or password' }); } }),
     });
-    expect(await provider.login({ email: 'a', password: 'b' })).toEqual({ success: false, error: { name: 'Sign-in failed', message: 'Invalid email or password' } });
+    const result = await provider.login({ email: 'a@example.com', password: 'secret-password-1' });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatchObject({ name: 'Sign-in failed', message: 'Invalid email or password', kind: 'unauthorized', retryAfterSeconds: null, fields: {} });
+    // What the screen is handed must never carry what was typed.
+    expect(JSON.stringify({ ...result.error, message: result.error?.message })).not.toMatch(/a@example\.com|secret-password-1/);
     expect(await provider.getIdentity?.()).toBeNull();
+  });
+
+  it('keeps the wait time from a rate-limited sign-in, so the screen can state it', async () => {
+    const provider = createAuthProvider({
+      api: fakeApi({ login: async () => { throw new ApiError({ kind: 'rate_limited', status: 429, code: 'RATE_LIMITED', userMessage: 'Too many attempts.', retryAfterSeconds: 120 }); } }),
+    });
+    expect((await provider.login({ email: 'a@example.com', password: 'x' })).error).toMatchObject({ kind: 'rate_limited', retryAfterSeconds: 120 });
   });
 
   it('check asks the server and redirects to login when the session is gone', async () => {

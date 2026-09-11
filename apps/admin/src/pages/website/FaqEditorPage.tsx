@@ -56,7 +56,7 @@ export function FaqEditorPage() {
     <RecordEditorPage<Values>
       crumbs={[{ label: 'Website' }, { label: 'FAQs', href: LIST }, { label: creating ? 'New question' : 'Edit' }]}
       title={creating ? 'New question' : 'Edit question'}
-      description="Shown on the public FAQ page once published. Answers are sanitised on the server, so unsupported formatting is removed when you save."
+      description="Shown on the public FAQ page once published."
       listHref={LIST}
       listLabel="Back to FAQs"
       form={form}
@@ -79,21 +79,21 @@ export function FaqEditorPage() {
       }
     >
       <Form.Item label="Question" name="question" rules={[{ required: true, min: 5, max: 300, message: 'Between 5 and 300 characters' }]}>
-        <Input maxLength={300} showCount />
+        <Input maxLength={300} showCount placeholder="e.g. How do I add my business to the directory?" />
       </Form.Item>
       <Form.Item
         label="Answer"
         name="answer"
-        extra="Basic formatting is kept. Scripts, event handlers and unsafe links are removed when you save."
+        extra="Basic formatting is kept; anything unsafe is removed on save."
         rules={[{ required: true, min: 5, max: 8000, message: 'Between 5 and 8000 characters' }]}
       >
-        <Input.TextArea rows={12} maxLength={8000} showCount />
+        <Input.TextArea rows={12} maxLength={8000} showCount placeholder="Answer the question directly in the first sentence, then add any detail." />
       </Form.Item>
-      <Form.Item label="Group" name="groupName" extra="Questions sharing a group are shown together under that heading. Leave empty for an ungrouped question.">
-        <Input maxLength={80} />
+      <Form.Item label="Group" name="groupName" extra="Questions in the same group appear together. Leave empty for none.">
+        <Input maxLength={80} placeholder="e.g. Listing a business" />
       </Form.Item>
       <Form.Item label="Display order" name="displayOrder" extra="Lower numbers appear first.">
-        <InputNumber min={0} max={9999} />
+        <InputNumber min={0} max={9999} placeholder="0" />
       </Form.Item>
     </RecordEditorPage>
   );

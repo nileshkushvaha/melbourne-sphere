@@ -267,15 +267,6 @@ export interface RedirectResolution {
   targetPath: string | null;
 }
 
-/** Resolves a path against the redirect table; null when there is no rule (SRS SEO 004). */
-export async function resolveRedirect(path: string): Promise<RedirectResolution | null> {
-  try {
-    return (await apiGet<{ data: RedirectResolution }>('/seo/redirects/resolve', { revalidate: 60, tags: ['redirects'], query: { path } })).data;
-  } catch (error) {
-    if (error instanceof ApiRequestError && error.status === 404) return null;
-    throw error;
-  }
-}
 
 export interface StaticPageContent {
   slug: string;

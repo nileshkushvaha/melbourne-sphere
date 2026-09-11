@@ -145,12 +145,12 @@ export function RichTextEditor({ value, onChange, disabled = false, ariaLabel = 
   const words = countWords(editor);
 
   return (
-    <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, background: '#fff', overflow: 'hidden' }}>
+    <div style={{ border: `1px solid ${brand.border}`, borderRadius: 10, background: brand.surfaceRaised, overflow: 'hidden' }}>
       <div
         role="toolbar"
         aria-label="Formatting"
         aria-controls={undefined}
-        style={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', padding: '6px 8px', borderBottom: `1px solid ${brand.border}`, background: '#FBFCFE', position: 'sticky', top: 0, zIndex: 5 }}
+        style={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', padding: '6px 8px', borderBottom: `1px solid ${brand.border}`, background: brand.surfaceMuted, position: 'sticky', top: 0, zIndex: 5 }}
       >
         <ToolButton label="Paragraph" text="P" active={editor.isActive('paragraph')} onClick={() => editor.chain().focus().setParagraph().run()} />
         {[2, 3, 4].map((level) => (
@@ -183,7 +183,7 @@ export function RichTextEditor({ value, onChange, disabled = false, ariaLabel = 
 
       <EditorContent editor={editor} />
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '6px 12px', borderTop: `1px solid ${brand.border}`, background: '#FBFCFE' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '6px 12px', borderTop: `1px solid ${brand.border}`, background: brand.surfaceMuted }}>
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
           Scripts, styles and unknown tags are removed when you save.
         </Typography.Text>

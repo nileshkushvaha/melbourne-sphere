@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
-import { Alert, Button, Table, Tag, Typography } from 'antd';
+import { Table, Tag, Typography } from 'antd';
 import { authorizationApi, type PermissionCatalogEntry } from '@/api/authorization';
 import { useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
-import { PageHeader, PageLoader, SectionCard } from '@/components/ui';
+import { PageHeader, PageLoader, SectionCard, StatusTag, PageLoadError } from '@/components/ui';
 
 /**
  * The registered permission catalogue, read-only by design (SRS RBAC 002).
@@ -17,20 +17,22 @@ export function PermissionCatalogPage() {
   const [state, reload] = useAsync((signal) => api.permissions(signal), []);
 
   if (state.status === 'error') {
-    return <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} />;
+    return <PageLoadError title="Permission catalogue" crumbs={[{ label: 'Configuration' }, { label: 'Permission catalogue' }]} message={state.message} reference={state.reference} onRetry={reload} />;
   }
 
   return (
     <>
       <PageHeader
         title="Permission catalogue"
-        description="Every permission the API recognises. Codes are declared in the application and synchronised on deployment; they cannot be created or renamed here."
+        description="Every permission and what it allows. New permissions arrive with a release."
       />
       <SectionCard>
         {state.status === 'loading' ? (
           <PageLoader label="Loading the catalogue…" />
         ) : (
           <Table<PermissionCatalogEntry>
+            className="ms-scroll-table"
+            scroll={{ x: 560 }}
             rowKey="key"
             dataSource={state.data}
             pagination={false}
@@ -39,7 +41,9 @@ export function PermissionCatalogPage() {
                 <div>
                   <Typography.Text strong>{label}</Typography.Text>
                   <br />
-                  <Typography.Text type="secondary" code>
+                  {/* Plain monospace rather than Ant's `code`, whose grey ground
+                      under secondary text falls below 4.5:1. */}
+                  <Typography.Text type="secondary" style={{ fontSize: 12, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
                     {entry.key}
                   </Typography.Text>
                 </div>
@@ -51,7 +55,7 @@ export function PermissionCatalogPage() {
                 dataIndex: 'isActive',
                 render: (_value, entry) => (
                   <>
-                    <Tag color={entry.isActive ? 'green' : 'default'}>{entry.isActive ? 'Active' : 'Retired'}</Tag>
+                    <StatusTag status={entry.isActive ? 'active' : 'retired'} />
                     {entry.isSystem && <Tag>Code-managed</Tag>}
                   </>
                 ),

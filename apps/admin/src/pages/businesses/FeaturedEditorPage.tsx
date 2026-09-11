@@ -1,4 +1,4 @@
-import { App, Form, Input, InputNumber, Select, Typography } from 'antd';
+import { App, Form, Input, InputNumber, Typography } from 'antd';
 import { useNavigate } from 'react-router';
 import { businessesApi, featuredApi } from '@/api/businesses';
 import { melbourneLocalToUtc, utcToMelbourneLocal, melbourneOffsetLabel } from '@/api/blog';
@@ -6,6 +6,7 @@ import { RecordEditorPage } from '@/components/ui';
 import { useAsync } from '@/shared/useAsync';
 import { useRecordEditor } from '@/shared/useRecordEditor';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { FormSelect } from '@/components/FormSelect';
 
 interface Values {
   businessId: string;
@@ -32,7 +33,12 @@ export function FeaturedEditorPage() {
   const [form] = Form.useForm<Values>();
   const { saving, error, setError, submit } = useRecordEditor<Values>(form);
   const [published] = useAsync((signal) => listings.list({ status: 'published', pageSize: 50, sort: 'name', order: 'asc' }, signal), []);
-  const offsetLabel = melbourneOffsetLabel(new Date());
+  // The offset of the dates being entered, not of today: across a daylight-saving
+  // change the two differ by an hour, and the label is what the operator trusts.
+  const startsLocal = Form.useWatch('startsLocal', form) as string | undefined;
+  const endsLocal = Form.useWatch('endsLocal', form) as string | undefined;
+  const startOffset = melbourneOffsetLabel(melbourneLocalToUtc(startsLocal ?? '') ?? new Date());
+  const endOffset = melbourneOffsetLabel(melbourneLocalToUtc(endsLocal ?? '') ?? melbourneLocalToUtc(startsLocal ?? '') ?? new Date());
 
   const save = () =>
     submit(async (values) => {
@@ -58,7 +64,7 @@ export function FeaturedEditorPage() {
     <RecordEditorPage<Values>
       crumbs={[{ label: 'Business', href: '/businesses' }, { label: 'Featured listings', href: '/businesses/featured' }, { label: 'Feature a listing' }]}
       title="Feature a listing"
-      description="A featured listing appears in a separate labelled block above the results. It still has to match the visitor’s filters and still has to be published, and at most three ever appear."
+      description="Shown in a labelled block above results. It must still match the search and be published."
       listHref="/businesses/featured"
       listLabel="All placements"
       form={form}
@@ -71,13 +77,13 @@ export function FeaturedEditorPage() {
         <div style={{ border: '1px solid var(--ant-color-border)', borderRadius: 8, padding: 16 }}>
           <Typography.Text strong>What this does not do</Typography.Text>
           <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
-            Featuring does not change ranking, bypass a filter, or show an unpublished listing. There is no payment or billing anywhere in this flow, and the block is always labelled as featured.
+            It never changes ranking, bypasses a filter or shows an unpublished listing. There is no payment involved.
           </Typography.Paragraph>
         </div>
       }
     >
       <Form.Item label="Listing" name="businessId" rules={[{ required: true, message: 'Choose a published listing' }]}>
-        <Select
+        <FormSelect
           showSearch
           optionFilterProp="label"
           placeholder="Choose a published listing"
@@ -85,10 +91,10 @@ export function FeaturedEditorPage() {
           options={published.status === 'ready' ? published.data.data.map((business) => ({ value: business.id, label: business.name })) : []}
         />
       </Form.Item>
-      <Form.Item label={`Starts (Melbourne time, ${offsetLabel})`} name="startsLocal" rules={[{ required: true, message: 'Choose when the placement starts' }]}>
+      <Form.Item label={`Starts (Melbourne time, ${startOffset})`} name="startsLocal" rules={[{ required: true, message: 'Choose when the placement starts' }]}>
         <Input type="datetime-local" />
       </Form.Item>
-      <Form.Item label={`Ends (optional, ${offsetLabel})`} name="endsLocal" extra="Leave empty for an open-ended placement.">
+      <Form.Item label={`Ends (optional, Melbourne time, ${endOffset})`} name="endsLocal" extra="Leave empty for an open-ended placement.">
         <Input type="datetime-local" />
       </Form.Item>
       <Form.Item label="Position" name="position" extra="Lower positions appear first.">

@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { SCHEDULED_TASKS, SCHEDULED_TASK_JOB } from '@melbourne-sphere/domain';
+import { Queue } from 'bullmq';
+import { QUEUE_NAME, SCHEDULED_TASKS, SCHEDULED_TASK_JOB, redisConnectionFromUrl } from '@melbourne-sphere/domain';
 import { SESSION_COOKIE_NAME } from '../src/auth/session.service.js';
 import { QueuePort } from '../src/outbox/queue.port.js';
 import { ORIGIN, TEST_ADMIN, clearThrottleKeys, seedSuperAdmin } from './integration/auth-fixtures.js';
@@ -152,5 +153,30 @@ describe('Scheduled tasks (integration)', () => {
     await post('/api/v1/admin/system/schedules/activity.retention/run').send({ command: 'rm -rf /', cron: '* * * * *' }).expect(202);
     // The body was ignored entirely: the dispatched job carries only the code.
     expect(Object.keys(dispatched.at(-1)!.data)).toEqual(['taskCode', 'trigger', 'actorAdminId']);
+  });
+
+  /**
+   * The stub above records what the API asks for, which is the right shape for
+   * every other assertion here — and is exactly why a job id BullMQ refuses got
+   * through review and took the worker down at start-up (audit F-01). This case
+   * puts one real dispatch through the real queue.
+   */
+  it('dispatches through the real queue, so the job id is one BullMQ actually accepts', async () => {
+    const queue = new Queue(QUEUE_NAME, { connection: redisConnectionFromUrl(process.env.REDIS_URL ?? 'redis://127.0.0.1:6380/1') });
+    try {
+      await queue.obliterate({ force: true });
+      process.env.KEEP_QUEUE = 'true';
+      await post('/api/v1/admin/system/schedules/activity.retention/run').send({}).expect(202);
+
+      const waiting = await queue.getJobs(['waiting', 'delayed', 'active'], 0, 20, true);
+      const dispatched = waiting.filter((job) => job.name === SCHEDULED_TASK_JOB);
+      expect(dispatched, 'the manual run should be a real queue job').toHaveLength(1);
+      expect(String(dispatched[0]!.id)).not.toContain(':');
+      expect(dispatched[0]!.data).toMatchObject({ taskCode: 'activity.retention', trigger: 'manual' });
+    } finally {
+      process.env.KEEP_QUEUE = 'false';
+      await queue.obliterate({ force: true });
+      await queue.close();
+    }
   });
 });

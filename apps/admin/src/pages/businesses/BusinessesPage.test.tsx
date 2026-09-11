@@ -1,6 +1,6 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { AppRoutes } from '@/app/routes';
-import { renderWithProviders, user } from '@/test/render';
+import { renderWithProviders, providerWithPermissions, user } from '@/test/render';
 import { jsonResponse } from '@/test/fetch-fakes';
 
 const meta = { page: 1, pageSize: 20, total: 1, pageCount: 1 };
@@ -34,6 +34,10 @@ describe('businesses pages', () => {
       if (url.startsWith('/api/v1/admin/services')) return jsonResponse(200, { data: [term('s1', 'Coffee')], meta });
       if (url.startsWith('/api/v1/admin/areas')) return jsonResponse(200, { data: [term('l1', 'Melbourne CBD')], meta });
       if (url.startsWith('/api/v1/admin/businesses?') && method === 'GET') return jsonResponse(200, { data: [listItem], meta });
+      if (url === '/api/v1/admin/businesses/b-published' && method === 'GET') {
+        return jsonResponse(200, { data: { ...business, id: 'b-published', status: 'published', firstPublishedAt: now, publishedAt: now, publicationBlockers: [] } });
+      }
+      if (url.endsWith('/slug') && method === 'POST') return jsonResponse(200, { data: { ...business, id: 'b-published', slug: 'moved-espresso', version: 4 } });
       if (url === '/api/v1/admin/businesses' && method === 'POST') {
         const body = JSON.parse(String(init?.body));
         if (body.publicUrl === 'nope') return jsonResponse(400, { error: { code: 'VALIDATION_ERROR', message: 'Validation failed', fields: { publicUrl: ['Website must be an http(s) URL'], 'address.postcode': ['Enter a Victorian postcode'] }, requestId: 'r' } });
@@ -48,6 +52,7 @@ describe('businesses pages', () => {
         return jsonResponse(200, { data: { ...hours, version: 4 } });
       }
       if (url === '/api/v1/admin/businesses/b2/hours') return jsonResponse(200, { data: { ...hours, mode: 'unknown', weekly: {}, exceptions: [], status: { state: 'unknown', until: null, source: null }, version: 1 } });
+      if (url === '/api/v1/admin/businesses/b-published/hours') return jsonResponse(200, { data: hours });
       if (url === '/api/v1/admin/businesses/b1' && method === 'GET') return jsonResponse(200, { data: business });
       if (url === '/api/v1/admin/businesses/b2' && method === 'GET') return jsonResponse(200, { data: { ...business, id: 'b2', name: 'Fresh Cafe', version: 1 } });
       if (url === '/api/v1/admin/businesses/b1' && method === 'PATCH' && init?.headers && new Headers(init.headers).get('x-test-expired') === '1') return jsonResponse(401, { error: { code: 'UNAUTHENTICATED', message: 'Sign in to continue', fields: {}, requestId: 'r' } });
@@ -156,7 +161,9 @@ describe('businesses pages', () => {
     const ue = user();
     renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses/b1'] });
     expect(await screen.findByRole('heading', { level: 1, name: 'Little Collins Espresso' })).toBeInTheDocument();
-    expect(screen.getByText('Not ready to publish')).toBeInTheDocument();
+    // The heading now counts what is outstanding, so the operator sees the size
+    // of the job before opening the list.
+    expect(screen.getByText(/Not ready to publish — 1 thing to fix/)).toBeInTheDocument();
     expect(screen.getByDisplayValue('owner@example.com')).toBeInTheDocument();
     await ue.click(screen.getByRole('button', { name: /save changes/i }));
     expect(await screen.findByText(/changed by someone else/i)).toBeInTheDocument();
@@ -164,16 +171,61 @@ describe('businesses pages', () => {
     expect(JSON.parse(patch!.body!)).toMatchObject({ expectedVersion: 3, name: 'Little Collins Espresso' });
     expect(JSON.parse(patch!.body!)).not.toHaveProperty('privateEnquiryEmail');
 
-    await ue.click(screen.getByRole('button', { name: /^publish$/i }));
+    await ue.click(screen.getByRole('button', { name: /^publish business$/i }));
     const dialog = await screen.findByRole('dialog');
-    await ue.click(within(dialog).getByRole('button', { name: /^publish$/i }));
+    await ue.click(within(dialog).getByRole('button', { name: /^publish business$/i }));
     expect(await within(dialog).findByText('Content rights must be reviewed')).toBeInTheDocument();
-    await ue.click(within(dialog).getByRole('button', { name: /^publish$/i }));
+    await ue.click(within(dialog).getByRole('button', { name: /^publish business$/i }));
     const override = await within(dialog).findByLabelText(/duplicate override reason/i);
     await ue.type(override, 'Different owner and floor; verified by phone');
-    await ue.click(within(dialog).getByRole('button', { name: /^publish$/i }));
+    await ue.click(within(dialog).getByRole('button', { name: /^publish business$/i }));
     const publishes = calls.filter((c) => c.url === '/api/v1/admin/businesses/b1/publish');
     expect(publishes).toHaveLength(3);
     expect(JSON.parse(publishes[2]!.body!)).toEqual({ expectedVersion: 3, duplicateOverrideReason: 'Different owner and floor; verified by phone' });
+  });
+
+  it('groups the editor so a long form can be read, and separates the private address from the public ones', async () => {
+    renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses/b1'], authProvider: providerWithPermissions(['listings.read', 'listings.write', 'listings.publish']) });
+    await screen.findByRole('heading', { level: 1, name: 'Little Collins Espresso' });
+
+    for (const section of ['Business identity', 'Categories and services', 'Melbourne location', 'Contact details', 'Private enquiry address', 'Before publishing', 'Record history']) {
+      expect(screen.getByRole('heading', { level: 2, name: section })).toBeInTheDocument();
+    }
+    // The private address says what it is for and what it is not.
+    const privateSection = screen.getByRole('heading', { level: 2, name: 'Private enquiry address' }).closest('.ant-card')!;
+    expect(within(privateSection as HTMLElement).getByText(/never shown on the site/i)).toBeInTheDocument();
+    // How it is stored is our business, not the administrator's.
+    expect(document.body.textContent).not.toMatch(/encrypt/i);
+  });
+
+  it('offers a way to move a published listing without breaking the old address', async () => {
+    renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses/b-published'], authProvider: providerWithPermissions(['listings.read', 'listings.write', 'listings.publish']) });
+    await screen.findByRole('heading', { level: 1, name: 'Little Collins Espresso' });
+
+    const heading = await screen.findByRole('heading', { level: 2, name: 'Change the public address' });
+    const card = heading.closest('.ant-card')! as HTMLElement;
+    expect(card.textContent).toMatch(/links already shared keep working/i);
+
+    const ue = user();
+    await ue.type(screen.getByLabelText('New public address'), 'moved-espresso');
+    await waitFor(() => expect(screen.getByRole('button', { name: /change address/i })).toBeEnabled());
+    await ue.click(screen.getByRole('button', { name: /change address/i }));
+
+    const posted = await waitFor(() => {
+      const call = calls.find((entry) => entry.method === 'POST' && entry.url.endsWith('/slug'));
+      expect(call, 'the address change is sent to the slug endpoint').toBeDefined();
+      return call!;
+    });
+    expect(JSON.parse(posted.body!)).toMatchObject({ slug: 'moved-espresso', expectedVersion: 3 });
+  });
+
+  it('keeps the save action in reach and says whether there is anything unsaved', async () => {
+    renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses/b1'], authProvider: providerWithPermissions(['listings.read', 'listings.write']) });
+    await screen.findByRole('heading', { level: 1, name: 'Little Collins Espresso' });
+
+    expect(screen.getByText(/1 thing still to fix before it can be published/i)).toBeInTheDocument();
+    const ue = user();
+    await ue.type(screen.getByLabelText('Name'), '!');
+    expect(await screen.findByText('You have unsaved changes.')).toBeInTheDocument();
   });
 });

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react';
+import { ALERT_PRESENTATION, ALERT_SEVERITIES, contrastRatio } from '@melbourne-sphere/domain/alerts';
 import { ServiceAlertBanner } from './service-alert-banner';
 import type { PublicServiceAlert } from '@/lib/api';
 
@@ -82,4 +83,40 @@ describe('ServiceAlertBanner', () => {
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
     expect(link).toHaveAttribute('target', '_blank');
   });
+});
+
+/** `#rrggbb` as the `rgb(r, g, b)` jsdom reports for an inline style. */
+function rgb(hex: string): string {
+  const value = hex.replace('#', '');
+  const channel = (offset: number) => Number.parseInt(value.slice(offset, offset + 2), 16);
+  return `rgb(${channel(0)}, ${channel(2)}, ${channel(4)})`;
+}
+
+/**
+ * Parity with the shared alert table (SRS 1.2 ALRT 004).
+ *
+ * The admin previews this banner without rendering it — a different framework,
+ * a different stylesheet — so the only thing keeping the two honest is that both
+ * read `@melbourne-sphere/domain/alerts`. This pins the banner to that table:
+ * lightening the emergency band in a stylesheet alone fails here, and the admin
+ * has a mirror of this test asserting the same values.
+ */
+describe('parity with the shared alert presentation table', () => {
+  for (const severity of ALERT_SEVERITIES) {
+    const presentation = ALERT_PRESENTATION[severity];
+
+    it(`renders the ${severity} band exactly as the shared table describes it`, () => {
+      render(
+        <ServiceAlertBanner
+          alert={{ ...alert, severity, role: presentation.role, ariaLive: presentation.ariaLive, dismissible: false }}
+        />,
+      );
+      const band = screen.getByRole(presentation.role);
+      expect(band).toHaveAttribute('data-tone', presentation.tone);
+      expect(band).toHaveAttribute('aria-live', presentation.ariaLive);
+      expect(band).toHaveStyle({ background: rgb(presentation.background), color: rgb(presentation.foreground) });
+      // The claim the banner makes about itself, checked rather than asserted.
+      expect(contrastRatio(presentation.background, presentation.foreground)).toBeGreaterThanOrEqual(4.5);
+    });
+  }
 });

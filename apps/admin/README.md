@@ -83,3 +83,47 @@ The dashboard's **API status** card calls `GET /api/v1/health` once on load and 
 - Single JS chunk (~1.1 MB raw / ~350 kB gzip, mostly Ant Design + Refine). Code-splitting and the bundle budget are scheduled after the first vertical slice (SRS NFR 013).
 - Only `businesses` is a Refine resource; the Administrators, Audit log, Account security and taxonomy screens call the typed clients directly with the `{data, meta}` envelope. Migrating them is optional polish, not a functional gap.
 - `eslint-plugin-jsx-a11y` is not enabled because its latest release does not support ESLint 10; accessibility is covered by tests and manual checks until it does.
+
+## Design system
+
+`docs/design/admin-ui.md` is the contract for anything visual: tokens, page
+structure, the shared components, the copy rules and the responsive and
+accessibility rules. `docs/audits/admin-ui-inventory.md` records every route,
+what was wrong with it and where it has been verified.
+
+Two rules carry most of the weight:
+
+* **Use the shared components.** `PageHeader`, `SectionCard`, `SettingsSection`,
+  `TableCard`, `StatusTag`, `StickyActions`, `EmptyState`, `ErrorState`,
+  `PermissionDenied`, `DangerZone`, `RecordMetadata`. A screen that invents its
+  own card, empty state or status colour is the problem the system solves.
+* **No internal codes in visible copy.** Specification identifiers, table names,
+  endpoint paths and driver errors belong in comments, tests and `docs/` — never
+  on screen. Numbers carry their units; limits are stated in plain language.
+* **Some Ant defaults need a wrapper to be accessible.** A required select uses
+  `FormSelect`; a table's expand control uses `expandToggle(describe)`; a row of
+  short fields uses the `ms-field-row` class rather than `Space`. Each exists
+  because the Ant default failed axe or scrolled the page sideways at 320 px.
+
+### Checking every screen
+
+`e2e/scripts/route-sweep.ts` opens all 72 routes against a running API and admin
+(1440 and 320 px, axe, overflow, console, headings, skip link, and a
+moderation-only administrator's permissions) and writes a table for the
+inventory:
+
+```bash
+DATABASE_URL=… OUT=/tmp/sweep node e2e/scripts/route-sweep.ts
+```
+
+`e2e/scripts/overflow-probe.ts` (`ROUTE=… WIDTH=320 AXE=1`) names the element
+behind a failure. Both provision and remove their own administrators.
+
+### Shared with other applications
+
+`@melbourne-sphere/domain/alerts` — the service-alert severity table (colours,
+tone, role, politeness) and the link validator — is the admin's only runtime
+code from another workspace package (`@melbourne-sphere/contracts` supplies
+types only). It is plain TypeScript, imported as a
+subpath so nothing else from `domain` reaches the bundle. The admin's tests and
+build need it built first (`pnpm domain:build`, which `pnpm check` runs).

@@ -1988,6 +1988,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/redirects/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What a given path does right now, and why when it does nothing */
+        get: operations["RedirectsAdminController_preview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/redirects/{id}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop serving a redirect without deleting it */
+        post: operations["RedirectsAdminController_deactivate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/redirects/{id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Serve a redirect that was switched off */
+        post: operations["RedirectsAdminController_activate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/redirects/{id}": {
         parameters: {
             query?: never;
@@ -2683,6 +2734,23 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["PartnerAdminController_unpublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/queues/workers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Worker liveness: which replicas are alive, and whether the required schedule is still running */
+        get: operations["QueueMonitorController_workers"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4317,7 +4385,7 @@ export interface components {
         };
         MediaUsageDto: {
             /** @enum {string} */
-            kind: "business" | "post" | "author";
+            kind: "business" | "post" | "author" | "testimonial" | "partner" | "setting";
             id: string;
             label: string;
         };
@@ -4471,12 +4539,12 @@ export interface components {
         };
         RedirectResolutionDto: {
             /** @enum {string} */
-            kind: "permanent" | "gone";
+            kind: "permanent" | "gone" | "temporary";
             /**
              * @description Status the site must return
              * @enum {number}
              */
-            status: 301 | 410;
+            status: 301 | 302 | 410;
             targetPath: string | null;
         };
         RedirectDto: {
@@ -4486,13 +4554,30 @@ export interface components {
             /** @description Site-relative destination; null for a 410 */
             targetPath: string | null;
             /** @enum {string} */
-            kind: "permanent" | "gone";
+            kind: "permanent" | "gone" | "temporary";
+            /** @description An inactive rule is kept but not served: the site behaves as though it were not there. */
+            isActive: boolean;
             reason: string | null;
             resourceType: string | null;
             resourceId: string | null;
             createdByAdminId: string | null;
             createdAt: string;
             updatedAt: string;
+        };
+        RedirectPreviewDto: {
+            /** @description Exactly what was asked about */
+            requestedPath: string;
+            /** @description The path after normalisation; null when it is not a usable path */
+            normalisedPath: string | null;
+            rule?: components["schemas"]["RedirectDto"] | null;
+            /**
+             * @description Null when nothing happens
+             * @enum {number|null}
+             */
+            status: 301 | 302 | 410 | null;
+            targetPath: string | null;
+            /** @enum {string} */
+            outcome: "applies" | "inactive" | "no-rule" | "no-target" | "invalid-path";
         };
         CreateRedirectDto: {
             /** @example /business/old-slug */
@@ -4506,11 +4591,15 @@ export interface components {
              * @default permanent
              * @enum {string}
              */
-            kind: "permanent" | "gone";
+            kind: "permanent" | "gone" | "temporary";
             reason?: string;
             /** @enum {string} */
             resourceType?: "business" | "post" | "page";
             resourceId?: string;
+        };
+        RedirectStateDto: {
+            /** @description Recorded in the audit log */
+            reason?: string;
         };
         PublicHeroSlideDto: {
             /** @description Hero rendition URL */
@@ -4713,8 +4802,15 @@ export interface components {
             description: string;
             /** @enum {string} */
             type: "boolean" | "integer" | "string" | "enum" | "email" | "url";
-            /** @description Validation bounds: min/max, permitted enum values, and the requirement that fixes the outer bound. */
+            /** @description Validation bounds: min/max and permitted enum values. */
             bounds: Record<string, never>;
+            /**
+             * @description What the number counts, shown beside the input so a bare number is never ambiguous.
+             * @enum {string|null}
+             */
+            unit?: "minutes" | "hours" | "days" | "sessions" | "characters" | "passwords" | "attempts" | null;
+            /** @description The limit in plain language, for administrators; the requirement that fixes it stays internal. */
+            limitNote?: Record<string, never> | null;
             /** @description Value used when nothing has been stored. */
             default: Record<string, never>;
             /** @enum {string} */
@@ -5113,6 +5209,16 @@ export interface components {
             websiteUrl?: Record<string, never> | null;
             displayOrder?: number;
             expectedVersion: number;
+        };
+        WorkerLivenessDto: {
+            /** @description True only when a worker has checked in recently and the required schedule is running. */
+            healthy: boolean;
+            /** @description What an operator should do about it, in words. */
+            detail: string;
+            /** @description One entry per replica: identity, version and age only — never host or environment detail. */
+            workers: Record<string, never>[];
+            oldestHeartbeatAgeSeconds: number | null;
+            scheduler: Record<string, never>;
         };
         QueueSummaryDto: {
             name: string;
@@ -8639,7 +8745,9 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string;
-                kind?: "permanent" | "gone";
+                kind?: "permanent" | "gone" | "temporary";
+                /** @description Only rules that are on, or only those switched off. */
+                isActive?: boolean;
                 page?: number;
                 pageSize?: number;
             };
@@ -8669,6 +8777,77 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreateRedirectDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedirectDto"];
+                };
+            };
+        };
+    };
+    RedirectsAdminController_preview: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedirectPreviewDto"];
+                };
+            };
+        };
+    };
+    RedirectsAdminController_deactivate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedirectStateDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedirectDto"];
+                };
+            };
+        };
+    };
+    RedirectsAdminController_activate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedirectStateDto"];
             };
         };
         responses: {
@@ -10051,6 +10230,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PartnerDto"];
+                };
+            };
+        };
+    };
+    QueueMonitorController_workers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkerLivenessDto"];
                 };
             };
         };

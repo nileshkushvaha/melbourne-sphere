@@ -63,7 +63,13 @@ test.describe('Home → search → business', () => {
     // never redirected to the home page (SRS SEO 004).
     expect(page.url()).toContain('/business/definitely-not-a-listing-slug');
     await expect(page.getByRole('heading', { level: 1, name: /not found/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /browse the directory/i })).toBeVisible();
+    // The way back is by name, so the rename of /directory to /business (SRS
+    // 1.3) is caught here rather than leaving the assertion looking for a link
+    // that no longer exists (audit F-06).
+    const back = page.getByRole('link', { name: /browse businesses/i }).first();
+    await expect(back).toBeVisible();
+    await back.click();
+    await expect(page).toHaveURL(/\/business(\?|$)/);
   });
 
   test('robots and the sitemap index describe only public content', async ({ request }) => {

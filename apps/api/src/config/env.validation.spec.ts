@@ -1,3 +1,4 @@
+import { MAIL_TRANSPORTS, PRODUCTION_MAIL_TRANSPORTS } from '@melbourne-sphere/mail';
 import { validateEnv } from './env.validation.js';
 
 const DB = 'mysql://app:secret@127.0.0.1:3307/melbourne_sphere_dev';
@@ -341,3 +342,31 @@ describe('DATABASE_CONNECTION_LIMIT (SRS OPS 003 pool budgets)', () => {
     expect(() => validateEnv({ ...BASE, DATABASE_CONNECTION_LIMIT: 'many' })).toThrow(/DATABASE_CONNECTION_LIMIT/);
   });
 });
+
+/**
+ * The API and the worker must accept exactly the same transports, and both must
+ * take the list from `@melbourne-sphere/mail` rather than repeating it. They
+ * drifted once and the worker could not start under the provider the client
+ * chose (audit F-02); the worker asserts the same thing in `config.spec.ts`.
+ */
+describe('mail transport agreement with the worker', () => {
+  it('accepts every declared transport and nothing else', () => {
+    for (const transport of MAIL_TRANSPORTS) {
+      const extra =
+        transport === 'smtp'
+          ? { SMTP_HOST: 'smtp.relay.example', SMTP_PORT: '587', MAIL_FROM_ADDRESS: 'no-reply@example.com' }
+          : transport === 'resend'
+            ? { RESEND_API_KEY: 're_placeholder_key_value', MAIL_FROM_ADDRESS: 'no-reply@example.com' }
+            : {};
+      expect(validateEnv({ ...BASE, MAIL_TRANSPORT: transport, ...extra }).MAIL_TRANSPORT, transport).toBe(transport);
+    }
+    expect(() => validateEnv({ ...BASE, MAIL_TRANSPORT: 'sendgrid' })).toThrow(/MAIL_TRANSPORT/);
+  });
+
+  it('refuses production on a transport that cannot deliver', () => {
+    for (const transport of MAIL_TRANSPORTS.filter((value) => !PRODUCTION_MAIL_TRANSPORTS.includes(value))) {
+      expect(() => validateEnv({ ...BASE, DATABASE_URL: DB_TLS, NODE_ENV: 'production', MAIL_TRANSPORT: transport }), transport).toThrow(/MAIL_TRANSPORT/);
+    }
+  });
+});
+

@@ -85,7 +85,7 @@ export function TestimonialEditorPage() {
     <RecordEditorPage<Values>
       crumbs={[{ label: 'Website' }, { label: 'Testimonials', href: LIST }, { label: creating ? 'New testimonial' : 'Edit' }]}
       title={creating ? 'New testimonial' : 'Edit testimonial'}
-      description="Quotes shown on the public home page. Nothing is published until the approval is recorded — who agreed to the quote being used, and when."
+      description="Quotes on the public home page. Recording who approved a quote is optional."
       listHref={LIST}
       listLabel="Back to testimonials"
       form={form}
@@ -112,10 +112,10 @@ export function TestimonialEditorPage() {
       }
     >
       <Form.Item label="Name" name="displayName" extra="How the person is credited publicly." rules={[{ required: true, min: 2, max: 120, message: 'Between 2 and 120 characters' }]}>
-        <Input maxLength={120} style={{ maxWidth: 420 }} />
+        <Input maxLength={120} style={{ maxWidth: 420 }} placeholder="e.g. Sarah Nguyen" />
       </Form.Item>
-      <Form.Item label="Role or relationship" name="relationship" extra="For example: Owner, Carlton Corner Bakery.">
-        <Input maxLength={160} style={{ maxWidth: 420 }} />
+      <Form.Item label="Role or relationship" name="relationship" extra="How the person is described under their name.">
+        <Input maxLength={160} style={{ maxWidth: 420 }} placeholder="e.g. Owner, Carlton Corner Bakery" />
       </Form.Item>
       <Form.Item
         label="Quote"
@@ -123,16 +123,16 @@ export function TestimonialEditorPage() {
         extra="Plain text, in the person’s own words. Formatting is removed when you save."
         rules={[{ required: true, min: 20, max: 1000, message: 'Between 20 and 1000 characters' }]}
       >
-        <Input.TextArea rows={7} maxLength={1000} showCount />
+        <Input.TextArea rows={7} maxLength={1000} showCount placeholder="What they said, in their own words." />
       </Form.Item>
-      <Form.Item label="Listing id" name="businessId" extra="Optional. Links the quote to a published listing.">
-        <Input maxLength={64} style={{ maxWidth: 420 }} />
+      <Form.Item label="Linked listing" name="businessId" extra="The listing's reference, so the quote links to it. Copy it from the listing address.">
+        <Input maxLength={64} style={{ maxWidth: 420 }} placeholder="Paste a listing reference" />
       </Form.Item>
-      <Form.Item label="Portrait media id" name="mediaId" extra="Optional. An approved image from the media library.">
-        <Input maxLength={64} style={{ maxWidth: 420 }} />
+      <Form.Item label="Portrait image" name="mediaId" extra="The reference of an approved image from the media library. Copy it from the image's page.">
+        <Input maxLength={64} style={{ maxWidth: 420 }} placeholder="Paste an image reference" />
       </Form.Item>
       <Form.Item label="Display order" name="displayOrder">
-        <InputNumber min={0} max={9999} />
+        <InputNumber min={0} max={9999} placeholder="0" />
       </Form.Item>
     </RecordEditorPage>
   );

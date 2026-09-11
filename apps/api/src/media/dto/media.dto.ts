@@ -46,7 +46,7 @@ export class MediaVariantDto {
 }
 
 export class MediaUsageDto {
-  @ApiProperty({ enum: ['business', 'post', 'author'] }) kind!: 'business' | 'post' | 'author';
+  @ApiProperty({ enum: ['business', 'post', 'author', 'testimonial', 'partner', 'setting'] }) kind!: 'business' | 'post' | 'author' | 'testimonial' | 'partner' | 'setting';
   @ApiProperty() id!: string;
   @ApiProperty() label!: string;
 }

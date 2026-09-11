@@ -12,6 +12,7 @@ import type { AdminPrincipal } from '../identity/identity.service.js';
 import { EVENT_TYPES, OutboxService } from '../outbox/outbox.service.js';
 import { ReviewsService } from '../reviews/reviews.service.js';
 import type { AdminEnquiryDto, ListEnquiriesQueryDto, RetryEnquiryDto, SubmitEnquiryDto, UpdateEnquiryDto, EnquiryReceiptDto } from './dto/enquiry.dto.js';
+import { enquiryEvents } from '../observability/metrics.registry.js';
 
 /** SRS SEC 002: three enquiries per 15 minutes and ten per day per trusted IP. */
 const ENQUIRY_LIMITS = [
@@ -100,6 +101,9 @@ export class EnquiriesService {
       });
       return created;
     });
+    // Counted by event only. A recipient, a message or a visitor's name in a
+    // label would put personal data in a metrics store (MON 001).
+    enquiryEvents.inc({ event: 'accepted' });
     await this.audit.record({ action: 'enquiry.accepted', targetType: 'enquiry', targetId: enquiry.id, metadata: { businessId: business?.id ?? null }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return { receiptId: enquiry.id.slice(-12), status: 'accepted', message: 'Your message has been accepted and is on its way to the business.' };
   }
@@ -160,6 +164,7 @@ export class EnquiriesService {
         payload: { enquiryId: id, businessId: current.businessId, kind: current.kind, retry: true },
       });
     });
+    enquiryEvents.inc({ event: 'retry_requested' });
     await this.audit.record({ action: 'enquiry.retry', actorAdminId: actor.id, targetType: 'enquiry', targetId: id, reason: input.reason, metadata: { from: current.deliveryStatus }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return this.get(id);
   }

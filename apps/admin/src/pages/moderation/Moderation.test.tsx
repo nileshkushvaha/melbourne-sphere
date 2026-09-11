@@ -87,7 +87,8 @@ describe('moderation pages', () => {
     const ue = user();
     renderWithProviders(<ReportsPage />, { initialEntries: ['/admin/reports?status=open'] });
     expect(await screen.findByRole('heading', { level: 1, name: 'Abuse reports' })).toBeInTheDocument();
-    const row = (await screen.findByText('privacy')).closest('tr')!;
+    // The reason is shown in the report form's words, not as its stored code.
+    const row = (await screen.findByText('Privacy concern')).closest('tr')!;
     await ue.click(within(row).getByRole('button', { name: /resolve/i }));
     const dialog = await screen.findByRole('dialog');
     await ue.type(within(dialog).getByLabelText(/note/i), 'No personal information found');

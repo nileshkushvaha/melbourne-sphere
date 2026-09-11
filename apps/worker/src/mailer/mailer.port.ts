@@ -4,6 +4,8 @@ export interface OutboundEnquiryMessage {
   replyTo?: string;
   subject: string;
   text: string;
+  /** HTML alternative from the shared email layout; the text part is always sent. */
+  html?: string;
   /** Stable id so a provider that supports idempotency can deduplicate (SRS ENQ 004). */
   messageId: string;
 }

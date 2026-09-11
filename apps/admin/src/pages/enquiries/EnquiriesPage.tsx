@@ -1,24 +1,17 @@
 import { useState } from 'react';
-import { Alert, App, Button, Form, Input, Modal, Select, Space, Table, Tag, Typography } from 'antd';
+import { Alert, App, Button, Form, Input, Modal, Select, Space, Table, Typography } from 'antd';
 import { useOnError } from '@refinedev/core';
 import { useSearchParams } from 'react-router';
 import { DELIVERY_STATUSES, HANDLING_STATUSES, enquiriesApi, type AdminEnquiry, type DeliveryStatus, type HandlingStatus } from '@/api/enquiries';
 import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
-import { PageHeader } from '@/components/ui';
+import { PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { useCapabilities } from '@/auth/access-control';
 import { PERMISSION } from '@/auth/permissions';
+import { expandToggle } from '@/components/ui/expandToggle';
 
-const DELIVERY_COLOURS: Record<DeliveryStatus, string> = {
-  queued: 'blue',
-  providerAccepted: 'green',
-  delivered: 'green',
-  retrying: 'gold',
-  failed: 'red',
-  suppressed: 'orange',
-};
 const DELIVERY_LABELS: Record<DeliveryStatus, string> = {
   queued: 'queued',
   providerAccepted: 'accepted by provider',
@@ -87,19 +80,26 @@ export function EnquiriesPage() {
 
   return (
     <div>
-      <PageHeader crumbs={[{ label: 'Community' }, { label: 'Enquiries' }]} title="Enquiries" description="Messages sent to businesses through the site. Delivery status describes the email; handling status is your own workflow. Closing an enquiry does not mean the email arrived." />
-      <Space style={{ marginBottom: 16 }} wrap>
-        <Select aria-label="Filter by handling status" allowClear placeholder="Any handling status" value={handlingStatus} onChange={(v) => setParam('handlingStatus', v)} style={{ width: 200 }} options={HANDLING_STATUSES.map((s) => ({ value: s, label: HANDLING_LABELS[s] }))} />
-        <Select aria-label="Filter by delivery status" allowClear placeholder="Any delivery status" value={deliveryStatus} onChange={(v) => setParam('deliveryStatus', v)} style={{ width: 220 }} options={DELIVERY_STATUSES.map((s) => ({ value: s, label: DELIVERY_LABELS[s] }))} />
-      </Space>
+      <PageHeader crumbs={[{ label: 'Community' }, { label: 'Enquiries' }]} title="Enquiries" description="Delivery status is the email; handling status is your workflow." />
+      <TableCard
+        toolbar={
+          <>
+            <Select aria-label="Filter by handling status" allowClear placeholder="Any handling status" value={handlingStatus} onChange={(v) => setParam('handlingStatus', v)} style={{ width: 200 }} options={HANDLING_STATUSES.map((s) => ({ value: s, label: HANDLING_LABELS[s] }))} />
+            <Select aria-label="Filter by delivery status" allowClear placeholder="Any delivery status" value={deliveryStatus} onChange={(v) => setParam('deliveryStatus', v)} style={{ width: 220 }} options={DELIVERY_STATUSES.map((s) => ({ value: s, label: DELIVERY_LABELS[s] }))} />
+          </>
+        }
+      >
       {state.status === 'error' && <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />}
       <Table<AdminEnquiry>
+        // Colour is on the rows that still need a decision, not on every row.
+        rowClassName={(row) => statusRowClass(row.deliveryStatus)}
         rowKey="id"
         loading={state.status === 'loading'}
         dataSource={state.status === 'ready' ? state.data.data : []}
         pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => setParam('page', String(p)) } : false}
         scroll={{ x: 1100 }}
         expandable={{
+          expandIcon: expandToggle((enquiry) => `the enquiry from ${enquiry.name}`),
           expandedRowRender: (enquiry) => (
             <div style={{ maxWidth: 900 }}>
               <Typography.Paragraph strong>{enquiry.subject}</Typography.Paragraph>
@@ -117,9 +117,25 @@ export function EnquiriesPage() {
           { title: 'Business', dataIndex: 'businessName', render: (v: string | null) => v ?? 'General enquiry' },
           { title: 'From', dataIndex: 'name' },
           { title: 'Subject', dataIndex: 'subject', ellipsis: true },
-          { title: 'Delivery', dataIndex: 'deliveryStatus', render: (v: DeliveryStatus, e) => <Space size={4}><Tag color={DELIVERY_COLOURS[v]}>{DELIVERY_LABELS[v]}</Tag>{e.deliveryAttempts > 0 && <span>{e.deliveryAttempts} attempt{e.deliveryAttempts === 1 ? '' : 's'}</span>}</Space> },
-          { title: 'Handling', dataIndex: 'handlingStatus', render: (v: HandlingStatus) => <Tag>{HANDLING_LABELS[v]}</Tag> },
-          { title: 'Received', dataIndex: 'createdAt', render: formatDateTime },
+          {
+            title: 'Delivery',
+            dataIndex: 'deliveryStatus',
+            width: 190,
+            // The tag and the attempt count stack: side by side they collided in
+            // a column this narrow, and the count sat on top of the tag.
+            render: (v: DeliveryStatus, e) => (
+              <div>
+                <StatusTag status={v} />
+                {e.deliveryAttempts > 0 && (
+                  <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: 2 }}>
+                    {e.deliveryAttempts} attempt{e.deliveryAttempts === 1 ? '' : 's'}
+                  </Typography.Text>
+                )}
+              </div>
+            ),
+          },
+          { title: 'Handling', dataIndex: 'handlingStatus', width: 140, render: (v: HandlingStatus) => <StatusTag status={v} /> },
+          { title: 'Received', dataIndex: 'createdAt', width: 170, render: formatDateTime },
           {
             title: <span className="sr-only">Actions</span>,
             width: 280,
@@ -139,8 +155,9 @@ export function EnquiriesPage() {
         ]}
         locale={{ emptyText: state.status === 'ready' ? 'No enquiries match.' : ' ' }}
       />
+      </TableCard>
       <Modal open={retrying !== null} title="Re-queue this delivery" okText="Retry delivery" onOk={() => void submitRetry()} onCancel={() => setRetrying(null)} destroyOnHidden>
-        <Typography.Paragraph>The message is queued again. A provider timeout can mean the first attempt did arrive, so check with the business before retrying repeatedly.</Typography.Paragraph>
+        <Typography.Paragraph>It is queued again. A timeout can mean the first one arrived, so check before retrying again.</Typography.Paragraph>
         {dialogError && <Alert type="error" showIcon role="alert" message={dialogError} style={{ marginBottom: 12 }} />}
         <Form form={form} layout="vertical" requiredMark={false}>
           <Form.Item label="Reason (recorded in the audit log)" name="reason" rules={[{ required: true, min: 5, message: 'Give at least 5 characters' }]}>

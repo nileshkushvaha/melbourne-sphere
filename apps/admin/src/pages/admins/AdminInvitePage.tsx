@@ -1,11 +1,14 @@
-import { App, Form, Input, Select, Typography } from 'antd';
+import { App, Form, Input, Typography } from 'antd';
+import { useGetIdentity } from '@refinedev/core';
 import { useNavigate } from 'react-router';
 import { adminsApi } from '@/api/admins';
+import type { AdminSummary } from '@/api/auth';
 import { authorizationApi } from '@/api/authorization';
 import { RecordEditorPage } from '@/components/ui';
 import { useAsync } from '@/shared/useAsync';
 import { useRecordEditor } from '@/shared/useRecordEditor';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { FormSelect } from '@/components/FormSelect';
 
 interface Values {
   email: string;
@@ -29,6 +32,11 @@ export function AdminInvitePage() {
   const [form] = Form.useForm<Values>();
   const { saving, error, submit } = useRecordEditor<Values>(form);
   const [roles] = useAsync((signal) => authorizationApi().listRoles({ page: 1, pageSize: 50 }, signal), []);
+  const { data: me } = useGetIdentity<AdminSummary>();
+  // Only a Super Admin may hand out the Super Admin role (SRS RBAC 011). The
+  // server refuses it either way; offering it would only produce a refusal after
+  // the account had been named and the form submitted.
+  const actorIsSuperAdmin = (me?.roles ?? []).includes('super_admin');
 
   const save = () =>
     submit(async (values) => {
@@ -42,7 +50,7 @@ export function AdminInvitePage() {
     <RecordEditorPage<Values>
       crumbs={[{ label: 'Configuration' }, { label: 'Administrators', href: '/admins' }, { label: 'New administrator' }]}
       title="New administrator"
-      description="The new administrator receives a single-use setup link, valid for 24 hours, to choose their own password. They cannot sign in before that, and you never see or set their password."
+      description="They get a single-use link, valid for 24 hours, to set their own password."
       listHref="/admins"
       listLabel="All administrators"
       form={form}
@@ -55,30 +63,43 @@ export function AdminInvitePage() {
         <div style={{ border: '1px solid var(--ant-color-border)', borderRadius: 8, padding: 16 }}>
           <Typography.Text strong>What happens next</Typography.Text>
           <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
-            The account is created in the invited state and appears in the list straight away. It becomes active only when the person follows the setup link and sets a password. You can change their roles at any time from their own page.
+            The account appears as invited and becomes active once they set a password. You can change their roles at any time.
           </Typography.Paragraph>
         </div>
       }
     >
       <Form.Item label="Email" name="email" rules={[{ required: true, type: 'email', message: 'Enter a valid email address' }]} extra="The setup link is sent here.">
-        <Input type="email" maxLength={254} autoComplete="off" />
+        <Input type="email" maxLength={254} autoComplete="off" placeholder="e.g. sam@melbournesphere.com.au" />
       </Form.Item>
       <Form.Item label="Display name" name="displayName" rules={[{ required: true, min: 2, max: 80, message: '2–80 characters' }]}>
-        <Input maxLength={80} />
+        <Input maxLength={80} placeholder="e.g. Sam Taylor" />
       </Form.Item>
       <Form.Item
         label="Roles"
         name="roleKeys"
         rules={[{ required: true, message: 'Choose at least one role' }]}
-        extra="What this administrator may do. Give the least that lets them do their job; you can change it later."
+        extra="Give the least access they need. You can change it later."
         style={{ marginBottom: 0 }}
       >
-        <Select
+        <FormSelect
           mode="multiple"
           loading={roles.status === 'loading'}
           placeholder="Choose one or more roles"
           optionFilterProp="label"
-          options={roles.status === 'ready' ? roles.data.data.filter((role) => role.isActive).map((role) => ({ value: role.key, label: `${role.name} — ${role.description}` })) : []}
+          options={
+            roles.status === 'ready'
+              ? roles.data.data
+                  .filter((role) => role.isActive)
+                  .map((role) => {
+                    const withheld = role.key === 'super_admin' && !actorIsSuperAdmin;
+                    return {
+                      value: role.key,
+                      label: withheld ? `${role.name} — only a Super Admin can grant this` : `${role.name} — ${role.description}`,
+                      disabled: withheld,
+                    };
+                  })
+              : []
+          }
         />
       </Form.Item>
     </RecordEditorPage>

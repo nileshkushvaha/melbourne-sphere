@@ -48,6 +48,7 @@ export class ResendMailer extends MailerPort {
         from: this.from,
         subject: mail.subject,
         text: mail.text,
+        html: mail.html,
         messageId: `${randomUUID()}@${this.messageDomain}`,
       });
     } catch (error) {

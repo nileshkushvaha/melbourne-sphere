@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Alert, App, Button, Input, Select, Space, Switch, Table, Tag } from 'antd';
+import { Alert, App, Button, Input, Select, Switch, Table } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
 import { Link, useSearchParams } from 'react-router';
@@ -7,7 +7,7 @@ import { taxonomyApi, type TermItem, type TermKind, type TermListQuery } from '@
 import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
-import { PageHeader } from '@/components/ui';
+import { PageHeader, TableCard, StatusTag } from '@/components/ui';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
 export interface TermField {
@@ -29,6 +29,15 @@ export interface TermsPageConfig {
 }
 
 const SORTS: NonNullable<TermListQuery['sort']>[] = ['name', 'slug', 'sortOrder', 'createdAt', 'updatedAt'];
+
+/** The sort keys the API accepts, in the words an administrator would use. */
+const SORT_LABELS: Record<string, string> = {
+  name: 'Name',
+  slug: 'Address',
+  sortOrder: 'Display order',
+  createdAt: 'Date added',
+  updatedAt: 'Last changed',
+};
 
 /**
  * Generic list and activate/deactivate screen for the three taxonomy resources
@@ -94,12 +103,16 @@ export function TermsPage({ config }: { config: TermsPageConfig }) {
           </Link>
         }
       />
-      <Space style={{ marginBottom: 16 }} wrap>
-        <Input.Search aria-label="Search by name or slug" placeholder="Search name or slug" allowClear defaultValue={q} onSearch={(v) => setParam('q', v.trim() || undefined)} style={{ width: 260 }} />
-        <Select aria-label="Filter by status" allowClear placeholder="All" value={status} onChange={(v) => setParam('status', v)} style={{ width: 140 }} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]} />
-        <Select aria-label="Sort by" value={sort} onChange={(v) => setParam('sort', v)} style={{ width: 160 }} options={SORTS.map((s) => ({ value: s, label: `Sort: ${s}` }))} />
-        <Select aria-label="Sort direction" value={order} onChange={(v) => setParam('order', v)} style={{ width: 120 }} options={[{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }]} />
-      </Space>
+      <TableCard
+        toolbar={
+          <>
+            <Input.Search aria-label="Search by name or slug" placeholder="Search name or slug" allowClear defaultValue={q} onSearch={(v) => setParam('q', v.trim() || undefined)} style={{ width: 260 }} />
+            <Select aria-label="Filter by status" allowClear placeholder="All" value={status} onChange={(v) => setParam('status', v)} style={{ width: 140 }} options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]} />
+            <Select aria-label="Sort by" value={sort} onChange={(v) => setParam('sort', v)} style={{ width: 160 }} options={SORTS.map((s) => ({ value: s, label: `Sort: ${SORT_LABELS[s] ?? s}` }))} />
+            <Select aria-label="Sort direction" value={order} onChange={(v) => setParam('order', v)} style={{ width: 120 }} options={[{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }]} />
+          </>
+        }
+      >
       {state.status === 'error' && <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />}
       <Table<TermItem>
         rowKey="id"
@@ -111,12 +124,13 @@ export function TermsPage({ config }: { config: TermsPageConfig }) {
           { title: 'Name', dataIndex: 'name', render: (v: string, item) => <Link to={`${listHref}/${item.id}`}>{v}</Link> },
           { title: 'Slug', dataIndex: 'slug', render: (v: string) => <code>{v}</code> },
           ...(config.columns ?? []).map((c) => ({ title: c.title, render: (_: unknown, item: TermItem) => c.render(item) })),
-          { title: 'Status', dataIndex: 'active', render: (v: boolean) => <Tag color={v ? 'green' : 'default'}>{v ? 'active' : 'inactive'}</Tag> },
+          { title: 'Status', dataIndex: 'active', render: (v: boolean) => <StatusTag status={v ? 'active' : 'inactive'} /> },
           { title: 'Updated', dataIndex: 'updatedAt', render: formatDateTime },
           { title: <span className="sr-only">Actions</span>, render: (_: unknown, item) => <Switch checked={item.active} onChange={() => toggleActive(item)} aria-label={`${item.active ? 'Deactivate' : 'Activate'} ${item.name}`} /> },
         ]}
         locale={{ emptyText: state.status === 'ready' ? `No ${config.title.toLowerCase()} match.` : ' ' }}
       />
+      </TableCard>
     </div>
   );
 }

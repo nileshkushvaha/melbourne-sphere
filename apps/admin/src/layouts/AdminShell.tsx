@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Avatar, Button, Drawer, Dropdown, Grid, Layout, Menu, Tag, Tooltip, Typography } from 'antd';
+import { Avatar, Button, Drawer, Dropdown, Grid, Layout, Menu, Tooltip, Typography } from 'antd';
 import {
   AlertOutlined,
   AppstoreOutlined,
@@ -35,6 +35,8 @@ import type { AdminSummary } from '@/api/auth';
 import { Link, useLocation } from 'react-router';
 import { Brand } from '@/components/Brand';
 import { brand, layoutDimensions } from '@/config/theme';
+import { useScrollableTables } from '@/shared/useScrollableTables';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const { Header, Sider, Content, Footer } = Layout;
 
@@ -148,8 +150,11 @@ interface AdminShellProps {
  * landmarks.
  */
 export function AdminShell({ children }: AdminShellProps) {
+  useScrollableTables();
   const screens = Grid.useBreakpoint();
   const isMobile = screens.lg === false; // undefined during first render → treat as desktop
+  // Below Ant's smallest breakpoint the top bar has room for controls only.
+  const isNarrow = screens.xs === true && screens.sm !== true;
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -184,6 +189,10 @@ export function AdminShell({ children }: AdminShellProps) {
 
   // Longest matching path wins, so /posts/new highlights Articles, not Dashboard.
   const active = ALL_ITEMS.filter((item) => item.key !== '/' && location.pathname.startsWith(item.key)).sort((a, b) => b.key.length - a.key.length)[0];
+  // Screens reached from the account menu rather than the navigation still need
+  // a name in the bar; without this they read as "Dashboard", which is wrong.
+  const OFF_MENU_TITLES: Record<string, string> = { '/account': 'Account security' };
+  const barTitle = OFF_MENU_TITLES[location.pathname] ?? (active?.label as string | undefined) ?? 'Dashboard';
   const selectedKeys = [active?.key ?? (location.pathname === '/' ? '/' : '')];
 
   const menu = (
@@ -215,52 +224,14 @@ export function AdminShell({ children }: AdminShellProps) {
     .join('');
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout className="ms-app" style={{ minHeight: '100vh' }}>
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
-      <Header role="banner" style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 1px 0 rgba(255,255,255,0.06)' }}>
-        <Button
-          ref={toggleRef}
-          type="text"
-          icon={<MenuOutlined aria-hidden="true" />}
-          aria-label={isMobile ? (drawerOpen ? 'Close navigation' : 'Open navigation') : collapsed ? 'Expand navigation' : 'Collapse navigation'}
-          aria-expanded={isMobile ? drawerOpen : !collapsed}
-          aria-controls={navId}
-          onClick={() => (isMobile ? setDrawerOpen((open) => !open) : setCollapsed((c) => !c))}
-          style={{ color: '#FFFFFF' }}
-        />
-        <Link to="/" aria-label="Melbourne Sphere Admin home" style={{ display: 'inline-flex' }}>
-          <Brand />
-        </Link>
-        <span style={{ flex: 1 }} />
-        <Tooltip title="Open the public site in a new tab">
-          <Button type="text" href={import.meta.env.VITE_PUBLIC_SITE_URL ?? '/'} target="_blank" rel="noreferrer noopener" icon={<LinkOutlined aria-hidden="true" />} style={{ color: brand.navyText }}>
-            {isMobile ? null : 'View site'}
-          </Button>
-        </Tooltip>
-        {identity && (
-          <Dropdown
-            trigger={['click']}
-            menu={{
-              items: [
-                { key: 'who', disabled: true, label: <span style={{ display: 'block', maxWidth: 240 }}>{identity.email}</span> },
-                { type: 'divider' as const },
-                { key: 'account', icon: <SafetyOutlined aria-hidden="true" />, label: <Link to="/account">Account security</Link> },
-                { key: 'signout', icon: <LogoutOutlined aria-hidden="true" />, danger: true, label: 'Sign out', onClick: () => logout() },
-              ],
-            }}
-          >
-            <Button type="text" loading={loggingOut} style={{ color: '#FFFFFF', height: 40, paddingInline: 8 }} aria-label={`Account menu for ${identity.displayName}`}>
-              <Avatar size={28} style={{ background: brand.primary, fontSize: 12, fontWeight: 600 }}>
-                {initials || <UserOutlined aria-hidden="true" />}
-              </Avatar>
-              {!isMobile && <span style={{ marginInlineStart: 8 }}>{identity.displayName}</span>}
-            </Button>
-          </Dropdown>
-        )}
-      </Header>
-      <Layout>
+      {/* The rail spans the full height and the top bar sits beside it, so the
+          brand, the navigation and the account block form one column rather
+          than being cut in half by a band across the top. */}
+      <Layout style={{ minHeight: '100vh' }}>
         {isMobile ? (
           <Drawer
             id={navId}
@@ -271,7 +242,8 @@ export function AdminShell({ children }: AdminShellProps) {
               if (!open) toggleRef.current?.focus();
             }}
             width={layoutDimensions.siderWidth}
-            styles={{ body: { padding: 0, background: brand.navy }, header: { background: brand.navy, color: '#fff' } }}
+            classNames={{ body: 'ms-drawer-nav' }}
+            styles={{ body: { padding: 0 }, header: { background: brand.navy, color: '#fff', borderBottom: '1px solid rgba(255,255,255,0.08)' } }}
             title={<span style={{ color: '#FFFFFF' }}>Navigation</span>}
             closeIcon={
               <span aria-hidden="true" style={{ color: '#FFFFFF', fontSize: 20 }}>
@@ -284,27 +256,105 @@ export function AdminShell({ children }: AdminShellProps) {
         ) : (
           <Sider
             id={navId}
+            className="ms-sider"
             width={layoutDimensions.siderWidth}
             collapsedWidth={layoutDimensions.siderCollapsedWidth}
             collapsed={collapsed}
             trigger={null}
-            style={{ position: 'sticky', top: layoutDimensions.headerHeight, height: `calc(100vh - ${layoutDimensions.headerHeight}px)`, overflowY: 'auto' }}
+            style={{ position: 'sticky', top: 0, height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
           >
-            <nav aria-label="Admin navigation">{menu}</nav>
-            {!collapsed && (
-              <div style={{ padding: '12px 20px 20px' }}>
-                <Tag color="blue" style={{ marginInlineEnd: 0 }}>
-                  Melbourne only
-                </Tag>
+            {/* The brand heads the rail, above the scrolling navigation, so it
+                stays put while a long menu moves. */}
+            <div style={{ height: layoutDimensions.headerHeight, display: 'flex', alignItems: 'center', paddingInline: collapsed ? 0 : 20, justifyContent: collapsed ? 'center' : 'flex-start', flexShrink: 0 }}>
+              <Link to="/" aria-label="Melbourne Sphere Admin home" style={{ display: 'inline-flex' }}>
+                <Brand compact={collapsed} showSuffix={false} />
+              </Link>
+            </div>
+            <nav aria-label="Admin navigation" className="ms-sider-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingBottom: 8 }}>
+              {menu}
+            </nav>
+            {identity && (
+              <div className="ms-sider-account" style={{ flexShrink: 0, padding: collapsed ? '12px 0' : '12px 16px', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 10 }}>
+                <Avatar size={32} style={{ background: brand.primarySolid, fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
+                  {initials || <UserOutlined aria-hidden="true" />}
+                </Avatar>
+                {!collapsed && (
+                  <span style={{ minWidth: 0, lineHeight: 1.3 }}>
+                    <span style={{ display: 'block', color: '#FFFFFF', fontSize: 13, fontWeight: 550, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{identity.displayName}</span>
+                    <span style={{ display: 'block', color: brand.navyMuted, fontSize: 12 }}>Melbourne only</span>
+                  </span>
+                )}
               </div>
             )}
           </Sider>
         )}
-        <Layout>
-          <Content id="main-content" tabIndex={-1} role="main" style={{ padding: isMobile ? 16 : '24px 28px', maxWidth: layoutDimensions.contentMaxWidth, width: '100%', margin: '0 auto' }}>
+        <Layout style={{ minWidth: 0 }}>
+      <Header className="ms-topbar" role="banner" style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 100 }}>
+        <Button
+          ref={toggleRef}
+          type="text"
+          icon={<MenuOutlined aria-hidden="true" />}
+          aria-label={isMobile ? (drawerOpen ? 'Close navigation' : 'Open navigation') : collapsed ? 'Expand navigation' : 'Collapse navigation'}
+          aria-expanded={isMobile ? drawerOpen : !collapsed}
+          aria-controls={navId}
+          onClick={() => (isMobile ? setDrawerOpen((open) => !open) : setCollapsed((c) => !c))}
+        />
+        {/* On desktop the brand lives at the head of the navigation rail, so the
+            top bar carries the location instead of repeating the product name. */}
+        {isMobile ? (
+          // At 320 px the bar holds a menu button, a link to the site and the
+          // account button; the wordmark is the one thing that can go, and the
+          // link keeps its accessible name either way.
+          <Link to="/" aria-label="Melbourne Sphere Admin home" style={{ display: 'inline-flex', minWidth: 0, overflow: 'hidden' }}>
+            <Brand compact={isNarrow} />
+          </Link>
+        ) : (
+          <Typography.Text style={{ fontWeight: 600, fontSize: 15, color: brand.text }}>{barTitle}</Typography.Text>
+        )}
+        <span style={{ flex: 1, minWidth: 0 }} />
+        <Tooltip title="Open the public site in a new tab">
+          {/* On a phone the label is dropped for room, so the name has to come
+              from somewhere: an icon-only link with no text is unusable with a
+              screen reader (WCAG 2.4.4). */}
+          <Button
+            type="text"
+            href={import.meta.env.VITE_PUBLIC_SITE_URL ?? '/'}
+            target="_blank"
+            rel="noreferrer noopener"
+            icon={<LinkOutlined aria-hidden="true" />}
+            aria-label="View the public site in a new tab"
+            style={{ color: brand.textMuted }}
+          >
+            {isMobile ? null : 'View site'}
+          </Button>
+        </Tooltip>
+        <ThemeToggle />
+        {identity && (
+          <Dropdown
+            trigger={['click']}
+            menu={{
+              items: [
+                { key: 'who', disabled: true, label: <span style={{ display: 'block', maxWidth: 240 }}>{identity.email}</span> },
+                { type: 'divider' as const },
+                { key: 'account', icon: <SafetyOutlined aria-hidden="true" />, label: <Link to="/account">Account security</Link> },
+                { key: 'signout', icon: <LogoutOutlined aria-hidden="true" />, danger: true, label: 'Sign out', onClick: () => logout() },
+              ],
+            }}
+          >
+            <Button type="text" loading={loggingOut} style={{ height: 40, paddingInline: 8 }} aria-label={`Account menu for ${identity.displayName}`}>
+              {/* The name is already at the foot of the rail; repeating it here
+                  would say the same thing twice on one screen. */}
+              <Avatar size={30} style={{ background: brand.primarySolid, fontSize: 12, fontWeight: 600 }}>
+                {initials || <UserOutlined aria-hidden="true" />}
+              </Avatar>
+            </Button>
+          </Dropdown>
+        )}
+      </Header>
+          <Content id="main-content" tabIndex={-1} role="main" style={{ padding: isMobile ? '16px 16px 8px' : '28px 32px 12px', maxWidth: layoutDimensions.contentMaxWidth, width: '100%', margin: '0 auto' }}>
             {children}
           </Content>
-          <Footer role="contentinfo" style={{ background: 'transparent', padding: '8px 28px 20px' }}>
+          <Footer role="contentinfo" style={{ background: 'transparent', padding: isMobile ? '8px 16px 20px' : '8px 32px 24px', maxWidth: layoutDimensions.contentMaxWidth, width: '100%', margin: '0 auto' }}>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               Melbourne Sphere Admin · sessions expire after 30 minutes of inactivity
             </Typography.Text>

@@ -115,3 +115,49 @@ jobs:
       # reported and triaged rather than blocking every build.
       - name: Audit production dependencies
         run: pnpm audit --prod --audit-level high
+
+  browser:
+    # Post-audit remediation (F-09): the release gate's browser leg. Prepared,
+    # not connected to any external account — it runs entirely on the runner,
+    # brings up this project's own Compose services, and provisions its own
+    # throwaway administrator with a generated password.
+    #
+    # It uses Compose rather than GitHub service containers because
+    # `scripts/test-browser.mjs` creates and drops its database through the
+    # project's own MySQL container, so CI and a developer's machine run the
+    # identical path.
+    name: Browser tests (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - name: Local service credentials (placeholders; nothing here is a secret)
+        run: |
+          cp infrastructure/.env.example infrastructure/.env
+          cp apps/api/.env.example apps/api/.env
+      - name: Start MySQL and Redis
+        run: pnpm infra:up
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:build
+      - run: pnpm domain:build && pnpm mail:build
+      - run: pnpm build
+      - name: Install the browser
+        run: pnpm --filter @melbourne-sphere/e2e exec playwright install --with-deps chromium
+      - name: Browser tests
+        run: pnpm test:browser
+      - name: Failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            e2e/test-results/
+            e2e/playwright-report/
+          retention-days: 7

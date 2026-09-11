@@ -258,7 +258,11 @@ export class AlertService {
       severity: row.severity,
       linkLabel: row.linkLabel,
       linkUrl: row.linkUrl,
-      linkExternal: Boolean(row.linkUrl && !row.linkUrl.startsWith('/')),
+      // The validator that accepted the link decides whether it leaves the site;
+      // a second `startsWith('/')` heuristic here is exactly how the two answers
+      // drift apart. A stored link always validates, so `false` is unreachable
+      // for a saved row and is the safe direction if it ever is not.
+      linkExternal: row.linkUrl ? (validateAlertLink(row.linkUrl)?.external ?? false) : false,
       dismissible: row.dismissible,
       contentVersion: row.contentVersion,
       role: alertRoleFor(row.severity),

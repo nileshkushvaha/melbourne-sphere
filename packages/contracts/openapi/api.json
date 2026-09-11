@@ -5833,8 +5833,18 @@
               "type": "string",
               "enum": [
                 "permanent",
-                "gone"
+                "gone",
+                "temporary"
               ]
+            }
+          },
+          {
+            "name": "isActive",
+            "required": false,
+            "in": "query",
+            "description": "Only rules that are on, or only those switched off.",
+            "schema": {
+              "type": "boolean"
             }
           },
           {
@@ -5905,6 +5915,119 @@
           }
         },
         "summary": "Create a 301 redirect, or mark a removed path as 410 gone",
+        "tags": [
+          "admin-seo"
+        ]
+      }
+    },
+    "/api/v1/admin/redirects/resolve": {
+      "get": {
+        "operationId": "RedirectsAdminController_preview",
+        "parameters": [
+          {
+            "name": "path",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedirectPreviewDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "What a given path does right now, and why when it does nothing",
+        "tags": [
+          "admin-seo"
+        ]
+      }
+    },
+    "/api/v1/admin/redirects/{id}/deactivate": {
+      "post": {
+        "operationId": "RedirectsAdminController_deactivate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedirectStateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedirectDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Stop serving a redirect without deleting it",
+        "tags": [
+          "admin-seo"
+        ]
+      }
+    },
+    "/api/v1/admin/redirects/{id}/activate": {
+      "post": {
+        "operationId": "RedirectsAdminController_activate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedirectStateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedirectDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Serve a redirect that was switched off",
         "tags": [
           "admin-seo"
         ]
@@ -8118,6 +8241,28 @@
         },
         "tags": [
           "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/system/queues/workers": {
+      "get": {
+        "operationId": "QueueMonitorController_workers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerLivenessDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Worker liveness: which replicas are alive, and whether the required schedule is still running",
+        "tags": [
+          "admin-system"
         ]
       }
     },
@@ -13532,7 +13677,10 @@
             "enum": [
               "business",
               "post",
-              "author"
+              "author",
+              "testimonial",
+              "partner",
+              "setting"
             ]
           },
           "id": {
@@ -14070,13 +14218,15 @@
             "type": "string",
             "enum": [
               "permanent",
-              "gone"
+              "gone",
+              "temporary"
             ]
           },
           "status": {
             "type": "number",
             "enum": [
               301,
+              302,
               410
             ],
             "description": "Status the site must return"
@@ -14111,8 +14261,13 @@
             "type": "string",
             "enum": [
               "permanent",
-              "gone"
+              "gone",
+              "temporary"
             ]
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "An inactive rule is kept but not served: the site behaves as though it were not there."
           },
           "reason": {
             "type": "string",
@@ -14142,12 +14297,67 @@
           "sourcePath",
           "targetPath",
           "kind",
+          "isActive",
           "reason",
           "resourceType",
           "resourceId",
           "createdByAdminId",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "RedirectPreviewDto": {
+        "type": "object",
+        "properties": {
+          "requestedPath": {
+            "type": "string",
+            "description": "Exactly what was asked about"
+          },
+          "normalisedPath": {
+            "type": "string",
+            "nullable": true,
+            "description": "The path after normalisation; null when it is not a usable path"
+          },
+          "rule": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RedirectDto"
+              }
+            ]
+          },
+          "status": {
+            "type": "number",
+            "nullable": true,
+            "enum": [
+              301,
+              302,
+              410
+            ],
+            "description": "Null when nothing happens"
+          },
+          "targetPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "applies",
+              "inactive",
+              "no-rule",
+              "no-target",
+              "invalid-path"
+            ]
+          }
+        },
+        "required": [
+          "requestedPath",
+          "normalisedPath",
+          "status",
+          "targetPath",
+          "outcome"
         ]
       },
       "CreateRedirectDto": {
@@ -14169,7 +14379,8 @@
             "type": "string",
             "enum": [
               "permanent",
-              "gone"
+              "gone",
+              "temporary"
             ],
             "default": "permanent"
           },
@@ -14193,6 +14404,16 @@
         "required": [
           "sourcePath"
         ]
+      },
+      "RedirectStateDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Recorded in the audit log"
+          }
+        }
       },
       "PublicHeroSlideDto": {
         "type": "object",
@@ -14942,7 +15163,26 @@
           },
           "bounds": {
             "type": "object",
-            "description": "Validation bounds: min/max, permitted enum values, and the requirement that fixes the outer bound."
+            "description": "Validation bounds: min/max and permitted enum values."
+          },
+          "unit": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "minutes",
+              "hours",
+              "days",
+              "sessions",
+              "characters",
+              "passwords",
+              "attempts"
+            ],
+            "description": "What the number counts, shown beside the input so a bare number is never ambiguous."
+          },
+          "limitNote": {
+            "type": "object",
+            "nullable": true,
+            "description": "The limit in plain language, for administrators; the requirement that fixes it stays internal."
           },
           "default": {
             "type": "object",
@@ -16391,6 +16631,40 @@
         "required": [
           "name",
           "expectedVersion"
+        ]
+      },
+      "WorkerLivenessDto": {
+        "type": "object",
+        "properties": {
+          "healthy": {
+            "type": "boolean",
+            "description": "True only when a worker has checked in recently and the required schedule is running."
+          },
+          "detail": {
+            "type": "string",
+            "description": "What an operator should do about it, in words."
+          },
+          "workers": {
+            "description": "One entry per replica: identity, version and age only — never host or environment detail.",
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "oldestHeartbeatAgeSeconds": {
+            "type": "number",
+            "nullable": true
+          },
+          "scheduler": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "healthy",
+          "detail",
+          "workers",
+          "oldestHeartbeatAgeSeconds",
+          "scheduler"
         ]
       },
       "QueueSummaryDto": {

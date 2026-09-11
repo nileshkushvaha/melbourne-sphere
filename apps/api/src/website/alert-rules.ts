@@ -1,13 +1,20 @@
-import { validatePublicUrl } from '../directory/business-rules.js';
-
 /**
  * Service alert rules (SRS 1.2 ALRT 002/003/005).
  *
- * Kept apart from the service so the two things worth proving on their own —
- * which alert wins, and which link is safe — are testable without a database.
+ * Kept apart from the service so the thing worth proving on its own — which
+ * alert wins — is testable without a database. The severity table and the link
+ * validator live in `@melbourne-sphere/domain`, because the public banner and
+ * the admin preview must reach the same verdicts as the server, and are
+ * re-exported here so the website module still reads its rules from one place.
  */
+import { alertPresentation, validateAlertLink, type AlertSeverity, type ValidatedLink } from '@melbourne-sphere/domain/alerts';
 
-export type AlertSeverity = 'informational' | 'warning' | 'emergency';
+export { validateAlertLink, type ValidatedLink };
+
+// The severity list and how each one is presented and announced live in
+// `@melbourne-sphere/domain/alerts`, so the API, the public banner and the admin
+// preview cannot disagree about what an emergency looks or sounds like.
+export type { AlertSeverity };
 
 /** Highest first. Severity outranks priority: an emergency is never queued behind a promotion. */
 const SEVERITY_RANK: Record<AlertSeverity, number> = { emergency: 3, warning: 2, informational: 1 };
@@ -53,42 +60,15 @@ export function selectVisibleAlerts<T extends SelectableAlert>(alerts: readonly 
     .slice(0, limit);
 }
 
-export interface ValidatedLink {
-  /** A site-relative path, or an absolute http(s) URL. */
-  url: string;
-  external: boolean;
-}
-
 /**
- * Validates a link destination at write time (ALRT 005). Internal destinations
- * are site-relative paths; external ones must be http or https. Everything else
- * — `javascript:`, `data:`, protocol-relative `//host`, credentials in the URL —
- * is refused on save rather than filtered at render, because a renderer that
- * has to decide is a renderer that will eventually decide wrong.
- */
-export function validateAlertLink(value: string): ValidatedLink | null {
-  const trimmed = value.trim();
-  if (trimmed.length === 0 || trimmed.length > 300) return null;
-  // A protocol-relative URL reads as a path and behaves as a host.
-  if (trimmed.startsWith('//')) return null;
-  if (trimmed.startsWith('/')) {
-    // One leading slash, no scheme, no backslashes, no control characters.
-    if (!/^\/[A-Za-z0-9\-._~!$&'()*+,;=:@%/?#[\]]*$/.test(trimmed)) return null;
-    return { url: trimmed, external: false };
-  }
-  const absolute = validatePublicUrl(trimmed);
-  return absolute ? { url: absolute, external: true } : null;
-}
-
-/**
- * Accessible semantics by severity (ALRT 004). An assertive live region
- * interrupts a screen reader mid-sentence, so it is reserved for a genuine
- * emergency; everything else is polite.
+ * Accessible semantics by severity (ALRT 004), read from the shared table rather
+ * than decided here: an assertive live region interrupts a screen reader
+ * mid-sentence, and that decision must be the same one the banner renders.
  */
 export function ariaLiveFor(severity: AlertSeverity): 'assertive' | 'polite' {
-  return severity === 'emergency' ? 'assertive' : 'polite';
+  return alertPresentation(severity).ariaLive;
 }
 
 export function alertRoleFor(severity: AlertSeverity): 'alert' | 'status' {
-  return severity === 'emergency' ? 'alert' : 'status';
+  return alertPresentation(severity).role;
 }

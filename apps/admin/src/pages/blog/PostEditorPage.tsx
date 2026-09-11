@@ -2,26 +2,42 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, App, Button, Col, Form, Input, List, Modal, Row, Select, Space, Switch, Tooltip, Typography } from 'antd';
 import { PictureOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
-import { useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { blogApi, melbourneLocalToUtc, melbourneOffsetLabel, utcToMelbourneLocal, type Post, type PostAction } from '@/api/blog';
 import { toNamePath } from '@/api/businesses';
 import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
+import { useUnsavedChanges } from '@/shared/useUnsavedChanges';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { MediaPicker } from '@/components/MediaPicker';
 import { RichTextEditorLazy } from '@/components/RichTextEditorLazy';
-import { PageLoader, PageHeader, SectionCard, StatusTag, StickyActions } from '@/components/ui';
+import { ErrorState, PageLoader, PageHeader, SectionCard, StatusTag, StickyActions, PageLoadError } from '@/components/ui';
 import type { MediaAsset } from '@/api/media';
 import { useCapabilities } from '@/auth/access-control';
 import { PERMISSION } from '@/auth/permissions';
+import { FormSelect } from '@/components/FormSelect';
+import { brand } from '@/config/theme';
 
 const ACTION_LABELS: Record<PostAction, { label: string; title: string; hint: string; danger?: boolean }> = {
-  publish: { label: 'Publish', title: 'Publish this article?', hint: 'It becomes visible on the public blog immediately.' },
-  schedule: { label: 'Schedule', title: 'Schedule publication', hint: 'Choose a Melbourne date and time. The article publishes automatically, even if the site was offline at that moment.' },
-  unpublish: { label: 'Unpublish', title: 'Unpublish this article?', hint: 'It returns to draft and disappears from the public blog.', danger: true },
-  archive: { label: 'Archive', title: 'Archive this article?', hint: 'Archived articles are hidden and cannot be edited until restored.', danger: true },
-  restore: { label: 'Restore', title: 'Restore this article to draft?', hint: 'It stays private until published again.' },
+  publish: {
+    label: 'Publish article',
+    title: 'Publish this article?',
+    hint: 'Anyone can read it on the blog from now on, it appears in the blog list and in search results, and readers can comment if comments are on. You can unpublish it again at any time.',
+  },
+  schedule: {
+    label: 'Schedule article',
+    title: 'Schedule publication',
+    hint: 'Choose a Melbourne date and time. The article publishes itself then, even if nobody is signed in — and even if the site was offline at that moment, it publishes as soon as it is back.',
+  },
+  unpublish: {
+    label: 'Unpublish article',
+    title: 'Unpublish this article?',
+    hint: 'It returns to draft: readers can no longer open it and it leaves the blog list. Comments already made are kept.',
+    danger: true,
+  },
+  archive: { label: 'Archive article', title: 'Archive this article?', hint: 'It is hidden everywhere and becomes read-only. Restore it to edit it again.', danger: true },
+  restore: { label: 'Restore article', title: 'Restore this article to draft?', hint: 'It becomes editable again and stays private until you publish it.' },
 };
 
 const ACTIONS_BY_STATUS: Record<Post['status'], PostAction[]> = {
@@ -70,6 +86,9 @@ export function PostEditorPage() {
   const [form] = Form.useForm<FormValues>();
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  // Nothing here saves on its own; leaving with edits in the form loses them.
+  useUnsavedChanges(dirty && !saving);
   const [pending, setPending] = useState<{ action: PostAction; blockers?: string[] } | null>(null);
   const [actionForm] = Form.useForm<{ reason?: string; scheduledLocal?: string }>();
   const [reloadKey, setReloadKey] = useState(0);
@@ -80,6 +99,8 @@ export function PostEditorPage() {
 
   const [state, reload] = useAsync((signal) => (isNew ? Promise.resolve(null) : api.getPost(id!, signal)), [id, reloadKey]);
   const post = state.status === 'ready' ? state.data : null;
+  // The server's rendering of the saved draft; re-read whenever the record is.
+  const [preview, reloadPreview] = useAsync((signal) => (isNew || !id ? Promise.resolve(null) : api.previewPost(id, signal)), [id, reloadKey]);
   const [authors] = useAsync((signal) => api.listAuthors(signal), []);
   const [categories] = useAsync((signal) => api.listTerms('blog-categories', signal), []);
   const [tags] = useAsync((signal) => api.listTerms('blog-tags', signal), []);
@@ -142,11 +163,13 @@ export function PostEditorPage() {
     try {
       if (isNew) {
         const created = await api.createPost({ ...values, bodyFormat, tagIds: values.tagIds ?? [] });
-        message.success('Article created as a draft');
+        message.success('Article created as a draft. It stays private until you publish it.');
+        setDirty(false);
         navigate(`/posts/${encodeURIComponent(created.id)}`);
       } else if (post) {
         await api.updatePost(post.id, { ...values, bodyFormat, tagIds: values.tagIds ?? [], expectedVersion: post.version });
         message.success('Article saved');
+        setDirty(false);
         setReloadKey((k) => k + 1);
       }
     } catch (error) {
@@ -202,7 +225,7 @@ export function PostEditorPage() {
   if (capabilitiesLoading) return <PageLoader label="Checking your permissions…" />;
 
   if (!isNew && state.status === 'loading') return <PageLoader label="Loading this article…" />;
-  if (state.status === 'error') return <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} />;
+  if (state.status === 'error') return <PageLoadError title="Article" crumbs={[{ label: 'Editorial' }, { label: 'Articles', href: '/posts' }]} message={state.message} reference={state.reference} onRetry={reload} />;
   if (!isNew && !post) return <p role="status">Loading article…</p>;
   const readOnly = !canWrite || post?.status === 'archived';
   const actions = post ? ACTIONS_BY_STATUS[post.status].filter(() => canPublish) : [];
@@ -222,6 +245,9 @@ export function PostEditorPage() {
         actions={
           post ? (
             <>
+              <Link to="/posts">
+                <Button>All articles</Button>
+              </Link>
               {post.status === 'published' && (
                 <Button href={`/blog/${post.slug}`} target="_blank" rel="noreferrer noopener">
                   View on site
@@ -242,7 +268,11 @@ export function PostEditorPage() {
                 </Button>
               ))}
             </>
-          ) : null
+          ) : (
+            <Link to="/posts">
+              <Button>All articles</Button>
+            </Link>
+          )
         }
       />
       {post && post.status !== 'published' && post.publicationBlockers.length > 0 && (
@@ -250,17 +280,17 @@ export function PostEditorPage() {
       )}
       {post?.status === 'archived' && <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Archived articles are read-only. Restore it to make changes." />}
       {formError && <Alert type="error" showIcon role="alert" message={formError} style={{ marginBottom: 16 }} />}
-      <Form<FormValues> form={form} layout="vertical" requiredMark="optional" onFinish={submit} disabled={readOnly} initialValues={{ tagIds: [], commentsEnabled: true }}>
+      <Form<FormValues> form={form} layout="vertical" onFinish={submit} onValuesChange={() => setDirty(true)} disabled={readOnly} initialValues={{ tagIds: [], commentsEnabled: true }}>
         <Row gutter={24}>
           <Col xs={24} xl={16}>
             <SectionCard title="Article">
               <Form.Item label="Title" name="title" rules={[{ required: true, min: 3, message: 'Title is required' }]}>
-                <Input maxLength={180} size="large" placeholder="A clear, specific headline" />
+                <Input maxLength={180} size="large" showCount placeholder="A clear, specific headline" />
               </Form.Item>
               <Row gutter={16}>
                 <Col xs={24} md={12}>
                   <Form.Item label="Slug" name="slug" extra={post?.firstPublishedAt ? 'Locked after publication; change it below to keep a redirect.' : 'Generated from the title when left blank.'}>
-                    <Input maxLength={160} disabled={readOnly || Boolean(post?.firstPublishedAt)} />
+                    <Input maxLength={160} placeholder="a-clear-specific-headline" disabled={readOnly || Boolean(post?.firstPublishedAt)} />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
@@ -270,7 +300,7 @@ export function PostEditorPage() {
                 </Col>
               </Row>
               <Form.Item label="Excerpt" name="excerpt" extra="At least 20 characters; shown in listings, search results and social shares." rules={[{ required: true, message: 'Excerpt is required' }]}>
-                <Input.TextArea rows={3} maxLength={500} showCount />
+                <Input.TextArea rows={3} maxLength={500} showCount placeholder="One or two sentences a reader would see before deciding to open the article." />
               </Form.Item>
             </SectionCard>
 
@@ -300,17 +330,72 @@ export function PostEditorPage() {
                 {bodyFormat === 'html' ? (
                   <RichTextEditorField disabled={readOnly} />
                 ) : (
-                  <Input.TextArea rows={18} maxLength={200_000} />
+                  <Input.TextArea rows={18} maxLength={200_000} placeholder="Write the article here. Markdown headings, lists and links are supported." />
                 )}
               </Form.Item>
             </SectionCard>
 
             {post && (
-              <SectionCard title="Published output" description="The sanitised HTML the server stored: exactly what visitors see.">
-                {/* The API sanitised this HTML with an allowlist before storing it (SRS SEC 001). */}
-                <div className="ms-prose" data-testid="post-preview" dangerouslySetInnerHTML={{ __html: post.sanitizedBody }} />
+              <SectionCard
+                title="Preview"
+                description="The article as the server renders it, from the last version you saved. Anything typed since is not shown here."
+                extra={
+                  <Button size="small" onClick={() => reloadPreview()} loading={preview.status === 'loading'}>
+                    Refresh preview
+                  </Button>
+                }
+              >
+                {preview.status === 'error' && <ErrorState message={preview.message} reference={preview.reference} onRetry={reloadPreview} />}
+                {preview.status === 'ready' && preview.data && (
+                  <>
+                    <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 10, fontSize: 13 }}>
+                      By {preview.data.authorName} in {preview.data.categoryName}. This preview is never shown publicly and is never indexed.
+                    </Typography.Text>
+                    {/* The API sanitised this HTML with an allowlist before storing it (SRS SEC 001). */}
+                    <div className="ms-prose" data-testid="post-preview" dangerouslySetInnerHTML={{ __html: preview.data.sanitizedBody }} />
+                  </>
+                )}
               </SectionCard>
             )}
+
+            <SectionCard title="Search appearance" description="How this article is likely to look in search results.">
+              {/* Imitates a results page, which is light, so it stays light in
+                  both themes: a dark copy would preview something nobody sees. */}
+              <div style={{ border: '1px solid #E2E8F0', borderRadius: 10, padding: 12, marginBottom: 16, background: '#FFFFFF' }}>
+                <span style={{ color: '#1a0dab', fontSize: 16, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{seoTitlePreview}</span>
+                <span style={{ color: '#4D5156', fontSize: 12, display: 'block' }}>melbournesphere · /blog/{slugPreview}</span>
+                <span style={{ color: '#3C4043', fontSize: 13 }}>{seoDescriptionPreview.slice(0, 160)}</span>
+              </div>
+              <Form.Item label="SEO title" name="seoTitle" extra="Defaults to the article title.">
+                <Input maxLength={180} showCount placeholder="Shown as the headline in search results" />
+              </Form.Item>
+              <Form.Item label="Meta description" name="seoDescription" extra="Defaults to the excerpt." style={{ marginBottom: 0 }}>
+                <Input.TextArea rows={3} maxLength={300} showCount placeholder="The summary shown under the title in search results" />
+              </Form.Item>
+            </SectionCard>
+
+            <SectionCard title="Shared on social media" description="How a link to this article is likely to appear when someone shares it.">
+              <div style={{ border: '1px solid #E2E8F0', borderRadius: 10, overflow: 'hidden' }}>
+                {coverAsset ? (
+                  <img src={coverAsset.url} alt="" style={{ width: '100%', aspectRatio: '1.91 / 1', objectFit: 'cover', display: 'block' }} />
+                ) : (
+                  <div style={{ aspectRatio: '1.91 / 1', background: brand.placeholderFill, display: 'flex', alignItems: 'center', justifyContent: 'center', color: brand.textMuted, fontSize: 13 }}>
+                    No cover image — most networks will show plain text
+                  </div>
+                )}
+                <div style={{ padding: '10px 12px' }}>
+                  <Typography.Text type="secondary" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4, display: 'block' }}>
+                    melbournesphere
+                  </Typography.Text>
+                  <Typography.Text strong style={{ display: 'block' }} ellipsis>
+                    {seoTitlePreview}
+                  </Typography.Text>
+                  <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                    {seoDescriptionPreview.slice(0, 120)}
+                  </Typography.Text>
+                </div>
+              </div>
+            </SectionCard>
           </Col>
 
           <Col xs={24} xl={8}>
@@ -318,7 +403,7 @@ export function PostEditorPage() {
               {coverAsset ? (
                 <img src={coverAsset.url} alt={coverAsset.alt} style={{ width: '100%', borderRadius: 10, marginBottom: 12, aspectRatio: '16 / 9', objectFit: 'cover' }} />
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', aspectRatio: '16 / 9', borderRadius: 10, background: '#F1F5F9', marginBottom: 12, color: '#64748B' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', aspectRatio: '16 / 9', borderRadius: 10, background: brand.placeholderFill, marginBottom: 12, color: brand.textSubtle }}>
                   <PictureOutlined aria-hidden="true" style={{ fontSize: 28 }} />
                 </div>
               )}
@@ -343,46 +428,28 @@ export function PostEditorPage() {
                 )}
               </Space>
               <Form.Item label="Cover caption or alt override" name="coverAlt" extra="Leave empty to use the alt text stored with the image." style={{ marginTop: 16, marginBottom: 0 }}>
-                <Input maxLength={255} />
+                <Input maxLength={255} placeholder="Describe the image for someone who cannot see it" />
               </Form.Item>
             </SectionCard>
 
             <SectionCard title="Publishing">
               <Form.Item label="Author" name="authorId" rules={[{ required: true, message: 'Author is required' }]}>
-                <Select showSearch optionFilterProp="label" placeholder="Choose an author" options={authors.status === 'ready' ? options(authors.data) : []} />
+                <FormSelect showSearch optionFilterProp="label" placeholder="Choose an author" options={authors.status === 'ready' ? options(authors.data) : []} />
               </Form.Item>
               <Form.Item label="Category" name="categoryId" rules={[{ required: true, message: 'Category is required' }]}>
-                <Select showSearch optionFilterProp="label" placeholder="Choose a category" options={categories.status === 'ready' ? options(categories.data) : []} />
+                <FormSelect showSearch optionFilterProp="label" placeholder="Choose a category" options={categories.status === 'ready' ? options(categories.data) : []} />
               </Form.Item>
               <Form.Item label="Tags" name="tagIds" style={{ marginBottom: post?.scheduledAt || post?.firstPublishedAt ? 12 : 0 }}>
-                <Select mode="multiple" optionFilterProp="label" placeholder="Optional" options={tags.status === 'ready' ? options(tags.data) : []} />
+                <Select mode="multiple" optionFilterProp="label" placeholder="Add any that apply" options={tags.status === 'ready' ? options(tags.data) : []} />
               </Form.Item>
               {post?.scheduledAt && <Typography.Paragraph type="secondary" style={{ marginBottom: 4 }}>Scheduled for {formatDateTime(post.scheduledAt)}</Typography.Paragraph>}
               {post?.firstPublishedAt && <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>First published {formatDateTime(post.firstPublishedAt)}</Typography.Paragraph>}
             </SectionCard>
 
-            <SectionCard title="Search appearance" description="How this article is likely to look in search results.">
-              <div style={{ border: '1px solid #E2E8F0', borderRadius: 10, padding: 12, marginBottom: 16 }}>
-                <Typography.Text style={{ color: '#1a0dab', fontSize: 16, display: 'block' }} ellipsis>
-                  {seoTitlePreview}
-                </Typography.Text>
-                <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
-                  melbournesphere · /blog/{slugPreview}
-                </Typography.Text>
-                <Typography.Text style={{ fontSize: 13 }}>{seoDescriptionPreview.slice(0, 160)}</Typography.Text>
-              </div>
-              <Form.Item label="SEO title" name="seoTitle" extra="Defaults to the article title.">
-                <Input maxLength={180} />
-              </Form.Item>
-              <Form.Item label="Meta description" name="seoDescription" extra="Defaults to the excerpt." style={{ marginBottom: 0 }}>
-                <Input.TextArea rows={3} maxLength={300} showCount />
-              </Form.Item>
-            </SectionCard>
-
             {post?.firstPublishedAt && (
               <SectionCard title="Revision note">
                 <Form.Item label="Why is this changing?" name="revisionReason" extra="Stored with the revision of the previous published text." style={{ marginBottom: 0 }}>
-                  <Input maxLength={500} />
+                  <Input maxLength={500} placeholder="e.g. Corrected the opening hours" />
                 </Form.Item>
               </SectionCard>
             )}
@@ -402,8 +469,20 @@ export function PostEditorPage() {
           </Col>
         </Row>
         {!readOnly && (
-          <StickyActions status={post ? `Version ${post.version} · last saved ${formatDateTime(post.updatedAt)}` : 'Not saved yet'}>
-            {!isNew && <Button onClick={() => setReloadKey((k) => k + 1)}>Reload</Button>}
+          <StickyActions
+            status={
+              dirty
+                ? 'You have unsaved changes. Nothing is saved automatically.'
+                : post
+                  ? `Saved. Version ${post.version}, last saved ${formatDateTime(post.updatedAt)}.`
+                  : 'Not saved yet.'
+            }
+          >
+            {!isNew && (
+              <Button onClick={() => setReloadKey((k) => k + 1)} disabled={saving || !dirty}>
+                Discard changes
+              </Button>
+            )}
             <Button type="primary" htmlType="submit" loading={saving}>
               {isNew ? 'Create draft' : 'Save changes'}
             </Button>
@@ -439,7 +518,7 @@ export function PostEditorPage() {
             </Form.Item>
           )}
           <Form.Item label="Reason (optional, recorded in the audit log)" name="reason">
-            <Input.TextArea rows={2} maxLength={500} />
+            <Input.TextArea rows={2} maxLength={500} placeholder="Why this change is being made (optional)" />
           </Form.Item>
         </Form>
       </Modal>

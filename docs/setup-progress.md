@@ -1072,3 +1072,255 @@ The client asked what happens when they need another CMS page, and whether the s
 
 **Verification.** Slug validation unit tests including path traversal, uppercase, spaces, double hyphens and every reserved route; five integration cases against the real database (create → draft invisible → publish → served, listed and in the sitemap; reserved and taken addresses; malformed addresses creating nothing; both deletion refusals; delete and stop serving, with the audit trail); admin tests for the Add button, the address suggestion and override, the API's refusal landing on the address field, and the delete affordance; a web test proving the shared template renders a page created after that code was written. `pnpm check` and `pnpm test:integration` green.
 
+
+## Post-audit remediation — 8 September 2026
+
+The audit found two High defects and fixed them. This pass asked a harder
+question: could the same class of failure happen again, and would anyone notice?
+
+**F-01, closed structurally.** The original fix corrected one call site. Job-id
+construction is now a single function — `queueJobId()` in
+`packages/domain/src/queue.ts` — that strips every character BullMQ refuses,
+names `:` explicitly in its failure message, bounds the length and refuses an id
+with no usable characters. `assertQueueJobId()` guards the one place jobs are
+enqueued, so an invalid id fails at creation rather than at consumption.
+`scheduledTaskJobId()` delegates to it. Six integration cases run against real
+Redis and BullMQ: every registered task dispatches manually and on recovery,
+every job name round-trips, a `:` id is refused with the message naming the
+character, a repeated dispatch stays one job holding the first payload, an id
+persisted before this change is still reachable, and a real `Worker` retry keeps
+the same id and payload.
+
+**F-02, closed structurally.** API and worker now read one list —
+`MAIL_TRANSPORTS` in `packages/mail/src/transports.ts` — and both suites iterate
+it, so a value one side accepts and the other refuses is a test failure rather
+than a production start-up failure. The worker was started under `console`,
+`smtp` and `resend`.
+
+**A new defect, found while testing the above.** The Resend transport summarised
+the provider's response body into the error it threw. A provider that echoed the
+request would have written the API key into a log, an admin screen and a stored
+failure reason. The existing assertion passed only because its fixture never
+contained the key. `redactCredentials`/`redactSensitive` now strip `re_…`,
+`whsec_…`, `Bearer …` and `sk_…` alongside the addresses already redacted.
+
+**Monitoring (MON 001–002).** Provider-neutral `prom-client` exposition on
+`/metrics`, deliberately outside `/api/v1` and out of the OpenAPI document,
+loopback-only unless `METRICS_TOKEN` is set, answering **404** rather than 401 to
+an unauthorised caller. The worker gets the same endpoint plus `/health`, and
+only when `WORKER_METRICS_PORT` is set. Each worker replica publishes a heartbeat
+to `ms:worker:heartbeat:<instanceId>` every 15 s with a 45 s expiry, carrying
+instance id, version, start time, last beat, queues and counters — nothing about
+the host and nothing from the environment. `WorkerLivenessService` turns those
+into the states an operator actually has to distinguish: Redis unreachable, no
+worker ever started, every worker stopped, alive but not finishing work, alive
+but the required schedule has stopped. The last one is the F-01 shape, and it is
+derived from run history rather than from a socket. It is exposed at
+`GET /api/v1/admin/system/queues/workers` behind `system.queues.view` and shown
+as the Workers card on the Queue Monitor. Route labels are Nest patterns, never
+URLs; no address, body, token, session or visitor-supplied value is a label, and
+a test asserts that over the real exposition.
+
+Verified live: a worker started locally, the API reported `ms_worker_heartbeats 1`
+with real queue depths, and the gauge went to `0` after the worker stopped.
+
+**Release gate (F-09).** `pnpm test:browser` runs Playwright against production
+builds on free ports, creates and drops its own database, provisions a temporary
+administrator with a generated password, treats a skipped test as a failure, and
+stops only what it started. `pnpm verify:release` chains it after `check` and
+`test:integration`. A CI job is prepared and not connected.
+
+**F-05 is still open.** The empty server-rendered 404 body is a Next.js 16
+streaming property, not a defect in this code: once a Suspense boundary has
+rendered, `notFound()` cannot replace a body that is already going out. Both
+documented answers were implemented and tested; the proxy variant worked but put
+an API call on every unmatched request, so it was reverted. The application is
+unchanged and healthy. The recommendation stands: serve the already-correct
+prerendered `_not-found.html` at the reverse proxy.
+
+**Not done, and deliberately so.** No on-call person assigned (client approval,
+SRS §23). No CI workflow pushed and no external account connected. No commit.
+
+## Staging closure — 9 September 2026
+
+Scope: finish the evidence a staging hand-over needs. No product features.
+
+* **API restarted on 3001** from the current build (the process was identified by
+  its listener, restarted with the same ignored `.env`, no secret printed, no
+  other process touched). `/api/v1/health` 200, `/api/v1/health/ready` 200 with
+  database and Redis ok; `/metrics` 200 from loopback with 131 series and **404
+  from the host's LAN address**; admin on 3002 unaffected.
+* **Release gate** run as `pnpm verify:release` — root checks, integration tests
+  and the browser suite in one command. Green in **13 min 23 s**: 1,010 unit and
+  integration tests, then 52 browser tests with **0 failures, 0 skips, 0 flakes**.
+  Three defects the gate itself surfaced were fixed rather than worked around:
+  the runner created a database whose name the provisioning guard rightly
+  refused (so four authorization journeys failed), the journeys skipped for want
+  of published content (now seeded per run), and the run left its Redis database
+  behind (now flushed on the way out). A fourth was found while checking the
+  machine afterwards: the runner signalled its child but not the process group,
+  so the admin and web servers it started kept listening after every run. Servers
+  are now started detached and the group is signalled, with a `SIGKILL` fallback;
+  verified by a clean run that left no listener and no key behind.
+* **Nine failure drills executed.** D5–D9 were run this session against isolated
+  infrastructure; they found and closed two real defects (a `/metrics` hang under
+  a Redis outage, a sticky oldest-waiting gauge).
+* **F-05 closed at the deployment layer.** A reference reverse proxy
+  (`infrastructure/edge/`) serves the prerendered not-found document for 404s
+  from the web upstream, with the status preserved. Measured through nginx, not a
+  development server.
+* **Monitoring proven deployable.** Prometheus in a separate container scrapes the
+  API and two worker replicas over a bearer token read from a git-ignored file;
+  no metrics port is published beyond loopback.
+* **Alert coverage validated** against the recorded drill series; three conditions
+  (object storage, backup success, restore-drill age) are documented as staging
+  tasks because nothing emits them yet. **No on-call person assigned** — that
+  needs the client's approval (D07).
+
+## Admin interface redesign — 10 September 2026
+
+Scope: the admin application's appearance, structure and wording. No change to
+authentication, authorization, validation, concurrency or audit behaviour.
+
+* **Inventory first** (`docs/audits/admin-ui-inventory.md`): every route
+  classified, its problems recorded, and where it has been verified.
+* **Tokens and shared components**: one theme file; `SettingsSection`,
+  `ErrorState`, `PermissionDenied`, `DangerZone` and `RecordMetadata` added to
+  the existing set, with contract tests.
+* **Security settings rebuilt as the reference screen**, and the copy fixed at
+  its source — the server's settings registry, which now declares units and
+  plain-language limits and keeps its internal justification internal.
+* **Dashboard** gained real worker liveness, scheduler state and queue links,
+  permission-filtered, with no invented numbers.
+* **Ten defects found by running the interface**, all fixed, listed in the
+  inventory — including an accessibility failure (an icon-only link with no name
+  on a phone), a contrast failure in empty tables, and two layouts that scrolled
+  sideways on a phone.
+* **Evidence**: axe over one screen of each page family and the overflow rule at
+  six widths, in `e2e/specs/admin-ui.spec.ts`, inside the release gate.
+
+## Operational safety, record editors and the route sweep — 10–12 September 2026
+
+Scope, in the order the client set it: make media processing safe to operate,
+then featured listings, redirects, the administrator access editor, the service
+alert preview, and a sweep of every admin route. No commit, no push.
+
+* **The worker is a required, separately supervised process.** Uploads stayed in
+  "processing" because no worker was running, and nothing said so.
+  `apps/worker/README.md` and `docs/operations/runbook.md` now state the
+  requirement (restart always, liveness from the heartbeat, graceful shutdown,
+  alerts C4/W3/W5), and the media library reads worker liveness and says
+  definitively when processing has stopped instead of waiting quietly.
+* **Featured placements**: `PATCH` now runs the overlap check `POST` runs, from
+  one shared function. The check was also read-then-write, so simultaneous
+  requests could each pass it; it now runs inside the write transaction behind a
+  lock on the listing's row. The integration test sends six overlapping requests
+  at once and requires exactly one to be stored. Without the lock, all six were
+  accepted.
+* **Redirects** (client decision): a temporary 302 kind and an on/off state,
+  full stack. One function, `redirectEffect`, decides the outcome for both the
+  public resolver and the new admin preview, so they cannot disagree. An inactive
+  rule answers 404 publicly. Both caches in front of the resolver dropped to
+  10 seconds, and a 302 is sent `no-store`. The enum member was appended last,
+  so the migration is an instant alter rather than a table rewrite.
+* **Administrator access editor**: each permission's source by role name, a
+  direct grant that duplicates a role flagged, grants the acting administrator
+  does not hold withheld (as is the Super Admin role, for anyone who is not
+  one), and every change named, with the sign-out it causes, before it is
+  confirmed. The server's invariants are unchanged.
+* **Service alerts**: the severity table (colours, tone, role, politeness) and
+  the link validator moved to `@melbourne-sphere/domain`, read by the API, the
+  public banner and a new admin preview; parity tests on both sides pin them to
+  the one table. Two defects fixed with it: the editor scheduled alerts in the
+  browser's timezone rather than Melbourne's, and the service re-derived a link's
+  externality with its own heuristic.
+* **A data-loss defect in media usage** (client-approved fix, larger than
+  reported). Testimonials, partners, the site logo/icon/sharing image and home
+  hero slides were not counted as uses, so those images could be deleted from
+  the library — and **the worker's retention task would have deleted them
+  automatically 30 days after upload**. One shared definition
+  (`packages/domain/src/media-usage.ts`) now drives the library's refusal, its
+  "unused" filter and the retention task.
+* **The route sweep** (`e2e/scripts/route-sweep.ts`) opened all 72 routes at
+  1440 and 320 px and as a moderation-only administrator. The first run found 21
+  routes with a finding; all are fixed. The largest was structural: every editor
+  with a side column collapsed its form to nothing below 992 px. The full list
+  is in `docs/audits/admin-ui-inventory.md`.
+* **Outstanding, named:** a preview of the placed listing on the featured
+  editor, a preview of the home hero on `/settings`, and a manual screen-reader
+  pass.
+* **Evidence (12 September 2026):** `pnpm verify:release` exit 0 — lint with no
+  warnings; unit: database 27, API 274, admin 220, web 111, domain 35, mail 37,
+  worker 46; API e2e 19; builds; bundle entry 700 kB within budget; contracts in
+  sync; integration: database 5, API 299; browser 64 with none skipped or flaky.
+  Route sweep: 72 routes, 0 findings.
+* **Not production-ready.** Still outstanding: worker supervision in a real
+  environment, staging itself, a production-shaped backup/restore verification,
+  and the client launch decisions in `docs/launch/client-decisions.md`.
+
+## Sign-in, themes, password reuse and helper text — 12 September 2026
+
+Client requests in this session, in order. No commit, no push.
+
+* **Sign-in redesigned** on a lit navy ground with the form on a frosted-glass
+  card, shared by all five signed-out screens. Native placeholders on every
+  field. Failures are answered by kind — wrong details (without saying which
+  half), too many attempts (the server's wait counted down on the button),
+  throttle unavailable, network down — and a server field error lands on its
+  field. Caps Lock is flagged while typing.
+* **A production-safety defect fixed on the way:** Refine's login hook opened
+  its own error toast for every unsuccessful sign-in, and for the two-step
+  marker that toast printed the challenge token on screen. That one toast key
+  is now dropped; the screen reports failures in place.
+* **After a reset or setup link, the reader is sent straight to sign in** with a
+  notice. Only notices defined in `auth/sign-in-notice.ts` are shown, so text
+  placed in navigation state cannot reach the screen. The reset and setup
+  screens now share one `NewPasswordForm` instead of two diverging copies.
+* **Password reuse.** The current password could be "changed" to itself
+  whenever history depth was zero (the old default), because the depth check
+  returned first. The current password is now always refused, on change and on
+  reset, and the default depth is **3** earlier passwords (client instruction;
+  SRS SECS 003 sets no default). The setting's label and summary say exactly
+  that. Integration tests cover change, reset, and depth zero.
+* **Light and dark themes**, light by default, chosen per browser. One palette
+  pair in `config/theme.ts` feeds both Ant Design and the CSS variables every
+  inline style reads; ~25 hard-coded colours moved onto tokens. Gradients —
+  page ground, navigation, cards, titles, stat icons, one brand gradient on all
+  primary buttons — in both themes. Contrast is tested for both palettes, which
+  caught a pre-existing failure: the light theme's subtle text was 4.4:1 on the
+  page ground (now 4.8:1). The browser suite runs axe in dark as well; that
+  caught links inside alerts told apart by colour only (now underlined).
+* **Reloading the dashboard in development** showed Vite's "did you mean
+  /admin/?" page, because the router writes `/admin`. A small Vite plugin now
+  301s `/admin` → `/admin/` on the dev and preview servers, as nginx already does
+  in production.
+* **Helper text cut down**: 60 descriptions and hints rewritten to one line; two
+  were also wrong (the partner and testimonial editors still claimed a recorded
+  approval was required, which SRS 1.5 removed). `src/copy-length.test.ts` now
+  enforces the limits.
+* **Email log.** The log was correct — it held the one message sent today (a
+  password reset). Enquiry emails are sent and logged by the worker, and none is
+  running, so nothing appears for them. The log and the media library now share
+  one `WorkerStoppedAlert` that says so instead of showing an empty list.
+* **Branded HTML email** (client request). Every transactional message —
+  password reset, account setup, business enquiry — is now rendered by one
+  layout (`packages/domain/src/email-layout.ts`) as HTML and plain text from
+  the same content: navy header and brand gradient with solid fallbacks for
+  clients that drop gradients, a bulletproof button with a copy-and-paste link,
+  a hidden preview line, dark-mode overrides, every value escaped and links
+  limited to http(s) (SRS ENQ 005 allows HTML provided visitor content is
+  escaped and a text body is sent — both hold). Two defects fixed with it: the
+  reset email promised "30 minutes" whatever the security setting said (it now
+  states the real lifetime), and the invitation and its resend were two
+  different messages (now one builder). The worker's copy of the enquiry-mail
+  types was replaced by the domain's.
+* **A test that restored its fixture by reusing a password** (`admins`
+  integration) now asserts the refusal and restores the fixture by clearing its
+  history directly.
+* **Seven pages lost their heading when their data failed to load** (site and
+  general settings, website pages, the permission catalogue, and the author,
+  administrator and article editors): they returned only an error block, with
+  no h1. They now share `PageLoadError` — the page's own header and
+  breadcrumbs, then the error with a retry. This was also why an access-control
+  test was flaky: it watched the catalogue heading appear, and the page's
+  unanswered request then replaced it. That test now answers its requests.

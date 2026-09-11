@@ -3,7 +3,7 @@ import { ArrayNotEmpty, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUrl, Max
 import type { ValidationArguments, ValidatorConstraintInterface } from 'class-validator';
 import { ValidatorConstraint } from 'class-validator';
 import { hasVerifiedTls, parseMysqlUrl } from '@melbourne-sphere/database';
-import { resendConfigFromEnv, smtpConfigFromEnv } from '@melbourne-sphere/mail';
+import { resendConfigFromEnv, smtpConfigFromEnv, MAIL_TRANSPORTS, mailTransportProblem, productionMailTransportProblem, type MailTransport } from '@melbourne-sphere/mail';
 
 export const NODE_ENVS = ['development', 'test', 'production'] as const;
 export type NodeEnv = (typeof NODE_ENVS)[number];
@@ -106,6 +106,17 @@ export class EnvironmentVariables {
   @Max(10)
   TRUST_PROXY = 0;
 
+  /**
+   * Optional shared secret for the metrics endpoint. Unset, /metrics answers
+   * only requests arriving from the loopback interface — which is what a
+   * sidecar scraper on the same host does. Set it when the scraper is off-host,
+   * and require at least 32 characters so it is not guessable.
+   */
+  @IsOptional()
+  @IsString()
+  @MinLength(32, { message: 'METRICS_TOKEN must be at least 32 characters' })
+  METRICS_TOKEN?: string;
+
   /** redis://[:password@]host:port[/db] — required (login throttling). */
   @IsString({ message: 'REDIS_URL is required' })
   @Validate(RedisUrlConstraint)
@@ -160,8 +171,10 @@ export class EnvironmentVariables {
    * and Mailpit locally) or "resend" (the planned production provider, SRS 1.2
    * MAIL 001–002). Production requires smtp or resend.
    */
-  @IsIn(['none', 'console', 'smtp', 'resend'], { message: 'MAIL_TRANSPORT must be none, console, smtp or resend' })
-  MAIL_TRANSPORT: 'none' | 'console' | 'smtp' | 'resend' = 'none';
+  // The list is `@melbourne-sphere/mail`'s, not a copy: the API and the worker
+  // drifted on exactly this once (audit F-02).
+  @IsIn(MAIL_TRANSPORTS as unknown as string[], { message: mailTransportProblem() })
+  MAIL_TRANSPORT: MailTransport = 'none';
 
   @IsBoolean({ message: 'OPENAPI_ENABLED must be true or false' })
   OPENAPI_ENABLED = false;
@@ -314,7 +327,7 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
   const raw: Record<string, unknown> = {};
   const KEYS = [
     'NODE_ENV', 'PORT', 'DATABASE_URL', 'DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL', 'DATABASE_CONNECTION_LIMIT', 'TRUST_PROXY',
-    'REDIS_URL', 'APP_SECRET_KEY', 'TRUSTED_ORIGINS', 'SESSION_COOKIE_SECURE', 'SESSION_IDLE_MINUTES',
+    'REDIS_URL', 'METRICS_TOKEN', 'APP_SECRET_KEY', 'TRUSTED_ORIGINS', 'SESSION_COOKIE_SECURE', 'SESSION_IDLE_MINUTES',
     'SESSION_ABSOLUTE_HOURS', 'ARGON2_MEMORY_KIB', 'ARGON2_TIME_COST', 'ARGON2_PARALLELISM',
     'PUBLIC_ADMIN_URL', 'PUBLIC_SITE_URL', 'MAIL_TRANSPORT', 'OPENAPI_ENABLED', 'FIELD_ENCRYPTION_KEY',
     'TURNSTILE_SECRET_KEY', 'SUBMISSION_TERMS_VERSION', 'SITE_ENQUIRY_RECIPIENT', 'MAIL_FROM_ADDRESS',
@@ -374,7 +387,7 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
     const production: string[] = [];
     if (!validated.SESSION_COOKIE_SECURE) production.push('  - SESSION_COOKIE_SECURE: must be true in production');
     if (validated.MAIL_TRANSPORT === 'console') production.push('  - MAIL_TRANSPORT: console is not allowed in production');
-    if (validated.MAIL_TRANSPORT === 'none') production.push('  - MAIL_TRANSPORT: must be smtp or resend in production (password resets and account set-up cannot be delivered otherwise; decision D03)');
+    if (validated.MAIL_TRANSPORT === 'none') production.push(`  - ${productionMailTransportProblem()} — password resets and account set-up cannot be delivered otherwise`);
     if (!validated.TURNSTILE_SECRET_KEY) production.push('  - TURNSTILE_SECRET_KEY: required in production (public submissions are verified server side)');
     if (!validated.PUBLIC_SITE_URL) production.push('  - PUBLIC_SITE_URL: required in production (canonical links and Turnstile hostname check)');
     if (!validated.MAIL_FROM_ADDRESS) production.push('  - MAIL_FROM_ADDRESS: required in production (verified sender for enquiry mail)');

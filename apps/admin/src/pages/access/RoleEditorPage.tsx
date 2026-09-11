@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, App, Button, Form, Input, Space, Switch, Tag, Typography } from 'antd';
-import { useNavigate, useParams } from 'react-router';
+import { ArrowLeftOutlined } from '@ant-design/icons';
+import { Link, useNavigate, useParams } from 'react-router';
 import { useOnError } from '@refinedev/core';
 import { authorizationApi } from '@/api/authorization';
 import { isApiError } from '@/api/errors';
@@ -114,6 +115,11 @@ export function RoleEditorPage() {
   return (
     <>
       <PageHeader
+        actions={
+          <Link to="/roles">
+            <Button icon={<ArrowLeftOutlined aria-hidden="true" />}>All roles</Button>
+          </Link>
+        }
         crumbs={[{ label: 'Roles', href: '/roles' }, { label: isNew ? 'New role' : (role?.name ?? '') }]}
         title={isNew ? 'New role' : (role?.name ?? '')}
         description={
@@ -138,7 +144,7 @@ export function RoleEditorPage() {
           <Form.Item
             label="Key"
             name="key"
-            extra="Stable identifier used in code and audit records. It cannot be changed once the role exists."
+            extra="Used in code and the activity log. It cannot be changed later."
             rules={[{ required: true, message: 'Enter a key' }]}
           >
             <Input maxLength={64} disabled={!isNew || readOnly} placeholder="editor" />

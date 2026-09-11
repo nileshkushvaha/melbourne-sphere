@@ -5,6 +5,8 @@ import { createApiPrefixGuard } from './common/api-prefix-guard.js';
 import type { IncomingMessage } from 'node:http';
 import { bodyParserErrorHandler } from './common/body-parser-errors.js';
 import { HttpExceptionFilter } from './common/http-exception.filter.js';
+import { HttpMetricsInterceptor } from './observability/http-metrics.interceptor.js';
+import { createMetricsEndpoint } from './observability/metrics.endpoint.js';
 import { requestIdMiddleware } from './common/request-id.js';
 import { createValidationPipe } from './common/validation.js';
 
@@ -23,6 +25,8 @@ export const APP_CREATE_OPTIONS = { bodyParser: false, abortOnError: false } as 
 export interface ConfigureAppOptions {
   /** Trusted reverse-proxy hops; see EnvironmentVariables.TRUST_PROXY. Default 0. */
   trustProxy?: number;
+  /** Shared secret for /metrics; unset means loopback-only. */
+  metricsToken?: string;
 }
 
 /**
@@ -44,6 +48,9 @@ export function configureApp(app: NestExpressApplication, options: ConfigureAppO
     }),
   );
   app.use(requestIdMiddleware);
+  // Before the prefix guard: metrics are not part of the product API and are
+  // not published in the OpenAPI document (SRS MON 001).
+  app.use(createMetricsEndpoint(options.metricsToken));
   app.use(createApiPrefixGuard(API_PREFIX));
   // The provider webhook is signed over the exact bytes it sent, so the raw body
   // is kept alongside the parsed one for that route only (SRS 1.2 MAIL 007). The
@@ -59,6 +66,7 @@ export function configureApp(app: NestExpressApplication, options: ConfigureAppO
   app.setGlobalPrefix(API_PREFIX);
   app.useGlobalPipes(createValidationPipe());
   app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalInterceptors(new HttpMetricsInterceptor());
   app.disable('x-powered-by');
   return app;
 }

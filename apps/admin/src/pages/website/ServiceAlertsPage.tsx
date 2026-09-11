@@ -4,7 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { serviceAlertsApi, type AlertSeverity, type ServiceAlert } from '@/api/website';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
-import { PageHeader } from '@/components/ui';
+import { PageHeader, TableCard, StatusTag } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -78,7 +78,7 @@ export function ServiceAlertsPage() {
       <PageHeader
         crumbs={[{ label: 'Website' }, { label: 'Service alerts' }]}
         title="Service alerts"
-        description="Short notices shown above the header on every public page. Highest severity shows first; at most two appear at once. Times are Melbourne time."
+        description="Notices above every public page. At most two show, most severe first."
         actions={
           can(PERMISSION.websiteAlertsCreate) ? (
             <Link to="/website/service-alerts/new">
@@ -90,20 +90,24 @@ export function ServiceAlertsPage() {
         }
       />
 
-      <Space style={{ marginBottom: 16 }} wrap>
-        <Select
-          aria-label="Filter by status"
-          placeholder="Status"
-          allowClear
-          value={status || undefined}
-          style={{ width: 160 }}
-          onChange={(value?: string) => setParam('status', value)}
-          options={[
-            { value: 'draft', label: 'Draft' },
-            { value: 'published', label: 'Published' },
-          ]}
-        />
-      </Space>
+      <TableCard
+        toolbar={
+          <>
+            <Select
+              aria-label="Filter by status"
+              placeholder="Status"
+              allowClear
+              value={status || undefined}
+              style={{ width: 160 }}
+              onChange={(value?: string) => setParam('status', value)}
+              options={[
+                { value: 'draft', label: 'Draft' },
+                { value: 'published', label: 'Published' },
+              ]}
+            />
+          </>
+        }
+      >
 
       {state.status === 'error' && (
         <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />
@@ -130,7 +134,7 @@ export function ServiceAlertsPage() {
             render: (_: unknown, record) =>
               record.startsAt || record.endsAt ? `${record.startsAt ? formatDateTime(record.startsAt) : 'now'} → ${record.endsAt ? formatDateTime(record.endsAt) : 'until removed'}` : 'Always',
           },
-          { title: 'Status', dataIndex: 'status', width: 120, render: (value: string) => <Tag color={value === 'published' ? 'green' : 'default'}>{value}</Tag> },
+          { title: 'Status', dataIndex: 'status', width: 120, render: (value: string) => <StatusTag status={value} /> },
           {
             title: 'Actions',
             width: 260,
@@ -156,6 +160,7 @@ export function ServiceAlertsPage() {
           },
         ]}
       />
+      </TableCard>
     </div>
   );
 }

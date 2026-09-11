@@ -8,6 +8,7 @@ import { EmptyState, PageHeader, SectionCard, StatCard } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { SystemHealthCard } from './dashboard/SystemHealthCard';
 
 /** Icon per metric; falls back to a neutral glyph for anything new from the API. */
 const ICONS: Record<string, ReactNode> = {
@@ -21,10 +22,29 @@ const ICONS: Record<string, ReactNode> = {
   duePosts: <ReadOutlined aria-hidden="true" />,
 };
 
-/** Readable sentence for an audit action key such as `blog.post.publish`. */
+/**
+ * An audit action key turned into something an administrator reads as English.
+ * `auth.login.success` is a key; "Signed in" is what happened.
+ */
+const ACTION_WORDS: Record<string, string> = {
+  'auth.login.success': 'Signed in',
+  'auth.login.failure': 'Failed sign-in',
+  'auth.logout': 'Signed out',
+  'auth.password_reset.requested': 'Password reset requested',
+  'auth.password_reset.completed': 'Password reset completed',
+  'system.queue.pause': 'Queue paused',
+  'system.queue.retry': 'Job retried',
+  'system.queue.cancel': 'Job removed',
+  'system.cache.invalidate': 'Cache cleared',
+};
+
 function describeAction(action: string): string {
-  const words = action.replace(/[._]/g, ' ').trim();
-  return words.charAt(0).toUpperCase() + words.slice(1);
+  const known = ACTION_WORDS[action];
+  if (known) return known;
+  // Fall back to the last two segments, which carry the object and the verb:
+  // "blog.post.publish" reads better as "Post publish" than as the whole key.
+  const parts = action.split('.').slice(-2).join(' ').replace(/_/g, ' ');
+  return parts.charAt(0).toUpperCase() + parts.slice(1);
 }
 
 /** Operational overview (SRS ADM 003): what needs attention, and nothing private. */
@@ -41,7 +61,7 @@ export function DashboardPage() {
     <div>
       <PageHeader
         title="Dashboard"
-        description="What is waiting for a decision right now. Counts respect your permissions, and no private message text appears here."
+        description="What needs a decision now. Counts follow your permissions."
         meta={state.status === 'ready' ? <Tag>Updated {formatDateTime(state.data.generatedAt)}</Tag> : null}
         actions={
           <Button icon={<ReloadOutlined aria-hidden="true" />} onClick={reload} loading={state.status === 'loading'}>
@@ -76,7 +96,11 @@ export function DashboardPage() {
             </SectionCard>
           )}
 
-          <Row gutter={[20, 20]} style={{ marginTop: 20 }}>
+          <div style={{ marginTop: 20 }}>
+            <SystemHealthCard />
+          </div>
+
+          <Row gutter={[20, 20]}>
             <Col xs={24} xl={12}>
               <SectionCard title="Scheduled articles" description="Publishing runs automatically; overdue items mean the scheduler needs attention.">
                 {(state.data.scheduledPosts ?? []).length === 0 ? (

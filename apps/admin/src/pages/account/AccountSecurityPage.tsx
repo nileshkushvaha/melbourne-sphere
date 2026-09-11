@@ -6,6 +6,7 @@ import { accountApi, type SessionListItem } from '@/api/admins';
 import type { AdminSummary } from '@/api/auth';
 import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
+import { readableAddress, readableClient } from '@/shared/forensics';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { PageHeader } from '@/components/ui';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -14,7 +15,7 @@ type EnrolState = { step: 'idle' } | { step: 'scan'; otpauthUri: string; secret:
 
 export function AccountSecurityPage() {
   useDocumentTitle('Account security');
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const { data: me, refetch } = useGetIdentity<AdminSummary>();
   const [sessions, reloadSessions] = useAsync(() => accountApi.sessions(), []);
   const [pwForm] = Form.useForm();
@@ -34,7 +35,11 @@ export function AccountSecurityPage() {
 
   return (
     <div>
-      <PageHeader title="Account security" description="Your password and second factor. Changing either signs out your other sessions." />
+      <PageHeader
+        crumbs={[{ label: 'Your account' }, { label: 'Account security' }]}
+        title="Account security"
+        description="Your password, your second sign-in step, and where you are currently signed in."
+      />
       <Space direction="vertical" size={24} style={{ width: '100%' }}>
         <Card title="Change password">
           {pwError && <Alert type="error" showIcon message={pwError} style={{ marginBottom: 12 }} role="alert" />}
@@ -66,7 +71,7 @@ export function AccountSecurityPage() {
           </Form>
         </Card>
 
-        <Card title="Two-factor authentication (TOTP)">
+        <Card title="Two-factor authentication">
           {me?.totpEnabled ? (
             <>
               <Alert type="success" showIcon message="Two-factor authentication is enabled" style={{ marginBottom: 12 }} />
@@ -171,7 +176,7 @@ export function AccountSecurityPage() {
           )}
         </Card>
 
-        <Card title="Your active sessions">
+        <Card title="Where you are signed in" extra={<Typography.Text type="secondary" style={{ fontSize: 13 }}>Signing out a device does not change your password.</Typography.Text>}>
           <Table<SessionListItem>
             rowKey="id"
             size="small"
@@ -182,9 +187,45 @@ export function AccountSecurityPage() {
             columns={[
               { title: 'Started', dataIndex: 'createdAt', render: formatDateTime },
               { title: 'Last activity', dataIndex: 'lastSeenAt', render: formatDateTime },
-              { title: 'IP', dataIndex: 'ipAddress', render: (v: string | null) => v ?? '—' },
-              { title: 'Client', dataIndex: 'userAgent', ellipsis: true, render: (v: string | null) => v ?? '—' },
-              { title: <span className="sr-only">Actions</span>, render: (_: unknown, s) => (s.current ? <Tag>this session</Tag> : <Button size="small" onClick={async () => { await accountApi.revokeSession(s.id); reloadSessions(); }}>Sign out</Button>) },
+              {
+                title: 'Device',
+                dataIndex: 'userAgent',
+                render: (value: string | null, session) => (
+                  <Space size={8} wrap>
+                    {readableClient(value)}
+                    {session.current && <Tag color="blue">Current session</Tag>}
+                  </Space>
+                ),
+              },
+              { title: 'Signed in from', dataIndex: 'ipAddress', width: 220, render: (value: string | null) => readableAddress(value) },
+              {
+                title: <span className="sr-only">Actions</span>,
+                width: 150,
+                render: (_: unknown, s) =>
+                  s.current ? (
+                    <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                      In use now
+                    </Typography.Text>
+                  ) : (
+                    <Button
+                      size="small"
+                      onClick={() =>
+                        modal.confirm({
+                          title: 'Sign this device out?',
+                          content: 'Whoever is using it will have to sign in again. Your other sessions, including this one, are unaffected.',
+                          okText: 'Sign it out',
+                          cancelText: 'Leave it signed in',
+                          onOk: async () => {
+                            await accountApi.revokeSession(s.id);
+                            reloadSessions();
+                          },
+                        })
+                      }
+                    >
+                      Sign out
+                    </Button>
+                  ),
+              },
             ]}
           />
         </Card>

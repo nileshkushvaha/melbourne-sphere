@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, type Connect, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 
@@ -21,6 +21,28 @@ export function resolveApiProxyTarget(raw: string | undefined): string {
   return value;
 }
 
+/**
+ * Answers the bare base path (`/admin`) with a 301 to `/admin/`, as the
+ * production edge already does (nginx redirects a prefix location's slash-less
+ * form). The router writes `/admin` for the dashboard, so without this a reload
+ * there showed Vite's "did you mean /admin/?" page instead of the admin.
+ */
+export function redirectBareBase(base = ADMIN_BASE): Plugin {
+  const bare = base.replace(/\/+$/, '');
+  const redirect: Connect.NextHandleFunction = (req, res, next) => {
+    const [path, query] = (req.url ?? '').split('?', 2);
+    if (path !== bare) return next();
+    res.statusCode = 301;
+    res.setHeader('Location', query ? `${base}?${query}` : base);
+    res.end();
+  };
+  return {
+    name: 'ms-redirect-bare-base',
+    configureServer: (server) => void server.middlewares.use(redirect),
+    configurePreviewServer: (server) => void server.middlewares.use(redirect),
+  };
+}
+
 export default defineConfig(({ mode }) => {
   // Third argument '' loads all variables (not only VITE_*) for server-side use.
   const env = loadEnv(mode, fileURLToPath(new URL('.', import.meta.url)), '');
@@ -28,7 +50,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: ADMIN_BASE,
-    plugins: [react()],
+    plugins: [react(), redirectBareBase()],
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     },

@@ -1,6 +1,6 @@
 import { App, Form, Input, Radio } from 'antd';
 import { useNavigate } from 'react-router';
-import { seoApi, type RedirectKind } from '@/api/seo';
+import { REDIRECT_KIND_LABELS, seoApi, type RedirectKind } from '@/api/seo';
 import { RecordEditorPage } from '@/components/ui';
 import { useRecordEditor } from '@/shared/useRecordEditor';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -42,7 +42,7 @@ export function RedirectEditorPage() {
     <RecordEditorPage<Values>
       crumbs={[{ label: 'Configuration' }, { label: 'SEO redirects', href: '/redirects' }, { label: 'New redirect' }]}
       title="New redirect"
-      description="Send an old address somewhere else, or mark it as removed for good. Changing a published slug creates one of these automatically, so this screen is for pages that moved outside the admin."
+      description="Redirect an old address, or mark it as removed. Slug changes create these automatically."
       listHref="/redirects"
       listLabel="All redirects"
       form={form}
@@ -52,25 +52,33 @@ export function RedirectEditorPage() {
       submitLabel="Save redirect"
       onSubmit={save}
     >
-      <Form.Item label="Type" name="kind">
+      <Form.Item
+        label="Type"
+        name="kind"
+        extra={
+          kind === 'temporary'
+            ? 'A temporary move is not remembered by browsers or search engines, so it can be undone later without a trace.'
+            : kind === 'gone'
+              ? 'Tells visitors and search engines the page is gone for good, so it is dropped from search results.'
+              : 'Search engines move their record of the page to the new address.'
+        }
+      >
         <Radio.Group
-          options={[
-            { value: 'permanent', label: 'Moved permanently (301)' },
-            { value: 'gone', label: 'Removed for good (410)' },
-          ]}
+          options={(Object.keys(REDIRECT_KIND_LABELS) as RedirectKind[]).map((value) => ({ value, label: REDIRECT_KIND_LABELS[value] }))}
           optionType="button"
         />
       </Form.Item>
       <Form.Item label="Old address" name="sourcePath" rules={[{ required: true, message: 'Enter the old path' }]} extra="Site-relative, for example /business/old-name">
         <Input placeholder="/business/old-name" />
       </Form.Item>
-      {kind === 'permanent' && (
+      {/* A removed page has nowhere to send anyone; the other two both do. */}
+      {kind !== 'gone' && (
         <Form.Item label="New address" name="targetPath" rules={[{ required: true, message: 'Enter the new path' }]} extra="Must be a path on this site.">
           <Input placeholder="/business/new-name" />
         </Form.Item>
       )}
-      <Form.Item label="Reason" name="reason" extra="Recorded with the redirect and in the audit log." style={{ marginBottom: 0 }}>
-        <Input maxLength={500} />
+      <Form.Item label="Reason" name="reason" extra="Recorded with the redirect and in the activity log." style={{ marginBottom: 0 }}>
+        <Input maxLength={500} placeholder="e.g. The business changed its trading name" />
       </Form.Item>
     </RecordEditorPage>
   );

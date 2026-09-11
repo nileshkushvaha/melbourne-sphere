@@ -6,7 +6,11 @@ export interface SettingDeclaration {
   label: string;
   description: string;
   type: 'boolean' | 'integer' | 'string' | 'enum' | 'email' | 'url';
-  bounds: { min?: number; max?: number; values?: string[]; boundedBy?: string };
+  bounds: { min?: number; max?: number; values?: string[] };
+  /** What the number counts; rendered beside the input so a bare number is never ambiguous. */
+  unit: string | null;
+  /** The limit in plain language. The requirement that fixes it stays on the server. */
+  limitNote: string | null;
   default: boolean | number | string;
   visibility: 'public' | 'private';
   effect: 'runtime' | 'restart_required';

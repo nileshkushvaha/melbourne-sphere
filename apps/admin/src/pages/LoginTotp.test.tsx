@@ -41,7 +41,10 @@ describe('login with a second factor', () => {
     await ue.type(screen.getByLabelText(/verification code/i), '000000');
     await ue.click(screen.getByRole('button', { name: /verify and sign in/i }));
     const alerts = await screen.findAllByRole('alert');
-    expect(alerts.some((a) => /not valid/i.test(a.textContent ?? ''))).toBe(true);
+    // Told what to do about it, in the terms of the code step.
+    expect(alerts.some((a) => /that code did not work/i.test(a.textContent ?? ''))).toBe(true);
+    // The challenge itself never reaches the screen (Refine's own toast used to print it).
+    expect(document.body.textContent).not.toContain('c'.repeat(43));
     await ue.clear(screen.getByLabelText(/verification code/i));
     await ue.type(screen.getByLabelText(/verification code/i), '123456');
     await ue.click(screen.getByRole('button', { name: /verify and sign in/i }));

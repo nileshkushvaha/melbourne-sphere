@@ -112,7 +112,15 @@ test.describe('Public accessibility', () => {
       const top = await contactBar.evaluate((element) => element.getBoundingClientRect().top);
       expect(top).toBeLessThan(0);
     }
-    // The navigation is still usable from anywhere on the page.
+    // The navigation is still usable from anywhere on the page. Below the
+    // `lg` breakpoint it lives inside a <details> disclosure, so "usable" means
+    // the control is there and opening it reveals the links — asserting the
+    // desktop link at 320 px asserted the wrong thing and failed for a reason
+    // that was never a defect (audit F-07).
+    const menu = header.locator('summary[aria-label="Menu"]');
+    if ((await menu.count()) > 0 && (await menu.first().isVisible())) {
+      await menu.first().click();
+    }
     await expect(header.getByRole('link', { name: 'Businesses' }).first()).toBeVisible();
   });
 });

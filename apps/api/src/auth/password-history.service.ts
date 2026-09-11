@@ -6,10 +6,18 @@ import { SecurityPolicyService } from './security-policy.service.js';
 /**
  * Password reuse prevention (SRS 1.2 SECS 003).
  *
- * Only hashes are kept, and only as many as the configured depth needs: a
- * candidate is verified against them, never compared, and nothing here can
- * reveal a previous password. A depth of zero — the default — keeps no history
- * at all, and prunes what is already there so the setting means what it says.
+ * Two rules:
+ *
+ *  * **The current password is always refused.** "Changing" a password to
+ *    itself is not a change, whatever the history setting says — it used to be
+ *    allowed whenever the depth was zero.
+ *  * **The configured depth is how many earlier passwords are refused too**
+ *    (default 3, set in the security settings). A depth of zero keeps no
+ *    history and prunes what is there, so the setting means what it says.
+ *
+ * Only hashes are kept, and only as many as the depth needs: a candidate is
+ * verified against them, never compared, and nothing here can reveal a previous
+ * password.
  */
 @Injectable()
 export class PasswordHistoryService {
@@ -19,16 +27,13 @@ export class PasswordHistoryService {
     private readonly policy: SecurityPolicyService,
   ) {}
 
-  /** Refuses a password the administrator has used within the configured depth. */
+  /** Refuses the current password, and any the administrator used within the configured depth. */
   async assertNotReused(adminId: string, candidate: string, currentHash: string | null): Promise<void> {
     const { passwordHistoryDepth } = await this.policy.policy();
-    if (passwordHistoryDepth === 0) return;
-
-    // The password in use counts as one of the previous ones; refusing to
-    // "change" a password to itself is the least surprising behaviour.
     if (currentHash && (await this.passwords.verify(currentHash, candidate))) {
       throw this.refusal(passwordHistoryDepth);
     }
+    if (passwordHistoryDepth === 0) return;
 
     const db = await this.database.client();
     const previous = await db.adminPasswordHistory.findMany({
@@ -60,12 +65,12 @@ export class PasswordHistoryService {
   }
 
   private refusal(depth: number): HttpException {
+    const message =
+      depth === 0
+        ? 'Choose a password that is different from your current one.'
+        : `Choose a password that is different from your current one and the ${depth} before it.`;
     return new HttpException(
-      {
-        code: 'PASSWORD_REUSED',
-        message: `Choose a password you have not used in your last ${depth} password${depth === 1 ? '' : 's'}.`,
-        fields: { newPassword: ['This password has been used before'] },
-      },
+      { code: 'PASSWORD_REUSED', message, fields: { newPassword: ['You have used this password recently. Choose a different one.'] } },
       HttpStatus.BAD_REQUEST,
     );
   }

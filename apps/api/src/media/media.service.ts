@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { ConflictException, HttpException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { MediaAsset, MediaVariant, Prisma } from '@melbourne-sphere/database';
-import { extensionForMime, imageRejectionReason, objectKeyFor, type ImageFacts } from '@melbourne-sphere/domain';
+import { MEDIA_SETTING_REFERENCES, extensionForMime, imageRejectionReason, objectKeyFor, unusedMediaRelations, type ImageFacts } from '@melbourne-sphere/domain';
 import { fileTypeFromBuffer } from 'file-type';
 import { AuditService } from '../audit/audit.service.js';
 import type { RequestContext } from '../auth/auth.service.js';
@@ -11,11 +11,38 @@ import type { AdminPrincipal } from '../identity/identity.service.js';
 import { EVENT_TYPES, OutboxService } from '../outbox/outbox.service.js';
 import { ObjectStoragePort } from './storage.port.js';
 import type { CompleteUploadDto, GalleryEntryDto, ListMediaQueryDto, MediaAssetDto, RequestUploadDto, SetGalleryDto, UpdateMediaDto, UploadTicketDto } from './dto/media.dto.js';
+import { mediaEvents } from '../observability/metrics.registry.js';
 
 const notFound = () => new NotFoundException({ code: 'NOT_FOUND', message: 'Media not found' });
 const stale = () => new ConflictException({ code: 'STALE_VERSION', message: 'This asset was changed by someone else. Reload and try again.' });
 
 type AssetRow = MediaAsset & { variants: MediaVariant[] };
+
+/**
+ * Everything that can show an image, loaded with the asset so "where is it used"
+ * is answered in one query. The list of relations is `MEDIA_USAGE_RELATIONS` in
+ * `@melbourne-sphere/domain`, shared with the worker's retention task.
+ */
+const USAGE_INCLUDE = {
+  variants: true,
+  businesses: { include: { business: { select: { name: true } } } },
+  coverOf: { select: { id: true, title: true } },
+  authorOf: { select: { id: true, displayName: true } },
+  testimonials: { select: { id: true, displayName: true } },
+  partners: { select: { id: true, name: true } },
+} satisfies Prisma.MediaAssetInclude;
+
+type UsageRow = Prisma.MediaAssetGetPayload<{ include: typeof USAGE_INCLUDE }>;
+
+function relationUsages(row: UsageRow): MediaAssetDto['usages'] {
+  return [
+    ...row.businesses.map((b) => ({ kind: 'business' as const, id: b.businessId, label: b.business.name })),
+    ...row.coverOf.map((p) => ({ kind: 'post' as const, id: p.id, label: p.title })),
+    ...row.authorOf.map((a) => ({ kind: 'author' as const, id: a.id, label: a.displayName })),
+    ...row.testimonials.map((t) => ({ kind: 'testimonial' as const, id: t.id, label: t.displayName })),
+    ...row.partners.map((p) => ({ kind: 'partner' as const, id: p.id, label: p.name })),
+  ];
+}
 
 /**
  * Media lifecycle (SRS MED 001–004). Uploads land in a private quarantine
@@ -50,6 +77,7 @@ export class MediaService {
     const objectKey = objectKeyFor('quarantine', asset.id, extensionForMime(input.contentType), randomBytes(12).toString('hex'));
     await db.mediaAsset.update({ where: { id: asset.id }, data: { objectKey } });
     const presigned = await this.storage.presignUpload('quarantine', objectKey, input.contentType, input.bytes);
+    mediaEvents.inc({ event: 'upload_requested' });
     await this.audit.record({ action: 'media.upload.requested', actorAdminId: actor.id, targetType: 'media_asset', targetId: asset.id, metadata: { bytes: input.bytes, contentType: input.contentType }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return { assetId: asset.id, uploadUrl: presigned.url, headers: presigned.headers, expiresInSeconds: presigned.expiresInSeconds };
   }
@@ -102,42 +130,37 @@ export class MediaService {
     const row = await db.mediaAsset.update({ where: { id: asset.id }, data: { status: 'rejected', rejectionReason: reason, version: { increment: 1 } }, include: { variants: true } });
     // The rejected original is removed immediately; nothing is left addressable.
     await this.storage.delete('quarantine', asset.objectKey).catch(() => undefined);
+    mediaEvents.inc({ event: 'upload_rejected' });
     await this.audit.record({ action: 'media.upload.rejected', actorAdminId: actor.id, targetType: 'media_asset', targetId: asset.id, reason, requestId: ctx.requestId, ipAddress: ctx.ip });
     return this.toDto(row, []);
   }
 
   async list(query: ListMediaQueryDto): Promise<{ data: MediaAssetDto[]; meta: ReturnType<typeof collectionMeta> }> {
     const db = await this.database.client();
+    const settings = await this.settingUsages();
     const where: Prisma.MediaAssetWhereInput = {
       ...(query.status ? { status: query.status } : {}),
       ...(query.q ? { sourceName: { contains: query.q } } : {}),
-      ...(query.unused ? { businesses: { none: {} }, coverOf: { none: {} }, authorOf: { none: {} } } : {}),
+      // "Unused" means no relation uses it and no settings document names it;
+      // the settings ids are few, so they are excluded by id.
+      ...(query.unused ? { ...unusedMediaRelations(), ...(settings.size > 0 ? { id: { notIn: [...settings.keys()] } } : {}) } : {}),
     };
     const [rows, total] = await Promise.all([
-      db.mediaAsset.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], skip: skipFor(query.page, query.pageSize), take: query.pageSize, include: { variants: true, businesses: { include: { business: { select: { name: true } } } }, coverOf: { select: { id: true, title: true } }, authorOf: { select: { id: true, displayName: true } } } }),
+      db.mediaAsset.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], skip: skipFor(query.page, query.pageSize), take: query.pageSize, include: USAGE_INCLUDE }),
       db.mediaAsset.count({ where }),
     ]);
     return {
-      data: rows.map((row) =>
-        this.toDto(row, [
-          ...row.businesses.map((b) => ({ kind: 'business' as const, id: b.businessId, label: b.business.name })),
-          ...row.coverOf.map((p) => ({ kind: 'post' as const, id: p.id, label: p.title })),
-          ...row.authorOf.map((a) => ({ kind: 'author' as const, id: a.id, label: a.displayName })),
-        ]),
-      ),
+      data: rows.map((row) => this.toDto(row, [...relationUsages(row), ...(settings.get(row.id) ?? [])])),
       meta: collectionMeta(query.page, query.pageSize, total),
     };
   }
 
   async get(id: string): Promise<MediaAssetDto> {
     const db = await this.database.client();
-    const row = await db.mediaAsset.findUnique({ where: { id }, include: { variants: true, businesses: { include: { business: { select: { name: true } } } }, coverOf: { select: { id: true, title: true } }, authorOf: { select: { id: true, displayName: true } } } });
+    const row = await db.mediaAsset.findUnique({ where: { id }, include: USAGE_INCLUDE });
     if (!row) throw notFound();
-    return this.toDto(row, [
-      ...row.businesses.map((b) => ({ kind: 'business' as const, id: b.businessId, label: b.business.name })),
-      ...row.coverOf.map((p) => ({ kind: 'post' as const, id: p.id, label: p.title })),
-      ...row.authorOf.map((a) => ({ kind: 'author' as const, id: a.id, label: a.displayName })),
-    ]);
+    const settings = await this.settingUsages();
+    return this.toDto(row, [...relationUsages(row), ...(settings.get(row.id) ?? [])]);
   }
 
   async update(id: string, input: UpdateMediaDto, actor: AdminPrincipal, ctx: RequestContext): Promise<MediaAssetDto> {
@@ -164,14 +187,46 @@ export class MediaService {
   /** Deletion is refused while any usage exists (SRS MED 004, DAT 003). */
   async remove(id: string, actor: AdminPrincipal, ctx: RequestContext): Promise<void> {
     const db = await this.database.client();
-    const asset = await db.mediaAsset.findUnique({ where: { id }, include: { variants: true, _count: { select: { businesses: true, coverOf: true, authorOf: true } } } });
+    const asset = await db.mediaAsset.findUnique({ where: { id }, include: USAGE_INCLUDE });
     if (!asset) throw notFound();
-    const usages = asset._count.businesses + asset._count.coverOf + asset._count.authorOf;
-    if (usages > 0) throw new ConflictException({ code: 'MEDIA_IN_USE', message: `This image is used in ${usages} place(s). Remove those usages first.` });
+    // Every place in the shared list, including the two whose foreign key is
+    // SET NULL (testimonials, partners) and the settings documents that have no
+    // foreign key at all: for those, the database would have let the delete
+    // through and the page would simply have lost its picture.
+    const usages = [...relationUsages(asset), ...((await this.settingUsages()).get(id) ?? [])];
+    if (usages.length > 0) {
+      throw new ConflictException({
+        code: 'MEDIA_IN_USE',
+        message: `This image is used in ${usages.length} place${usages.length === 1 ? '' : 's'}: ${usages.map((usage) => usage.label).join(', ')}. Remove it from ${usages.length === 1 ? 'there' : 'those'} first.`,
+      });
+    }
     for (const variant of asset.variants) await this.storage.delete('public', variant.objectKey).catch(() => undefined);
     await this.storage.delete('quarantine', asset.objectKey).catch(() => undefined);
     await db.mediaAsset.delete({ where: { id } });
     await this.audit.record({ action: 'media.delete', actorAdminId: actor.id, targetType: 'media_asset', targetId: id, requestId: ctx.requestId, ipAddress: ctx.ip });
+  }
+
+  /**
+   * Images referred to from settings documents, by asset id. There are two such
+   * documents and they are small, so they are read whole rather than searched.
+   */
+  private async settingUsages(): Promise<Map<string, MediaAssetDto['usages']>> {
+    const db = await this.database.client();
+    const rows = await db.setting.findMany({
+      where: { OR: MEDIA_SETTING_REFERENCES.map((ref) => ({ group: ref.group, key: ref.key })) },
+      select: { group: true, key: true, data: true },
+    });
+    const byAsset = new Map<string, MediaAssetDto['usages']>();
+    for (const row of rows) {
+      const ref = MEDIA_SETTING_REFERENCES.find((candidate) => candidate.group === row.group && candidate.key === row.key);
+      if (!ref) continue;
+      for (const mediaId of new Set(ref.mediaIds(row.data))) {
+        const list = byAsset.get(mediaId) ?? [];
+        list.push({ kind: 'setting', id: `${ref.group}.${ref.key}`, label: ref.label });
+        byAsset.set(mediaId, list);
+      }
+    }
+    return byAsset;
   }
 
   // ---- gallery usage --------------------------------------------------------

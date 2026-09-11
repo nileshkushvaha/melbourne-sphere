@@ -53,6 +53,13 @@ export function businessesApi(client: HttpClient = httpClient) {
     create: (body: CreateBusinessInput) => client.request<{ data: BusinessRecord }>(BASE, { method: 'POST', body }).then((r) => r.data.data),
     update: (id: string, body: UpdateBusinessInput) => client.request<{ data: BusinessRecord }>(path(id), { method: 'PATCH', body }).then((r) => r.data.data),
     transition: (id: string, action: BusinessAction, body: BusinessActionInput) => client.request<{ data: BusinessRecord }>(path(id, `/${action}`), { method: 'POST', body }).then((r) => r.data.data),
+    /**
+     * Moves a published listing to a new public address and leaves a redirect
+     * behind, so links already shared keep working (SRS SEO 004). The plain
+     * update refuses a slug change once a listing has been published.
+     */
+    changeSlug: (id: string, body: { slug: string; expectedVersion: number; reason?: string }) =>
+      client.request<{ data: BusinessRecord }>(path(id, '/slug'), { method: 'POST', body }).then((r) => r.data.data),
     getHours: (id: string, signal?: AbortSignal) => client.request<{ data: HoursRecord }>(path(id, '/hours'), { signal }).then((r) => r.data.data),
     putHours: (id: string, body: PutHoursInput) => client.request<{ data: HoursRecord }>(path(id, '/hours'), { method: 'PUT', body }).then((r) => r.data.data),
   };

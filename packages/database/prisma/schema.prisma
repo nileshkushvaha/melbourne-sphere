@@ -1245,6 +1245,10 @@ enum RedirectKind {
   permanent
   /// 410: deliberately removed, with no replacement.
   gone
+  /// 302 to the target path: a move with an end in mind. Declared last because
+  /// appending an ENUM member in MySQL is an instant alter, while inserting one
+  /// renumbers the column and rewrites the table.
+  temporary
 }
 
 /// Public path redirect (SRS SEO 004). Sources are unique, targets are always
@@ -1254,6 +1258,10 @@ model Redirect {
   sourcePath       String       @unique @db.VarChar(255)
   targetPath       String?      @db.VarChar(255)
   kind             RedirectKind @default(permanent)
+  /// An inactive rule is kept for its history but is not served: the resolver
+  /// treats the path as if there were no rule at all (SRS SEO 004). It still
+  /// occupies its source path, because `sourcePath` is unique.
+  isActive         Boolean      @default(true)
   reason           String?      @db.VarChar(500)
   resourceType     String?      @db.VarChar(32)
   resourceId       String?      @db.VarChar(64)

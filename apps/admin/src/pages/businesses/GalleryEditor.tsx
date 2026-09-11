@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Alert, App, Button, Card, Input, Space, Tag, Typography } from 'antd';
+import { Alert, App, Button, Input, Space, Tag, Typography } from 'antd';
 import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
 import { MediaPicker } from '@/components/MediaPicker';
 import { mediaApi, type GalleryEntry, type MediaAsset } from '@/api/media';
 import { isApiError } from '@/api/errors';
 import { errorMessage, useAsync } from '@/shared/useAsync';
+import { SectionCard } from '@/components/ui';
+import { brand } from '@/config/theme';
 
 interface Item {
   mediaId: string;
@@ -79,15 +81,23 @@ export function GalleryEditor({ businessId, businessVersion, readOnly, onSaved }
   if (state.status === 'error') return <Alert type="error" showIcon message={state.message} action={<Button onClick={reload}>Retry</Button>} />;
 
   return (
-    <Card title="Gallery" style={{ marginBottom: 24 }} extra={<Typography.Text type="secondary">{current.length} image{current.length === 1 ? '' : 's'}</Typography.Text>}>
+    <SectionCard
+      title="Gallery and media"
+      description="Images shown on the public listing. The gallery is saved on its own, separately from the fields above."
+      extra={
+        <Typography.Text type="secondary">
+          {current.length} image{current.length === 1 ? '' : 's'}
+        </Typography.Text>
+      }
+    >
       {error && <Alert type="error" showIcon role="alert" message={error} style={{ marginBottom: 12 }} />}
-      <Typography.Paragraph type="secondary">The first image is the cover unless you choose another. Alt text describes the image in this context; leave it as it is to use the library alt text.</Typography.Paragraph>
+      <Typography.Paragraph type="secondary">The first image is the cover unless you choose another. Leave alt text empty to use the library's.</Typography.Paragraph>
       {current.length === 0 && <Typography.Paragraph type="secondary">No images yet.</Typography.Paragraph>}
       <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {current.map((item, index) => (
-          <li key={item.mediaId} style={{ borderBottom: '1px solid #f0f0f0', padding: '12px 0' }}>
+          <li key={item.mediaId} style={{ borderBottom: `1px solid ${brand.borderSoft}`, padding: '12px 0' }}>
             <Space align="start" wrap>
-              {item.previewUrl ? <img src={item.previewUrl} alt="" width={96} height={72} style={{ objectFit: 'cover', borderRadius: 6 }} /> : <div style={{ width: 96, height: 72, background: '#f0f2f5', borderRadius: 6 }} />}
+              {item.previewUrl ? <img src={item.previewUrl} alt="" width={96} height={72} style={{ objectFit: 'cover', borderRadius: 6 }} /> : <div style={{ width: 96, height: 72, background: brand.placeholderFill, borderRadius: 6 }} />}
               <Space direction="vertical" size={4} style={{ minWidth: 260 }}>
                 <Input aria-label={`Alt text for image ${index + 1}`} placeholder="Alt text" value={item.altOverride ?? ''} maxLength={255} disabled={readOnly} onChange={(e) => update(current.map((i, x) => (x === index ? { ...i, altOverride: e.target.value || null } : i)))} />
                 <Input aria-label={`Caption for image ${index + 1}`} placeholder="Caption (optional)" value={item.caption ?? ''} maxLength={255} disabled={readOnly} onChange={(e) => update(current.map((i, x) => (x === index ? { ...i, caption: e.target.value || null } : i)))} />
@@ -115,6 +125,6 @@ export function GalleryEditor({ businessId, businessVersion, readOnly, onSaved }
         </Space>
       )}
       <MediaPicker open={picking} multiple excludeIds={current.map((item) => item.mediaId)} onCancel={() => setPicking(false)} onPick={add} />
-    </Card>
+    </SectionCard>
   );
 }

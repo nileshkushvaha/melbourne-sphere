@@ -3,7 +3,7 @@ import { Alert, App, Button, Descriptions, Empty, Progress, Segmented, Space, Ta
 import { queuesApi, type QueueJob, type QueueJobState, type QueueSummary } from '@/api/system';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
-import { PageHeader, SectionCard } from '@/components/ui';
+import { PageHeader, SectionCard, statusRowClass } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -44,6 +44,7 @@ export function QueueMonitorPage() {
   const [reloadKey, setReloadKey] = useState(0);
 
   const [overview, reloadOverview] = useAsync(() => queuesApi.overview(), [reloadKey]);
+  const [liveness] = useAsync(() => queuesApi.workers(), [reloadKey]);
   const queue: QueueSummary | null = overview.status === 'ready' ? (overview.data[0] ?? null) : null;
   const [jobs, reloadJobs] = useAsync(
     () => (queue ? queuesApi.jobs(queue.name, { state, page, pageSize: 20 }) : Promise.resolve(null)),
@@ -163,7 +164,7 @@ export function QueueMonitorPage() {
       <PageHeader
         crumbs={[{ label: 'System' }, { label: 'Queue monitor' }]}
         title="Queue monitor"
-        description="Background work waiting to run, running, or failed. Job details are reduced to the fields an operator needs; nothing here shows a visitor’s message, an address or a token."
+        description="Background work waiting, running or failed. No visitor messages, addresses or tokens are shown."
         actions={
           <Space wrap>
             <Button onClick={refresh}>Refresh</Button>
@@ -189,6 +190,59 @@ export function QueueMonitorPage() {
             message={!queue.available ? 'Queue unreachable' : queue.paused ? 'Queue paused' : queue.workers.count === 0 ? 'No worker connected' : 'Processing normally'}
             description={!queue.available ? queue.detail : queue.paused ? queue.pauseConsequence : queue.workers.detail}
           />
+
+          {liveness.status === 'ready' && (
+            <SectionCard
+              title="Workers"
+              description="Each worker reports itself. One that stops reporting has stopped."
+            >
+              <Alert
+                type={liveness.data.healthy ? 'success' : 'error'}
+                showIcon
+                style={{ marginBottom: 12 }}
+                message={liveness.data.healthy ? 'Workers reporting' : 'Nothing is processing work'}
+                description={liveness.data.detail}
+              />
+              {liveness.data.workers.length === 0 ? (
+                <Empty description="No worker has checked in." image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              ) : (
+                <Table
+                  size="small"
+                  rowKey="instanceId"
+                  pagination={false}
+                  // The replica table is wider than a phone; it scrolls inside
+                  // its own card rather than pushing the page sideways.
+                  scroll={{ x: 'max-content' }}
+                  dataSource={liveness.data.workers}
+                  columns={[
+                    { title: 'Instance', dataIndex: 'instanceId', width: 180 },
+                    { title: 'Version', dataIndex: 'version', width: 120 },
+                    { title: 'Started', dataIndex: 'startedAt', width: 180, render: (value: string) => formatDateTime(value) },
+                    { title: 'Last report', dataIndex: 'ageSeconds', width: 130, render: (value: number) => age(value) },
+                    { title: 'Completed', dataIndex: 'processed', width: 110 },
+                    { title: 'Failed', dataIndex: 'failed', width: 90 },
+                  ]}
+                />
+              )}
+              {liveness.data.scheduler.stale.length > 0 && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  style={{ marginTop: 12 }}
+                  message="Scheduled work has stopped"
+                  description={
+                    <ul style={{ margin: 0, paddingInlineStart: 18 }}>
+                      {liveness.data.scheduler.stale.map((task) => (
+                        <li key={task.code}>
+                          {task.label} — last succeeded {task.lastSuccessAt ? formatDateTime(task.lastSuccessAt) : 'never'} (expected within {task.staleAfterMinutes} minutes)
+                        </li>
+                      ))}
+                    </ul>
+                  }
+                />
+              )}
+            </SectionCard>
+          )}
 
           <SectionCard title={queue.label} description={queue.purpose}>
             <Descriptions size="small" column={{ xs: 1, sm: 2, lg: 4 }} items={[
@@ -230,7 +284,9 @@ export function QueueMonitorPage() {
             }
             bodyPadding={0}
           >
-            <div style={{ padding: '12px 16px' }}>
+            {/* Five state filters do not fit a phone; they scroll within their
+                own row rather than widening the page. */}
+            <div style={{ padding: '12px 16px', overflowX: 'auto', maxWidth: '100%' }}>
               <Segmented
                 value={state}
                 onChange={(value) => {
@@ -242,6 +298,9 @@ export function QueueMonitorPage() {
               />
             </div>
             <Table<QueueJob>
+              className="ms-scroll-table"
+              // Failed and waiting jobs are what an operator is looking for.
+              rowClassName={(row) => statusRowClass(row.state)}
               rowKey="id"
               size="middle"
               dataSource={jobs.status === 'ready' && jobs.data ? jobs.data.data : []}

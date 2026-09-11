@@ -55,6 +55,13 @@ describe('SmtpTransport', () => {
     expect(toSendOptions({ ...MESSAGE, replyTo: undefined })).not.toHaveProperty('replyTo');
   });
 
+  it('sends an HTML alternative beside the plain text, never instead of it, and bounds its size', () => {
+    const withHtml = toSendOptions({ ...MESSAGE, html: '<p>Hello</p>' });
+    expect(withHtml).toMatchObject({ text: MESSAGE.text, html: '<p>Hello</p>', disableUrlAccess: true, disableFileAccess: true });
+    expect(toSendOptions({ ...MESSAGE, html: undefined })).not.toHaveProperty('html');
+    expect(() => toSendOptions({ ...MESSAGE, html: 'x'.repeat(MAX_TEXT_BYTES + 1) })).toThrow(/HTML body exceeds/);
+  });
+
   it('classifies failures without leaking addresses', () => {
     expect(classify({ code: 'ETIMEDOUT', message: 'Connection timeout' })).toBeInstanceOf(TransientMailError);
     expect(classify({ code: 'EENVELOPE', responseCode: 421, message: 'Try again later' })).toBeInstanceOf(TransientMailError);

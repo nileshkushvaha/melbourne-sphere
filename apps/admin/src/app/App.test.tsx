@@ -21,7 +21,7 @@ describe('admin application', () => {
     expect(screen.getByRole('navigation', { name: /admin navigation/i })).toBeInTheDocument();
     expect(screen.getByRole('contentinfo')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /skip to main content/i })).toHaveAttribute('href', '#main-content');
-    expect(await screen.findByText(/api reachable/i)).toBeInTheDocument();
+    expect(await screen.findByText(/this interface can reach the api/i)).toBeInTheDocument();
     // Signing out lives in the account menu; opening it must expose the action.
     const { default: userEvent } = await import('@testing-library/user-event');
     await userEvent.setup({ delay: null }).click(screen.getByRole('button', { name: /account menu for test admin/i }));

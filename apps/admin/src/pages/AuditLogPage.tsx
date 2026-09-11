@@ -1,9 +1,9 @@
-import { Alert, Button, Input, Select, Space, Table, Tag } from 'antd';
+import { Alert, Button, Input, Select, Table, Tag } from 'antd';
 import { useSearchParams } from 'react-router';
 import { auditApi, type AuditEntry } from '@/api/admins';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
-import { PageHeader } from '@/components/ui';
+import { PageHeader, TableCard } from '@/components/ui';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
 const CATEGORIES = ['authentication', 'access_control', 'content', 'moderation', 'communication', 'configuration', 'system'] as const;
@@ -60,47 +60,51 @@ export function AuditLogPage() {
       <PageHeader
         crumbs={[{ label: 'Configuration' }, { label: 'Activity log' }]}
         title="Activity log"
-        description="Every administrator action, authorization change and operational event, with the actor, target and request id. Entries are never edited or deleted, and secrets are never recorded."
+        description="Every change and operational event, with who did it. Entries are never edited or deleted."
       />
-      <Space style={{ marginBottom: 16 }} wrap>
-        <Select
-          aria-label="Filter by category"
-          placeholder="Category"
-          allowClear
-          value={category || undefined}
-          style={{ width: 180 }}
-          onChange={(value?: string) => setParam('category', value)}
-          options={CATEGORIES.map((value) => ({ value, label: CATEGORY_LABEL[value] }))}
-        />
-        <Select
-          aria-label="Filter by outcome"
-          placeholder="Outcome"
-          allowClear
-          value={outcome || undefined}
-          style={{ width: 150 }}
-          onChange={(value?: string) => setParam('outcome', value)}
-          options={[
-            { value: 'success', label: 'Succeeded' },
-            { value: 'failure', label: 'Refused or failed' },
-          ]}
-        />
-        <Input.Search
-          aria-label="Filter by action (e.g. auth.* or admin.create)"
-          placeholder="Action, e.g. auth.*"
-          allowClear
-          defaultValue={action}
-          onSearch={(v) => setParam('action', v.trim() || undefined)}
-          style={{ width: 240 }}
-        />
-        <Input.Search
-          aria-label="Find every event from one request id"
-          placeholder="Request id"
-          allowClear
-          defaultValue={requestId}
-          onSearch={(v) => setParam('requestId', v.trim() || undefined)}
-          style={{ width: 240 }}
-        />
-      </Space>
+      <TableCard
+        toolbar={
+          <>
+            <Select
+              aria-label="Filter by category"
+              placeholder="Category"
+              allowClear
+              value={category || undefined}
+              style={{ width: 180 }}
+              onChange={(value?: string) => setParam('category', value)}
+              options={CATEGORIES.map((value) => ({ value, label: CATEGORY_LABEL[value] }))}
+            />
+            <Select
+              aria-label="Filter by outcome"
+              placeholder="Outcome"
+              allowClear
+              value={outcome || undefined}
+              style={{ width: 150 }}
+              onChange={(value?: string) => setParam('outcome', value)}
+              options={[
+                { value: 'success', label: 'Succeeded' },
+                { value: 'failure', label: 'Refused or failed' },
+              ]}
+            />
+            <Input.Search
+              aria-label="Filter by action (e.g. auth.* or admin.create)"
+              placeholder="Action, e.g. auth.*"
+              allowClear
+              defaultValue={action}
+              onSearch={(v) => setParam('action', v.trim() || undefined)}
+              style={{ width: 240 }}
+            />
+            <Input.Search
+              aria-label="Find every event from one request id"
+              placeholder="Request id"
+              allowClear
+              defaultValue={requestId}
+              onSearch={(v) => setParam('requestId', v.trim() || undefined)}
+              style={{ width: 240 }}
+            />
+          </>
+        }
+      >
       {state.status === 'error' && (
         <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />
       )}
@@ -138,6 +142,7 @@ export function AuditLogPage() {
           { title: 'IP', dataIndex: 'ipAddress', render: (v: string | null) => v ?? '—' },
         ]}
       />
+      </TableCard>
     </div>
   );
 }

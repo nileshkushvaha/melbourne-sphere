@@ -4,12 +4,11 @@ import { Link, useSearchParams } from 'react-router';
 import { POST_STATUSES, blogApi, type PostStatus, type PostSummary } from '@/api/blog';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
-import { PageHeader } from '@/components/ui';
+import { PageHeader, StatusTag, TableCard } from '@/components/ui';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { useCapabilities } from '@/auth/access-control';
 import { PERMISSION } from '@/auth/permissions';
 
-const STATUS_COLOURS: Record<PostStatus, string> = { draft: 'default', scheduled: 'blue', published: 'green', archived: 'orange' };
 
 /** Article index (SRS BLOG 001–002). Filters live in the URL so a shared link reproduces the view. */
 export function PostsPage() {
@@ -50,10 +49,14 @@ export function PostsPage() {
           </>
         }
       />
-      <Space style={{ marginBottom: 16 }} wrap>
-        <Input.Search aria-label="Search by title or slug" placeholder="Search title or slug" allowClear defaultValue={q} onSearch={(v) => setParam('q', v.trim() || undefined)} style={{ width: 260 }} />
-        <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => setParam('status', v)} style={{ width: 160 }} options={POST_STATUSES.map((s) => ({ value: s, label: s }))} />
-      </Space>
+      <TableCard
+        toolbar={
+          <>
+            <Input.Search aria-label="Search by title or slug" placeholder="Search title or slug" allowClear defaultValue={q} onSearch={(v) => setParam('q', v.trim() || undefined)} style={{ width: 260 }} />
+            <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => setParam('status', v)} style={{ width: 160 }} options={POST_STATUSES.map((s) => ({ value: s, label: s }))} />
+          </>
+        }
+      >
       {state.status === 'error' && <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />}
       <Table<PostSummary>
         rowKey="id"
@@ -70,7 +73,7 @@ export function PostsPage() {
             dataIndex: 'status',
             render: (v: PostStatus, post) => (
               <Space size={4}>
-                <Tag color={STATUS_COLOURS[v]}>{v}</Tag>
+                <StatusTag status={v} />
                 {v === 'draft' && post.publicationBlockers.length > 0 && <Tag>incomplete</Tag>}
                 {v === 'scheduled' && post.scheduledAt && <span>{formatDateTime(post.scheduledAt)}</span>}
               </Space>
@@ -80,6 +83,7 @@ export function PostsPage() {
         ]}
         locale={{ emptyText: state.status === 'ready' ? `No articles match${authors.status === 'ready' && authors.data.length === 0 ? '. Create an author first.' : '.'}` : ' ' }}
       />
+      </TableCard>
     </div>
   );
 }

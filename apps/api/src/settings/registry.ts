@@ -47,6 +47,9 @@ export const SETTINGS_TABLE = 'settings';
 
 export type SettingType = 'boolean' | 'integer' | 'string' | 'enum' | 'email' | 'url';
 
+/** What a number counts. Rendered as an input suffix, never as bare digits. */
+export type SettingUnit = 'minutes' | 'hours' | 'days' | 'sessions' | 'characters' | 'passwords' | 'attempts';
+
 export interface SettingBounds {
   /** Inclusive minimum for `integer`; minimum length for `string`. */
   min?: number;
@@ -84,6 +87,17 @@ export interface SettingDeclaration {
   enforcedBy: string;
   /** Stated when the change has a consequence an operator must be warned about (SECS 006). */
   consequence?: string;
+  /**
+   * What the number counts, shown beside the input. An administrator must never
+   * have to guess whether 30 means seconds, minutes or days.
+   */
+  unit?: SettingUnit;
+  /**
+   * The bound in words an administrator can act on. `boundedBy` records *which*
+   * requirement fixes the bound and is deliberately internal: a specification
+   * code on screen tells the reader nothing they can use.
+   */
+  limitNote?: string;
 }
 
 export interface SettingGroupDeclaration {
@@ -117,9 +131,11 @@ export const SETTING_GROUPS: readonly SettingGroupDeclaration[] = [
       {
         key: 'sessionIdleMinutes',
         label: 'Sign out after inactivity',
-        description: 'How long an administrator session survives with no requests.',
+        description: 'Administrators are signed out after this period without activity.',
         type: 'integer',
         bounds: { min: 5, max: 30, boundedBy: 'AUTH 002 (30 minute default; may be narrowed, never widened)' },
+        unit: 'minutes',
+        limitNote: 'For security, this cannot be longer than 30 minutes.',
         default: 30,
         visibility: 'private',
         effect: 'runtime',
@@ -128,14 +144,16 @@ export const SETTING_GROUPS: readonly SettingGroupDeclaration[] = [
         updatePermission: 'security.settings.update',
         invalidates: [],
         enforcedBy: 'auth/session.service.ts (validate)',
-        consequence: 'Shortening this signs out administrators who have been idle longer than the new limit on their next request.',
+        consequence: 'Administrators idle for longer than the new limit are signed out on their next request.',
       },
       {
         key: 'sessionAbsoluteHours',
-        label: 'Maximum session length',
-        description: 'How long a session lasts in total, however active it is.',
+        label: 'Maximum session duration',
+        description: 'A session ends after this total time, even when the administrator remains active.',
         type: 'integer',
         bounds: { min: 1, max: 12, boundedBy: 'AUTH 002 (12 hour default; may be narrowed, never widened)' },
+        unit: 'hours',
+        limitNote: 'For security, a session cannot last longer than 12 hours.',
         default: 12,
         visibility: 'private',
         effect: 'runtime',
@@ -144,14 +162,15 @@ export const SETTING_GROUPS: readonly SettingGroupDeclaration[] = [
         updatePermission: 'security.settings.update',
         invalidates: [],
         enforcedBy: 'auth/session.service.ts (validate)',
-        consequence: 'Shortening this ends sessions that are already older than the new limit on their next request.',
+        consequence: 'Sessions already older than the new limit end on their next request.',
       },
       {
         key: 'maxConcurrentSessions',
-        label: 'Sessions per administrator',
-        description: 'How many devices one administrator may be signed in on at once. The oldest session is ended when the limit is reached.',
+        label: 'Concurrent sessions per administrator',
+        description: 'When the limit is reached, the oldest active session is ended.',
         type: 'integer',
         bounds: { min: 1, max: 10 },
+        unit: 'sessions',
         default: 10,
         visibility: 'private',
         effect: 'runtime',
@@ -160,14 +179,16 @@ export const SETTING_GROUPS: readonly SettingGroupDeclaration[] = [
         updatePermission: 'security.settings.update',
         invalidates: [],
         enforcedBy: 'auth/session.service.ts (create)',
-        consequence: 'Lowering this ends the oldest sessions of any administrator who is over the new limit, immediately.',
+        consequence: 'Administrators over the new limit have their oldest sessions ended immediately.',
       },
       {
         key: 'passwordResetMinutes',
-        label: 'Password reset link lifetime',
-        description: 'How long a reset link stays usable after it is requested.',
+        label: 'Password reset link expires after',
+        description: 'Reset links can be used once and expire after this period.',
         type: 'integer',
         bounds: { min: 5, max: 30, boundedBy: 'AUTH 001 (30 minutes; single use; may be narrowed, never widened)' },
+        unit: 'minutes',
+        limitNote: 'For security, a reset link cannot last longer than 30 minutes.',
         default: 30,
         visibility: 'private',
         effect: 'runtime',
@@ -180,9 +201,11 @@ export const SETTING_GROUPS: readonly SettingGroupDeclaration[] = [
       {
         key: 'passwordMinLength',
         label: 'Minimum password length',
-        description: 'The shortest password an administrator may choose. Length is what protects a password; composition rules are deliberately not offered.',
+        description: 'New passwords must contain at least this many characters.',
         type: 'integer',
         bounds: { min: 12, max: 64, boundedBy: 'AUTH 001 (12 characters; may be raised, never lowered)' },
+        unit: 'characters',
+        limitNote: 'For security, this cannot be lower than 12 characters.',
         default: 12,
         visibility: 'private',
         effect: 'runtime',
@@ -191,15 +214,16 @@ export const SETTING_GROUPS: readonly SettingGroupDeclaration[] = [
         updatePermission: 'security.settings.update',
         invalidates: [],
         enforcedBy: 'auth/password.service.ts (validateWithPolicy)',
-        consequence: 'Applies at the next password change. Existing passwords keep working: raising this does not invalidate a stored hash, and cannot.',
+        consequence: 'Applies at the next password change. Passwords already in use keep working.',
       },
       {
         key: 'passwordHistoryDepth',
-        label: 'Previous passwords to refuse',
-        description: 'How many of an administrator’s previous passwords may not be reused. Zero keeps no history.',
+        label: 'Earlier passwords that cannot be reused',
+        description: 'The current password can never be chosen again; this many passwords before it are refused too. Zero refuses only the current password.',
         type: 'integer',
         bounds: { min: 0, max: 10 },
-        default: 0,
+        unit: 'passwords',
+        default: 3,
         visibility: 'private',
         effect: 'runtime',
         sensitive: false,
@@ -210,10 +234,12 @@ export const SETTING_GROUPS: readonly SettingGroupDeclaration[] = [
       },
       {
         key: 'loginMaxFailedAttempts',
-        label: 'Failed sign-ins before a block',
-        description: 'How many failed attempts are allowed before further attempts are refused for a while.',
+        label: 'Failed sign-ins before temporary lock',
+        description: 'Additional sign-in attempts are temporarily blocked after this number of failures.',
         type: 'integer',
         bounds: { min: 3, max: 5, boundedBy: 'SEC 002 (5 per 15 minutes; may be stricter, never looser, and never disabled)' },
+        unit: 'attempts',
+        limitNote: 'For security, sign-in protection cannot be switched off or set above 5 attempts.',
         default: 5,
         visibility: 'private',
         effect: 'runtime',
@@ -225,10 +251,12 @@ export const SETTING_GROUPS: readonly SettingGroupDeclaration[] = [
       },
       {
         key: 'loginBlockMinutes',
-        label: 'How long a block lasts',
+        label: 'Temporary lock duration',
         description: 'How long further sign-in attempts are refused once the limit is reached.',
         type: 'integer',
         bounds: { min: 15, max: 60, boundedBy: 'SEC 002 (15 minute window; may be longer, never shorter)' },
+        unit: 'minutes',
+        limitNote: 'For security, a lock cannot be shorter than 15 minutes.',
         default: 15,
         visibility: 'private',
         effect: 'runtime',
@@ -239,7 +267,7 @@ export const SETTING_GROUPS: readonly SettingGroupDeclaration[] = [
         enforcedBy: 'auth/login-throttle.service.ts (check/record)',
       },
     ],
-    note: 'Mandatory two-factor enrolment is deliberately absent: it is client decision D06, and SECS 001 forbids shipping a security control that is stored but not enforced. It lands with its enforcement and its recovery path once D06 is answered.',
+    note: 'Two-factor authentication is available to administrators individually. Requiring it for everyone is not switched on, and no setting for it is shown here until the server can enforce it.',
   },
   {
     key: 'email',
@@ -398,7 +426,10 @@ export interface SettingGroupMetadataDto {
     label: string;
     description: string;
     type: SettingType;
-    bounds: SettingBounds;
+    /** `boundedBy` is stripped: it justifies the bound to us, it does not help an administrator. */
+    bounds: Omit<SettingBounds, 'boundedBy'>;
+    unit: SettingUnit | null;
+    limitNote: string | null;
     default: boolean | number | string;
     visibility: 'public' | 'private';
     effect: 'runtime' | 'restart_required';
@@ -423,7 +454,9 @@ export function registryMetadata(): SettingGroupMetadataDto[] {
       label: setting.label,
       description: setting.description,
       type: setting.type,
-      bounds: setting.bounds,
+      bounds: { min: setting.bounds.min, max: setting.bounds.max, values: setting.bounds.values },
+      unit: setting.unit ?? null,
+      limitNote: setting.limitNote ?? null,
       default: setting.default,
       visibility: setting.visibility,
       effect: setting.effect,

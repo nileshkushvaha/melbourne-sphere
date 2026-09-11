@@ -31,6 +31,17 @@ export function blogApi(client: HttpClient = httpClient) {
   return {
     listPosts: (query: PostListQuery = {}, signal?: AbortSignal) => client.request<{ data: PostSummary[]; meta: CollectionMeta }>('/admin/posts', { query: asQuery(query), signal }).then((r) => r.data),
     getPost: (id: string, signal?: AbortSignal) => client.request<{ data: Post }>(`/admin/posts/${encodeURIComponent(id)}`, { signal }).then((r) => r.data.data),
+    /**
+     * The server's own rendering of the saved draft, including the author and
+     * category as a reader would see them. Never indexable (SRS BLOG 003).
+     */
+    previewPost: (id: string, signal?: AbortSignal) =>
+      client
+        .request<{ data: { id: string; title: string; excerpt: string; sanitizedBody: string; authorName: string; categoryName: string; status: string; noindex: boolean } }>(
+          `/admin/posts/${encodeURIComponent(id)}/preview`,
+          { signal },
+        )
+        .then((r) => r.data.data),
     createPost: (body: Record<string, unknown>) => client.request<{ data: Post }>('/admin/posts', { method: 'POST', body }).then((r) => r.data.data),
     updatePost: (id: string, body: Record<string, unknown> & { expectedVersion: number }) => client.request<{ data: Post }>(`/admin/posts/${encodeURIComponent(id)}`, { method: 'PATCH', body }).then((r) => r.data.data),
     transition: (id: string, action: PostAction, body: Record<string, unknown> & { expectedVersion: number }) =>

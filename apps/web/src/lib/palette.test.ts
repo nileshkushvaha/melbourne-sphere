@@ -27,6 +27,59 @@ function contrast(a: string, b: string): number {
   return (high! + 0.05) / (low! + 0.05);
 }
 
+/** An `rgba(r, g, b, a)` token, as the numbers a browser composites with. */
+function rgbaToken(name: string): { rgb: [number, number, number]; alpha: number } {
+  const match = new RegExp(`--${name}:\\s*rgba\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*([0-9.]+)\\s*\\)`).exec(css);
+  if (!match) throw new Error(`token --${name} is not an rgba() colour`);
+  return { rgb: [Number(match[1]), Number(match[2]), Number(match[3])], alpha: Number(match[4]) };
+}
+
+/** What the browser actually paints: a translucent layer over what is behind it. */
+function composite(name: string, behind: string): string {
+  const { rgb, alpha } = rgbaToken(name);
+  const value = behind.replace('#', '');
+  const full = value.length === 3 ? value.split('').map((c) => c + c).join('') : value;
+  const under = (full.match(/.{2}/g) ?? []).map((c) => parseInt(c, 16));
+  const mixed = rgb.map((channel, index) => Math.round(channel * alpha + under[index]! * (1 - alpha)));
+  return `#${mixed.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * Glass panels are translucent, so their contrast is not the contrast of the
+ * token underneath them: what a reader sees is the composite of the panel and
+ * whatever band it is sitting on. Checking the opaque token alone passed while
+ * the rendered card measured 4.02:1 — below AA — which is how a real contrast
+ * failure reached the home page (audit F-04).
+ */
+describe('glass panels, composited over the surfaces they sit on', () => {
+  const lightBehind = ['ms-surface', 'ms-surface-muted', 'ms-surface-sunken'];
+  const darkBehind = ['ms-band', 'ms-band-deep'];
+
+  it('keeps dark-glass text readable wherever a dark panel is used', () => {
+    for (const behind of [...lightBehind, ...darkBehind]) {
+      const background = composite('ms-glass-dark', token(behind));
+      expect(contrast(token('ms-band-text'), background), `band text on dark glass over ${behind}`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(token('ms-band-muted'), background), `muted band text on dark glass over ${behind}`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(token('ms-band-link'), background), `band link on dark glass over ${behind}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  /**
+   * Light glass is used in exactly one place — the hero search panel over the
+   * banner photograph (`hero-search.tsx`) — where what composites through is a
+   * photograph, not a token. Its readability is covered by the panel tokens in
+   * "keeps the hero panel readable over photography"; what is asserted here is
+   * that if it is ever placed on one of the light surfaces, it still reads.
+   */
+  it('keeps light-glass text readable on the light surfaces', () => {
+    for (const behind of lightBehind) {
+      const background = composite('ms-glass-light', token(behind));
+      expect(contrast(token('ms-text'), background), `text on light glass over ${behind}`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(token('ms-text-muted'), background), `muted text on light glass over ${behind}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+});
+
 describe('light surfaces', () => {
   const backgrounds = ['ms-surface', 'ms-surface-muted', 'ms-surface-sunken'].map(token);
 

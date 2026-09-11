@@ -2,6 +2,8 @@ export interface OutboundMail {
   to: string;
   subject: string;
   text: string;
+  /** HTML alternative from the shared email layout; the text part is always sent. */
+  html?: string;
 }
 
 /**

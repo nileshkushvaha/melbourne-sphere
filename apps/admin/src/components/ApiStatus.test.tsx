@@ -17,9 +17,11 @@ describe('ApiStatus', () => {
       return jsonResponse(200, { data: { status: 'ok' } }, { 'x-request-id': 'rid-42' });
     }) as typeof fetch;
     renderWithProviders(<ApiStatus />);
-    expect(screen.getByText(/checking the api/i)).toBeInTheDocument();
-    expect(await screen.findByText(/api reachable/i)).toBeInTheDocument();
-    expect(screen.getByText(/request rid-42/i)).toBeInTheDocument();
+    expect(screen.getByText(/checking the connection/i)).toBeInTheDocument();
+    // Healthy is stated once, quietly: the loud treatment belongs to the state
+    // an administrator has to act on.
+    expect(await screen.findByText('connected')).toBeInTheDocument();
+    expect(screen.getByText(/this interface can reach the api/i)).toBeInTheDocument();
     expect(calls).toBe(1);
     await new Promise((r) => setTimeout(r, 50));
     expect(calls).toBe(1); // no background polling
@@ -30,8 +32,9 @@ describe('ApiStatus', () => {
   it('shows a safe failure state when the API is unreachable', async () => {
     globalThis.fetch = (async () => textResponse(502, 'Bad Gateway')) as typeof fetch;
     renderWithProviders(<ApiStatus />);
-    expect(await screen.findByText(/api unavailable/i)).toBeInTheDocument();
+    expect(await screen.findByText(/cannot reach the api/i)).toBeInTheDocument();
     expect(screen.getByText(/unexpected problem/i)).toBeInTheDocument();
+    expect(screen.getByText(/nothing you save will be stored/i)).toBeInTheDocument();
     expect(screen.queryByText(/bad gateway/i)).not.toBeInTheDocument();
   });
 
@@ -39,8 +42,8 @@ describe('ApiStatus', () => {
     globalThis.fetch = (async () =>
       jsonResponse(503, { error: { code: 'SERVICE_UNAVAILABLE', message: 'Database unavailable', fields: {}, requestId: 'r-9' } }, { 'x-request-id': 'r-9' })) as typeof fetch;
     renderWithProviders(<ApiStatus />);
-    expect(await screen.findByText(/api unavailable/i)).toBeInTheDocument();
+    expect(await screen.findByText(/cannot reach the api/i)).toBeInTheDocument();
     expect(screen.getByText(/database unavailable/i)).toBeInTheDocument();
-    expect(screen.getByText(/SERVICE_UNAVAILABLE · request r-9/)).toBeInTheDocument();
+    expect(screen.getByText(/quote reference SERVICE_UNAVAILABLE · request r-9/i)).toBeInTheDocument();
   });
 });

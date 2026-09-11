@@ -143,3 +143,69 @@ enquiries and the time to recovery.
 ## Authorization
 
 Changing, inspecting or recovering administrator access — including the emergency database procedure and `pnpm --filter api authz:verify` — is in [authorization-runbook.md](authorization-runbook.md).
+
+## Edge (reverse proxy)
+
+The public edge terminates TLS, routes to the three upstreams and — this part is
+load-bearing — answers a 404 from the web application with the not-found document
+that application prerendered. Without it, a 404 from a matched route (a business
+slug that does not exist, an unpublished article) arrives with the correct status
+and an **empty body**: a browser recovers by hydrating, a crawler or a text
+client does not. See `infrastructure/edge/nginx.conf`, and audit F-05 for why.
+
+Checks after any edge change, against the deployed environment:
+
+```bash
+for path in / /business /about /business/x-not-real /blog/x-not-real \
+            /api/v1/health /api/v1/does-not-exist /admin/ /_next/static/nope.js; do
+  curl -s -o /dev/null -w "%{http_code} %{size_download} %{content_type} $path\n" "https://<host>$path"
+done
+```
+
+Expected: 200 for real pages; 404 with a full HTML body for unknown public
+routes; 404 **JSON** for `/api/v1/*`; 200 for `/admin/`; a small plain 404 for a
+missing asset. Anything that turns an API 404 into HTML, or a missing asset into
+the not-found page, is a misconfiguration.
+
+## Metrics
+
+`/metrics` on the API and on the worker answer a loopback caller, or a caller
+presenting `Authorization: Bearer $METRICS_TOKEN`; everything else gets 404. Never
+publish the metrics port on a public interface, and never put the token in a
+tracked file. `docs/operations/monitoring.md` holds the deployment verification
+and the rotation procedure.
+
+## The worker
+
+The worker is a **separately supervised production process**. It is not started
+by the API, it is not a sidecar of the web tier, and it is not something an
+operator runs by hand.
+
+| Requirement | Setting |
+| --- | --- |
+| Restart policy | always (`restart: unless-stopped`, `Restart=always`, or the Kubernetes default) |
+| Replicas | at least one; two is safe — every job is idempotent by its job id |
+| Liveness probe | `GET :$WORKER_METRICS_PORT/health` |
+| Readiness beyond the process | the heartbeat in Redis, read by `GET /api/v1/admin/system/queues/workers` |
+| Shutdown grace | ≥ 30 seconds after `SIGTERM` |
+| Paging alert | C4, no heartbeat for 3 minutes |
+
+**What stops while no worker runs:** enquiry delivery, image processing,
+scheduled publication, retention, and cache purges. Nothing errors; it simply
+does not happen. Two things make that visible rather than silent — the C4 alert,
+and the admin screens, which say that background processing is not running
+instead of leaving work in an unexplained "processing" state.
+
+**A worker that restarts forever is not a working worker.** Configuration errors
+make it exit at start-up on purpose, so pair the restart policy with C4 and read
+the first JSON line on stderr, which names the variables at fault without
+printing their values.
+
+### If uploads are stuck
+
+1. Queue Monitor → **Workers**: is anything checking in?
+2. No: start or restart the worker, then confirm heartbeats return within a
+   minute. Images that were waiting are processed automatically; nothing needs to
+   be re-uploaded.
+3. Yes, but nothing completes: W3. Check the object storage credentials, then
+   restart the replica — in-flight jobs return to the queue.

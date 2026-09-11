@@ -1,26 +1,49 @@
-import { useEffect } from 'react';
-import { App, Form, Input, InputNumber, Space, Tag, Typography } from 'antd';
-import { useNavigate, useParams } from 'react-router';
+import { useEffect, useState } from 'react';
+import { App, Form, Input, Space, Typography } from 'antd';
+import { Link, useNavigate, useParams } from 'react-router';
 import { mediaApi, variantUrl, type MediaAsset } from '@/api/media';
-import { RecordEditorPage } from '@/components/ui';
+import { FocalPointPicker } from '@/components/FocalPointPicker';
+import { RecordEditorPage, RecordMetadata, SectionCard, StatusTag } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
 import { useRecordEditor } from '@/shared/useRecordEditor';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { brand } from '@/config/theme';
 
 interface Values {
   altText: string;
   credit: string;
   rightsNote: string;
-  focalX?: number;
-  focalY?: number;
 }
+
+/** Bytes an administrator can read, rather than a number they have to divide. */
+function fileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} bytes`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Where an image is used, in the words of the screen that uses it. */
+const USAGE_LABELS: Record<string, { what: string; href: (id: string) => string }> = {
+  business: { what: 'Business listing', href: (id) => `/businesses/${encodeURIComponent(id)}` },
+  post: { what: 'Article', href: (id) => `/posts/${encodeURIComponent(id)}` },
+  author: { what: 'Author profile', href: (id) => `/authors/${encodeURIComponent(id)}` },
+  testimonial: { what: 'Testimonial', href: (id) => `/website/testimonials/${encodeURIComponent(id)}` },
+  partner: { what: 'Partner logo', href: (id) => `/website/partners/${encodeURIComponent(id)}` },
+  // A settings document, identified as `group.key`; the two that hold images
+  // each have their own screen.
+  setting: { what: 'Site settings', href: (id) => (id === 'website.home' ? '/settings' : '/settings/general') },
+};
 
 /**
  * One image's details (SRS MED 003). Alt text, credit and rights live on a page
  * beside the image itself, because judging whether a description is accurate
  * means looking at the picture while typing — which a dialog over the grid did
  * not allow.
+ *
+ * The focal point is set by clicking the picture rather than by typing two
+ * numbers, and "used in 3 places" is replaced by the three places, because the
+ * count is only useful when it is zero.
  */
 export function MediaDetailPage() {
   const { id = '' } = useParams();
@@ -31,18 +54,17 @@ export function MediaDetailPage() {
   const { saving, error, submit } = useRecordEditor<Values>(form);
   const [state, reload] = useAsync((signal) => api.get(id, signal), [id]);
   const asset: MediaAsset | null = state.status === 'ready' ? state.data : null;
+  // The stored point is derived from the record; state holds only the change the
+  // reader has made, so loading a record never has to write state from an effect.
+  const [focalEdit, setFocalEdit] = useState<{ x: number; y: number } | null>(null);
   useDocumentTitle(asset?.sourceName ?? 'Image');
 
   useEffect(() => {
-    if (!asset) return;
-    form.setFieldsValue({
-      altText: asset.altText ?? '',
-      credit: asset.credit ?? '',
-      rightsNote: asset.rightsNote ?? '',
-      focalX: asset.focalX ?? undefined,
-      focalY: asset.focalY ?? undefined,
-    });
+    if (asset) form.setFieldsValue({ altText: asset.altText ?? '', credit: asset.credit ?? '', rightsNote: asset.rightsNote ?? '' });
   }, [asset, form]);
+
+  const storedFocal = asset && asset.focalX !== null && asset.focalY !== null ? { x: asset.focalX, y: asset.focalY } : null;
+  const focal = focalEdit ?? storedFocal;
 
   const save = () =>
     submit(async (values) => {
@@ -52,8 +74,7 @@ export function MediaDetailPage() {
         altText: values.altText || null,
         credit: values.credit || null,
         rightsNote: values.rightsNote || null,
-        ...(values.focalX === undefined ? {} : { focalX: values.focalX }),
-        ...(values.focalY === undefined ? {} : { focalY: values.focalY }),
+        ...(focal ? { focalX: focal.x, focalY: focal.y } : {}),
       });
       message.success('Image details saved');
     }).then((ok) => {
@@ -61,63 +82,109 @@ export function MediaDetailPage() {
     });
 
   const preview = asset ? variantUrl(asset, 640) : null;
+  const usages = asset?.usages ?? [];
 
   return (
     <RecordEditorPage<Values>
       crumbs={[{ label: 'Editorial' }, { label: 'Media library', href: '/media' }, { label: asset?.sourceName ?? 'Image' }]}
       title={asset?.sourceName ?? 'Image'}
-      description="Alt text is what someone hears instead of seeing the picture, so describe what matters in it rather than naming the file."
+      description="Describe what matters in the picture, not the file name."
       listHref="/media"
       listLabel="All images"
       form={form}
       loading={state.status === 'loading'}
       saving={saving}
+      dirty={focalEdit !== null || undefined}
       error={error ?? (state.status === 'error' ? state.message : null)}
       status={asset ? `Version ${asset.version} · uploaded ${formatDateTime(asset.createdAt)}` : undefined}
       onSubmit={save}
       aside={
         asset ? (
-          <div style={{ display: 'grid', gap: 12 }}>
-            {preview ? (
-              <img src={preview} alt={asset.altText ?? ''} style={{ width: '100%', borderRadius: 8, border: '1px solid var(--ant-color-border)' }} />
-            ) : (
-              <div style={{ aspectRatio: '4 / 3', display: 'grid', placeItems: 'center', background: '#f0f2f5', color: '#4b5a73', borderRadius: 8 }}>Still processing</div>
-            )}
-            <Space size={4} wrap>
-              <Tag>{asset.status}</Tag>
-              {asset.width && asset.height && (
-                <Typography.Text type="secondary">
-                  {asset.width}×{asset.height}
-                </Typography.Text>
+          <div style={{ display: 'grid', gap: 20 }}>
+            <SectionCard title="This image" description="How it was uploaded and what the site made from it.">
+              {preview ? (
+                <img src={preview} alt={asset.altText ?? ''} style={{ width: '100%', borderRadius: 10, marginBottom: 12 }} />
+              ) : (
+                <div style={{ aspectRatio: '4 / 3', display: 'grid', placeItems: 'center', background: brand.placeholderFill, color: brand.textMuted, borderRadius: 10, marginBottom: 12 }}>
+                  Still being processed
+                </div>
               )}
-            </Space>
-            {asset.usages.length > 0 && (
-              <Typography.Text type="secondary">
-                Used in {asset.usages.length} place{asset.usages.length === 1 ? '' : 's'}; it cannot be deleted until those uses are removed.
-              </Typography.Text>
-            )}
-            {asset.rejectionReason && <Typography.Text type="danger">{asset.rejectionReason}</Typography.Text>}
+              <Space size={8} wrap style={{ marginBottom: 10 }}>
+                <StatusTag status={asset.status} />
+              </Space>
+              <RecordMetadata
+                items={[
+                  { label: 'Size', value: asset.width && asset.height ? `${asset.width} × ${asset.height}` : 'Not known yet' },
+                  { label: 'File', value: fileSize(asset.bytes) },
+                  { label: 'Uploaded', value: formatDateTime(asset.createdAt) },
+                ]}
+              />
+              {asset.variants.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <Typography.Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>
+                    Sizes the site serves:
+                  </Typography.Text>
+                  <RecordMetadata items={asset.variants.map((variant) => ({ label: variant.kind, value: `${variant.width} × ${variant.height}` }))} />
+                </div>
+              )}
+              {asset.rejectionReason && (
+                <Typography.Paragraph type="danger" style={{ marginTop: 12, marginBottom: 0 }}>
+                  {asset.rejectionReason}
+                </Typography.Paragraph>
+              )}
+            </SectionCard>
+
+            <SectionCard title="Where it is used" description="An image cannot be deleted while something still shows it.">
+              {usages.length === 0 ? (
+                <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                  Nothing uses this image yet, so it can be deleted from the library.
+                </Typography.Paragraph>
+              ) : (
+                <ul style={{ margin: 0, paddingInlineStart: 18 }}>
+                  {usages.map((usage) => {
+                    const kind = USAGE_LABELS[usage.kind];
+                    return (
+                      <li key={`${usage.kind}:${usage.id}`} style={{ marginBottom: 4 }}>
+                        {kind ? <Link to={kind.href(usage.id)}>{usage.label}</Link> : usage.label}{' '}
+                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                          {kind?.what ?? usage.kind}
+                        </Typography.Text>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </SectionCard>
           </div>
         ) : undefined
       }
     >
-      <Form.Item label="Alt text" name="altText" extra="Required before the image can be used on a page.">
-        <Input maxLength={255} />
+      <Form.Item label="Alt text" name="altText" extra="Describe what the picture shows. Required before it can be used on a page.">
+        <Input maxLength={255} showCount placeholder="e.g. A barista pouring milk into a takeaway cup" />
       </Form.Item>
       <Form.Item label="Credit" name="credit" extra="Shown with the image where the licence requires it.">
-        <Input maxLength={255} />
+        <Input maxLength={255} placeholder="e.g. Photograph by Sam Lee" />
       </Form.Item>
-      <Form.Item label="Rights or source note" name="rightsNote" extra="Internal: where this came from and what we may do with it.">
-        <Input.TextArea rows={3} maxLength={500} />
+      <Form.Item label="Rights or source note" name="rightsNote" extra="Where it came from and what may be done with it. Never shown publicly.">
+        <Input.TextArea rows={3} maxLength={500} placeholder="e.g. Supplied by the business, may be used on their listing." />
       </Form.Item>
-      <Space>
-        <Form.Item label="Focal point X" name="focalX" extra="0 = left, 1 = right" style={{ marginBottom: 0 }}>
-          <InputNumber min={0} max={1} step={0.05} />
+
+      {preview && (
+        <Form.Item
+          label="Focal point"
+          extra="Click the part that must stay in frame when cropped. Arrow keys work too."
+          style={{ marginBottom: 0 }}
+        >
+          <FocalPointPicker
+            src={preview}
+            alt={asset?.altText ?? ''}
+            x={focal?.x}
+            y={focal?.y}
+            onChange={setFocalEdit}
+          />
         </Form.Item>
-        <Form.Item label="Focal point Y" name="focalY" extra="0 = top, 1 = bottom" style={{ marginBottom: 0 }}>
-          <InputNumber min={0} max={1} step={0.05} />
-        </Form.Item>
-      </Space>
+      )}
+
       {state.status === 'error' && (
         <Typography.Link onClick={reload} style={{ display: 'inline-block', marginTop: 12 }}>
           Try loading this image again

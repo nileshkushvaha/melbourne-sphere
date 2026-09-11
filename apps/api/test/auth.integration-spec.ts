@@ -215,6 +215,11 @@ describe('Administrator authentication and RBAC (integration)', () => {
       const live = `${SESSION_COOKIE_NAME}=${cookieOf(await login().expect(200)).value}`;
       const newPassword = 'brand-new-password-98765';
       await agent().post('/api/v1/admin/auth/reset-password').set('Origin', ORIGIN).send({ token: link, newPassword: 'short' }).expect(400);
+      // A reset is still a change: the password in use cannot be "reset" to itself,
+      // and the refusal leaves the link usable for a real choice.
+      const same = await agent().post('/api/v1/admin/auth/reset-password').set('Origin', ORIGIN).send({ token: link, newPassword: TEST_ADMIN.password }).expect(400);
+      expect(same.body.error.code).toBe('PASSWORD_REUSED');
+      expect(same.body.error.fields.newPassword).toBeTruthy();
       await agent().post('/api/v1/admin/auth/reset-password').set('Origin', ORIGIN).send({ token: link, newPassword }).expect(204);
       await agent().get('/api/v1/admin/auth/me').set('Cookie', live).expect(401);
       const reused = await agent().post('/api/v1/admin/auth/reset-password').set('Origin', ORIGIN).send({ token: link, newPassword: 'another-new-password-1' }).expect(400);

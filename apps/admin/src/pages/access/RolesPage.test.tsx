@@ -41,7 +41,7 @@ describe('Roles screens', () => {
     const table = await screen.findByRole('table');
     expect(await within(table).findByText('Super Admin')).toBeInTheDocument();
     // The protected role is labelled, so an editor knows why it cannot be changed.
-    expect(within(table).getByText('System')).toBeInTheDocument();
+    expect(within(table).getByText('Built in')).toBeInTheDocument();
     // Without roles.create there is no create control at all.
     expect(screen.queryByRole('button', { name: /new role/i })).not.toBeInTheDocument();
   });

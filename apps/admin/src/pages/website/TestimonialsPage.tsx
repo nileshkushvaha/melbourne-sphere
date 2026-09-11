@@ -4,7 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { testimonialsApi, type Testimonial } from '@/api/website';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
-import { PageHeader } from '@/components/ui';
+import { PageHeader, TableCard, StatusTag } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -97,7 +97,7 @@ export function TestimonialsPage() {
       <PageHeader
         crumbs={[{ label: 'Website' }, { label: 'Testimonials' }]}
         title="Testimonials"
-        description="Quotes shown on the public home page. Recording who agreed to a quote is optional, but it is the only evidence you have if the person later objects."
+        description="Quotes on the public home page. A recorded approval is your evidence if someone objects."
         actions={
           can(PERMISSION.websiteTestimonialsCreate) ? (
             <Link to="/website/testimonials/new">
@@ -109,20 +109,24 @@ export function TestimonialsPage() {
         }
       />
 
-      <Space style={{ marginBottom: 16 }} wrap>
-        <Select
-          aria-label="Filter by status"
-          placeholder="Status"
-          allowClear
-          value={status || undefined}
-          style={{ width: 160 }}
-          onChange={(value?: string) => setParam('status', value)}
-          options={[
-            { value: 'draft', label: 'Draft' },
-            { value: 'published', label: 'Published' },
-          ]}
-        />
-      </Space>
+      <TableCard
+        toolbar={
+          <>
+            <Select
+              aria-label="Filter by status"
+              placeholder="Status"
+              allowClear
+              value={status || undefined}
+              style={{ width: 160 }}
+              onChange={(value?: string) => setParam('status', value)}
+              options={[
+                { value: 'draft', label: 'Draft' },
+                { value: 'published', label: 'Published' },
+              ]}
+            />
+          </>
+        }
+      >
 
       {state.status === 'error' && (
         <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />
@@ -156,7 +160,7 @@ export function TestimonialsPage() {
                 <Typography.Text type="secondary">—</Typography.Text>
               ),
           },
-          { title: 'Status', dataIndex: 'status', width: 110, render: (value: string) => <Tag color={value === 'published' ? 'green' : 'default'}>{value}</Tag> },
+          { title: 'Status', dataIndex: 'status', width: 110, render: (value: string) => <StatusTag status={value} /> },
           {
             title: 'Actions',
             width: 300,
@@ -187,6 +191,7 @@ export function TestimonialsPage() {
           },
         ]}
       />
+      </TableCard>
     </div>
   );
 }

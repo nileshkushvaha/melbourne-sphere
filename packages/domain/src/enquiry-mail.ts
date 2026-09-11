@@ -1,4 +1,5 @@
 /** Building the outbound enquiry message (SRS ENQ 005). */
+import { renderEmail } from './email-layout.js';
 
 export interface EnquiryMailInput {
   businessName: string | null;
@@ -15,6 +16,8 @@ export interface OutboundEnquiryMail {
   subject: string;
   replyTo: string;
   text: string;
+  /** The same message as HTML, with every visitor-supplied value escaped. */
+  html: string;
 }
 
 // Control characters are exactly what must be stripped from headers (SRS ENQ 005).
@@ -35,26 +38,29 @@ export function safeReplyTo(email: string): string | null {
 const formatter = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', dateStyle: 'medium', timeStyle: 'short' });
 
 /**
- * Plain-text body only (SRS ENQ 005). Visitor content never reaches a header,
- * and the message is delimited so the recipient can see exactly where
- * visitor-supplied text begins and ends.
+ * The enquiry as a plain-text and an HTML part from the shared layout (SRS ENQ
+ * 005). Visitor content never reaches a header, is escaped in the HTML, and is
+ * set apart — delimited in the text part, in its own panel in the HTML — so the
+ * recipient can see exactly where the visitor's words begin and end.
  */
 export function buildEnquiryMail(input: EnquiryMailInput): OutboundEnquiryMail {
   const subject = sanitiseHeaderValue(`Enquiry: ${input.subject}`);
-  const lines = [
-    input.businessName ? `A visitor sent an enquiry about ${input.businessName} on Melbourne Sphere.` : 'A visitor sent a general enquiry through Melbourne Sphere.',
-    '',
-    `Name: ${sanitiseHeaderValue(input.visitorName)}`,
-    `Email: ${sanitiseHeaderValue(input.visitorEmail)}`,
-    ...(input.visitorPhone ? [`Phone: ${sanitiseHeaderValue(input.visitorPhone)}`] : []),
-    `Received: ${formatter.format(input.submittedAt)} (Melbourne time)`,
-    `Reference: ${input.receiptId}`,
-    '',
-    '--- message ---',
-    input.message.replace(/\r\n/g, '\n').replace(CONTROL_CHARACTERS, (c) => (c === '\n' ? c : '')).trim(),
-    '--- end of message ---',
-    '',
-    'Reply directly to this email to answer the visitor. Melbourne Sphere does not see your reply.',
-  ];
-  return { subject, replyTo: safeReplyTo(input.visitorEmail) ?? '', text: lines.join('\n') };
+  const intro = input.businessName ? `A visitor sent an enquiry about ${input.businessName} on Melbourne Sphere.` : 'A visitor sent a general enquiry through Melbourne Sphere.';
+  const message = input.message.replace(/\r\n/g, '\n').replace(CONTROL_CHARACTERS, (c) => (c === '\n' ? c : '')).trim();
+  const { html, text } = renderEmail({
+    preheader: `${sanitiseHeaderValue(input.visitorName)}: ${sanitiseHeaderValue(input.subject)}`,
+    heading: input.businessName ? `New enquiry for ${input.businessName}` : 'New enquiry',
+    paragraphs: [intro],
+    details: [
+      { label: 'Name', value: sanitiseHeaderValue(input.visitorName) },
+      { label: 'Email', value: sanitiseHeaderValue(input.visitorEmail) },
+      ...(input.visitorPhone ? [{ label: 'Phone', value: sanitiseHeaderValue(input.visitorPhone) }] : []),
+      { label: 'Received', value: `${formatter.format(input.submittedAt)} (Melbourne time)` },
+      { label: 'Reference', value: input.receiptId },
+    ],
+    quote: { label: 'Message', text: message },
+    closing: ['Reply directly to this email to answer the visitor. Melbourne Sphere does not see your reply.'],
+    footer: 'You received this because your business is listed on Melbourne Sphere, or you are its contact address.',
+  });
+  return { subject, replyTo: safeReplyTo(input.visitorEmail) ?? '', text, html };
 }

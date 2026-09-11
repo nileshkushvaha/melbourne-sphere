@@ -7,16 +7,68 @@ body,
 
 body {
   margin: 0;
+  background: var(--ms-surface, #f4f7fb);
+  color: var(--ms-text, #0f172a);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/* Visible keyboard focus everywhere (NFR 011): amber-700 ring (>= 3:1 on navy and
-   white) with a white halo so it stays visible on any surface. */
+/* Visible keyboard focus everywhere (NFR 011): an amber ring (>= 3:1 on navy,
+   white and the dark surfaces) with a halo in the page colour so it stays
+   visible on any fill. The colours are theme variables (src/config/theme.ts);
+   the fallbacks are the light theme's. */
 :focus-visible {
-  outline: 3px solid #b45309;
+  outline: 3px solid var(--ms-focus, #b45309);
   outline-offset: 2px;
-  box-shadow: 0 0 0 6px #ffffff;
+  box-shadow: 0 0 0 6px var(--ms-focus-gap, #ffffff);
+}
+
+/* Ant Design's Select, DatePicker, InputNumber and affix inputs put a small
+   transparent <input> inside a larger styled box. Ringing that inner input
+   drew the outline around a element the reader cannot see, clipped by the
+   box around it — the broken half-rings on either end of a select. The ring
+   belongs on the control the reader is actually looking at.
+   `:has(:focus-visible)` keeps it to keyboard focus, so clicking a select does
+   not light it up. */
+.ant-select .ant-select-selection-search-input:focus-visible,
+.ant-picker input:focus-visible,
+.ant-input-number-input:focus-visible,
+.ant-input-affix-wrapper > input.ant-input:focus-visible,
+.ant-checkbox-input:focus-visible,
+.ant-radio-input:focus-visible,
+.ant-switch:focus-visible,
+.ant-slider-handle:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Ant sets `outline: none` on these boxes from its own stylesheet, so the ring
+   is drawn with a box-shadow instead: the amber ring, then a white halo outside
+   it so it stays visible on both the white cards and the navy rail. */
+.ant-select:not(.ant-select-disabled):has(:focus-visible) .ant-select-selector,
+.ant-picker:not(.ant-picker-disabled):has(:focus-visible),
+.ant-input-number:not(.ant-input-number-disabled):has(:focus-visible),
+.ant-input-affix-wrapper:not(.ant-input-affix-wrapper-disabled):has(> input:focus-visible),
+.ant-checkbox-wrapper:has(:focus-visible) .ant-checkbox-inner,
+.ant-radio-wrapper:has(:focus-visible) .ant-radio-inner,
+.ant-switch:has(:focus-visible),
+.ant-slider-handle:has(:focus-visible) {
+  /* `!important` deliberately: Ant Design injects its component styles into the
+     document at runtime, after this stylesheet, and sets its own focus shadow on
+     the same element. The focus ring is an accessibility guarantee (WCAG 2.4.11),
+     not a preference, so it wins. */
+  box-shadow:
+    0 0 0 3px var(--ms-focus, #b45309),
+    0 0 0 6px var(--ms-focus-gap, #ffffff) !important;
+  border-color: var(--ms-focus, #b45309) !important;
+}
+
+/* A ring drawn outside a control inside a scrolling table would be clipped;
+   keep it tight there instead of hidden. */
+.ant-table-content :focus-visible,
+.ant-table-body :focus-visible {
+  outline-offset: 1px;
+  box-shadow: none;
 }
 
 /* Skip link: hidden until focused, then pinned top-left above the header. */
@@ -61,7 +113,7 @@ body {
 .ms-prose {
   font-size: 16px;
   line-height: 1.7;
-  color: #0f172a;
+  color: var(--ms-text, #0f172a);
 }
 
 .ms-editor-body > *:first-child,
@@ -108,9 +160,9 @@ body {
 .ms-prose blockquote {
   margin: 18px 0;
   padding: 4px 16px;
-  border-inline-start: 4px solid #0369a1;
-  background: #f8fafc;
-  color: #334155;
+  border-inline-start: 4px solid var(--ms-primary, #0369a1);
+  background: var(--ms-surface-muted, #f8fafc);
+  color: var(--ms-text-muted, #334155);
 }
 
 .ms-editor-body pre,
@@ -146,14 +198,14 @@ body {
 .ms-editor-body td,
 .ms-prose th,
 .ms-prose td {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--ms-border, #e2e8f0);
   padding: 8px 10px;
   text-align: start;
 }
 
 .ms-editor-body th,
 .ms-prose th {
-  background: #f8fafc;
+  background: var(--ms-surface-muted, #f8fafc);
   font-weight: 600;
 }
 
@@ -165,7 +217,7 @@ body {
 .ms-editor-body hr,
 .ms-prose hr {
   border: 0;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--ms-border, #e2e8f0);
   margin: 24px 0;
 }
 
@@ -180,4 +232,466 @@ body {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ---- Application chrome ----------------------------------------------------
+   The shell is deliberately quiet: one cool ground, one dark navigation rail and
+   white content cards. Depth comes from a single soft shadow and 14px radii, not
+   from borders on everything. Every rule here is a system rule — no screen gets
+   its own chrome. */
+
+.ms-app {
+  min-height: 100vh;
+  /* Three soft glows over a cool gradient — sky top-left, indigo top-right, teal
+     bottom-right. Each theme sets its own strengths (src/config/theme.ts). */
+  background:
+    radial-gradient(900px 520px at 0% 0%, var(--ms-glow-sky, transparent), transparent 62%),
+    radial-gradient(800px 560px at 100% 0%, var(--ms-glow-indigo, transparent), transparent 60%),
+    radial-gradient(1000px 700px at 100% 100%, var(--ms-glow-teal, transparent), transparent 60%),
+    linear-gradient(180deg, var(--ms-layout-top, #f6f9fd) 0%, var(--ms-layout-bottom, #edf2f9) 100%);
+  background-attachment: fixed;
+}
+
+/* Navigation rail: a navy that deepens toward the foot, so the eye starts at the
+   brand and settles on the account block. */
+.ms-sider,
+.ms-drawer-nav {
+  background: linear-gradient(180deg, var(--ms-sider-top, #0b1f3a) 0%, var(--ms-sider-mid, #0a1c34) 62%, var(--ms-sider-bottom, #081729) 100%);
+}
+
+.ms-sider {
+  border-inline-end: 1px solid var(--ms-sider-edge, rgba(255, 255, 255, 0.06));
+}
+
+/* antd wraps a Sider's children in its own element, so the column has to be
+   declared there for the account block to sit at the foot of the rail. */
+.ms-sider > .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Group headings read as labels, not as items: smaller, spaced, and quiet. */
+.ms-sider .ant-menu-item-group-title,
+.ms-drawer-nav .ant-menu-item-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-inline: 24px;
+  padding-block: 18px 6px;
+}
+
+.ms-sider .ant-menu-item-group:first-child .ant-menu-item-group-title,
+.ms-drawer-nav .ant-menu-item-group:first-child .ant-menu-item-group-title {
+  padding-block-start: 8px;
+}
+
+/* The selected item carries a left accent bar; hover only lifts the surface, so
+   the two states are never confused with one another. */
+.ms-sider .ant-menu-item,
+.ms-drawer-nav .ant-menu-item {
+  position: relative;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.ms-sider .ant-menu-item-selected::before,
+.ms-drawer-nav .ant-menu-item-selected::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: -12px;
+  top: 50%;
+  translate: 0 -50%;
+  width: 3px;
+  height: 22px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, #38bdf8, #2dd4bf);
+}
+
+/* The selected item is a sky-to-teal pill, the brand gradient at low strength;
+   white text on it stays above 12:1. `!important` because Ant sets the fill
+   from a token at run time. */
+.ms-sider .ant-menu-dark .ant-menu-item-selected,
+.ms-drawer-nav .ant-menu-dark .ant-menu-item-selected {
+  font-weight: 550;
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.24) 0%, rgba(20, 184, 166, 0.1) 100%) !important;
+}
+
+.ms-sider .ant-menu-item .anticon,
+.ms-drawer-nav .ant-menu-item .anticon {
+  color: #9fb3cc;
+  transition: color 0.18s ease;
+}
+
+.ms-sider .ant-menu-item-selected .anticon,
+.ms-sider .ant-menu-item:hover .anticon,
+.ms-drawer-nav .ant-menu-item-selected .anticon,
+.ms-drawer-nav .ant-menu-item:hover .anticon {
+  color: #ffffff;
+}
+
+/* A quiet scrollbar: the rail is long, and a default one cuts it in half. */
+.ms-sider-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.ms-sider-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ms-sider-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+}
+
+.ms-sider-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Account block pinned to the foot of the rail. */
+.ms-sider-account {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Top bar: white and frosted, so the brand lives in the rail and the eye goes to
+   the page rather than to a second band of navy. */
+.ms-topbar {
+  background: var(--ms-header-bg, rgba(255, 255, 255, 0.86));
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--ms-border, #e2e8f0);
+}
+
+/* ---- Content surfaces ---------------------------------------------------- */
+
+/* One card treatment everywhere: hairline border, one soft shadow, and a lift on
+   hover only where the whole card is a link. */
+.ms-app .ant-card {
+  border-color: var(--ms-border-soft, #e7edf5);
+  /* A barely-there top-to-bottom gradient: flat fills read as unfinished on the
+     dark theme, and this is the same rule in both. */
+  background: linear-gradient(180deg, var(--ms-card-top, #ffffff) 0%, var(--ms-card-bottom, #fbfcfe) 100%);
+}
+
+/* On the dark theme a card is lifted by an inner highlight along its top edge
+   and a deeper shadow, not by a lighter fill that would lower text contrast. */
+[data-theme='dark'] .ms-app .ant-card {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 10px 28px -14px rgba(0, 0, 0, 0.6);
+}
+
+/* Tables inside a card show the card's gradient rather than a second flat fill. */
+.ms-app .ant-card .ant-table-wrapper .ant-table {
+  background: transparent;
+}
+
+.ms-card-link .ant-card {
+  transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+
+.ms-card-link:hover .ant-card {
+  border-color: var(--ms-border-strong, #cbd5e1);
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.04), 0 8px 20px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+/* Column headings: small caps weight rather than shouting uppercase, and a
+   single hairline under the head so rows start cleanly. */
+.ms-app .ant-table-thead > tr > th {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid var(--ms-border-soft, #e7edf5) !important;
+}
+
+.ms-app .ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--ms-border-soft, #f1f5f9);
+}
+
+.ms-app .ant-table-tbody > tr:last-child > td {
+  border-bottom: 0;
+}
+
+/* A table that fills a card body should not paint a second rounded corner. */
+.ms-table-card .ant-card-body {
+  padding: 0;
+}
+
+.ms-table-card .ant-table-wrapper .ant-table {
+  border-radius: 0;
+}
+
+.ms-table-card .ant-table-wrapper .ant-table-thead > tr > th:first-child {
+  border-start-start-radius: 0 !important;
+}
+
+.ms-table-card .ant-table-wrapper .ant-table-thead > tr > th:last-child {
+  border-start-end-radius: 0 !important;
+}
+
+/* The toolbar above a table and the summary below it are part of the same card,
+   separated by hairlines rather than by gaps. */
+.ms-table-toolbar {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--ms-border-soft, #eef2f7);
+}
+
+/* A load failure belongs to the table, so it sits inside the card — but not
+   flush against its edges. */
+.ms-table-card > .ant-card-body > .ant-alert {
+  margin: 14px 16px 0 !important;
+}
+
+.ms-table-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--ms-border-soft, #eef2f7);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* A table's own pagination is the card's footer: it gets the hairline and the
+   padding rather than floating in whitespace. */
+.ms-table-card .ant-table-pagination.ant-pagination {
+  margin: 0 !important;
+  padding: 12px 16px;
+  border-top: 1px solid var(--ms-border-soft, #eef2f7);
+}
+
+/* Sticky save bar: frosted, so the form under it stays readable while it scrolls. */
+.ms-sticky-actions {
+  background: var(--ms-sticky-bg, rgba(255, 255, 255, 0.92));
+  backdrop-filter: saturate(180%) blur(10px);
+  -webkit-backdrop-filter: saturate(180%) blur(10px);
+  border: 1px solid var(--ms-border, #e2e8f0);
+  box-shadow: 0 -1px 2px rgba(15, 23, 42, 0.03), 0 8px 24px rgba(15, 23, 42, 0.1);
+}
+
+/* A phone has neither the height to spare nor room for two lines of buttons:
+   the bar keeps the same information in one compact row, and the actions
+   stretch so they are still comfortable to tap. */
+@media (max-width: 575px) {
+  .ms-sticky-actions {
+    bottom: 8px;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .ms-sticky-actions > .ant-space {
+    width: 100%;
+  }
+  .ms-sticky-actions > .ant-space > .ant-space-item {
+    flex: 1;
+  }
+  .ms-sticky-actions .ant-btn {
+    width: 100%;
+  }
+}
+
+/* Focusing a field must never park it under the save bar. */
+.ms-sticky-actions ~ *,
+form .ant-form-item {
+  scroll-margin-bottom: 96px;
+}
+
+/* Status pills carry a dot so state survives greyscale printing and colour
+   vision differences (WCAG 1.4.1: colour is never the only signal). */
+.ms-status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  margin-inline-end: 6px;
+  vertical-align: 1px;
+  background: currentColor;
+}
+
+/* Key/value blocks in a page header: counts an operator reads before acting. */
+.ms-metric-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+/* Ant's default empty-table text is rgba(0,0,0,0.25), which fails contrast on
+   a white card. The table is telling the reader something; it has to be
+   readable (WCAG 1.4.3). */
+.ant-table-placeholder .ant-empty-description,
+.ant-table-placeholder .ant-table-expanded-row-fixed,
+.ant-table-placeholder .ant-table-cell {
+  color: var(--ms-text-muted, #475569);
+}
+
+/* A wide table scrolls inside its own card. Without this the card grows to the
+   table's width and the whole page scrolls sideways, which is the one thing a
+   layout must never do (SRS NFR 011). */
+.ms-scroll-table,
+.ms-table-card {
+  max-width: 100%;
+}
+.ms-scroll-table .ant-table-content,
+.ms-scroll-table .ant-table-body {
+  overflow-x: auto;
+}
+
+/* Rows that carry a state worth scanning for — a moderation queue, an enquiry
+   that failed to send, a job that will not run — get a soft tint and a coloured
+   left edge. Only on screens where the reader is triaging: colour that appears
+   everywhere stops meaning anything. The tint is faint enough that body text
+   keeps well over 4.5:1, and the tag still carries the word, so the colour is
+   never the only signal (WCAG 1.4.1). */
+.ms-row-critical > td:first-child,
+.ms-row-attention > td:first-child,
+.ms-row-progress > td:first-child,
+.ms-row-positive > td:first-child {
+  position: relative;
+}
+.ms-row-critical > td:first-child::before,
+.ms-row-attention > td:first-child::before,
+.ms-row-progress > td:first-child::before,
+.ms-row-positive > td:first-child::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 3px;
+}
+
+.ms-row-critical > td { background: var(--ms-row-critical, #fef2f2); }
+.ms-row-critical > td:first-child::before { background: var(--ms-danger, #b91c1c); }
+.ms-row-attention > td { background: var(--ms-row-attention, #fffbeb); }
+.ms-row-attention > td:first-child::before { background: var(--ms-warning, #b45309); }
+.ms-row-progress > td { background: var(--ms-row-progress, #f0f9ff); }
+.ms-row-progress > td:first-child::before { background: var(--ms-primary, #0369a1); }
+.ms-row-positive > td { background: var(--ms-row-positive, #f0fdf4); }
+.ms-row-positive > td:first-child::before { background: var(--ms-success, #15803d); }
+
+/* Hover must still read as hover on a tinted row. */
+.ant-table-tbody > tr.ms-row-critical:hover > td { background: var(--ms-row-critical-hover, #fee2e2); }
+.ant-table-tbody > tr.ms-row-attention:hover > td { background: var(--ms-row-attention-hover, #fef3c7); }
+.ant-table-tbody > tr.ms-row-progress:hover > td { background: var(--ms-row-progress-hover, #e0f2fe); }
+.ant-table-tbody > tr.ms-row-positive:hover > td { background: var(--ms-row-positive-hover, #dcfce7); }
+
+/* Record editor layout (RecordEditorPage). One column — the form, then the
+   side column beneath it — until there is room for both side by side. */
+.ms-editor-grid {
+  display: grid;
+  gap: 20px;
+  align-items: start;
+  grid-template-columns: minmax(0, 760px);
+}
+.ms-editor-grid--aside {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 992px) {
+  .ms-editor-grid--aside {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+}
+
+/* Ant Design's preset tag colours put mid-tone text on a pale ground — green is
+   #389e0d on #f6ffed, 3.4:1 — which fails WCAG 1.4.3 at tag size. Status tags
+   use StatusTag, which has its own checked palette; this keeps any preset tag
+   that remains readable by darkening the text only, so the hue still reads. */
+:root:not([data-theme='dark']) .ant-tag.ant-tag-green, :root:not([data-theme='dark']) .ant-tag.ant-tag-success { color: #166534; }
+:root:not([data-theme='dark']) .ant-tag.ant-tag-lime { color: #3f6212; }
+:root:not([data-theme='dark']) .ant-tag.ant-tag-red, :root:not([data-theme='dark']) .ant-tag.ant-tag-error, :root:not([data-theme='dark']) .ant-tag.ant-tag-volcano { color: #991b1b; }
+:root:not([data-theme='dark']) .ant-tag.ant-tag-gold, :root:not([data-theme='dark']) .ant-tag.ant-tag-orange, :root:not([data-theme='dark']) .ant-tag.ant-tag-yellow, :root:not([data-theme='dark']) .ant-tag.ant-tag-warning { color: #92400e; }
+:root:not([data-theme='dark']) .ant-tag.ant-tag-blue, :root:not([data-theme='dark']) .ant-tag.ant-tag-processing, :root:not([data-theme='dark']) .ant-tag.ant-tag-geekblue, :root:not([data-theme='dark']) .ant-tag.ant-tag-cyan { color: #075985; }
+:root:not([data-theme='dark']) .ant-tag.ant-tag-purple, :root:not([data-theme='dark']) .ant-tag.ant-tag-magenta, :root:not([data-theme='dark']) .ant-tag.ant-tag-pink { color: #6b21a8; }
+
+/* On the dark theme Ant's dark algorithm puts these tags on a deep fill; the
+   text is lightened instead, to the same >= 6.5:1. */
+[data-theme='dark'] .ant-tag.ant-tag-green, [data-theme='dark'] .ant-tag.ant-tag-success { color: #86efac; }
+[data-theme='dark'] .ant-tag.ant-tag-lime { color: #bef264; }
+[data-theme='dark'] .ant-tag.ant-tag-red, [data-theme='dark'] .ant-tag.ant-tag-error, [data-theme='dark'] .ant-tag.ant-tag-volcano { color: #fca5a5; }
+[data-theme='dark'] .ant-tag.ant-tag-gold, [data-theme='dark'] .ant-tag.ant-tag-orange, [data-theme='dark'] .ant-tag.ant-tag-yellow, [data-theme='dark'] .ant-tag.ant-tag-warning { color: #fcd34d; }
+[data-theme='dark'] .ant-tag.ant-tag-blue, [data-theme='dark'] .ant-tag.ant-tag-processing, [data-theme='dark'] .ant-tag.ant-tag-geekblue, [data-theme='dark'] .ant-tag.ant-tag-cyan { color: #7dd3fc; }
+[data-theme='dark'] .ant-tag.ant-tag-purple, [data-theme='dark'] .ant-tag.ant-tag-magenta, [data-theme='dark'] .ant-tag.ant-tag-pink { color: #d8b4fe; }
+
+/* A row of short fields that wraps on a narrow screen (link rows, hero
+   phrases, opening-hours exceptions). Each field keeps its preferred width
+   where there is room and is capped at the row's width where there is not —
+   which a Space cannot do, because its items size to their content. */
+.ms-field-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 12px;
+}
+.ms-field-row > .ant-form-item {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* One day of a weekly opening-hours schedule (HoursEditor). */
+.ms-hours-day {
+  display: grid;
+  grid-template-columns: 110px 170px minmax(0, 1fr);
+  gap: 0 12px;
+  align-items: start;
+  margin-bottom: 4px;
+}
+@media (max-width: 575px) {
+  .ms-hours-day {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .ms-hours-day > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---- Brand gradient ------------------------------------------------------
+   One gradient for every primary action, in both themes and on the sign-in
+   screens: #075985 → #0369A1 → #0E7490, each at least 5.3:1 against the white
+   label. Destructive and ghost buttons keep their own colours. The specificity
+   is deliberate: Ant injects its button rules at run time. */
+.ant-btn.ant-btn-primary:not(.ant-btn-dangerous):not(.ant-btn-background-ghost):not(:disabled):not(.ant-btn-disabled) {
+  border-color: transparent;
+  background: linear-gradient(135deg, #075985 0%, #0369a1 50%, #0e7490 100%);
+  box-shadow: 0 8px 20px -10px rgba(3, 105, 161, 0.75);
+  transition: filter 160ms ease, box-shadow 160ms ease;
+}
+.ant-btn.ant-btn-primary:not(.ant-btn-dangerous):not(.ant-btn-background-ghost):not(:disabled):not(.ant-btn-disabled):hover {
+  background: linear-gradient(135deg, #075985 0%, #0369a1 50%, #0e7490 100%);
+  filter: brightness(1.07);
+  box-shadow: 0 12px 24px -10px rgba(3, 105, 161, 0.85);
+}
+.ant-btn.ant-btn-primary:not(.ant-btn-dangerous):not(.ant-btn-background-ghost):not(:disabled):not(.ant-btn-disabled):active {
+  filter: brightness(0.95);
+}
+
+/* Page titles: navy → sky in the light theme, white → pale sky in the dark.
+   Where text clipping is unsupported the title is simply the solid text colour. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .ms-page-title.ant-typography {
+    background: linear-gradient(92deg, var(--ms-title-from, #0b1f3a) 0%, var(--ms-title-to, #0369a1) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+/* The icon tile on a dashboard figure: the brand gradient, softly. */
+.ms-stat-icon {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.18) 0%, rgba(20, 184, 166, 0.16) 100%);
+  color: var(--ms-primary, #0369a1);
+}
+
+/* A link inside a sentence is underlined, so it is not told apart from the
+   words around it by colour alone (WCAG 1.4.1). On the dark theme the sky link
+   colour sits too close to the body text's lightness for colour to be enough. */
+.ant-alert-description a,
+.ant-alert-message a,
+.ant-typography p a,
+p.ant-typography a,
+.ant-form-item-extra a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }

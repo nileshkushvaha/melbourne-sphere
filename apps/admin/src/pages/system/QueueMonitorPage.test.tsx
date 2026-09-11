@@ -19,6 +19,14 @@ const summary = {
   jobs: [{ name: 'enquiry.email', label: 'Enquiry delivery', purpose: 'Sends an accepted enquiry.' }],
 };
 
+const liveness = {
+  healthy: true,
+  detail: '1 worker checked in within the heartbeat window.',
+  workers: [{ instanceId: '1234-ab12cd34', version: '1.0.0', startedAt: '2026-09-08T00:00:00.000Z', lastBeatAt: '2026-09-08T01:00:00.000Z', ageSeconds: 8, queues: ['melbourne-sphere'], processed: 42, failed: 1 }],
+  oldestHeartbeatAgeSeconds: 8,
+  scheduler: { healthy: true, detail: 'Every task the product depends on has succeeded within its expected window.', stale: [] },
+};
+
 const failedJob = {
   id: 'job-1',
   name: 'enquiry.email',
@@ -37,13 +45,14 @@ const failedJob = {
 
 const jobsPage = { data: [failedJob], meta: { page: 1, pageSize: 20, total: 1, pageCount: 1 } };
 
-function fakeFetch(overrides: { summary?: unknown; jobs?: unknown; onPost?: (url: string, body: unknown) => unknown } = {}) {
+function fakeFetch(overrides: { summary?: unknown; jobs?: unknown; liveness?: unknown; onPost?: (url: string, body: unknown) => unknown } = {}) {
   return (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (init?.method === 'POST') {
       const result = overrides.onPost?.(url, init.body ? JSON.parse(String(init.body)) : undefined);
       return jsonResponse(200, { data: result ?? { requested: 1, succeeded: ['job-1'], failed: [] } });
     }
+    if (url.includes('/workers')) return jsonResponse(200, { data: overrides.liveness ?? liveness });
     if (url.includes('/jobs')) return jsonResponse(200, overrides.jobs ?? jobsPage);
     return jsonResponse(200, { data: [overrides.summary ?? summary] });
   }) as typeof fetch;
@@ -137,5 +146,31 @@ describe('QueueMonitorPage', () => {
     renderWithProviders(<QueueMonitorPage />, { initialEntries: ['/admin/system/queues'], authProvider: providerWithPermissions(['system.queues.view']) });
     expect(await screen.findByText('Queue unreachable')).toBeInTheDocument();
     expect(screen.getByText(/Accepted work is still stored/)).toBeInTheDocument();
+  });
+
+  it('separates a reachable queue from a worker that is actually running', async () => {
+    globalThis.fetch = fakeFetch({
+      liveness: {
+        healthy: false,
+        detail: 'No worker has checked in. Nothing is consuming melbourne-sphere: enquiries are stored but not delivered.',
+        workers: [],
+        oldestHeartbeatAgeSeconds: null,
+        scheduler: { healthy: false, detail: 'One task has not succeeded within the expected window.', stale: [{ code: 'content.publish-scheduled', label: 'Publish scheduled articles', lastSuccessAt: '2026-09-07T00:00:00.000Z', staleAfterMinutes: 25 }] },
+      },
+    });
+    renderWithProviders(<QueueMonitorPage />, { authProvider: providerWithPermissions(['system.queues.view']) });
+
+    expect(await screen.findByText('Nothing is processing work')).toBeInTheDocument();
+    expect(await screen.findByText(/Nothing is consuming melbourne-sphere/)).toBeInTheDocument();
+    // The stopped schedule is named, not just counted.
+    expect(await screen.findByText(/Publish scheduled articles/)).toBeInTheDocument();
+  });
+
+  it('lists each replica by instance, version and last report, with no host or environment detail', async () => {
+    globalThis.fetch = fakeFetch();
+    renderWithProviders(<QueueMonitorPage />, { authProvider: providerWithPermissions(['system.queues.view']) });
+
+    expect(await screen.findByText('1234-ab12cd34')).toBeInTheDocument();
+    expect(await screen.findByText('Workers reporting')).toBeInTheDocument();
   });
 });

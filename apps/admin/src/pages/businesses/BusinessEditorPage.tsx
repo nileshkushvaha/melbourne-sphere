@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, App, Button, Card, Col, Descriptions, Form, Input, InputNumber, List, Modal, Row, Select, Space, Switch, Tag, Typography } from 'antd';
+import { Alert, App, Button, Col, Form, Input, InputNumber, List, Modal, Row, Select, Space, Switch, Typography } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useInvalidate, useOnError, useOne } from '@refinedev/core';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -13,15 +13,31 @@ import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { BrandOptionLabel } from '@/components/BrandIcon';
 import { brandLabel } from '@/shared/brands';
-import { PageHeader, PageLoader } from '@/components/ui';
+import { PageHeader, PageLoader, RecordMetadata, SectionCard, StatusTag, StickyActions } from '@/components/ui';
+import { useUnsavedChanges } from '@/shared/useUnsavedChanges';
 import { useCapabilities } from '@/auth/access-control';
 import { PERMISSION } from '@/auth/permissions';
+import { FormSelect } from '@/components/FormSelect';
 
 const ACTION_LABELS: Record<BusinessAction, { label: string; title: string; hint: string; danger?: boolean }> = {
-  publish: { label: 'Publish', title: 'Publish this listing?', hint: 'It becomes visible in the public directory immediately.' },
-  unpublish: { label: 'Unpublish', title: 'Unpublish this listing?', hint: 'It returns to draft and disappears from the public directory.', danger: true },
-  archive: { label: 'Archive', title: 'Archive this listing?', hint: 'Archived listings are hidden everywhere and cannot be edited until restored.', danger: true },
-  restore: { label: 'Restore', title: 'Restore this listing to draft?', hint: 'It stays private until published again.' },
+  publish: {
+    label: 'Publish business',
+    title: 'Publish this listing?',
+    hint: 'Anyone can find it in the directory and in search results from now on, and visitors can send it enquiries. You can unpublish it again at any time.',
+  },
+  unpublish: {
+    label: 'Unpublish business',
+    title: 'Unpublish this listing?',
+    hint: 'It returns to draft: visitors can no longer find it and its page stops working. Nothing is deleted, and enquiries already received are kept.',
+    danger: true,
+  },
+  archive: {
+    label: 'Archive business',
+    title: 'Archive this listing?',
+    hint: 'It is hidden everywhere and becomes read-only. Restore it to edit it again.',
+    danger: true,
+  },
+  restore: { label: 'Restore business', title: 'Restore this listing to draft?', hint: 'It becomes editable again and stays private until you publish it.' },
 };
 
 type FormValues = Omit<CreateBusinessInput, 'address' | 'contentRightsReviewed'> & {
@@ -99,6 +115,8 @@ export function BusinessEditorPage() {
   const hasAddress = Form.useWatch('hasAddress', form);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [newSlug, setNewSlug] = useState('');
   const [pendingAction, setPendingAction] = useState<{ action: BusinessAction; blockers?: string[]; needsOverride?: boolean } | null>(null);
   const [actionForm] = Form.useForm<{ reason?: string; duplicateOverrideReason?: string }>();
 
@@ -113,7 +131,30 @@ export function BusinessEditorPage() {
     if (business) form.setFieldsValue(toForm(business));
   }, [business, form]);
 
+  // Nothing here saves on its own, so leaving with edits in the form loses them.
+  useUnsavedChanges(dirty && !saving);
+
   const refresh = () => invalidate({ resource: 'businesses', invalidates: ['list', 'detail'], id });
+
+  /**
+   * Moving a published listing to a new address. The plain save refuses this
+   * once a listing has been published, because the old address has to keep
+   * working — this route is the one that leaves the redirect behind.
+   */
+  const changeAddress = async () => {
+    if (!business) return;
+    const slug = newSlug.trim();
+    if (slug === '' || slug === business.slug) return;
+    try {
+      await api.changeSlug(business.id, { slug, expectedVersion: business.version });
+      message.success('Public address changed. The old one now sends visitors to the new page.');
+      setNewSlug('');
+      await refresh();
+    } catch (error) {
+      if (isApiError(error) && error.kind === 'unauthorized') onAuthError(error);
+      else message.error(errorMessage(error));
+    }
+  };
 
   const submit = async (values: FormValues) => {
     setFormError(null);
@@ -121,13 +162,15 @@ export function BusinessEditorPage() {
     try {
       if (isNew) {
         const created = await api.create(toBody(values, null));
-        message.success('Business created as a draft');
+        message.success('Business created as a draft. It stays private until you publish it.');
+        setDirty(false);
         await invalidate({ resource: 'businesses', invalidates: ['list'] });
         navigate(`/businesses/${encodeURIComponent(created.id)}`);
       } else if (business) {
         const body: UpdateBusinessInput = { ...toBody(values, business), expectedVersion: business.version };
         await api.update(business.id, body);
         message.success('Business saved');
+        setDirty(false);
         await refresh();
       }
     } catch (error) {
@@ -187,7 +230,7 @@ export function BusinessEditorPage() {
         title={isNew ? 'New business' : business!.name}
         meta={
           business ? (
-            <Tag color={business.status === 'published' ? 'green' : business.status === 'archived' ? 'orange' : 'default'}>{business.status}</Tag>
+            <StatusTag status={business.status} />
           ) : null
         }
         actions={
@@ -218,62 +261,104 @@ export function BusinessEditorPage() {
         }
       />
       {business && business.status === 'draft' && business.publicationBlockers.length > 0 && (
-        <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="Not ready to publish" description={<List size="small" dataSource={business.publicationBlockers} renderItem={(b) => <List.Item>{b}</List.Item>} />} />
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 20 }}
+          message={`Not ready to publish — ${business.publicationBlockers.length} thing${business.publicationBlockers.length === 1 ? '' : 's'} to fix`}
+          description={<List size="small" dataSource={business.publicationBlockers} renderItem={(b) => <List.Item>{b}</List.Item>} />}
+        />
       )}
       {business && business.duplicateWarnings.length > 0 && (
         <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="Possible duplicate" description={<ul style={{ margin: 0, paddingInlineStart: 18 }}>{business.duplicateWarnings.map((d) => <li key={d.businessId}><Link to={`/businesses/${encodeURIComponent(d.businessId)}`}>{d.name}</Link> ({d.slug}) — matched on {d.match.replace(/_/g, ' ')}</li>)}</ul>} />
       )}
       {business?.status === 'archived' && <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Archived listings are read-only. Restore it to make changes." />}
       {formError && <Alert type="error" showIcon message={formError} style={{ marginBottom: 16 }} role="alert" />}
-      <Form<FormValues> form={form} layout="vertical" requiredMark="optional" onFinish={submit} disabled={readOnly} initialValues={{ addressVisibility: 'full', hasAddress: true, secondaryCategoryIds: [], serviceIds: [], links: [] }}>
+      <Form<FormValues> form={form} layout="vertical" onFinish={submit} onValuesChange={() => setDirty(true)} disabled={readOnly} initialValues={{ addressVisibility: 'full', hasAddress: true, secondaryCategoryIds: [], serviceIds: [], links: [] }}>
         <Row gutter={24}>
           <Col xs={24} lg={14}>
-            <Card title="Listing" style={{ marginBottom: 24 }}>
+            <SectionCard title="Business identity" description="What this business is called and how it is described in the directory.">
               <Form.Item label="Name" name="name" rules={[{ required: true, message: 'Name is required' }, { min: 2, max: 120, message: 'Name must be 2–120 characters' }]}>
-                <Input maxLength={120} />
+                <Input maxLength={120} placeholder="e.g. Carlton Corner Bakery" />
               </Form.Item>
-              <Form.Item label="Slug" name="slug" extra={business?.firstPublishedAt ? 'Locked after first publication (public URL stability).' : 'Generated from the name when left blank.'}>
-                <Input maxLength={140} disabled={readOnly || business?.firstPublishedAt !== null && business !== null} />
+              <Form.Item
+                label="Public address"
+                name="slug"
+                extra={
+                  business?.firstPublishedAt
+                    ? 'Fixed once the listing has been published, so links people have already shared keep working. Use “Change the public address” below to move it.'
+                    : 'The last part of the listing’s web address. Made from the name when left blank.'
+                }
+              >
+                <Input maxLength={140} placeholder="carlton-corner-bakery" disabled={readOnly || business?.firstPublishedAt !== null && business !== null} />
               </Form.Item>
               <Form.Item label="Description" name="description" extra="At least 40 characters are required to publish." rules={[{ required: true, message: 'Description is required' }]}>
-                <Input.TextArea rows={6} maxLength={5000} showCount />
+                <Input.TextArea rows={6} maxLength={5000} showCount placeholder="What the business does, who it serves and what makes it worth visiting." />
               </Form.Item>
-              <Form.Item label="Primary category" name="primaryCategoryId" rules={[{ required: true, message: 'Primary category is required' }]}>
-                <Select showSearch optionFilterProp="label" placeholder="Choose a category" options={categories.status === 'ready' ? options(categories.data) : []} />
+            </SectionCard>
+
+            <SectionCard title="Categories and services" description="How visitors filter and find this business.">
+              <Form.Item label="Primary category" name="primaryCategoryId" extra="The one category this business belongs in first." rules={[{ required: true, message: 'Choose a primary category' }]}>
+                <FormSelect showSearch optionFilterProp="label" placeholder="Choose a category" options={categories.status === 'ready' ? options(categories.data) : []} />
               </Form.Item>
               <Form.Item label="Secondary categories" name="secondaryCategoryIds">
-                <Select mode="multiple" optionFilterProp="label" placeholder="Optional" options={categories.status === 'ready' ? options(categories.data) : []} />
+                <Select mode="multiple" optionFilterProp="label" placeholder="Add any that also apply" options={categories.status === 'ready' ? options(categories.data) : []} />
               </Form.Item>
               <Form.Item label="Services" name="serviceIds">
-                <Select mode="multiple" optionFilterProp="label" placeholder="Optional" options={services.status === 'ready' ? options(services.data) : []} />
+                <Select mode="multiple" optionFilterProp="label" placeholder="Add the services offered" options={services.status === 'ready' ? options(services.data) : []} />
               </Form.Item>
-              <Form.Item label="Local area" name="localAreaId" rules={[{ required: true, message: 'Local area is required' }]}>
-                <Select showSearch optionFilterProp="label" placeholder="Choose a Melbourne area" options={areas.status === 'ready' ? options(areas.data) : []} />
+            </SectionCard>
+
+            <SectionCard
+              title="Melbourne location"
+              description="The directory covers Melbourne only. A listing outside the approved boundary cannot be published."
+            >
+              <Form.Item label="Local area" name="localAreaId" extra="The Melbourne area this business trades in." rules={[{ required: true, message: 'Choose a local area' }]}>
+                <FormSelect showSearch optionFilterProp="label" placeholder="Choose a Melbourne area" options={areas.status === 'ready' ? options(areas.data) : []} />
               </Form.Item>
-            </Card>
-            <Card title="Contact and address" style={{ marginBottom: 24 }}>
+              <Form.Item label="Has a street address" name="hasAddress" valuePropName="checked" extra="Turn this off for a business that trades without a public premises.">
+                <Switch />
+              </Form.Item>
+              {hasAddress && (
+                <>
+                  <Form.Item label="Address line 1" name={['address', 'line1']} rules={[{ required: true, message: 'Enter the street address' }]}><Input maxLength={120} placeholder="123 Collins Street" /></Form.Item>
+                  <Form.Item label="Address line 2" name={['address', 'line2']}><Input maxLength={120} placeholder="Level 2, Suite 4 (optional)" /></Form.Item>
+                  <Row gutter={16}>
+                    <Col xs={24} md={12}><Form.Item label="Suburb" name={['address', 'suburb']} rules={[{ required: true, message: 'Enter the suburb' }]}><Input maxLength={80} placeholder="Carlton" /></Form.Item></Col>
+                    <Col xs={24} md={12}><Form.Item label="Postcode" name={['address', 'postcode']} extra="A Victorian postcode." rules={[{ required: true, message: 'Enter the postcode' }, { pattern: /^(3\d{3}|8\d{3})$/, message: 'Enter a Victorian postcode' }]}><Input maxLength={4} inputMode="numeric" placeholder="3053" /></Form.Item></Col>
+                    <Col xs={24} md={12}><Form.Item label="Latitude" name={['address', 'latitude']} extra="Optional. Places the pin on the map."><InputNumber style={{ width: '100%' }} min={-39.5} max={-33.5} step={0.000001} placeholder="-37.8136" /></Form.Item></Col>
+                    <Col xs={24} md={12}><Form.Item label="Longitude" name={['address', 'longitude']} extra="Optional. Places the pin on the map."><InputNumber style={{ width: '100%' }} min={140} max={151} step={0.000001} placeholder="144.9631" /></Form.Item></Col>
+                  </Row>
+                  <Form.Item label="What visitors see" name="addressVisibility" extra="Choose the area only where a business works from home or by appointment." style={{ marginBottom: 0 }}>
+                    <Select options={[{ value: 'full', label: 'The full street address' }, { value: 'areaOnly', label: 'The local area only' }]} />
+                  </Form.Item>
+                </>
+              )}
+            </SectionCard>
+
+            <SectionCard title="Contact details" description="How visitors reach this business. At least one way to make contact is needed before it can be published.">
               <Row gutter={16}>
-                <Col xs={24} md={8}><Form.Item label="Public phone" name="publicPhone"><Input maxLength={30} inputMode="tel" /></Form.Item></Col>
-                <Col xs={24} md={8}><Form.Item label="Public email" name="publicEmail"><Input maxLength={254} inputMode="email" /></Form.Item></Col>
-                <Col xs={24} md={8}><Form.Item label="Website" name="publicUrl" extra="Must start with https:// or http://"><Input maxLength={500} inputMode="url" /></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="Public phone" name="publicPhone"><Input maxLength={30} inputMode="tel" placeholder="03 9000 0000" /></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="Public email" name="publicEmail"><Input maxLength={254} inputMode="email" placeholder="hello@example.com.au" /></Form.Item></Col>
+                <Col xs={24} md={8}><Form.Item label="Website" name="publicUrl" extra="Must start with https:// or http://"><Input maxLength={500} inputMode="url" placeholder="https://example.com.au" /></Form.Item></Col>
               </Row>
               <Typography.Text strong>Social and other links</Typography.Text>
               <Form.List name="links">
                 {(fields, { add, remove }) => (
                   <div style={{ marginTop: 8, marginBottom: 16 }}>
                     {fields.map((field) => (
-                      <Space key={field.key} align="baseline" wrap>
-                        <Form.Item name={[field.name, 'kind']} style={{ marginBottom: 8 }}>
-                          <Select aria-label="Link type" style={{ width: 150 }} optionLabelProp="title" options={LINK_KINDS.map((k) => ({ value: k, title: brandLabel(k), label: <BrandOptionLabel kind={k} /> }))} />
+                      <div key={field.key} className="ms-field-row">
+                        <Form.Item name={[field.name, 'kind']} style={{ marginBottom: 8, width: 150 }}>
+                          <Select aria-label="Link type" style={{ width: '100%' }} optionLabelProp="title" options={LINK_KINDS.map((k) => ({ value: k, title: brandLabel(k), label: <BrandOptionLabel kind={k} /> }))} />
                         </Form.Item>
-                        <Form.Item name={[field.name, 'url']} rules={[{ required: true, message: 'URL is required' }]} style={{ marginBottom: 8 }}>
-                          <Input aria-label="Link URL" placeholder="https://" maxLength={500} style={{ width: 300 }} inputMode="url" />
+                        <Form.Item name={[field.name, 'url']} rules={[{ required: true, message: 'URL is required' }]} style={{ marginBottom: 8, width: 300 }}>
+                          <Input aria-label="Link URL" placeholder="https://facebook.com/yourpage" maxLength={500} inputMode="url" />
                         </Form.Item>
-                        <Form.Item name={[field.name, 'label']} style={{ marginBottom: 8 }}>
-                          <Input aria-label="Link label" placeholder="Label (optional)" maxLength={60} style={{ width: 160 }} />
+                        <Form.Item name={[field.name, 'label']} style={{ marginBottom: 8, width: 160 }}>
+                          <Input aria-label="Link label" placeholder="Shown instead of the network name" maxLength={60} />
                         </Form.Item>
                         <Button type="text" icon={<DeleteOutlined aria-hidden="true" />} aria-label="Remove link" onClick={() => remove(field.name)} />
-                      </Space>
+                      </div>
                     ))}
                     {fields.length < 8 && (
                       <Button size="small" icon={<PlusOutlined aria-hidden="true" />} onClick={() => add({ kind: 'other', url: '', label: '' })} disabled={readOnly}>
@@ -283,58 +368,132 @@ export function BusinessEditorPage() {
                   </div>
                 )}
               </Form.List>
-              <Form.Item label="Has a street address" name="hasAddress" valuePropName="checked"><Switch /></Form.Item>
-              {hasAddress && (
-                <>
-                  <Form.Item label="Address line 1" name={['address', 'line1']} rules={[{ required: true, message: 'Address line 1 is required' }]}><Input maxLength={120} /></Form.Item>
-                  <Form.Item label="Address line 2" name={['address', 'line2']}><Input maxLength={120} /></Form.Item>
-                  <Row gutter={16}>
-                    <Col xs={24} md={12}><Form.Item label="Suburb" name={['address', 'suburb']} rules={[{ required: true, message: 'Suburb is required' }]}><Input maxLength={80} /></Form.Item></Col>
-                    <Col xs={24} md={12}><Form.Item label="Postcode" name={['address', 'postcode']} rules={[{ required: true, message: 'Postcode is required' }, { pattern: /^(3\d{3}|8\d{3})$/, message: 'Enter a Victorian postcode' }]}><Input maxLength={4} inputMode="numeric" /></Form.Item></Col>
-                    <Col xs={24} md={12}><Form.Item label="Latitude" name={['address', 'latitude']}><InputNumber style={{ width: '100%' }} min={-39.5} max={-33.5} step={0.000001} /></Form.Item></Col>
-                    <Col xs={24} md={12}><Form.Item label="Longitude" name={['address', 'longitude']}><InputNumber style={{ width: '100%' }} min={140} max={151} step={0.000001} /></Form.Item></Col>
-                  </Row>
-                  <Form.Item label="Address visibility" name="addressVisibility">
-                    <Select options={[{ value: 'full', label: 'Show full address' }, { value: 'areaOnly', label: 'Show local area only' }]} />
-                  </Form.Item>
-                </>
-              )}
-            </Card>
+            </SectionCard>
+
+            {/* The private address is separated from the public ones deliberately:
+                the two look identical in a form and mean opposite things. */}
+            <SectionCard
+              title="Private enquiry address"
+              description="Where enquiries from this listing are forwarded. It is never shown on the site and never given out."
+            >
+              <Form.Item
+                label="Send enquiries to"
+                name="privateEnquiryEmail"
+                extra={
+                  business?.hasPrivateEnquiryEmail && !canWrite
+                    ? 'An address is set. Your role cannot see or change it.'
+                    : 'Visitors never see this address; their message is forwarded to it.'
+                }
+                style={{ marginBottom: 0 }}
+              >
+                <Input
+                  maxLength={254}
+                  inputMode="email"
+                  placeholder={business?.hasPrivateEnquiryEmail ? 'An address is set — type a new one to replace it' : 'owner@example.com.au'}
+                />
+              </Form.Item>
+            </SectionCard>
           </Col>
+
           <Col xs={24} lg={10}>
-            <Card title="Compliance" style={{ marginBottom: 24 }}>
-              <Form.Item label="Private enquiry email" name="privateEnquiryEmail" extra={business?.hasPrivateEnquiryEmail && !canWrite ? 'Set (hidden for your role).' : 'Encrypted at rest; never shown publicly. Enquiries are forwarded here.'}>
-                <Input maxLength={254} inputMode="email" placeholder={business?.hasPrivateEnquiryEmail ? 'Set — enter a new address to replace it' : undefined} />
+            <SectionCard title="Before publishing" description="Checks an editor makes once, recorded against the listing.">
+              <Form.Item
+                label="How the Melbourne address was checked"
+                name="eligibilitySource"
+                extra="The directory covers Melbourne only. Saving this records who confirmed it and when."
+              >
+                <Input maxLength={255} placeholder="e.g. Checked against the City of Melbourne business register" />
               </Form.Item>
-              <Form.Item label="Melbourne eligibility source" name="eligibilitySource" extra="How you verified the business is inside the approved Melbourne boundary. Saving it records the verification time.">
-                <Input maxLength={255} />
+              {business?.eligibilityVerifiedAt && (
+                <Typography.Paragraph type="secondary" style={{ marginTop: -8 }}>
+                  Confirmed {formatDateTime(business.eligibilityVerifiedAt)}
+                </Typography.Paragraph>
+              )}
+              <Form.Item
+                label="The wording and images may be published"
+                name="contentRightsReviewed"
+                valuePropName="checked"
+                extra="Confirm the business agreed to what appears on its listing."
+              >
+                <Switch />
               </Form.Item>
-              {business?.eligibilityVerifiedAt && <Typography.Paragraph type="secondary">Verified {formatDateTime(business.eligibilityVerifiedAt)}</Typography.Paragraph>}
-              <Form.Item label="Content rights reviewed" name="contentRightsReviewed" valuePropName="checked" extra="Confirm the description and details may be published."><Switch /></Form.Item>
-              <Form.Item label="Content rights note" name="contentRightsNote"><Input.TextArea rows={3} maxLength={500} /></Form.Item>
-            </Card>
+              <Form.Item label="Note about permission" name="contentRightsNote" style={{ marginBottom: 0 }}>
+                <Input.TextArea rows={3} maxLength={500} placeholder="Who supplied the description and images, and what they agreed to." />
+              </Form.Item>
+            </SectionCard>
+
+            {business?.firstPublishedAt && canPublish && (
+              <SectionCard
+                title="Change the public address"
+                description="Visitors who follow the old address are sent to the new one, so links already shared keep working."
+              >
+                <Space.Compact style={{ width: '100%' }}>
+                  <Input
+                    value={newSlug}
+                    onChange={(event) => setNewSlug(event.target.value)}
+                    placeholder={business.slug}
+                    disabled={readOnly}
+                    aria-label="New public address"
+                    maxLength={140}
+                  />
+                  <Button onClick={() => void changeAddress()} disabled={readOnly || newSlug.trim() === '' || newSlug.trim() === business.slug}>
+                    Change address
+                  </Button>
+                </Space.Compact>
+              </SectionCard>
+            )}
+
             {business && (
-              <Card title="Record" style={{ marginBottom: 24 }}>
-                <Descriptions column={1} size="small" items={[
-                  { key: 'created', label: 'Created', children: formatDateTime(business.createdAt) },
-                  { key: 'updated', label: 'Updated', children: formatDateTime(business.updatedAt) },
-                  { key: 'published', label: 'Published', children: business.publishedAt ? formatDateTime(business.publishedAt) : '—' },
-                  { key: 'first', label: 'First published', children: business.firstPublishedAt ? formatDateTime(business.firstPublishedAt) : '—' },
-                  { key: 'version', label: 'Version', children: String(business.version) },
-                ]} />
-              </Card>
+              <SectionCard title="Record history" description="When this listing changed, and which version you are editing.">
+                <RecordMetadata
+                  items={[
+                    { label: 'Added', value: formatDateTime(business.createdAt) },
+                    { label: 'Last changed', value: formatDateTime(business.updatedAt) },
+                    { label: 'Published', value: business.publishedAt ? formatDateTime(business.publishedAt) : 'Not published' },
+                    { label: 'First published', value: business.firstPublishedAt ? formatDateTime(business.firstPublishedAt) : 'Never' },
+                    { label: 'Version', value: String(business.version) },
+                  ]}
+                />
+              </SectionCard>
             )}
           </Col>
         </Row>
-        {!readOnly && (
-          <Space style={{ marginBottom: 24 }}>
-            <Button type="primary" htmlType="submit" loading={saving}>{isNew ? 'Create draft' : 'Save changes'}</Button>
-            {!isNew && <Button onClick={() => void refresh()}>Reload</Button>}
-          </Space>
-        )}
       </Form>
-      {business && <GalleryEditor businessId={business.id} businessVersion={business.version} readOnly={readOnly} onSaved={() => void refresh()} />}
-      {business && <HoursEditor businessId={business.id} businessVersion={business.version} readOnly={readOnly} onSaved={() => void refresh()} />}
+
+      {/* The gallery and the opening hours are saved through their own endpoints,
+          so they keep their own buttons — but they belong to this record, so they
+          sit inside the page above the save bar rather than below it. */}
+      {business && (
+        <>
+          <GalleryEditor businessId={business.id} businessVersion={business.version} readOnly={readOnly} onSaved={() => void refresh()} />
+          <HoursEditor businessId={business.id} businessVersion={business.version} readOnly={readOnly} onSaved={() => void refresh()} />
+        </>
+      )}
+
+      {!readOnly && (
+        <StickyActions
+          status={
+            dirty
+              ? 'You have unsaved changes.'
+              : business && business.status === 'draft' && business.publicationBlockers.length > 0
+                ? `Saved. ${business.publicationBlockers.length} thing${business.publicationBlockers.length === 1 ? '' : 's'} still to fix before it can be published.`
+                : business
+                  ? `Saved. Version ${business.version}.`
+                  : 'Not saved yet.'
+          }
+        >
+          {!isNew && (
+            <Button onClick={() => void refresh()} disabled={saving || !dirty}>
+              Discard changes
+            </Button>
+          )}
+          {/* Outside the <form>, so the bar can sit below the gallery and hours;
+              submitting through the instance runs the same validation. */}
+          <Button type="primary" loading={saving} onClick={() => form.submit()}>
+            {isNew ? 'Create draft' : 'Save changes'}
+          </Button>
+        </StickyActions>
+      )}
       <Modal
         open={pendingAction !== null}
         title={pendingAction ? ACTION_LABELS[pendingAction.action].title : ''}
@@ -348,11 +507,11 @@ export function BusinessEditorPage() {
         {pendingAction?.blockers && <Alert type="error" showIcon role="alert" style={{ marginBottom: 12 }} message="Cannot continue" description={<ul style={{ margin: 0, paddingInlineStart: 18 }}>{pendingAction.blockers.map((b) => <li key={b}>{b}</li>)}</ul>} />}
         <Form form={actionForm} layout="vertical" requiredMark={false}>
           {pendingAction?.needsOverride && (
-            <Form.Item label="Duplicate override reason" name="duplicateOverrideReason" extra="This listing matches an existing one. Explain why it is a distinct business (recorded in the audit log)." rules={[{ required: true, min: 10, message: 'Give at least 10 characters' }]}>
-              <Input.TextArea rows={3} maxLength={500} />
+            <Form.Item label="Duplicate override reason" name="duplicateOverrideReason" extra="Say why this is a different business. It is recorded in the activity log." rules={[{ required: true, min: 10, message: 'Give at least 10 characters' }]}>
+              <Input.TextArea rows={3} maxLength={500} placeholder="e.g. Same owner, separate premises trading under its own name." />
             </Form.Item>
           )}
-          <Form.Item label="Reason (optional, recorded in the audit log)" name="reason"><Input.TextArea rows={2} maxLength={500} /></Form.Item>
+          <Form.Item label="Reason (optional, recorded in the audit log)" name="reason"><Input.TextArea rows={2} maxLength={500} placeholder="Why this change is being made (optional)" /></Form.Item>
         </Form>
       </Modal>
     </div>

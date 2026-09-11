@@ -1,13 +1,13 @@
 import type { ReactElement, ReactNode } from 'react';
 import { render, type RenderOptions } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, type InitialEntry } from 'react-router';
 import type { AuthProvider } from '@refinedev/core';
 import { AppProviders } from '@/app/AppProviders';
 
 interface Options extends Omit<RenderOptions, 'wrapper'> {
-  /** Full URLs including the basename, e.g. '/admin/'. */
-  initialEntries?: string[];
+  /** Full URLs including the basename, e.g. '/admin/', or entries carrying navigation state. */
+  initialEntries?: InitialEntry[];
   basename?: string;
   authProvider?: AuthProvider;
   /**

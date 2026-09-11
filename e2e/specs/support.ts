@@ -25,6 +25,20 @@ export async function stackIsUp(request: APIRequestContext): Promise<boolean> {
   }
 }
 
+/**
+ * True when the API answers. The admin journeys need the API and the admin
+ * application, not the public site — requiring the whole stack made them skip
+ * for a reason that had nothing to do with what they check.
+ */
+export async function adminStackIsUp(request: APIRequestContext): Promise<boolean> {
+  try {
+    const [api, admin] = await Promise.all([request.get(`${API_URL}/api/v1/health`), request.get(`${ADMIN_URL}/`)]);
+    return api.ok() && admin.ok();
+  } catch {
+    return false;
+  }
+}
+
 /** Slug of any published business, or null when the environment has none. */
 export async function firstPublishedBusiness(request: APIRequestContext): Promise<{ slug: string; name: string } | null> {
   const response = await request.get(`${API_URL}/api/v1/businesses?pageSize=1`);

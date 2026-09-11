@@ -10,7 +10,7 @@ import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { MediaPicker } from '@/components/MediaPicker';
 import { BrandIcon, BrandOptionLabel } from '@/components/BrandIcon';
-import { PageLoader, PageHeader, SectionCard, StickyActions } from '@/components/ui';
+import { PageLoader, PageHeader, SectionCard, StickyActions, PageLoadError } from '@/components/ui';
 import { variantUrl, type MediaAsset } from '@/api/media';
 
 type BrandingSlot = 'logoMediaId' | 'faviconMediaId' | 'shareImageMediaId';
@@ -44,7 +44,7 @@ const SOCIAL_PLACEHOLDERS: Record<SocialPlatform, string> = {
 
 const BRANDING: { slot: BrandingSlot; title: string; hint: string; recordKey: 'logo' | 'favicon' | 'shareImage' }[] = [
   { slot: 'logoMediaId', title: 'Logo', hint: 'Shown in the public header and footer. A wide image on a transparent background works best; it is scaled to the bar height.', recordKey: 'logo' },
-  { slot: 'faviconMediaId', title: 'Browser icon', hint: 'Used as the tab icon. Square images look best; the smallest processed rendition is served.', recordKey: 'favicon' },
+  { slot: 'faviconMediaId', title: 'Browser icon', hint: 'Shown on the browser tab. Square images work best.', recordKey: 'favicon' },
   { slot: 'shareImageMediaId', title: 'Default share image', hint: 'Used when a page has no image of its own, for example on social cards. Landscape, at least 1200 × 630.', recordKey: 'shareImage' },
 ];
 
@@ -135,32 +135,32 @@ export function GeneralSettingsPage() {
 
   // The screen is empty until its record arrives; say so rather than showing a blank disabled form.
   if (state.status === 'loading') return <PageLoader label="Loading general settings…" />;
-  if (state.status === 'error') return <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} />;
+  if (state.status === 'error') return <PageLoadError title="General settings" crumbs={[{ label: 'Configuration' }, { label: 'General settings' }]} message={state.message} reference={state.reference} onRetry={reload} />;
 
   return (
     <div>
       <PageHeader
         crumbs={[{ label: 'Configuration' }, { label: 'General settings' }]}
         title="General settings"
-        description="Your application's name, contact details, branding and footer. Melbourne, its timezone and the public routes are fixed by the platform and are not editable here."
+        description="Name, contact details, branding and footer."
       />
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} role="alert" />}
       <Form<FormValues> form={form} layout="vertical" requiredMark={false} onFinish={submit} disabled={state.status !== 'ready'} style={{ maxWidth: 980 }}>
-        <SectionCard title="Application information" description="Used in the header, page titles, search results and the copyright line.">
+        <SectionCard title="Site identity" description="Used in the header, page titles, search results and the copyright line.">
           <Row gutter={16}>
             <Col xs={24} md={8}>
-              <Form.Item label="Application name" name="applicationName" rules={[{ required: true, message: 'Application name is required' }]}>
-                <Input maxLength={80} showCount />
+              <Form.Item label="Site name" name="applicationName" rules={[{ required: true, message: 'Site name is required' }]}>
+                <Input maxLength={80} showCount placeholder="Melbourne Sphere" />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
               <Form.Item label="Short name" name="shortName" extra="Used in tight spaces, such as the browser tab suffix.">
-                <Input maxLength={20} />
+                <Input maxLength={20} placeholder="Sphere" />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item label="Organisation name" name="organisationName" extra="The entity behind the site, when it differs from the application name.">
-                <Input maxLength={120} />
+              <Form.Item label="Organisation name" name="organisationName" extra="The organisation behind the site, when that differs from the site name.">
+                <Input maxLength={120} placeholder="e.g. Melbourne Sphere Pty Ltd" />
               </Form.Item>
             </Col>
           </Row>
@@ -171,28 +171,28 @@ export function GeneralSettingsPage() {
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item label="Support phone" name="supportPhone" extra="Australian format, for example 03 9000 0000 or 0400 000 000.">
-                <Input maxLength={30} />
+              <Form.Item label="Support phone" name="supportPhone" extra="An Australian landline or mobile number.">
+                <Input maxLength={30} placeholder="03 9000 0000" />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
               <Form.Item label="Website URL" name="websiteUrl" extra="The organisation's own site, when it is not this one.">
-                <Input maxLength={200} placeholder="https://…" />
+                <Input maxLength={200} placeholder="https://example.com.au" />
               </Form.Item>
             </Col>
           </Row>
           <Form.Item label="Address" name="address" extra="Shown in the footer and on the contact page. At most four lines.">
-            <Input.TextArea rows={3} maxLength={300} showCount />
+            <Input.TextArea rows={3} maxLength={300} showCount placeholder={'Level 2, 100 Collins Street\nMelbourne VIC 3000'} />
           </Form.Item>
           <Form.Item label="Tagline" name="tagline" extra="Shown after the name in the browser title.">
-            <Input maxLength={120} />
+            <Input maxLength={120} placeholder="Find local businesses across Melbourne" />
           </Form.Item>
           <Form.Item label="Default meta description" name="metaDescription" extra="Used for pages that do not set their own description.">
-            <Input.TextArea rows={2} maxLength={300} showCount />
+            <Input.TextArea rows={2} maxLength={300} showCount placeholder="An independent directory of businesses across Melbourne, Victoria." />
           </Form.Item>
         </SectionCard>
 
-        <SectionCard title="Branding" description="Images come from the media library, so they are processed, have alt text and are served from the CDN.">
+        <SectionCard title="Branding" description="Images are chosen from the media library, so each one already has alternative text and a web-ready version.">
           <Row gutter={16}>
             {BRANDING.map((entry) => {
               const preview = previewFor(entry);
@@ -239,9 +239,9 @@ export function GeneralSettingsPage() {
 
         <SectionCard
           title="Header contact bar"
-          description="A slim strip above the public navigation: phone and email on the left, social profiles on the right. It is hidden unless at least one of them is set."
+          description="Phone, email and social links above the navigation. Hidden when all are empty."
         >
-          <Form.Item label="Show the contact bar" name="headerTopBarEnabled" valuePropName="checked" extra="The phone number and email come from Application information above.">
+          <Form.Item label="Show the contact bar" name="headerTopBarEnabled" valuePropName="checked" extra="The phone number and email come from Site identity above.">
             <Switch />
           </Form.Item>
           <Row gutter={16}>
@@ -263,12 +263,12 @@ export function GeneralSettingsPage() {
           <Form.Item
             label="Copyright line"
             name="copyrightText"
-            extra="Leave empty for the default line. Use {year} for the current year and {name} for the application name, so both stay up to date."
+            extra="Empty uses the default. {year} and {name} stay up to date."
           >
             <Input maxLength={200} placeholder="© {year} {name}. All rights reserved." />
           </Form.Item>
           <Form.Item label="Footer text" name="footerText" extra="A short paragraph under the footer brand.">
-            <Input.TextArea rows={3} maxLength={600} showCount />
+            <Input.TextArea rows={3} maxLength={600} showCount placeholder="A sentence about who runs the directory and how to get in touch." />
           </Form.Item>
         </SectionCard>
 

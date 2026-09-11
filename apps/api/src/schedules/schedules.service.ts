@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
-import { SCHEDULED_TASKS, SCHEDULED_TASK_JOB, scheduledTask, type ScheduledTaskDefinition } from '@melbourne-sphere/domain';
+import { SCHEDULED_TASKS, SCHEDULED_TASK_JOB, scheduledTask, scheduledTaskJobId, type ScheduledTaskDefinition } from '@melbourne-sphere/domain';
 import type { ScheduledTaskRun } from '@melbourne-sphere/database';
 import { AuditService } from '../audit/audit.service.js';
 import type { RequestContext } from '../auth/auth.service.js';
@@ -148,7 +148,7 @@ export class SchedulesService {
     }
 
     await this.queue.enqueue({
-      id: `${SCHEDULED_TASK_JOB}:manual:${code}:${ctx.requestId}`,
+      id: scheduledTaskJobId('manual', code, ctx.requestId),
       name: SCHEDULED_TASK_JOB,
       data: { taskCode: code, trigger: 'manual', actorAdminId: actor.id },
     });

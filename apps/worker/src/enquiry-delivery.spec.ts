@@ -68,7 +68,7 @@ function deps(overrides: Partial<TestEnquiry> & { mailer?: RecordingMailer } = {
       },
     },
   };
-  const built = { subject: 'Enquiry: Catering', replyTo: 'jo@example.com', text: 'body' };
+  const built = { subject: 'Enquiry: Catering', replyTo: 'jo@example.com', text: 'body', html: '<p>body</p>' };
   const dependencies = {
     db: db as never,
     mailer,
@@ -86,7 +86,7 @@ describe('enquiry delivery (SRS ENQ 004–006)', () => {
   it('sends to the listing recipient with the visitor address only as Reply-To', async () => {
     const { dependencies, updates, mailer } = deps();
     expect(await deliverEnquiry({ eventId: 'e1', enquiryId: 'enq-1234567890abc' }, dependencies)).toBe('delivered');
-    expect(mailer.sent[0]).toMatchObject({ to: 'owner@example.com', from: 'no-reply@melbournesphere.example', replyTo: 'jo@example.com', messageId: 'enq-1234567890abc@melbourne-sphere' });
+    expect(mailer.sent[0]).toMatchObject({ to: 'owner@example.com', from: 'no-reply@melbournesphere.example', replyTo: 'jo@example.com', text: 'body', html: '<p>body</p>', messageId: 'enq-1234567890abc@melbourne-sphere' });
     expect(updates.at(-1)).toMatchObject({ deliveryStatus: 'providerAccepted', providerMessageId: 'provider-1' });
   });
 

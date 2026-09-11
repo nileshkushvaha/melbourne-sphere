@@ -1,8 +1,9 @@
 import { Queue } from 'bullmq';
 import type { Redis } from 'ioredis';
 import type { DatabaseClient } from '@melbourne-sphere/database';
-import { QUEUE_NAME, SCHEDULED_TASKS, SCHEDULED_TASK_JOB, redisConnectionFromUrl, scheduledTaskLockKey } from '@melbourne-sphere/domain';
+import { QUEUE_NAME, SCHEDULED_TASKS, SCHEDULED_TASK_JOB, assertQueueJobId, redisConnectionFromUrl, scheduledTaskJobId, scheduledTaskLockKey } from '@melbourne-sphere/domain';
 import { runScheduledTask, type ScheduledTaskJobData } from './scheduled-tasks.js';
+import { scheduledTaskRuns } from './observability.js';
 
 /** How often the worker re-reads which optional tasks are switched on (TASK 006). */
 const SYNC_INTERVAL_MS = 60_000;
@@ -38,7 +39,9 @@ export class ScheduleRunner {
     // cancelled (TASK 004).
     for (const task of SCHEDULED_TASKS) {
       if (task.missedRunPolicy !== 'run-on-recovery') continue;
-      await this.queue.add(SCHEDULED_TASK_JOB, { taskCode: task.code, trigger: 'scheduled' }, { jobId: `${SCHEDULED_TASK_JOB}:recovery:${task.code}:${Date.now()}` });
+      const jobId = scheduledTaskJobId('recovery', task.code, String(Date.now()));
+      assertQueueJobId(jobId, `recovery dispatch for ${task.code}`);
+      await this.queue.add(SCHEDULED_TASK_JOB, { taskCode: task.code, trigger: 'scheduled' }, { jobId });
     }
     this.timer = setInterval(() => void this.sync().catch((error: unknown) => this.log(`[schedule] sync failed: ${(error as Error).message}`)), SYNC_INTERVAL_MS);
     this.timer.unref?.();
@@ -85,6 +88,7 @@ export class ScheduleRunner {
         if ((await client.get(key)) === this.runnerId) await client.del(key);
       },
     });
+    scheduledTaskRuns.inc({ task: data.taskCode ?? 'unknown', outcome });
     return `${outcome}: ${detail}`;
   }
 

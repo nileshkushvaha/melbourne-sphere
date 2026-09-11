@@ -7,8 +7,16 @@ export class SettingDeclarationDto {
   @ApiProperty() label!: string;
   @ApiProperty() description!: string;
   @ApiProperty({ enum: ['boolean', 'integer', 'string', 'enum', 'email', 'url'] }) type!: string;
-  @ApiProperty({ type: Object, description: 'Validation bounds: min/max, permitted enum values, and the requirement that fixes the outer bound.' })
+  @ApiProperty({ type: Object, description: 'Validation bounds: min/max and permitted enum values.' })
   bounds!: Record<string, unknown>;
+  @ApiPropertyOptional({
+    nullable: true,
+    enum: ['minutes', 'hours', 'days', 'sessions', 'characters', 'passwords', 'attempts'],
+    description: 'What the number counts, shown beside the input so a bare number is never ambiguous.',
+  })
+  unit!: string | null;
+  @ApiPropertyOptional({ nullable: true, description: 'The limit in plain language, for administrators; the requirement that fixes it stays internal.' })
+  limitNote!: string | null;
   @ApiProperty({ description: 'Value used when nothing has been stored.' }) default!: boolean | number | string;
   @ApiProperty({ enum: ['public', 'private'] }) visibility!: string;
   @ApiProperty({ enum: ['runtime', 'restart_required'] }) effect!: string;

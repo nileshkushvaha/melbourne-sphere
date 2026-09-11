@@ -2,11 +2,13 @@ import type { Queue } from 'bullmq';
 import type { DatabaseClient } from '@melbourne-sphere/database';
 import {
   CACHE_TAGS,
+  MEDIA_SETTING_REFERENCES,
   QUARANTINE_MAX_AGE_HOURS,
   SCHEDULED_RUN_RETENTION_DAYS,
   UNUSED_READY_MAX_AGE_DAYS,
   scheduledTask,
   scheduledTaskLockKey,
+  unusedMediaRelations,
   type ScheduledTaskDefinition,
 } from '@melbourne-sphere/domain';
 
@@ -118,8 +120,23 @@ export const TASK_IMPLEMENTATIONS: Record<string, (ctx: TaskContext) => Promise<
       await storage.delete('quarantine', asset.objectKey).catch(() => undefined);
       await db.mediaAsset.delete({ where: { id: asset.id } }).catch(() => undefined);
     }
+    // "Unused" is the shared definition the media library also refuses deletion
+    // by: every relation that shows an image, plus the settings documents that
+    // name one by id (site logo, icon, sharing image, home hero). Deciding it
+    // here from a shorter list is how a partner's logo was once eligible for
+    // deletion a month after it was uploaded.
+    const referenced = await db.setting.findMany({
+      where: { OR: MEDIA_SETTING_REFERENCES.map((ref) => ({ group: ref.group, key: ref.key })) },
+      select: { group: true, key: true, data: true },
+    });
+    const namedBySettings = referenced.flatMap((row) => MEDIA_SETTING_REFERENCES.find((ref) => ref.group === row.group && ref.key === row.key)?.mediaIds(row.data) ?? []);
     const unused = await db.mediaAsset.findMany({
-      where: { status: 'ready', readyAt: { lt: new Date(now.getTime() - UNUSED_READY_MAX_AGE_DAYS * 86_400_000) }, businesses: { none: {} }, coverOf: { none: {} }, authorOf: { none: {} } },
+      where: {
+        status: 'ready',
+        readyAt: { lt: new Date(now.getTime() - UNUSED_READY_MAX_AGE_DAYS * 86_400_000) },
+        ...unusedMediaRelations(),
+        ...(namedBySettings.length > 0 ? { id: { notIn: [...new Set(namedBySettings)] } } : {}),
+      },
       select: { id: true, objectKey: true, variants: { select: { objectKey: true } } },
       take: 100,
     });

@@ -43,7 +43,7 @@ export function FeaturedPage() {
       <PageHeader
         crumbs={[{ label: 'Business', href: '/businesses' }, { label: 'Featured listings' }]}
         title="Featured listings"
-        description="Editorial placements shown in a separate labelled block above the results. At most three appear for any search, and a featured listing still has to match the visitor's filters and be published."
+        description="Up to three per search, shown above results. They never change organic ranking."
         actions={
           canManage ? (
             <Link to="/businesses/featured/new">

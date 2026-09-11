@@ -22,6 +22,7 @@ function fakeDb(overrides: Record<string, unknown> = {}) {
     auditLog: { deleteMany: vi.fn(async () => ({ count: 7 })) },
     emailDelivery: { updateMany: vi.fn(async () => ({ count: 2 })), deleteMany: vi.fn(async () => ({ count: 1 })) },
     post: { findMany: vi.fn(async () => []) },
+    setting: { findMany: vi.fn(async () => []) },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(db)),
     ...overrides,
   } as unknown as DatabaseClient & { __runs: Record<string, unknown>[] };
@@ -150,6 +151,28 @@ describe('task implementations', () => {
     // Without storage the task reports rather than deleting rows whose bytes
     // would then be orphaned.
     expect(await TASK_IMPLEMENTATIONS['media.retention']!({ db: fakeDb(), now: NOW, queue: {} as Queue })).toMatch(/not configured/i);
+  });
+
+  it('never treats an image a testimonial, a partner or the site settings use as unused', async () => {
+    const findMany = vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    const db = fakeDb({
+      mediaAsset: { findMany, delete: vi.fn(async () => ({})) },
+      setting: {
+        findMany: vi.fn(async () => [
+          { group: 'website', key: 'general', data: { logoMediaId: 'logo-1', faviconMediaId: null, shareImageMediaId: null } },
+          { group: 'website', key: 'home', data: { heroSlides: [{ mediaId: 'hero-1' }] } },
+        ]),
+      },
+    });
+    await TASK_IMPLEMENTATIONS['media.retention']!({ db, now: NOW, queue: {} as Queue, storage: { delete: vi.fn(async () => undefined) } });
+
+    const unusedQuery = findMany.mock.calls[1]![0] as { where: Record<string, unknown> };
+    // Every relation that shows an image, not only listings, articles and authors…
+    for (const relation of ['businesses', 'coverOf', 'authorOf', 'testimonials', 'partners']) {
+      expect(unusedQuery.where[relation], relation).toEqual({ none: {} });
+    }
+    // …and the images the settings name by id, which no foreign key protects.
+    expect(unusedQuery.where.id).toEqual({ notIn: ['logo-1', 'hero-1'] });
   });
 
   it('cleans only completed job records, and only ones a week old', async () => {

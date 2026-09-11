@@ -84,7 +84,7 @@ export function PartnerEditorPage() {
     <RecordEditorPage<Values>
       crumbs={[{ label: 'Website' }, { label: 'Clients and partners', href: LIST }, { label: creating ? 'New organisation' : 'Edit' }]}
       title={creating ? 'New organisation' : 'Edit organisation'}
-      description="Public marketing content only: these records are not accounts and grant no access. A logo is published only with recorded permission and alternative text."
+      description="Content only, not an account. Publishing needs a logo and alt text."
       listHref={LIST}
       listLabel="Back to organisations"
       form={form}
@@ -111,26 +111,26 @@ export function PartnerEditorPage() {
       }
     >
       <Form.Item label="Organisation name" name="name" rules={[{ required: true, min: 2, max: 150, message: 'Between 2 and 150 characters' }]}>
-        <Input maxLength={150} style={{ maxWidth: 420 }} />
+        <Input maxLength={150} style={{ maxWidth: 420 }} placeholder="e.g. City of Melbourne" />
       </Form.Item>
-      <Form.Item label="Relationship" name="relationshipLabel" extra="How the organisation is related, e.g. Community partner.">
-        <Input maxLength={120} style={{ maxWidth: 420 }} />
+      <Form.Item label="Relationship" name="relationshipLabel" extra="How the organisation is described under its logo.">
+        <Input maxLength={120} style={{ maxWidth: 420 }} placeholder="e.g. Community partner" />
       </Form.Item>
-      <Form.Item label="Logo media id" name="mediaId" extra="An approved image from the media library. Required before publishing.">
-        <Input maxLength={64} style={{ maxWidth: 420 }} />
+      <Form.Item label="Logo image" name="mediaId" extra="The reference of an approved image from the media library. Required before publishing.">
+        <Input maxLength={64} style={{ maxWidth: 420 }} placeholder="Paste an image reference" />
       </Form.Item>
       <Form.Item
         label="Logo alternative text"
         name="logoAlt"
         extra="Names the organisation for anyone who cannot see the logo. Required before publishing."
       >
-        <Input maxLength={200} />
+        <Input maxLength={200} placeholder="e.g. City of Melbourne logo" />
       </Form.Item>
-      <Form.Item label="Website" name="websiteUrl" extra="A full https address. Checked when you save.">
-        <Input maxLength={300} />
+      <Form.Item label="Website" name="websiteUrl" extra="Checked when you save.">
+        <Input maxLength={300} placeholder="https://example.com.au" />
       </Form.Item>
       <Form.Item label="Display order" name="displayOrder">
-        <InputNumber min={0} max={9999} />
+        <InputNumber min={0} max={9999} placeholder="0" />
       </Form.Item>
     </RecordEditorPage>
   );

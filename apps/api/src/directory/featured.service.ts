@@ -6,6 +6,7 @@ import type { AdminPrincipal } from '../identity/identity.service.js';
 import type { CreateFeaturedPlacementDto, FeaturedPlacementDto, UpdateFeaturedPlacementDto } from './dto/featured.dto.js';
 import { CacheService } from '../cache/cache.service.js';
 import { CACHE_TAGS } from '@melbourne-sphere/domain';
+import type { Prisma } from '@melbourne-sphere/database';
 
 /** SRS DIR 007: at most three featured entries are ever shown for a query. */
 export const FEATURED_LIMIT = 3;
@@ -56,22 +57,11 @@ export class FeaturedService {
     // shows published, matching listings; make that explicit to the editor.
     if (business.status === 'archived') throw validation('businessId', 'An archived listing cannot be featured');
     const { startsAt, endsAt } = this.interval(input.startsAt, input.endsAt ?? null);
-    // Two windows overlap when each starts before the other ends; an open-ended
-    // window has no end, so it overlaps anything starting after it.
-    const overlapping = await db.featuredPlacement.findFirst({
-      where: {
-        businessId: input.businessId,
-        AND: [
-          endsAt ? { startsAt: { lt: endsAt } } : {},
-          { OR: [{ endsAt: null }, { endsAt: { gt: startsAt } }] },
-        ],
-      },
-    });
-    if (overlapping) throw new ConflictException({ code: 'PLACEMENT_OVERLAP', message: 'This listing already has a placement covering that period', fields: { startsAt: ['This listing already has a placement covering that period'] } });
 
     // Featuring changes what the directory shows, so the cached results retire
     // with the change itself (SRS CACHE 001: feature events).
     const row = await db.$transaction(async (tx) => {
+      await this.assertNoOverlap(tx, input.businessId, startsAt, endsAt);
       const created = await tx.featuredPlacement.create({
         data: { businessId: input.businessId, position: input.position ?? 0, startsAt, endsAt, note: input.note ?? null, createdByAdminId: actor.id },
         include: { business: { select: { name: true, slug: true, status: true } } },
@@ -90,6 +80,9 @@ export class FeaturedService {
     if (!current) throw notFound();
     const { startsAt, endsAt } = this.interval(input.startsAt ?? current.startsAt.toISOString(), input.endsAt === undefined ? (current.endsAt?.toISOString() ?? null) : input.endsAt);
     const row = await db.$transaction(async (tx) => {
+      // The same check `create` runs. Without it a PATCH could produce exactly
+      // the overlap a POST refuses, which is a rule that only half exists.
+      await this.assertNoOverlap(tx, current.businessId, startsAt, endsAt, id);
       const updated = await tx.featuredPlacement.update({
         where: { id },
         data: { position: input.position ?? current.position, startsAt, endsAt, note: input.note === undefined ? current.note : (input.note ?? null) },
@@ -101,6 +94,36 @@ export class FeaturedService {
     await this.cache.bumpNamespace();
     await this.audit.record({ action: 'listing.feature.update', actorAdminId: actor.id, targetType: 'business', targetId: current.businessId, metadata: { placementId: id }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return this.toDto(row as Row, now);
+  }
+
+  /**
+   * Two windows overlap when each starts before the other ends; an open-ended
+   * window has no end, so it overlaps anything starting after it. `exceptId`
+   * lets a placement be edited without colliding with itself.
+   *
+   * **Must run inside the transaction that writes the placement.** No index can
+   * express "no two windows overlap", so the rule is a read followed by a write,
+   * and two requests arriving together would each read "no overlap" and both
+   * write. Locking the listing's own row first makes every placement write for
+   * that listing wait its turn: the second request reads after the first has
+   * committed, and is refused.
+   */
+  private async assertNoOverlap(tx: Prisma.TransactionClient, businessId: string, startsAt: Date, endsAt: Date | null, exceptId?: string): Promise<void> {
+    await tx.$queryRaw`SELECT id FROM businesses WHERE id = ${businessId} FOR UPDATE`;
+    const overlapping = await tx.featuredPlacement.findFirst({
+      where: {
+        businessId,
+        ...(exceptId ? { id: { not: exceptId } } : {}),
+        AND: [endsAt ? { startsAt: { lt: endsAt } } : {}, { OR: [{ endsAt: null }, { endsAt: { gt: startsAt } }] }],
+      },
+    });
+    if (overlapping) {
+      throw new ConflictException({
+        code: 'PLACEMENT_OVERLAP',
+        message: 'This listing already has a placement covering that period',
+        fields: { startsAt: ['This listing already has a placement covering that period'] },
+      });
+    }
   }
 
   async remove(id: string, actor: AdminPrincipal, ctx: RequestContext): Promise<void> {

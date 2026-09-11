@@ -48,6 +48,7 @@ export class SmtpMailer extends MailerPort implements OnModuleDestroy {
         from: this.fromAddress,
         subject: mail.subject,
         text: mail.text,
+        html: mail.html,
         messageId: `${randomUUID()}@${this.messageDomain}`,
       });
     } catch (error) {

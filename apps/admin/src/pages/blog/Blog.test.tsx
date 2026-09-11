@@ -36,6 +36,12 @@ describe('blog admin screens', () => {
         return jsonResponse(201, { data: { ...post, id: 'p2' } });
       }
       if (url === '/api/v1/admin/posts/p1' && method === 'GET') return jsonResponse(200, { data: post });
+      // The preview is the server's rendering of the saved draft, not the
+      // editor's own — so the screen asks for it rather than rendering the
+      // stored HTML itself.
+      if (url === '/api/v1/admin/posts/p1/preview' && method === 'GET') {
+        return jsonResponse(200, { data: { id: 'p1', title: post.title, excerpt: post.excerpt, sanitizedBody: post.sanitizedBody, authorName: 'Priya Raman', categoryName: 'City life', status: post.status, noindex: true } });
+      }
       if (url === '/api/v1/admin/posts/p1/publish') {
         publishAttempts += 1;
         if (publishAttempts === 1) {
@@ -68,14 +74,17 @@ describe('blog admin screens', () => {
     renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/posts/p1'] });
     expect(await screen.findByRole('heading', { level: 1, name: 'Best laneway coffee' })).toBeInTheDocument();
     expect(await screen.findByText('Not ready to publish')).toBeInTheDocument();
-    const preview = screen.getByTestId('post-preview');
+    const preview = await screen.findByTestId('post-preview');
     expect(preview.innerHTML).toBe('<h2>Coffee</h2><p>Body text.</p>');
+    // The preview says whose article it is and that it is never public.
+    expect(screen.getByText(/By Priya Raman in City life/)).toBeInTheDocument();
+    expect(screen.getByText(/never shown publicly and is never indexed/i)).toBeInTheDocument();
 
-    await ue.click(screen.getByRole('button', { name: /^publish$/i }));
+    await ue.click(screen.getByRole('button', { name: /^publish article$/i }));
     const dialog = await screen.findByRole('dialog');
-    await ue.click(within(dialog).getByRole('button', { name: /^publish$/i }));
+    await ue.click(within(dialog).getByRole('button', { name: /^publish article$/i }));
     expect(await within(dialog).findByText('Excerpt must be at least 20 characters')).toBeInTheDocument();
-    await ue.click(within(dialog).getByRole('button', { name: /^publish$/i }));
+    await ue.click(within(dialog).getByRole('button', { name: /^publish article$/i }));
     const publishes = calls.filter((c) => c.url.endsWith('/publish'));
     expect(publishes).toHaveLength(2);
     expect(JSON.parse(publishes[1]!.body!)).toMatchObject({ expectedVersion: 2 });
@@ -85,12 +94,12 @@ describe('blog admin screens', () => {
     const ue = user();
     renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/posts/p1'] });
     await screen.findByRole('heading', { level: 1, name: 'Best laneway coffee' });
-    await ue.click(screen.getByRole('button', { name: /^schedule$/i }));
+    await ue.click(screen.getByRole('button', { name: /^schedule article$/i }));
     const dialog = await screen.findByRole('dialog');
     const picker = within(dialog).getByLabelText(/publish at \(melbourne time/i);
     await ue.clear(picker);
     await ue.type(picker, '2026-10-04T10:00');
-    await ue.click(within(dialog).getByRole('button', { name: /^schedule$/i }));
+    await ue.click(within(dialog).getByRole('button', { name: /^schedule article$/i }));
     const scheduled = calls.find((c) => c.url.endsWith('/schedule'))!;
     // 10:00 on 2026-10-04 is AEDT (UTC+11), so 23:00Z the previous day.
     expect(JSON.parse(scheduled.body!)).toMatchObject({ expectedVersion: 2, scheduledAt: '2026-10-03T23:00:00.000Z' });

@@ -14,7 +14,7 @@ const ABOUT_NOTE = (
     showIcon
     style={{ marginBottom: 16 }}
     message="This page uses the About template"
-    description="Your title and content appear in the page's introduction. The template adds the sections around it — the live directory counts, how a listing becomes published, why the site covers Melbourne only, and the closing links — from the product's own settings and data, so those stay accurate without being retyped here."
+    description="Your title and text form the introduction. The rest of the page is filled in automatically."
   />
 );
 

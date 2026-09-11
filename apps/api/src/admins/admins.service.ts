@@ -14,6 +14,7 @@ import { normaliseEmail, type AdminPrincipal } from '../identity/identity.servic
 import { SUPER_ADMIN_ROLE } from '../identity/permissions.js';
 import { collectionMeta, skipFor } from '../common/pagination.js';
 import type { AdminListItemDto, CreateAdminDto, ListAdminsQueryDto, UpdateAdminDto } from './dto/admins.dto.js';
+import { accountSetupMail } from '../auth/mailer/auth-mail.js';
 
 const SETUP_TOKEN_TTL_MS = 24 * 60 * 60_000;
 
@@ -115,16 +116,7 @@ export class AdminsService {
     });
     let delivered = true;
     try {
-      await this.mailer.send({
-        to: admin.email,
-        subject: 'Your Melbourne Sphere administrator account',
-        text: [
-          `${actor.displayName} created a Melbourne Sphere administrator account for you.`,
-          ``,
-          `Set your password to activate it (link valid for 24 hours, single use):`,
-          `${this.adminBaseUrl}/accept-setup?token=${token}`,
-        ].join('\n'),
-      });
+      await this.mailer.send(accountSetupMail({ to: admin.email, setupUrl: `${this.adminBaseUrl}/accept-setup?token=${token}`, lifetimeMs: SETUP_TOKEN_TTL_MS, invitedBy: actor.displayName }));
     } catch {
       delivered = false;
     }
@@ -143,7 +135,7 @@ export class AdminsService {
     await db.passwordResetToken.create({ data: { tokenHash: hashResetToken(token), adminId: id, purpose: 'setup', expiresAt: new Date(Date.now() + SETUP_TOKEN_TTL_MS), requestedIp: ctx.ip.slice(0, 45) } });
     let delivered = true;
     try {
-      await this.mailer.send({ to: admin.email, subject: 'Your Melbourne Sphere administrator account', text: `Set your password to activate your account (valid 24 hours):\n${this.adminBaseUrl}/accept-setup?token=${token}` });
+      await this.mailer.send(accountSetupMail({ to: admin.email, setupUrl: `${this.adminBaseUrl}/accept-setup?token=${token}`, lifetimeMs: SETUP_TOKEN_TTL_MS, invitedBy: actor.displayName }));
     } catch {
       delivered = false;
     }

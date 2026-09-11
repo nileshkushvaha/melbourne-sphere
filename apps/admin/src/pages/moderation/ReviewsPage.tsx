@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, App, Button, Form, Input, Modal, Select, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { Alert, App, Button, Form, Input, Modal, Select, Space, Table, Tooltip, Typography } from 'antd';
 import { FlagOutlined, WarningOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
 import { useSearchParams } from 'react-router';
@@ -7,10 +7,11 @@ import { moderationApi, REVIEW_STATUSES, type AdminReview, type ReviewDecision, 
 import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
-import { PageHeader } from '@/components/ui';
+import { PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { expandToggle } from '@/components/ui/expandToggle';
+import { brand } from '@/config/theme';
 
-const STATUS_COLOURS: Record<ReviewStatus, string> = { pending: 'gold', approved: 'green', rejected: 'default', spam: 'red' };
 const DECISION_LABELS: Record<ReviewDecision, { title: string; hint: string; danger?: boolean; reasonRequired: boolean }> = {
   approve: { title: 'Publish this review?', hint: 'It becomes visible on the business page and counts towards the rating.', reasonRequired: false },
   reject: { title: 'Reject this review?', hint: 'It stays out of public view and the rating. The original text is kept for the record.', danger: true, reasonRequired: true },
@@ -93,19 +94,26 @@ export function ReviewsPage() {
 
   return (
     <div>
-      <PageHeader crumbs={[{ label: 'Community' }, { label: 'Reviews' }]} title="Reviews" description="Reviews arrive pending and are never published automatically. Rejecting keeps the original text for the record; ratings are never edited." />
-      <Space style={{ marginBottom: 16 }} wrap>
-        <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => setParam('status', v)} style={{ width: 160 }} options={REVIEW_STATUSES.map((s) => ({ value: s, label: s }))} />
-        <Select aria-label="Filter by flag" allowClear placeholder="Any flag" value={repeatFlagged ? 'repeat' : reported ? 'reported' : undefined} style={{ width: 190 }} onChange={(v) => { setParam('repeatFlagged', v === 'repeat' ? 'true' : undefined); setParam('reported', v === 'reported' ? 'true' : undefined); }} options={[{ value: 'repeat', label: 'Repeat submissions' }, { value: 'reported', label: 'Has open reports' }]} />
-      </Space>
+      <PageHeader crumbs={[{ label: 'Community' }, { label: 'Reviews' }]} title="Reviews" description="Reviews are never published automatically. Ratings are never edited." />
+      <TableCard
+        toolbar={
+          <>
+            <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => setParam('status', v)} style={{ width: 160 }} options={REVIEW_STATUSES.map((s) => ({ value: s, label: s }))} />
+            <Select aria-label="Filter by flag" allowClear placeholder="Any flag" value={repeatFlagged ? 'repeat' : reported ? 'reported' : undefined} style={{ width: 190 }} onChange={(v) => { setParam('repeatFlagged', v === 'repeat' ? 'true' : undefined); setParam('reported', v === 'reported' ? 'true' : undefined); }} options={[{ value: 'repeat', label: 'Repeat submissions' }, { value: 'reported', label: 'Has open reports' }]} />
+          </>
+        }
+      >
       {state.status === 'error' && <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />}
       <Table<AdminReview>
+        // Colour is on the rows that still need a decision, not on every row.
+        rowClassName={(row) => statusRowClass(row.status)}
         rowKey="id"
         loading={state.status === 'loading'}
         dataSource={state.status === 'ready' ? state.data.data : []}
         pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => setParam('page', String(p)) } : false}
         scroll={{ x: 1100 }}
         expandable={{
+          expandIcon: expandToggle((review) => `the review by ${review.displayName} of ${review.businessName}`),
           expandedRowRender: (review) => (
             <div style={{ maxWidth: 900 }}>
               <Typography.Paragraph style={{ whiteSpace: 'pre-line' }}>{review.originalText}</Typography.Paragraph>
@@ -128,15 +136,15 @@ export function ReviewsPage() {
             dataIndex: 'status',
             render: (v: ReviewStatus, review) => (
               <Space size={4}>
-                <Tag color={STATUS_COLOURS[v]}>{v}</Tag>
+                <StatusTag status={v} />
                 {review.repeatFlagged && (
                   <Tooltip title="Same email reviewed this business within 30 days">
-                    <FlagOutlined aria-label="Repeat submission" style={{ color: '#d46b08' }} />
+                    <FlagOutlined aria-label="Repeat submission" style={{ color: brand.warning }} />
                   </Tooltip>
                 )}
                 {review.openReportCount > 0 && (
                   <Tooltip title={`${review.openReportCount} open report(s)`}>
-                    <WarningOutlined aria-label="Reported" style={{ color: '#b91c1c' }} />
+                    <WarningOutlined aria-label="Reported" style={{ color: brand.danger }} />
                   </Tooltip>
                 )}
               </Space>
@@ -158,6 +166,7 @@ export function ReviewsPage() {
         ]}
         locale={{ emptyText: state.status === 'ready' ? 'No reviews match.' : ' ' }}
       />
+      </TableCard>
       <Modal open={pending !== null} title={pending ? DECISION_LABELS[pending.decision].title : ''} okText="Confirm" okButtonProps={{ danger: pending ? DECISION_LABELS[pending.decision].danger : false }} onOk={() => void submitDecision()} onCancel={() => setPending(null)} destroyOnHidden>
         {pending && <Typography.Paragraph>{DECISION_LABELS[pending.decision].hint}</Typography.Paragraph>}
         {dialogError && <Alert type="error" showIcon role="alert" message={dialogError} style={{ marginBottom: 12 }} />}

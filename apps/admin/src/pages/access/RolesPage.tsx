@@ -10,7 +10,7 @@ import { PERMISSION } from '@/auth/permissions';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { formatDateTime } from '@/shared/format';
-import { EmptyState, PageHeader, SectionCard, StatusTag } from '@/components/ui';
+import { EmptyState, PageHeader, StatusTag, TableCard } from '@/components/ui';
 
 /**
  * Roles (SRS RBAC 010). Creating and editing appear only with the matching
@@ -20,7 +20,7 @@ export function RolesPage() {
   useDocumentTitle('Roles');
   const api = useMemo(() => authorizationApi(), []);
   const navigate = useNavigate();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const { mutate: onAuthError } = useOnError();
   const { can } = useCapabilities();
   const [page, setPage] = useState(1);
@@ -47,7 +47,7 @@ export function RolesPage() {
     <>
       <PageHeader
         title="Roles"
-        description="A role carries permissions; administrators inherit everything their active roles carry, plus anything granted to them directly."
+        description="Named sets of permissions. An administrator can hold several."
         actions={
           can(PERMISSION.rolesCreate) ? (
             <Button type="primary" icon={<PlusOutlined aria-hidden="true" />} onClick={() => navigate('/roles/new')}>
@@ -56,12 +56,12 @@ export function RolesPage() {
           ) : undefined
         }
       />
-      <SectionCard>
-        <Space style={{ marginBottom: 16 }}>
+      <TableCard
+        toolbar={
           <Input.Search
             allowClear
             aria-label="Search roles"
-            placeholder="Search by name or key"
+            placeholder="Search roles"
             value={q}
             onChange={(event) => setQ(event.target.value)}
             onSearch={(value) => {
@@ -70,7 +70,9 @@ export function RolesPage() {
             }}
             style={{ width: 280 }}
           />
-        </Space>
+        }
+        summary={meta ? `${rows.length} of ${meta.total} role${meta.total === 1 ? '' : 's'}` : undefined}
+      >
         {state.status === 'ready' && rows.length === 0 ? (
           <EmptyState title="No roles match" description="Try a different search, or create a role for a group of administrators." />
         ) : (
@@ -79,7 +81,11 @@ export function RolesPage() {
             dataSource={rows}
             loading={state.status === 'loading'}
             pagination={{ current: page, pageSize: meta?.pageSize ?? 20, total: meta?.total ?? 0, onChange: setPage, showSizeChanger: false }}
-            scroll={{ x: 'max-content' }}
+            className="ms-scroll-table"
+            // A fixed floor rather than max-content: the columns then share the
+            // card's width instead of the table dictating it, so nothing is
+            // clipped on a desktop and it still scrolls on a phone.
+            scroll={{ x: 900 }}
             columns={[
               {
                 title: 'Role',
@@ -92,13 +98,13 @@ export function RolesPage() {
                     <Typography.Text strong style={{ whiteSpace: 'nowrap' }}>
                       {role.name}
                     </Typography.Text>
-                    <Typography.Text type="secondary" code style={{ whiteSpace: 'nowrap' }}>
+                    <Typography.Text type="secondary" style={{ whiteSpace: 'nowrap', fontSize: 12 }}>
                       {role.key}
                     </Typography.Text>
                   </Space>
                 ),
               },
-              { title: 'Description', dataIndex: 'description', responsive: ['md'] },
+              { title: 'Description', dataIndex: 'description', ellipsis: true, responsive: ['md'] },
               {
                 title: 'Status',
                 dataIndex: 'isActive',
@@ -106,23 +112,38 @@ export function RolesPage() {
                   <Space size={4} wrap>
                     <StatusTag status={role.isActive ? 'active' : 'disabled'} />
                     {/* A protected role cannot be deleted, deactivated or edited by hand (RBAC 011). */}
-                    {role.isSystem && <Tag color="gold">System</Tag>}
+                    {role.isSystem && <Tag>Built in</Tag>}
                   </Space>
                 ),
               },
-              { title: 'Permissions', dataIndex: 'permissionCount', responsive: ['md'] },
-              { title: 'Administrators', dataIndex: 'adminCount', responsive: ['md'] },
-              { title: 'Updated', dataIndex: 'updatedAt', responsive: ['lg'], render: (value: string) => formatDateTime(value) },
+              { title: 'Permissions', dataIndex: 'permissionCount', width: 120, align: 'right', responsive: ['md'] },
+              { title: 'Administrators', dataIndex: 'adminCount', width: 140, align: 'right', responsive: ['md'] },
+              { title: 'Last changed', dataIndex: 'updatedAt', width: 190, responsive: ['xl'], render: (value: string) => formatDateTime(value) },
               {
-                title: 'Actions',
+                title: <span className="sr-only">Actions</span>,
                 key: 'actions',
+                width: 170,
                 render: (_value, role) => (
                   <Space>
                     <Button size="small" onClick={() => navigate(`/roles/${role.id}`)}>
                       {can(PERMISSION.rolesUpdate) && !role.isSystem ? 'Edit' : 'View'}
                     </Button>
                     {can(PERMISSION.rolesDelete) && !role.isSystem && role.adminCount === 0 && (
-                      <Button size="small" danger onClick={() => void remove(role)}>
+                      <Button
+                        size="small"
+                        danger
+                        aria-label={`Delete ${role.name}`}
+                        onClick={() =>
+                          modal.confirm({
+                            title: `Delete the ${role.name} role?`,
+                            content: 'The role and its permissions are removed. No administrator holds it, so nobody loses access. This cannot be undone.',
+                            okText: 'Delete role',
+                            okButtonProps: { danger: true },
+                            cancelText: 'Keep role',
+                            onOk: () => remove(role),
+                          })
+                        }
+                      >
                         Delete
                       </Button>
                     )}
@@ -132,7 +153,7 @@ export function RolesPage() {
             ]}
           />
         )}
-      </SectionCard>
+      </TableCard>
     </>
   );
 }

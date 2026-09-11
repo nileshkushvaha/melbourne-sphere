@@ -9,8 +9,9 @@ import { formatDateTime } from '@/shared/format';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { MediaPicker } from '@/components/MediaPicker';
-import { PageLoader, PageHeader, SectionCard, StickyActions } from '@/components/ui';
+import { PageLoader, PageHeader, SectionCard, StickyActions, PageLoadError } from '@/components/ui';
 import { variantUrl, type MediaAsset } from '@/api/media';
+import { brand } from '@/config/theme';
 
 interface HeroSlideValue {
   mediaId: string;
@@ -89,19 +90,19 @@ export function SiteSettingsPage() {
 
   // The screen is empty until its record arrives; say so rather than showing a blank disabled form.
   if (state.status === 'loading') return <PageLoader label="Loading site settings…" />;
-  if (state.status === 'error') return <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} />;
+  if (state.status === 'error') return <PageLoadError title="Site settings" crumbs={[{ label: 'Configuration' }, { label: 'Site settings' }]} message={state.message} reference={state.reference} onRetry={reload} />;
 
   return (
     <div>
       <PageHeader
         crumbs={[{ label: 'Configuration' }, { label: 'Site settings' }]}
         title="Site settings"
-        description="The home page banner, hero wording and counters. Melbourne, its timezone and the public routes are fixed by the platform and are not editable."
+        description="The banner, headline and counters on the public home page."
       />
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} role="alert" />}
       <Form<FormValues> form={form} layout="vertical" requiredMark={false} onFinish={submit} disabled={state.status !== 'ready'} style={{ maxWidth: 860 }}>
         <SectionCard title="Hero wording" description="The heading and the phrases that rotate beneath it.">
-          <Form.Item label="Headline" name="heroHeadline" extra="The stable heading screen readers announce; it must make sense without the rotating phrases." rules={[{ required: true, message: 'Headline is required' }]}>
+          <Form.Item label="Headline" name="heroHeadline" extra="Read by screen readers. Must make sense without the rotating phrases." rules={[{ required: true, message: 'Headline is required' }]}>
             <Input maxLength={80} showCount />
           </Form.Item>
           <Typography.Text strong>Rotating phrases</Typography.Text>
@@ -112,12 +113,12 @@ export function SiteSettingsPage() {
             {(fields, { add, remove }) => (
               <div>
                 {fields.map((field) => (
-                  <Space key={field.key} align="baseline" style={{ display: 'flex' }}>
-                    <Form.Item name={field.name} style={{ marginBottom: 8, width: 420 }} rules={[{ required: true, message: 'Phrase is required' }]}>
-                      <Input maxLength={60} aria-label={`Phrase ${field.name + 1}`} />
+                  <div key={field.key} className="ms-field-row" style={{ flexWrap: 'nowrap' }}>
+                    <Form.Item name={field.name} style={{ marginBottom: 8, flex: '1 1 auto', maxWidth: 420 }} rules={[{ required: true, message: 'Phrase is required' }]}>
+                      <Input maxLength={60} aria-label={`Phrase ${field.name + 1}`} placeholder="e.g. find a local plumber" />
                     </Form.Item>
                     <Button type="text" icon={<DeleteOutlined aria-hidden="true" />} aria-label={`Remove phrase ${field.name + 1}`} onClick={() => remove(field.name)} disabled={fields.length <= MIN_HERO_PHRASES} />
-                  </Space>
+                  </div>
                 ))}
                 {fields.length < MAX_HERO_PHRASES && (
                   <Button size="small" icon={<PlusOutlined aria-hidden="true" />} onClick={() => add('')}>
@@ -131,7 +132,7 @@ export function SiteSettingsPage() {
 
         <SectionCard
           title="Home banner"
-          description={`Up to ${MAX_HERO_SLIDES} Melbourne photographs shown behind the hero. They cross-fade every seven seconds; visitors can pause or step through them, and anyone who prefers reduced motion sees only the first. With no images the banner falls back to the solid navy panel.`}
+          description={`Up to ${MAX_HERO_SLIDES} photographs behind the hero. With none, a solid navy panel shows.`}
           extra={
             <Button icon={<PictureOutlined aria-hidden="true" />} onClick={() => setPickerOpen(true)}>
               Add image
@@ -150,7 +151,7 @@ export function SiteSettingsPage() {
                       {preview?.url ? (
                         <img src={preview.url} alt={preview.alt} style={{ width: 160, aspectRatio: '16 / 9', objectFit: 'cover', borderRadius: 8 }} />
                       ) : (
-                        <div style={{ width: 160, aspectRatio: '16 / 9', borderRadius: 8, background: '#F1F5F9', display: 'grid', placeItems: 'center' }}>
+                        <div style={{ width: 160, aspectRatio: '16 / 9', borderRadius: 8, background: brand.placeholderFill, display: 'grid', placeItems: 'center' }}>
                           <PictureOutlined aria-hidden="true" />
                         </div>
                       )}
@@ -184,7 +185,7 @@ export function SiteSettingsPage() {
         </SectionCard>
 
         <SectionCard title="Counters" description="Optional totals under the hero.">
-          <Form.Item label="Show counters on the home page" name="countersEnabled" valuePropName="checked" extra="Counts published businesses, categories and local areas. They are hidden automatically if the numbers cannot be read.">
+          <Form.Item label="Show counters on the home page" name="countersEnabled" valuePropName="checked" extra="Counts of businesses, categories and areas. Hidden if unavailable.">
             <Switch />
           </Form.Item>
         </SectionCard>

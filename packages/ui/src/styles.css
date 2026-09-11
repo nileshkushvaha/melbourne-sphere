@@ -92,7 +92,10 @@
 
   /* Premium glass surfaces: reserved for overlays and information panels. */
   --ms-glass-light: rgba(255, 255, 255, 0.78);
-  --ms-glass-dark: rgba(13, 35, 64, 0.72);
+  /* 0.8, not 0.72: a dark glass panel also sits on the *light* bands, where the
+     surface behind it composites through. At 0.72 the muted band text on that
+     composite measured 4.02:1 — below AA for body text (audit F-04). */
+  --ms-glass-dark: rgba(13, 35, 64, 0.8);
   --ms-glass-border-light: rgba(255, 255, 255, 0.72);
   --ms-glass-border-dark: rgba(141, 216, 247, 0.2);
 }

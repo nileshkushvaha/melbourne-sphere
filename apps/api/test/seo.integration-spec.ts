@@ -206,4 +206,98 @@ describe('SEO: sitemaps and redirects (integration)', () => {
     await agent().get('/api/v1/seo/redirects/resolve?path=https://evil.example/blog/x').expect(404);
     await agent().get('/api/v1/seo/redirects/resolve').expect(404);
   });
+
+  it('serves a temporary move as 302 and validates it as strictly as a permanent one', async () => {
+    const bad = await post('/api/v1/admin/redirects').send({ sourcePath: '/business/pop-up', kind: 'temporary' }).expect(400);
+    expect(bad.body.error.fields.targetPath).toBeTruthy();
+
+    const created = await post('/api/v1/admin/redirects')
+      .send({ sourcePath: '/business/pop-up', targetPath: '/business/pop-up-2026', kind: 'temporary', reason: 'Trading from the other site until March' })
+      .expect(201);
+    expect(created.body.data).toMatchObject({ kind: 'temporary', isActive: true });
+
+    const resolved = await agent().get('/api/v1/seo/redirects/resolve?path=/business/pop-up').expect(200);
+    expect(resolved.body.data).toEqual({ kind: 'temporary', status: 302, targetPath: '/business/pop-up-2026' });
+
+    await del(`/api/v1/admin/redirects/${created.body.data.id}`).expect(204);
+  });
+
+  it('a redirect that is switched off is indistinguishable from no rule, and comes back when switched on', async () => {
+    const created = await post('/api/v1/admin/redirects').send({ sourcePath: '/business/paused', targetPath: '/business/paused-new' }).expect(201);
+    await agent().get('/api/v1/seo/redirects/resolve?path=/business/paused').expect(200);
+
+    const off = await post(`/api/v1/admin/redirects/${created.body.data.id}/deactivate`).send({ reason: 'Sent people to the wrong page' }).expect(200);
+    expect(off.body.data.isActive).toBe(false);
+
+    // The public route answers exactly as it does for a path nobody has ever
+    // configured: an anonymous caller learns nothing about the rule's existence.
+    await agent().get('/api/v1/seo/redirects/resolve?path=/business/paused').expect(404);
+    await agent().get('/api/v1/seo/redirects/resolve?path=/business/never-configured').expect(404);
+
+    // The rule is still there for an administrator, with the reason it does nothing.
+    const preview = await get('/api/v1/admin/redirects/resolve?path=/business/paused').expect(200);
+    expect(preview.body.data).toMatchObject({ outcome: 'inactive', status: null, normalisedPath: '/business/paused' });
+    expect(preview.body.data.rule.isActive).toBe(false);
+
+    const on = await post(`/api/v1/admin/redirects/${created.body.data.id}/activate`).send({}).expect(200);
+    expect(on.body.data.isActive).toBe(true);
+    await agent().get('/api/v1/seo/redirects/resolve?path=/business/paused').expect(200);
+
+    // Both state changes are in the activity log, with the path they affected.
+    const activity = await get('/api/v1/admin/activity?pageSize=50').expect(200);
+    const actions = (activity.body.data as { action: string; targetId: string }[]).filter((entry) => entry.targetId === created.body.data.id).map((entry) => entry.action);
+    expect(actions).toEqual(expect.arrayContaining(['seo.redirect.deactivate', 'seo.redirect.activate']));
+
+    await del(`/api/v1/admin/redirects/${created.body.data.id}`).expect(204);
+  });
+
+  it('writing over a switched-off source turns it back on, rather than reporting success and doing nothing', async () => {
+    const created = await post('/api/v1/admin/redirects').send({ sourcePath: '/business/reused', targetPath: '/business/reused-a' }).expect(201);
+    await post(`/api/v1/admin/redirects/${created.body.data.id}/deactivate`).send({}).expect(200);
+
+    const again = await post('/api/v1/admin/redirects').send({ sourcePath: '/business/reused', targetPath: '/business/reused-b' }).expect(201);
+    expect(again.body.data).toMatchObject({ isActive: true, targetPath: '/business/reused-b' });
+    const resolved = await agent().get('/api/v1/seo/redirects/resolve?path=/business/reused').expect(200);
+    expect(resolved.body.data.targetPath).toBe('/business/reused-b');
+
+    await del(`/api/v1/admin/redirects/${again.body.data.id}`).expect(204);
+  });
+
+  it('the admin preview explains a path that does nothing, and needs the permission', async () => {
+    const none = await get('/api/v1/admin/redirects/resolve?path=/business/nothing-here').expect(200);
+    expect(none.body.data).toMatchObject({ outcome: 'no-rule', status: null, rule: null });
+
+    const invalid = await get('/api/v1/admin/redirects/resolve?path=https://evil.example/x').expect(200);
+    expect(invalid.body.data).toMatchObject({ outcome: 'invalid-path', normalisedPath: null });
+
+    await get('/api/v1/admin/redirects/resolve?path=/business/nothing-here', limitedCookie).expect(403);
+    await agent().get('/api/v1/admin/redirects/resolve?path=/business/nothing-here').expect(401);
+  });
+
+  it('repoints a permanent alias that is switched off, and leaves a temporary rule’s destination alone', async () => {
+    // A permanent alias, switched off, still points at the old address.
+    const alias = await post('/api/v1/admin/redirects').send({ sourcePath: '/business/alias-old', targetPath: '/business/moved-once' }).expect(201);
+    await post(`/api/v1/admin/redirects/${alias.body.data.id}/deactivate`).send({}).expect(200);
+
+    // A temporary rule pointing at the same address is an editorial decision.
+    await post('/api/v1/admin/redirects')
+      .send({ sourcePath: '/business/temp-alias', targetPath: '/business/moved-once', kind: 'temporary' })
+      .expect(201);
+
+    // Moving that address again repoints the permanent alias, inactive or not…
+    await post('/api/v1/admin/redirects').send({ sourcePath: '/business/moved-once', targetPath: '/business/moved-twice' }).expect(201);
+
+    const list = await get('/api/v1/admin/redirects?pageSize=50').expect(200);
+    const rows = list.body.data as { sourcePath: string; targetPath: string | null; isActive: boolean }[];
+    expect(rows.find((row) => row.sourcePath === '/business/alias-old')).toMatchObject({ targetPath: '/business/moved-twice', isActive: false });
+    // …and leaves the temporary one exactly where the administrator put it.
+    expect(rows.find((row) => row.sourcePath === '/business/temp-alias')).toMatchObject({ targetPath: '/business/moved-once' });
+
+    for (const path of ['/business/alias-old', '/business/temp-alias', '/business/moved-once']) {
+      const row = rows.find((entry) => entry.sourcePath === path) as { id?: string } | undefined;
+      const found = (await get('/api/v1/admin/redirects?pageSize=50').expect(200)).body.data.find((entry: { sourcePath: string }) => entry.sourcePath === path);
+      if (found) await del(`/api/v1/admin/redirects/${found.id}`).expect(204);
+      void row;
+    }
+  });
 });

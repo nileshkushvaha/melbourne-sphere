@@ -2,7 +2,7 @@ import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Queue } from 'bullmq';
 import type { EnvironmentVariables } from '../config/env.validation.js';
-import { QUEUE_NAME, defaultJobOptions, redisConnectionFromUrl } from '@melbourne-sphere/domain';
+import { QUEUE_NAME, assertQueueJobId, defaultJobOptions, redisConnectionFromUrl } from '@melbourne-sphere/domain';
 import { QueuePort, type QueuedJob } from './queue.port.js';
 
 /** BullMQ implementation of the queue boundary (SRS ARC 003). */
@@ -22,6 +22,10 @@ export class BullmqQueue extends QueuePort implements OnModuleDestroy {
   }
 
   async enqueue(job: QueuedJob): Promise<void> {
+    // One gate for every job this API dispatches. BullMQ's own refusal happens
+    // inside the library at start-up or under load; this one happens at the
+    // call site, in tests, with the offending id in the message (audit F-01).
+    assertQueueJobId(job.id, `enqueue ${job.name}`);
     await this.client().add(job.name, job.data, { jobId: job.id });
   }
 

@@ -4,7 +4,7 @@ import type { RequestContext } from '../auth/auth.service.js';
 import { CurrentAdmin, Public, RequirePermissions, type AuthenticatedRequest } from '../auth/decorators.js';
 import { getRequestId } from '../common/request-id.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
-import { CreateRedirectDto, ListRedirectsQueryDto, RedirectDto, RedirectResolutionDto } from './dto/redirect.dto.js';
+import { CreateRedirectDto, ListRedirectsQueryDto, RedirectDto, RedirectPreviewDto, RedirectResolutionDto, RedirectStateDto } from './dto/redirect.dto.js';
 import { SitemapFeedDto } from './dto/sitemap.dto.js';
 import { RedirectsService } from './redirects.service.js';
 import { SITEMAP_SECTIONS, SitemapService, type SitemapSection } from './sitemap.service.js';
@@ -32,7 +32,10 @@ export class SeoPublicController {
   }
 
   @Get('redirects/resolve')
-  @Header('Cache-Control', 'public, max-age=60')
+  // Ten seconds, not sixty: switching a redirect off is an operational lever,
+  // and this cache is one of two layers no purge can reach (the other is the web
+  // middleware's own map). The admin screens promise "within about ten seconds".
+  @Header('Cache-Control', 'public, max-age=10')
   @ApiOperation({ summary: 'Resolve a public path to a 301 target or a 410; 404 when there is no rule' })
   @ApiOkResponse({ type: RedirectResolutionDto })
   async resolve(@Query('path') path?: string) {
@@ -57,6 +60,23 @@ export class RedirectsAdminController {
     return this.redirects.list(query);
   }
 
+  /**
+   * What a path would do, for an administrator.
+   *
+   * Declared before the `:id` routes so `/resolve` is not swallowed as an id,
+   * and deliberately not the public route: that one is cached for a minute, and
+   * it answers 404 for "switched off" and "no rule at all" alike — which would
+   * tell an administrator a path is free while a deactivated rule sits on it.
+   */
+  @RequirePermissions('redirects.manage')
+  @Get('resolve')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'What a given path does right now, and why when it does nothing' })
+  @ApiOkResponse({ type: RedirectPreviewDto })
+  async preview(@Query('path') path: string) {
+    return { data: await this.redirects.preview(path ?? '') };
+  }
+
   @RequirePermissions('redirects.manage')
   @Post()
   @HttpCode(201)
@@ -65,6 +85,26 @@ export class RedirectsAdminController {
   @ApiOkResponse({ type: RedirectDto })
   async create(@Body() body: CreateRedirectDto, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest) {
     return { data: await this.redirects.create(body, actor, ctxOf(req)) };
+  }
+
+  @RequirePermissions('redirects.manage')
+  @Post(':id/deactivate')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Stop serving a redirect without deleting it' })
+  @ApiOkResponse({ type: RedirectDto })
+  async deactivate(@Param('id') id: string, @Body() body: RedirectStateDto, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest) {
+    return { data: await this.redirects.setActive(id, false, body.reason ?? null, actor, ctxOf(req)) };
+  }
+
+  @RequirePermissions('redirects.manage')
+  @Post(':id/activate')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Serve a redirect that was switched off' })
+  @ApiOkResponse({ type: RedirectDto })
+  async activate(@Param('id') id: string, @Body() body: RedirectStateDto, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest) {
+    return { data: await this.redirects.setActive(id, true, body.reason ?? null, actor, ctxOf(req)) };
   }
 
   @RequirePermissions('redirects.manage')

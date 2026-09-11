@@ -39,7 +39,9 @@
     "build:worker": "pnpm --filter worker build",
     "domain:build": "pnpm --filter @melbourne-sphere/domain build",
     "mail:build": "pnpm --filter @melbourne-sphere/mail build",
-    "budget": "pnpm --filter admin budget"
+    "budget": "pnpm --filter admin budget",
+    "test:browser": "node scripts/test-browser.mjs",
+    "verify:release": "pnpm check && pnpm test:integration && pnpm test:browser"
   },
   "author": "",
   "license": "UNLICENSED",

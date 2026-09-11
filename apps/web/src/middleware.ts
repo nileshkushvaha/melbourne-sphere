@@ -2,19 +2,23 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 /**
  * Applies the redirect table to public content paths (SRS SEO 004): a changed
- * slug answers 301 to the new address and a deliberately removed page answers
- * 410. Unknown paths fall through so the page itself renders its own 404 —
- * a missing page is never redirected to the home page.
+ * slug answers 301 to the new address, a temporary move answers 302, and a
+ * deliberately removed page answers 410. Unknown paths fall through so the page
+ * itself renders its own 404 — a missing page is never redirected to the home
+ * page.
  *
  * Resolutions are cached in memory for a short window so a busy path costs one
- * API call rather than one per request.
+ * API call rather than one per request. This map is per process and cannot be
+ * purged from anywhere — middleware runs outside the Next data cache — so the
+ * window is short enough that switching a redirect off reaches visitors within
+ * about ten seconds, which is what the admin screens promise.
  */
-const CACHE_TTL_MS = 60_000;
+const CACHE_TTL_MS = 10_000;
 const CACHE_MAX_ENTRIES = 500;
 
 interface Resolution {
-  kind: 'permanent' | 'gone';
-  status: 301 | 410;
+  kind: 'permanent' | 'temporary' | 'gone';
+  status: 301 | 302 | 410;
   targetPath: string | null;
 }
 
@@ -67,13 +71,20 @@ export async function middleware(request: NextRequest) {
   if (!resolution) return NextResponse.next();
   if (resolution.kind === 'gone') {
     return new NextResponse('This page has been removed permanently.', {
+      // Short, because a page that has come back should not stay gone for
+      // whoever cached the 410.
       status: 410,
-      headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=300' },
+      headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=60' },
     });
   }
   if (resolution.targetPath) {
     const target = new URL(`${resolution.targetPath}${search}`, request.nextUrl.origin);
-    return NextResponse.redirect(target, 301);
+    // The status comes from the rule rather than being assumed.
+    const response = NextResponse.redirect(target, resolution.status === 302 ? 302 : 301);
+    // A cached 302 behaves as a 301: the browser stops asking, and a temporary
+    // move becomes permanent by accident.
+    if (resolution.status === 302) response.headers.set('cache-control', 'no-store');
+    return response;
   }
   return NextResponse.next();
 }

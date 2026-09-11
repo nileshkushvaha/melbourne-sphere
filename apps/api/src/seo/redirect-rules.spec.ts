@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isReservedPath, MAX_PATH_LENGTH, normalisePath, RedirectRuleError, validateRedirect } from './redirect-rules.js';
+import { isReservedPath, MAX_PATH_LENGTH, normalisePath, redirectEffect, RedirectRuleError, validateRedirect } from './redirect-rules.js';
 
 describe('normalisePath', () => {
   it('canonicalises case, duplicate slashes and trailing slashes', () => {
@@ -49,5 +49,45 @@ describe('validateRedirect', () => {
     expect(() => validateRedirect('/business/a', '/admin/x', 'permanent')).toThrow(/reserved/);
     expect(() => validateRedirect('/business/a', 'https://evil.example/b', 'permanent')).toThrow(/site-relative/);
     expect(() => validateRedirect('/business/a', null, 'permanent')).toThrow(/site-relative/);
+  });
+});
+
+describe('temporary redirects', () => {
+  it('checks a 302 exactly as strictly as a 301', () => {
+    // A 302 that leaves the site is as dangerous as a 301 that does.
+    expect(() => validateRedirect('/business/old', null, 'temporary')).toThrow(RedirectRuleError);
+    expect(() => validateRedirect('/business/old', 'https://example.com/x', 'temporary')).toThrow(RedirectRuleError);
+    expect(() => validateRedirect('/business/old', '/admin/dashboard', 'temporary')).toThrow(RedirectRuleError);
+    expect(() => validateRedirect('/business/old', '/business/old', 'temporary')).toThrow(RedirectRuleError);
+    expect(validateRedirect('/business/old', '/business/new', 'temporary')).toEqual({ sourcePath: '/business/old', targetPath: '/business/new' });
+  });
+});
+
+describe('redirectEffect', () => {
+  const row = (over: Partial<{ kind: 'permanent' | 'gone' | 'temporary'; targetPath: string | null; isActive: boolean }> = {}) => ({
+    kind: 'permanent' as const,
+    targetPath: '/business/new',
+    isActive: true,
+    ...over,
+  });
+
+  it('turns each kind into the status the site must send', () => {
+    expect(redirectEffect(row())).toEqual({ applies: true, status: 301, targetPath: '/business/new' });
+    expect(redirectEffect(row({ kind: 'temporary' }))).toEqual({ applies: true, status: 302, targetPath: '/business/new' });
+    expect(redirectEffect(row({ kind: 'gone', targetPath: null }))).toEqual({ applies: true, status: 410, targetPath: null });
+  });
+
+  it('treats a rule that is switched off as though it were not there', () => {
+    // Every kind, because "off" cannot mean something different for a 410.
+    for (const kind of ['permanent', 'temporary', 'gone'] as const) {
+      expect(redirectEffect(row({ kind, isActive: false, targetPath: kind === 'gone' ? null : '/business/new' }))).toEqual({ applies: false, because: 'inactive' });
+    }
+  });
+
+  it('says why nothing happens, so the admin preview can explain it', () => {
+    expect(redirectEffect(null)).toEqual({ applies: false, because: 'no-rule' });
+    expect(redirectEffect(undefined)).toEqual({ applies: false, because: 'no-rule' });
+    // A hand-edited row with no destination must not become a redirect to nowhere.
+    expect(redirectEffect(row({ targetPath: null }))).toEqual({ applies: false, because: 'no-target' });
   });
 });

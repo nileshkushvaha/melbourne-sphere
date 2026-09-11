@@ -81,7 +81,19 @@ export interface Paged<T> {
 }
 
 /** Queue monitor (SRS 1.2 QMON 001–005). Every action names an existing job; none creates one. */
+/** Worker liveness (QMON 005): the four states an operator has to tell apart. */
+export interface WorkerLiveness {
+  healthy: boolean;
+  detail: string;
+  workers: { instanceId: string; version: string; startedAt: string; lastBeatAt: string; ageSeconds: number; queues: string[]; processed: number; failed: number }[];
+  oldestHeartbeatAgeSeconds: number | null;
+  scheduler: { healthy: boolean; detail: string; stale: { code: string; label: string; lastSuccessAt: string | null; staleAfterMinutes: number }[] };
+}
+
 export const queuesApi = {
+  workers(client: HttpClient = httpClient) {
+    return client.request<{ data: WorkerLiveness }>('/admin/system/queues/workers').then((r) => r.data.data);
+  },
   overview(client: HttpClient = httpClient) {
     return client.request<{ data: QueueSummary[] }>('/admin/system/queues').then((r) => r.data.data);
   },

@@ -7,6 +7,7 @@ import { CurrentAdmin, RequirePermissions, type AuthenticatedRequest } from '../
 import { collectionMeta } from '../common/pagination.js';
 import { getRequestId } from '../common/request-id.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
+import { WorkerLivenessService } from '../observability/worker-liveness.service.js';
 import { QueueMonitorService } from './queue-monitor.service.js';
 import { CLEANABLE_STATES, LISTABLE_STATES, MAX_BULK_ITEMS, MAX_JOBS_PER_PAGE, MIN_CLEAN_AGE_HOURS, type CleanableState, type ListableState } from './queue-registry.js';
 
@@ -68,6 +69,15 @@ export class QueueCleanDto {
   olderThanHours!: number;
 }
 
+export class WorkerLivenessDto {
+  @ApiProperty({ description: 'True only when a worker has checked in recently and the required schedule is running.' }) healthy!: boolean;
+  @ApiProperty({ description: 'What an operator should do about it, in words.' }) detail!: string;
+  @ApiProperty({ type: [Object], description: 'One entry per replica: identity, version and age only — never host or environment detail.' })
+  workers!: { instanceId: string; version: string; startedAt: string; lastBeatAt: string; ageSeconds: number; queues: string[]; processed: number; failed: number }[];
+  @ApiProperty({ type: Number, nullable: true }) oldestHeartbeatAgeSeconds!: number | null;
+  @ApiProperty({ type: Object }) scheduler!: { healthy: boolean; detail: string; stale: { code: string; label: string; lastSuccessAt: string | null; staleAfterMinutes: number }[] };
+}
+
 export class QueueBulkResultDto {
   @ApiProperty() requested!: number;
   @ApiProperty({ type: [String] }) succeeded!: string[];
@@ -85,7 +95,24 @@ export class QueueBulkResultDto {
 @ApiTags('admin-system')
 @Controller('admin/system/queues')
 export class QueueMonitorController {
-  constructor(private readonly queues: QueueMonitorService) {}
+  constructor(
+    private readonly queues: QueueMonitorService,
+    private readonly liveness: WorkerLivenessService,
+  ) {}
+
+  /**
+   * Redis answering, and the queue existing, say nothing about whether anything
+   * is consuming it. This separates the four states an operator has to tell
+   * apart (QMON 005, post-audit remediation of F-01).
+   */
+  @RequirePermissions('system.queues.view')
+  @Get('workers')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Worker liveness: which replicas are alive, and whether the required schedule is still running' })
+  @ApiOkResponse({ type: WorkerLivenessDto })
+  async workers() {
+    return { data: await this.liveness.liveness() };
+  }
 
   @RequirePermissions('system.queues.view')
   @Get()

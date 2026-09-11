@@ -7,6 +7,8 @@
  * ever becomes a schedule, a command or a payload: the only thing they can name
  * is a `code` that appears here.
  */
+import { queueJobId } from './queue.js';
+
 export const SCHEDULED_TASK_JOB = 'scheduled.task';
 
 export type MissedRunPolicy = 'catch-up-once' | 'skip-to-next' | 'run-on-recovery';
@@ -146,6 +148,19 @@ export function scheduledTask(code: string): ScheduledTaskDefinition | undefined
   return SCHEDULED_TASKS.find((task) => task.code === code);
 }
 
+/**
+ * Job id for a scheduled-task dispatch.
+ *
+ * BullMQ refuses a custom job id containing `:` — it is the separator in its own
+ * Redis keys, so an id carrying one is rejected at `add()` time with "Custom Id
+ * cannot contain :". Every part is therefore joined with `-`, and the code is
+ * included so a duplicate dispatch of the same task is de-duplicated by the
+ * queue rather than run twice.
+ */
+export function scheduledTaskJobId(kind: 'manual' | 'recovery', code: string, discriminator: string): string {
+  return queueJobId(SCHEDULED_TASK_JOB, kind, code, discriminator);
+}
+
 /** Redis key for a task's execution lock; one namespace, one task per key (TASK 004). */
 export function scheduledTaskLockKey(code: string): string {
   return `schedule:lock:${code}`;
@@ -157,3 +172,27 @@ export const UNUSED_READY_MAX_AGE_DAYS = 30;
 
 /** Execution history retention (TASK 002). */
 export const SCHEDULED_RUN_RETENTION_DAYS = 30;
+
+/**
+ * How often the task is expected to run, in minutes, read from the cron
+ * expressions this file owns (every N minutes, or a fixed daily time — the only
+ * two shapes used). Monitoring needs a number, and the alternative — a cron
+ * parser in the API purely to answer "is the scheduler stopped?" — would be a
+ * dependency carrying more than the question needs.
+ */
+export function scheduledTaskIntervalMinutes(task: ScheduledTaskDefinition): number {
+  const minuteField = task.cron.split(' ')[0] ?? '*';
+  const everyN = /^\*\/(\d+)$/.exec(minuteField);
+  if (everyN && task.cron.split(' ').slice(1).every((field) => field === '*')) return Number(everyN[1]);
+  return 24 * 60;
+}
+
+/**
+ * The silence after which a task is considered not running. Two missed windows
+ * plus a grace margin: one late run is a slow job or a restart, two in a row
+ * with nothing since is a stopped scheduler (audit F-01 was exactly this,
+ * unnoticed).
+ */
+export function scheduledTaskStaleAfterMinutes(task: ScheduledTaskDefinition): number {
+  return scheduledTaskIntervalMinutes(task) * 2 + 15;
+}

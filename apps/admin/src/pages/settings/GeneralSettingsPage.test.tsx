@@ -94,7 +94,7 @@ describe('general settings page', () => {
   it('offers the contact bar toggle and the copyright template help', async () => {
     renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/settings/general'] });
     expect(await screen.findByRole('switch', { name: /show the contact bar/i })).toBeInTheDocument();
-    expect(screen.getByText(/\{year\} for the current year/i)).toBeInTheDocument();
+    expect(screen.getByText(/\{year\} and \{name\} stay up to date/i)).toBeInTheDocument();
     // Branding is chosen from the media library rather than uploaded here, so
     // every image is processed and carries alt text (SRS MED 003).
     expect(screen.getAllByRole('button', { name: /choose image/i })).toHaveLength(3);

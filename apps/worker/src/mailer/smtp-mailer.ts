@@ -28,6 +28,7 @@ export class SmtpEnquiryMailer extends EnquiryMailerPort {
         replyTo: message.replyTo,
         subject: message.subject,
         text: message.text,
+        html: message.html,
         messageId: message.messageId,
       });
       return { providerMessageId: result.providerMessageId };

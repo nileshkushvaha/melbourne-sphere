@@ -1,4 +1,5 @@
 import type { DatabaseClient } from '@melbourne-sphere/database';
+import type { EnquiryMailInput, OutboundEnquiryMail } from '@melbourne-sphere/domain';
 import { maskEmail } from '@melbourne-sphere/mail';
 import { EnquiryMailerPort, PermanentDeliveryError, TransientDeliveryError } from './mailer/mailer.port.js';
 
@@ -15,21 +16,11 @@ export interface DeliveryDeps {
   decrypt: (stored: string, aad: string) => string;
   /** Encrypts the recipient for the delivery record (SRS 1.2 MAIL 005). */
   encrypt: (plaintext: string, aad: string) => string;
-  buildMail: (input: BuildMailInput) => { subject: string; replyTo: string; text: string };
+  /** The shared builder from `@melbourne-sphere/domain`, injected so tests can observe it. */
+  buildMail: (input: EnquiryMailInput) => OutboundEnquiryMail;
   fromAddress: string;
   siteRecipient: string | undefined;
   now?: () => Date;
-}
-
-export interface BuildMailInput {
-  businessName: string | null;
-  visitorName: string;
-  visitorEmail: string;
-  visitorPhone: string | null;
-  subject: string;
-  message: string;
-  receiptId: string;
-  submittedAt: Date;
 }
 
 export type DeliveryOutcome = 'delivered' | 'suppressed' | 'skipped';
@@ -107,6 +98,7 @@ export async function deliverEnquiry(data: DeliveryJobData, deps: DeliveryDeps):
       ...(mail.replyTo ? { replyTo: mail.replyTo } : {}),
       subject: mail.subject,
       text: mail.text,
+      html: mail.html,
       // Stable across retries so a provider with idempotency support deduplicates.
       messageId: `${enquiry.id}@melbourne-sphere`,
     });

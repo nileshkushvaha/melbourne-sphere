@@ -155,6 +155,13 @@ describe('Administrator lifecycle, sessions, audit and TOTP (integration)', () =
       await post('/api/v1/admin/auth/change-password', superCookie).send({ currentPassword: TEST_ADMIN.password, newPassword: 'changed-password-abc-123' }).expect(204);
       await agent().get('/api/v1/admin/auth/me').set('Cookie', superCookie).expect(200);
       await agent().get('/api/v1/admin/auth/me').set('Cookie', other).expect(401);
+      // Changing straight back is refused: the old password is one of the last
+      // three (SECS 003). The fixture is restored for the tests that follow by
+      // clearing its history directly, not by weakening the rule.
+      const back = await post('/api/v1/admin/auth/change-password', superCookie).send({ currentPassword: 'changed-password-abc-123', newPassword: TEST_ADMIN.password }).expect(400);
+      expect(back.body.error.code).toBe('PASSWORD_REUSED');
+      const admin = await testDatabase().adminUser.findUniqueOrThrow({ where: { email: TEST_ADMIN.normalisedEmail } });
+      await testDatabase().adminPasswordHistory.deleteMany({ where: { adminId: admin.id } });
       await post('/api/v1/admin/auth/change-password', superCookie).send({ currentPassword: 'changed-password-abc-123', newPassword: TEST_ADMIN.password }).expect(204);
     });
   });

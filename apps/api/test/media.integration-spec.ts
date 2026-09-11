@@ -220,6 +220,50 @@ describe('Media pipeline (integration)', () => {
     expect(detail.body.data.usages).toEqual([{ kind: 'business', id: businessId, label: 'Gallery Cafe' }]);
   });
 
+  it('counts a testimonial, a partner and the site settings as uses, so none of their images can be deleted', async () => {
+    const db = testDatabase();
+    const ready = async (width: number) => {
+      const { assetId: id } = await upload(pngBytes(width, 400));
+      await db.mediaAsset.update({ where: { id }, data: { status: 'ready', readyAt: new Date() } });
+      return id;
+    };
+    const portrait = await ready(610);
+    const logo = await ready(620);
+    const siteLogo = await ready(630);
+
+    // Written directly: these relations are SET NULL and the settings reference
+    // has no foreign key at all, so the database alone would allow each delete.
+    const testimonial = await db.testimonial.create({ data: { displayName: 'Priya', quote: 'Found a plumber in an hour.', mediaId: portrait } });
+    const partner = await db.partnerOrganisation.create({ data: { name: 'Fitzroy Traders', mediaId: logo } });
+    await db.setting.upsert({
+      where: { group_key: { group: 'website', key: 'general' } },
+      create: { group: 'website', key: 'general', data: { logoMediaId: siteLogo } },
+      update: { data: { logoMediaId: siteLogo } },
+    });
+
+    for (const [id, label] of [[portrait, 'Priya'], [logo, 'Fitzroy Traders'], [siteLogo, 'Site logo, icon or sharing image']] as const) {
+      const refused = await admin(agent().delete(`/api/v1/admin/media/${id}`)).expect(409);
+      expect(refused.body.error.code).toBe('MEDIA_IN_USE');
+      // The refusal names the place, so the administrator knows where to go.
+      expect(refused.body.error.message).toContain(label);
+      expect(await db.mediaAsset.findUnique({ where: { id } })).not.toBeNull();
+    }
+
+    const detail = await admin(agent().get(`/api/v1/admin/media/${portrait}`)).expect(200);
+    expect(detail.body.data.usages).toEqual([{ kind: 'testimonial', id: testimonial.id, label: 'Priya' }]);
+    const partnerDetail = await admin(agent().get(`/api/v1/admin/media/${logo}`)).expect(200);
+    expect(partnerDetail.body.data.usages).toEqual([{ kind: 'partner', id: partner.id, label: 'Fitzroy Traders' }]);
+
+    // "Unused" agrees with deletion: none of the three is offered as unused.
+    const unused = (await admin(agent().get('/api/v1/admin/media?unused=true&pageSize=50')).expect(200)).body.data as { id: string }[];
+    expect(unused.map((asset) => asset.id)).not.toEqual(expect.arrayContaining([portrait]));
+    expect(unused.some((asset) => [portrait, logo, siteLogo].includes(asset.id))).toBe(false);
+
+    await db.testimonial.delete({ where: { id: testimonial.id } });
+    await db.partnerOrganisation.delete({ where: { id: partner.id } });
+    await db.setting.delete({ where: { group_key: { group: 'website', key: 'general' } } });
+  });
+
   it('edits alt text, credit and focal point with the record version', async () => {
     const current = (await admin(agent().get(`/api/v1/admin/media/${assetId}`)).expect(200)).body.data;
     const updated = await admin(agent().patch(`/api/v1/admin/media/${assetId}`)).send({ expectedVersion: current.version, altText: 'Front window of the cafe', credit: 'Photo: Alex', rightsNote: 'Licensed from the owner', focalX: 0.4, focalY: 0.6 }).expect(200);

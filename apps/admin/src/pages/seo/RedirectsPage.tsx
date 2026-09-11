@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Alert, App, Button, Input, Popconfirm, Space, Table, Typography } from 'antd';
+import { App, Button, Input, Popconfirm, Select, Space, Table, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
 import { Link } from 'react-router';
 import { isApiError } from '@/api/errors';
-import { seoApi, type Redirect } from '@/api/seo';
-import { EmptyState, PageHeader, StatusTag } from '@/components/ui';
+import { REDIRECT_KIND_LABELS, seoApi, type Redirect, type RedirectKind } from '@/api/seo';
+import { EmptyState, ErrorState, PageHeader, StatusTag, TableCard } from '@/components/ui';
+import { RedirectPreviewPanel } from './RedirectPreviewPanel';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -20,8 +21,24 @@ export function RedirectsPage() {
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
   const [search, setSearch] = useState('');
+  const [kind, setKind] = useState<RedirectKind | undefined>(undefined);
+  const [activeOnly, setActiveOnly] = useState<boolean | undefined>(undefined);
   const [page, setPage] = useState(1);
-  const [state, reload] = useAsync((signal) => api.list({ q: search || undefined, page, pageSize: 25 }, signal), [search, page]);
+  const [state, reload] = useAsync(
+    (signal) => api.list({ q: search || undefined, kind, isActive: activeOnly, page, pageSize: 25 }, signal),
+    [search, kind, activeOnly, page],
+  );
+
+  const setActive = async (row: Redirect, active: boolean) => {
+    try {
+      await api.setActive(row.id, active);
+      message.success(active ? 'Redirect switched on. It reaches visitors within about ten seconds.' : 'Redirect switched off. It stops reaching visitors within about ten seconds.');
+      reload();
+    } catch (error) {
+      if (isApiError(error) && error.kind === 'unauthorized') onAuthError(error);
+      else message.error(errorMessage(error));
+    }
+  };
 
   const remove = async (row: Redirect) => {
     try {
@@ -41,7 +58,7 @@ export function RedirectsPage() {
       <PageHeader
         crumbs={[{ label: 'Configuration' }, { label: 'SEO redirects' }]}
         title="SEO redirects"
-        description="Old addresses that should send visitors and search engines somewhere else. Changing a published slug creates one of these automatically."
+        description="Old addresses that forward visitors and search engines. Slug changes add these automatically."
         actions={
           <Link to="/redirects/new">
             <Button type="primary" icon={<PlusOutlined aria-hidden="true" />}>
@@ -50,20 +67,55 @@ export function RedirectsPage() {
           </Link>
         }
       />
-      {state.status === 'error' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} />}
-      <Space style={{ marginBottom: 12 }} wrap>
-        <Input.Search
-          allowClear
-          placeholder="Search a path"
-          defaultValue={search}
-          onSearch={(value) => {
-            setPage(1);
-            setSearch(value.trim());
-          }}
-          style={{ width: 320 }}
-          aria-label="Search redirects"
-        />
-      </Space>
+      {state.status === 'error' && <ErrorState message={state.message} reference={state.reference} onRetry={reload} />}
+
+      <RedirectPreviewPanel />
+
+      <TableCard
+        toolbar={
+          <>
+            <Input.Search
+              allowClear
+              placeholder="Search a path"
+              defaultValue={search}
+              onSearch={(value) => {
+                setPage(1);
+                setSearch(value.trim());
+              }}
+              style={{ width: 280 }}
+              aria-label="Search redirects"
+            />
+            <Select
+              allowClear
+              aria-label="Filter by type"
+              placeholder="Any type"
+              value={kind}
+              onChange={(value) => {
+                setPage(1);
+                setKind(value);
+              }}
+              style={{ width: 210 }}
+              options={(Object.keys(REDIRECT_KIND_LABELS) as RedirectKind[]).map((value) => ({ value, label: REDIRECT_KIND_LABELS[value] }))}
+            />
+            <Select
+              allowClear
+              aria-label="Filter by state"
+              placeholder="On and off"
+              value={activeOnly}
+              onChange={(value) => {
+                setPage(1);
+                setActiveOnly(value);
+              }}
+              style={{ width: 150 }}
+              options={[
+                { value: true, label: 'On' },
+                { value: false, label: 'Switched off' },
+              ]}
+            />
+          </>
+        }
+        summary={state.status === 'ready' ? `${rows.length} of ${state.data.meta.total} redirect${state.data.meta.total === 1 ? '' : 's'}` : undefined}
+      >
       <Table<Redirect>
         rowKey="id"
         loading={state.status === 'loading'}
@@ -81,21 +133,56 @@ export function RedirectsPage() {
             title: 'To',
             render: (_: unknown, row) => (row.targetPath ? <code>{row.targetPath}</code> : <Typography.Text type="secondary">Removed permanently</Typography.Text>),
           },
-          { title: 'Type', render: (_: unknown, row) => <StatusTag status={row.kind === 'gone' ? 'gone' : 'active'} /> },
-          { title: 'Reason', dataIndex: 'reason', render: (value: string | null) => value ?? '—' },
-          { title: 'Created', dataIndex: 'createdAt', render: formatDateTime },
+          // Type and state are two different facts, so they are two columns:
+          // "active" used to mean "not a 410", which is a different thing again.
+          { title: 'Type', width: 190, render: (_: unknown, row) => REDIRECT_KIND_LABELS[row.kind] },
+          { title: 'State', width: 130, render: (_: unknown, row) => <StatusTag status={row.isActive ? 'active' : 'inactive'} /> },
+          { title: 'Reason', dataIndex: 'reason', ellipsis: true, render: (value: string | null) => value ?? '—' },
+          { title: 'Created', dataIndex: 'createdAt', width: 180, render: formatDateTime },
           {
             title: <span className="sr-only">Actions</span>,
+            width: 210,
             render: (_: unknown, row) => (
-              <Popconfirm title="Delete this redirect?" description="Visitors following the old address will get a 404." okText="Delete" okButtonProps={{ danger: true }} onConfirm={() => void remove(row)}>
-                <Button type="link" danger aria-label={`Delete redirect from ${row.sourcePath}`}>
-                  Delete
-                </Button>
-              </Popconfirm>
+              <Space size={4} wrap>
+                {row.isActive ? (
+                  <Popconfirm
+                    title="Switch this redirect off?"
+                    description={
+                      row.resourceType
+                        ? 'This one was created when a published address changed, so switching it off leaves the old address genuinely broken for anyone who saved it.'
+                        : 'Visitors following the old address will reach the page itself, or a “page not found” if there is nothing there. It takes effect within about ten seconds.'
+                    }
+                    okText="Switch off"
+                    cancelText="Leave it on"
+                    onConfirm={() => void setActive(row, false)}
+                  >
+                    <Button type="link" aria-label={`Switch off the redirect from ${row.sourcePath}`}>
+                      Switch off
+                    </Button>
+                  </Popconfirm>
+                ) : (
+                  <Button type="link" aria-label={`Switch on the redirect from ${row.sourcePath}`} onClick={() => void setActive(row, true)}>
+                    Switch on
+                  </Button>
+                )}
+                <Popconfirm
+                  title="Delete this redirect?"
+                  description="The rule and its history are removed. To stop it temporarily, switch it off instead."
+                  okText="Delete redirect"
+                  cancelText="Keep it"
+                  okButtonProps={{ danger: true }}
+                  onConfirm={() => void remove(row)}
+                >
+                  <Button type="link" danger aria-label={`Delete redirect from ${row.sourcePath}`}>
+                    Delete
+                  </Button>
+                </Popconfirm>
+              </Space>
             ),
           },
         ]}
       />
+      </TableCard>
     </div>
   );
 }

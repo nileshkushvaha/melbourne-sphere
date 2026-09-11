@@ -1,10 +1,10 @@
-import { Alert, App, Button, Input, Select, Space, Table, Tag } from 'antd';
+import { Alert, App, Button, Input, Select, Space, Table } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { faqsApi, type Faq } from '@/api/website';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
-import { PageHeader } from '@/components/ui';
+import { PageHeader, TableCard, StatusTag } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -74,7 +74,7 @@ export function FaqsPage() {
       <PageHeader
         crumbs={[{ label: 'Website' }, { label: 'FAQs' }]}
         title="FAQs"
-        description="Questions and answers shown on the public FAQ page, in display order. Answers are sanitised on the server, so unsupported formatting is removed when you save."
+        description="Shown on the public FAQ page, in this order."
         actions={
           can(PERMISSION.websiteFaqsCreate) ? (
             <Link to="/website/faqs/new">
@@ -86,21 +86,25 @@ export function FaqsPage() {
         }
       />
 
-      <Space style={{ marginBottom: 16 }} wrap>
-        <Select
-          aria-label="Filter by status"
-          placeholder="Status"
-          allowClear
-          value={status || undefined}
-          style={{ width: 160 }}
-          onChange={(value?: string) => setParam('status', value)}
-          options={[
-            { value: 'draft', label: 'Draft' },
-            { value: 'published', label: 'Published' },
-          ]}
-        />
-        <Input.Search aria-label="Search questions" placeholder="Search questions" allowClear defaultValue={q} style={{ width: 280 }} onSearch={(value) => setParam('q', value.trim() || undefined)} />
-      </Space>
+      <TableCard
+        toolbar={
+          <>
+            <Select
+              aria-label="Filter by status"
+              placeholder="Status"
+              allowClear
+              value={status || undefined}
+              style={{ width: 160 }}
+              onChange={(value?: string) => setParam('status', value)}
+              options={[
+                { value: 'draft', label: 'Draft' },
+                { value: 'published', label: 'Published' },
+              ]}
+            />
+            <Input.Search aria-label="Search questions" placeholder="Search questions" allowClear defaultValue={q} style={{ width: 280 }} onSearch={(value) => setParam('q', value.trim() || undefined)} />
+          </>
+        }
+      >
 
       {state.status === 'error' && (
         <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />
@@ -126,7 +130,7 @@ export function FaqsPage() {
             title: 'Status',
             dataIndex: 'status',
             width: 120,
-            render: (value: string) => <Tag color={value === 'published' ? 'green' : 'default'}>{value}</Tag>,
+            render: (value: string) => <StatusTag status={value} />,
           },
           { title: 'Updated', dataIndex: 'updatedAt', width: 180, render: formatDateTime },
           {
@@ -154,6 +158,7 @@ export function FaqsPage() {
           },
         ]}
       />
+      </TableCard>
     </div>
   );
 }

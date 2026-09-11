@@ -31,6 +31,34 @@ export function redactAddresses(text: string): string {
   return text.replace(ANGLE_ADDRESS, '<redacted>').replace(ADDRESS, '[redacted]');
 }
 
+/**
+ * Credential shapes that must never survive into a message we store or log.
+ *
+ * A provider's own error text is not ours to trust: it can echo the request,
+ * including the key it was authenticated with. Redacting *addresses* alone left
+ * that open — an echoed key would have reached the delivery record and the
+ * application log (found during post-audit remediation).
+ */
+const CREDENTIAL_PATTERNS = [
+  /\bre_[A-Za-z0-9_-]{8,}/g, // Resend API keys
+  /\bwhsec_[A-Za-z0-9_+/=-]{8,}/g, // Resend webhook secrets
+  /\bBearer\s+[A-Za-z0-9._~+/-]{8,}=*/gi,
+  /\bsk_(?:live|test)_[A-Za-z0-9]{8,}/g,
+];
+
+export function redactCredentials(text: string): string {
+  return CREDENTIAL_PATTERNS.reduce((out, pattern) => out.replace(pattern, '[redacted-credential]'), text);
+}
+
+/**
+ * Everything a message may not carry out of the mail boundary: addresses and
+ * credentials, in that order, so an address inside a credential-shaped token is
+ * still removed.
+ */
+export function redactSensitive(text: string): string {
+  return redactCredentials(redactAddresses(text));
+}
+
 
 /**
  * Display form of a recipient (SRS 1.2 MAIL 005, PRIV 001). Enough to recognise

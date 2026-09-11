@@ -61,7 +61,7 @@ export function PageCreatePage() {
     <RecordEditorPage<Values>
       crumbs={[{ label: 'Website' }, { label: 'Pages', href: '/website/pages' }, { label: 'New page' }]}
       title="New page"
-      description="A page of your own, published at an address you choose. It starts as a draft and appears in the site footer once you publish it."
+      description="Published at an address you choose. Starts as a draft."
       listHref="/website/pages"
       listLabel="All pages"
       form={form}
@@ -74,7 +74,7 @@ export function PageCreatePage() {
         <div style={{ border: '1px solid var(--ant-color-border)', borderRadius: 8, padding: 16 }}>
           <Typography.Text strong>About the address</Typography.Text>
           <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
-            It cannot be changed once the page exists, because anything that links to a page links to its address. If you need a different one later, create the new page and add a redirect from the old address under SEO redirects.
+            It cannot be changed later. To move a page, create a new one and redirect the old address.
           </Typography.Paragraph>
         </div>
       }
@@ -112,7 +112,7 @@ export function PageCreatePage() {
         <Input maxLength={64} onChange={() => setSlugEdited(true)} />
       </Form.Item>
 
-      <Form.Item label="Content" name="body" rules={[{ required: true, message: 'Content is required' }]} extra="Sanitised on save: headings, lists, links and emphasis are kept, scripts and styles are removed.">
+      <Form.Item label="Content" name="body" rules={[{ required: true, message: 'Content is required' }]} extra="Headings, lists, links and emphasis are kept; scripts and styles are removed.">
         <BodyField />
       </Form.Item>
 

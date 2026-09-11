@@ -1,3 +1,4 @@
+import { validatePublicUrl } from '@melbourne-sphere/domain';
 import type { AddressVisibility, Business, BusinessAddress, BusinessStatus } from '@melbourne-sphere/database';
 
 /** Lower-cased, punctuation- and whitespace-collapsed name for duplicate detection (SRS BUS 007). */
@@ -130,19 +131,6 @@ export interface LinkInput {
 }
 
 /** Validates a public http(s) URL: no credentials, no javascript:/data:, a real host. Returns the normalised URL or null. */
-export function validatePublicUrl(value: string): string | null {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    return null;
-  }
-  if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
-  if (url.username || url.password) return null;
-  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(url.hostname)) return null;
-  return url.toString();
-}
-
 const hostMatches = (hostname: string, domains: string[]) => domains.some((d) => hostname === d || hostname.endsWith(`.${d}`));
 
 /** The domains a known link kind may point at; shared with the site's own social links (SRS CFG 001). */
@@ -155,6 +143,10 @@ export function linkHostsFor(kind: Exclude<LinkKind, 'other'>): string[] {
  * platform's own domain. Returns the normalised URL, or null when either rule
  * fails — a link in the site header must never send visitors somewhere else.
  */
+// The rule lives in the shared package; it is re-exported here because this is
+// where the rest of the directory's link rules are read from.
+export { validatePublicUrl };
+
 export function validatePlatformUrl(kind: Exclude<LinkKind, 'other'>, value: string): string | null {
   const url = validatePublicUrl(value);
   if (!url) return null;

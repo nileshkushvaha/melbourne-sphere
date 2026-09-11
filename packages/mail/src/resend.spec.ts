@@ -166,3 +166,33 @@ describe('verifyResendWebhook (SRS 1.2 MAIL 007)', () => {
     expect(verifyResendWebhook(body, headers({ timestamp: '2026-09-07' }), SECRET, now)).toEqual({ ok: false, reason: 'bad_timestamp' });
   });
 });
+
+/**
+ * A provider's error text is not ours to trust: it can echo the request,
+ * including the key it was authenticated with. The original assertion here was
+ * vacuous — the fake response never contained the key — so this one puts the
+ * key in the provider's message and requires it not to survive (post-audit
+ * remediation).
+ */
+describe('credential redaction in provider errors', () => {
+  it('removes an API key, a webhook secret and a bearer token the provider echoes back', async () => {
+    const echoes = [
+      `rejected using ${validEnv.RESEND_API_KEY}`,
+      'rejected using whsec_abcdefghijklmnopqrstuvwxyz',
+      'rejected using Bearer re_some_other_key_value_here',
+    ];
+    for (const echoed of echoes) {
+      const transport = new ResendTransport(
+        resendConfigFromEnv(validEnv, { production: false }).config!,
+        (async () => new Response(JSON.stringify({ message: echoed }), { status: 422, headers: { 'content-type': 'application/json' } })) as unknown as typeof fetch,
+      );
+      const error = await transport.send(message).then(
+        () => null,
+        (thrown: unknown) => thrown as Error,
+      );
+      expect(error!.message, echoed).toContain('[redacted-credential]');
+      expect(error!.message, echoed).not.toContain('whsec_abcdefghijklmnopqrstuvwxyz');
+      expect(error!.message, echoed).not.toContain(validEnv.RESEND_API_KEY);
+    }
+  });
+});

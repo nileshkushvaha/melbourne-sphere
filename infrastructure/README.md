@@ -91,3 +91,42 @@ Deleting data is a separate, deliberate action. None of the `infra:*` scripts do
 - `Bind for 127.0.0.1:3307 failed: port is already allocated` → change `MYSQL_HOST_PORT` (or `REDIS_HOST_PORT`) in `.env`.
 - MySQL unhealthy for >60 s on first start → check `pnpm infra:logs`; first initialisation on a slow disk can exceed the start period, Compose keeps retrying.
 - `Access denied` for the app user after changing `.env` → see the first-start-only note above.
+
+## Reverse-proxy reference configuration (`edge/`)
+
+`edge/nginx.conf` is the deployment answer to audit F-05: Next.js 16 streams the
+response body before `notFound()` can replace it, so a 404 from a matched route
+arrives with the right status and an empty body. The proxy intercepts that 404
+and answers it with the document Next.js itself prerendered.
+
+```bash
+# Build the web app first: the not-found document is a build artefact.
+pnpm --filter web build
+MS_WEB_UPSTREAM=host.docker.internal:3000 \
+MS_API_UPSTREAM=host.docker.internal:3001 \
+MS_ADMIN_UPSTREAM=host.docker.internal:3002 \
+docker compose -f infrastructure/edge/docker-compose.edge.yml --profile edge up -d
+```
+
+Two things must survive any adaptation to another edge:
+
+* `error_page 404 @not_found` **without** `=` — with `=` nginx answers 200, which
+  is worse than the empty body it replaces;
+* `proxy_intercept_errors off` under `/api/v1/`, `/admin/` and `/_next/` — the API
+  owns its JSON envelopes, the admin app resolves its own routes, and a missing
+  asset must stay a missing asset.
+
+Re-mount `_not-found.html` on every deploy; a stale copy is a stale page.
+
+## Monitoring profile (`monitoring/`)
+
+```bash
+docker compose -f infrastructure/docker-compose.yml \
+  -f infrastructure/monitoring/docker-compose.monitoring.yml \
+  --env-file infrastructure/.env --profile monitoring up -d prometheus
+```
+
+Pass the base file **first**: relative volume paths resolve against the first
+compose file's directory. Prometheus reads its scrape credential from
+`monitoring/metrics-token` (mode 0600, git-ignored, never inlined in the tracked
+`prometheus.yml`). Every published port in this project is bound to `127.0.0.1`.

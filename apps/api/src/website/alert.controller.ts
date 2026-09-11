@@ -7,9 +7,12 @@ import { getRequestId } from '../common/request-id.js';
 import { PaginationQueryDto, collectionMeta } from '../common/pagination.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import { ALERT_LIMITS, AlertService } from './alert.service.js';
+import { ALERT_SEVERITIES } from '@melbourne-sphere/domain/alerts';
 import type { AlertSeverity } from './alert-rules.js';
 
-const SEVERITIES = ['informational', 'warning', 'emergency'] as const;
+// One list, shared with the banner and the admin preview, so a new severity
+// cannot be accepted by the API before either can render it.
+const SEVERITIES = ALERT_SEVERITIES;
 const ctxOf = (req: AuthenticatedRequest): RequestContext => ({ ip: req.ip ?? 'unknown', userAgent: req.headers['user-agent'], requestId: getRequestId(req) });
 
 export class PublicAlertDto {

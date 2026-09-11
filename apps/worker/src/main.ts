@@ -4,14 +4,19 @@ import { loadWorkerConfig } from './config.js';
 import { deliverEnquiry, markDeliveryFailed, type DeliveryJobData } from './enquiry-delivery.js';
 import { ConsoleEnquiryMailer } from './mailer/console-mailer.js';
 import { EnquiryMailerPort } from './mailer/mailer.port.js';
+import { ResendEnquiryMailer } from './mailer/resend-mailer.js';
 import { SmtpEnquiryMailer } from './mailer/smtp-mailer.js';
 import { randomBytes } from 'node:crypto';
 import { CACHE_INVALIDATE_JOB, ENQUIRY_EMAIL_JOB, MEDIA_PROCESS_JOB, QUEUE_NAME, SCHEDULED_TASK_JOB, buildEnquiryMail, redisConnectionFromUrl } from '@melbourne-sphere/domain';
 import { ScheduleRunner } from './schedule-runner.js';
+import { WorkerHeartbeatPublisher } from './heartbeat.js';
+import { Redis } from 'ioredis';
 import type { ScheduledTaskJobData } from './scheduled-tasks.js';
 import { processMediaAsset, type MediaJobData } from './media-processing.js';
 import { invalidateCache, type CacheInvalidationJobData } from './cache-invalidation.js';
 import { S3Storage } from './s3-storage.js';
+import { createLogger } from './log.js';
+import { jobDuration, jobsProcessed, startMetricsServer, workerUp } from './observability.js';
 import { decryptField, encryptField } from './field-encryption.js';
 
 /**
@@ -21,10 +26,15 @@ import { decryptField, encryptField } from './field-encryption.js';
  */
 async function main(): Promise<void> {
   const config = loadWorkerConfig();
+  const log = createLogger({ json: config.nodeEnv === 'production', level: config.logLevel });
   const db: DatabaseClient = createDatabaseClient({ url: config.databaseUrl, allowPublicKeyRetrieval: process.env.DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL === 'true' });
   // Configuration has already refused console/none in production, so the
   // fallback sender below can only ever appear in a development transport.
-  const mailer: EnquiryMailerPort = config.smtp ? new SmtpEnquiryMailer(config.smtp) : new ConsoleEnquiryMailer();
+  const mailer: EnquiryMailerPort = config.resend
+    ? new ResendEnquiryMailer(config.resend)
+    : config.smtp
+      ? new SmtpEnquiryMailer(config.smtp)
+      : new ConsoleEnquiryMailer();
   const fromAddress = config.mailFromAddress ?? 'no-reply@melbourne-sphere.local';
 
   const storage = new S3Storage(config.media);
@@ -32,46 +42,78 @@ async function main(): Promise<void> {
   // One identity per replica, so a run record says which process did the work
   // and a lock can only be released by its holder (SRS TASK 004/005).
   const runnerId = `${process.pid}-${randomBytes(4).toString('hex')}`;
-  const schedules = new ScheduleRunner(db, config.redisUrl, runnerId, (line) => process.stdout.write(`${line}\n`), storage);
+  const schedules = new ScheduleRunner(db, config.redisUrl, runnerId, (line) => log.line(line), storage);
 
   const worker = new Worker<DeliveryJobData & MediaJobData & CacheInvalidationJobData & ScheduledTaskJobData>(
     QUEUE_NAME,
     async (job: Job<DeliveryJobData & MediaJobData & CacheInvalidationJobData & ScheduledTaskJobData>) => {
-      if (job.name === SCHEDULED_TASK_JOB) return schedules.run(job.data);
-      if (job.name === CACHE_INVALIDATE_JOB) return invalidateCache(job.data, { target: config.revalidate });
-      if (job.name === MEDIA_PROCESS_JOB) return processMediaAsset(job.data, { db, storage, randomKey: () => randomBytes(12).toString('hex') });
-      if (job.name !== ENQUIRY_EMAIL_JOB) throw new Error(`Unknown job ${job.name}`);
-      return deliverEnquiry(job.data, {
-        db,
-        mailer,
-        decrypt: (stored, aad) => decryptField(config.fieldEncryptionKey, stored, aad),
-        encrypt: (plaintext, aad) => encryptField(config.fieldEncryptionKey, plaintext, aad),
-        buildMail: buildEnquiryMail,
-        fromAddress,
-        siteRecipient: config.siteEnquiryRecipient,
-      });
+      const started = process.hrtime.bigint();
+      const finish = () => jobDuration.observe({ job: job.name }, Number(process.hrtime.bigint() - started) / 1e9);
+      try {
+        return await route(job);
+      } finally {
+        finish();
+      }
     },
     { connection: redisConnectionFromUrl(config.redisUrl), concurrency: config.concurrency },
   );
 
+  /** One job to one handler; the timing wrapper above stays out of the way. */
+  async function route(job: Job<DeliveryJobData & MediaJobData & CacheInvalidationJobData & ScheduledTaskJobData>): Promise<unknown> {
+    if (job.name === SCHEDULED_TASK_JOB) return schedules.run(job.data);
+    if (job.name === CACHE_INVALIDATE_JOB) return invalidateCache(job.data, { target: config.revalidate });
+    if (job.name === MEDIA_PROCESS_JOB) return processMediaAsset(job.data, { db, storage, randomKey: () => randomBytes(12).toString('hex') });
+    if (job.name !== ENQUIRY_EMAIL_JOB) throw new Error(`Unknown job ${job.name}`);
+    return deliverEnquiry(job.data, {
+      db,
+      mailer,
+      decrypt: (stored, aad) => decryptField(config.fieldEncryptionKey, stored, aad),
+      encrypt: (plaintext, aad) => encryptField(config.fieldEncryptionKey, plaintext, aad),
+      buildMail: buildEnquiryMail,
+      fromAddress,
+      siteRecipient: config.siteEnquiryRecipient,
+    });
+  }
+
   worker.on('completed', (job, result) => {
-    process.stdout.write(`[worker] ${job.name} ${job.id} ${String(result)}\n`);
+    jobsProcessed.inc({ job: job.name, outcome: 'completed' });
+    log('info', 'job completed', { jobId: job.id, jobName: job.name, outcome: String(result) });
   });
   worker.on('failed', (job, error) => {
-    process.stderr.write(`[worker] ${job?.name ?? 'job'} ${job?.id ?? '?'} attempt ${job?.attemptsMade ?? 0} failed: ${error.message}\n`);
+    jobsProcessed.inc({ job: job?.name ?? 'unknown', outcome: 'failed' });
+    log('error', 'job failed', { jobId: job?.id, jobName: job?.name, attempt: job?.attemptsMade ?? 0, error: error.message });
     // Attempts exhausted: record a visible failure so an admin can retry (SRS EVT 002).
     if (job && job.attemptsMade >= (job.opts.attempts ?? 1) && job.data?.enquiryId) {
       void markDeliveryFailed(db, job.data.enquiryId, error.message);
     }
   });
 
-  await schedules.start();
+  // Liveness, published for the API and the Queue Monitor to read. A worker
+  // that dies stops writing and its key expires; a worker that never starts
+  // never writes one at all, which is the signal audit F-01 lacked.
+  // Same 'ms:' namespace the API reads under, so a heartbeat written here is
+  // found there. BullMQ keeps its own prefix and is unaffected.
+  const heartbeatRedis = new Redis({ ...redisConnectionFromUrl(config.redisUrl), keyPrefix: 'ms:' });
+  const heartbeat = new WorkerHeartbeatPublisher(heartbeatRedis, runnerId, process.env.APP_VERSION ?? 'dev', [QUEUE_NAME], (line) => log.line(line));
+  await heartbeat.start();
+  worker.on('completed', () => heartbeat.recordCompleted());
+  worker.on('failed', () => heartbeat.recordFailed());
 
-  process.stdout.write(`[worker] listening on ${QUEUE_NAME} (transport: ${mailer.describe?.() ?? mailer.transportName}, concurrency: ${config.concurrency})\n`);
+  await schedules.start();
+  workerUp.set(1);
+  const metricsServer = config.metricsPort === null ? null : startMetricsServer(config.metricsPort, config.metricsToken, (line) => log.line(line), config.metricsBind);
+
+  log('info', 'worker listening', { runnerId, jobName: QUEUE_NAME, outcome: `${mailer.describe?.() ?? mailer.transportName}, concurrency ${config.concurrency}` });
 
   const shutdown = async (signal: string) => {
-    process.stdout.write(`[worker] ${signal} received, draining\n`);
+    log('info', `${signal} received, draining`, { runnerId });
+    // Order matters: stop taking work, then let the last metrics be scraped and
+    // the heartbeat be removed, so a shutdown is not read as a crash.
+    workerUp.set(0);
     await worker.close();
+    await new Promise<void>((resolve) => (metricsServer ? metricsServer.close(() => resolve()) : resolve()));
+    await heartbeat.stop();
+    await heartbeatRedis.quit().catch(() => undefined);
     await schedules.close();
     mailer.close?.();
     await db.$disconnect();
@@ -82,6 +124,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  process.stderr.write(`[worker] failed to start: ${(error as Error).message}\n`);
+  process.stderr.write(`${JSON.stringify({ time: new Date().toISOString(), level: 'error', service: 'worker', message: 'failed to start', error: (error as Error).message })}\n`);
   process.exit(1);
 });

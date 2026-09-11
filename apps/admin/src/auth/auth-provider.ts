@@ -2,6 +2,7 @@ import type { AuthProvider } from '@refinedev/core';
 import { isApiError } from '@/api/errors';
 import { authApi, type Authenticated, type LoginChallenge } from '@/api/auth';
 import { accountApi } from '@/api/admins';
+import { toSignInFailure } from './sign-in-failure';
 
 /**
  * Refine auth provider backed by the API's cookie session. `check` asks the
@@ -50,8 +51,9 @@ export function createAuthProvider(deps: { api?: typeof authApi; now?: () => num
         return { success: true, redirectTo: '/' };
       } catch (error) {
         current = null;
-        const message = isApiError(error) ? error.userMessage : 'Sign-in failed. Please try again.';
-        return { success: false, error: { name: 'Sign-in failed', message } };
+        // The failure keeps its kind, wait time and field errors so the sign-in
+        // screen can respond to each case rather than print one sentence.
+        return { success: false, error: toSignInFailure(error) };
       }
     },
 

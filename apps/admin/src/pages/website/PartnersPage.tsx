@@ -4,7 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { partnersApi, type PartnerOrganisation } from '@/api/website';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
-import { PageHeader } from '@/components/ui';
+import { PageHeader, TableCard, StatusTag } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -110,7 +110,7 @@ export function PartnersPage() {
       <PageHeader
         crumbs={[{ label: 'Website' }, { label: 'Clients and partners' }]}
         title="Clients and partners"
-        description="Organisations whose logos appear on the public home page. These records are content only — they are not accounts and grant no access. A logo needs alternative text before it can be published."
+        description="Logos on the public home page. Each needs alt text before it can be published."
         actions={
           can(PERMISSION.websiteClientsCreate) ? (
             <Link to="/website/partners/new">
@@ -122,20 +122,24 @@ export function PartnersPage() {
         }
       />
 
-      <Space style={{ marginBottom: 16 }} wrap>
-        <Select
-          aria-label="Filter by status"
-          placeholder="Status"
-          allowClear
-          value={status || undefined}
-          style={{ width: 160 }}
-          onChange={(value?: string) => setParam('status', value)}
-          options={[
-            { value: 'draft', label: 'Draft' },
-            { value: 'published', label: 'Published' },
-          ]}
-        />
-      </Space>
+      <TableCard
+        toolbar={
+          <>
+            <Select
+              aria-label="Filter by status"
+              placeholder="Status"
+              allowClear
+              value={status || undefined}
+              style={{ width: 160 }}
+              onChange={(value?: string) => setParam('status', value)}
+              options={[
+                { value: 'draft', label: 'Draft' },
+                { value: 'published', label: 'Published' },
+              ]}
+            />
+          </>
+        }
+      >
 
       {state.status === 'error' && (
         <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />
@@ -169,7 +173,7 @@ export function PartnersPage() {
                 <Typography.Text type="secondary">—</Typography.Text>
               ),
           },
-          { title: 'Status', dataIndex: 'status', width: 110, render: (value: string) => <Tag color={value === 'published' ? 'green' : 'default'}>{value}</Tag> },
+          { title: 'Status', dataIndex: 'status', width: 110, render: (value: string) => <StatusTag status={value} /> },
           {
             title: 'Actions',
             width: 320,
@@ -204,6 +208,7 @@ export function PartnersPage() {
           },
         ]}
       />
+      </TableCard>
     </div>
   );
 }

@@ -23,6 +23,12 @@ const loadFooter = async () => (await import('./site-footer')).SiteFooter;
  * Publication-aware navigation (SRS UX 002, CFG 002): a link appears only for a
  * page a visitor can actually open, so the navigation never points at a 404.
  */
+// Each case re-imports the header after resetting the module registry, so the
+// first assertion in a cold run waits on a real compile. The default 5 s is
+// enough on an idle machine and not enough on a busy one; this is about the
+// compile, not about the behaviour under test.
+const MODULE_LOAD_TIMEOUT_MS = 20_000;
+
 describe('Navigation to the About page', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -34,7 +40,7 @@ describe('Navigation to the About page', () => {
     render(await SiteHeader());
     expect(screen.queryByRole('link', { name: 'About' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Contact' }).length).toBeGreaterThan(0);
-  });
+  }, MODULE_LOAD_TIMEOUT_MS);
 
   it('shows About in the header once it is published, exactly once per navigation region', async () => {
     fetchStaticPages.mockResolvedValue([{ slug: 'about', title: 'About Melbourne Sphere' }]);
@@ -45,7 +51,7 @@ describe('Navigation to the About page', () => {
     const links = screen.getAllByRole('link', { name: 'About' });
     expect(links.length).toBeGreaterThan(0);
     for (const link of links) expect(link).toHaveAttribute('href', '/about');
-  });
+  }, MODULE_LOAD_TIMEOUT_MS);
 
   it('lists published pages in the footer, including ones an administrator added, and nothing that is still a draft', async () => {
     fetchStaticPages.mockResolvedValue([
@@ -62,5 +68,5 @@ describe('Navigation to the About page', () => {
     expect(footer.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy');
     expect(footer.getByRole('link', { name: 'Community guidelines' })).toHaveAttribute('href', '/community-guidelines');
     expect(footer.queryByRole('link', { name: /terms/i })).not.toBeInTheDocument();
-  });
+  }, MODULE_LOAD_TIMEOUT_MS);
 });

@@ -9,7 +9,7 @@ import type { MediaAsset } from '@/api/media';
 import { isApiError } from '@/api/errors';
 import { MediaPicker } from '@/components/MediaPicker';
 import { RichTextEditorLazy } from '@/components/RichTextEditorLazy';
-import { PageLoader, PageHeader, SectionCard, StatusTag, StickyActions } from '@/components/ui';
+import { PageLoader, PageHeader, SectionCard, StatusTag, StickyActions, PageLoadError } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -17,6 +17,7 @@ import { BrandOptionLabel } from '@/components/BrandIcon';
 import { brandLabel } from '@/shared/brands';
 import { useCapabilities } from '@/auth/access-control';
 import { PERMISSION } from '@/auth/permissions';
+import { FormSelect } from '@/components/FormSelect';
 
 /** Networks an author profile can link to; the API validates the host of each one. */
 const LINK_KINDS = ['website', 'facebook', 'instagram', 'x', 'linkedin', 'youtube', 'tiktok', 'pinterest', 'threads', 'mastodon', 'github', 'other'] as const;
@@ -134,7 +135,7 @@ export function AuthorEditorPage() {
   if (capabilitiesLoading) return <PageLoader label="Checking your permissions…" />;
 
   if (!isNew && state.status === 'loading') return <PageLoader label="Loading this author…" />;
-  if (state.status === 'error') return <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} />;
+  if (state.status === 'error') return <PageLoadError title="Author" crumbs={[{ label: 'Editorial', href: '/posts' }, { label: 'Authors', href: '/authors' }]} message={state.message} reference={state.reference} onRetry={reload} />;
   if (!isNew && !author) return <p role="status">Loading author…</p>;
   const readOnly = !canWrite;
 
@@ -154,32 +155,32 @@ export function AuthorEditorPage() {
               <Row gutter={16}>
                 <Col xs={24} md={12}>
                   <Form.Item label="Display name" name="displayName" rules={[{ required: true, min: 2, message: 'Display name is required' }]}>
-                    <Input maxLength={120} />
+                    <Input maxLength={120} placeholder="e.g. Priya Raman" />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
-                  <Form.Item label="Role" name="role" extra="Shown under the byline, e.g. Food editor.">
-                    <Input maxLength={120} />
+                  <Form.Item label="Role" name="role" extra="Shown under the byline.">
+                    <Input maxLength={120} placeholder="e.g. Food editor" />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
                   <Form.Item label="Slug" name="slug" extra="Used in author links. Generated from the name when left blank.">
-                    <Input maxLength={100} />
+                    <Input maxLength={100} placeholder="priya-raman" />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={6}>
-                  <Form.Item label="Pronouns" name="pronouns" extra="Optional, e.g. they/them.">
-                    <Input maxLength={40} />
+                  <Form.Item label="Pronouns" name="pronouns" extra="Shown on the author profile, if given.">
+                    <Input maxLength={40} placeholder="e.g. they/them" />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={6}>
                   <Form.Item label="Based in" name="location" extra="A Melbourne suburb or area.">
-                    <Input maxLength={120} />
+                    <Input maxLength={120} placeholder="e.g. Fitzroy" />
                   </Form.Item>
                 </Col>
               </Row>
               <Form.Item label="Short biography" name="shortBio" extra="One or two sentences for the author card under each article." style={{ marginBottom: 0 }}>
-                <Input.TextArea rows={2} maxLength={300} showCount />
+                <Input.TextArea rows={2} maxLength={300} showCount placeholder="Who they are and what they write about." />
               </Form.Item>
             </SectionCard>
 
@@ -197,17 +198,17 @@ export function AuthorEditorPage() {
                       <Row key={field.key} gutter={8} align="middle" style={{ marginBottom: 8 }}>
                         <Col xs={24} md={6}>
                           <Form.Item name={[field.name, 'kind']} rules={[{ required: true, message: 'Choose a network' }]} style={{ marginBottom: 0 }}>
-                            <Select optionLabelProp="title" options={LINK_KINDS.map((kind) => ({ value: kind, title: brandLabel(kind), label: <BrandOptionLabel kind={kind} /> }))} aria-label="Network" />
+                            <FormSelect optionLabelProp="title" options={LINK_KINDS.map((kind) => ({ value: kind, title: brandLabel(kind), label: <BrandOptionLabel kind={kind} /> }))} aria-label="Network" />
                           </Form.Item>
                         </Col>
                         <Col xs={24} md={12}>
                           <Form.Item name={[field.name, 'url']} rules={[{ required: true, message: 'Enter the address' }]} style={{ marginBottom: 0 }}>
-                            <Input placeholder="https://" aria-label="Address" />
+                            <Input placeholder="https://instagram.com/theirhandle" aria-label="Address" />
                           </Form.Item>
                         </Col>
                         <Col xs={20} md={5}>
                           <Form.Item name={[field.name, 'label']} style={{ marginBottom: 0 }}>
-                            <Input placeholder="Label (optional)" maxLength={60} aria-label="Label" />
+                            <Input placeholder="Shown instead of the network name" maxLength={60} aria-label="Label" />
                           </Form.Item>
                         </Col>
                         <Col xs={4} md={1}>
@@ -225,10 +226,10 @@ export function AuthorEditorPage() {
 
             <SectionCard title="Search appearance" description="Used when the author profile is linked or shared.">
               <Form.Item label="SEO title" name="seoTitle" extra="Defaults to the display name.">
-                <Input maxLength={180} />
+                <Input maxLength={180} placeholder="Shown as the headline in search results" />
               </Form.Item>
               <Form.Item label="Meta description" name="seoDescription" extra="Defaults to the short biography." style={{ marginBottom: 0 }}>
-                <Input.TextArea rows={3} maxLength={300} showCount />
+                <Input.TextArea rows={3} maxLength={300} showCount placeholder="The summary shown under the title in search results" />
               </Form.Item>
             </SectionCard>
           </Col>
@@ -261,11 +262,11 @@ export function AuthorEditorPage() {
             </SectionCard>
 
             <SectionCard title="Contact" description="Public editorial contact only. This is never an administrator login.">
-              <Form.Item label="Public email" name="publicEmail" extra="Optional. Shown on the profile if set.">
-                <Input maxLength={255} inputMode="email" />
+              <Form.Item label="Public email" name="publicEmail" extra="Shown on the public profile, if given.">
+                <Input maxLength={255} inputMode="email" placeholder="priya@example.com.au" />
               </Form.Item>
-              <Form.Item label="Website" name="websiteUrl" extra="Full http(s) address." style={{ marginBottom: 0 }}>
-                <Input maxLength={500} placeholder="https://" />
+              <Form.Item label="Website" name="websiteUrl" extra="Their own site, if they have one." style={{ marginBottom: 0 }}>
+                <Input maxLength={500} placeholder="https://example.com.au" />
               </Form.Item>
             </SectionCard>
 

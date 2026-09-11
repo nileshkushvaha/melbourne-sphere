@@ -8,9 +8,11 @@ import type { EnvironmentVariables } from '../config/env.validation.js';
 import { LoginThrottleService, ThrottleUnavailableError } from './login-throttle.service.js';
 import { MailerPort } from './mailer/mailer.port.js';
 import { PasswordHistoryService } from './password-history.service.js';
+import { passwordResetMail } from './mailer/auth-mail.js';
 import { SecurityPolicyService } from './security-policy.service.js';
 import { PasswordService } from './password.service.js';
 import { SessionService, type SessionSummary } from './session.service.js';
+import { authEvents } from '../observability/metrics.registry.js';
 
 export interface RequestContext {
   ip: string;
@@ -73,6 +75,8 @@ export class AuthService {
         requestId: ctx.requestId,
         ipAddress: ctx.ip,
       });
+      // Outcome only: no address, no administrator id, nothing a request supplied.
+      authEvents.inc({ event: 'login_failure' });
       // One generic response for unknown, wrong password and disabled (SRS AUTH 001).
       throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' });
     }
@@ -105,6 +109,7 @@ export class AuthService {
       requestId: ctx.requestId,
       ipAddress: ctx.ip,
     });
+    authEvents.inc({ event: 'login_success' });
     return { kind: 'session', token, admin: principal!, session };
   }
 
@@ -123,26 +128,18 @@ export class AuthService {
 
     const db = await this.database.client();
     const token = randomBytes(32).toString('base64url');
+    // The lifetime the link really has, so the email can say it (SECS 003).
+    const lifetimeMs = Math.min((await this.policy.policy()).passwordResetMs, RESET_TOKEN_TTL_MS);
     await db.passwordResetToken.create({
-      data: { tokenHash: hashResetToken(token), adminId: admin.id, expiresAt: new Date(Date.now() + Math.min((await this.policy.policy()).passwordResetMs, RESET_TOKEN_TTL_MS)), requestedIp: ctx.ip.slice(0, 45) },
+      data: { tokenHash: hashResetToken(token), adminId: admin.id, expiresAt: new Date(Date.now() + lifetimeMs), requestedIp: ctx.ip.slice(0, 45) },
     });
     let delivered = true;
     try {
-      await this.mailer.send({
-        to: admin.email,
-        subject: 'Melbourne Sphere admin password reset',
-        text: [
-          `A password reset was requested for your Melbourne Sphere administrator account.`,
-          ``,
-          `Reset your password (link valid for 30 minutes, single use):`,
-          `${this.adminBaseUrl}/reset-password?token=${token}`,
-          ``,
-          `If you did not request this, you can ignore this message; your password has not changed.`,
-        ].join('\n'),
-      });
+      await this.mailer.send(passwordResetMail({ to: admin.email, resetUrl: `${this.adminBaseUrl}/reset-password?token=${token}`, lifetimeMs }));
     } catch {
       delivered = false;
     }
+    authEvents.inc({ event: 'password_reset_requested' });
     await this.audit.record({
       action: 'auth.password_reset.requested',
       targetType: 'admin_user',
@@ -187,7 +184,12 @@ export class AuthService {
     } catch (error) {
       this.rethrowUnavailable(error);
     }
-    if (decision && !decision.allowed) throw new RateLimitedException(decision.retryAfterSeconds);
+    if (decision && !decision.allowed) {
+      // A lockout is a security signal in its own right: repeated ones are what
+      // a credential-stuffing attempt looks like from the outside.
+      authEvents.inc({ event: scope === 'login' ? 'lockout' : 'reset_throttled' });
+      throw new RateLimitedException(decision.retryAfterSeconds);
+    }
   }
 
   private rethrowUnavailable(error: unknown): never {

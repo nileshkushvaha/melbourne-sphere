@@ -1,10 +1,11 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Alert, Button, Form, Space, Spin, type FormInstance } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router';
 import { PageHeader, type Crumb } from './PageHeader';
 import { SectionCard } from './SectionCard';
 import { StickyActions } from './StickyActions';
+import { useUnsavedChanges } from '@/shared/useUnsavedChanges';
 
 interface Props<Values> {
   /** Breadcrumbs ending at this record; the last crumb is the page itself. */
@@ -32,6 +33,12 @@ interface Props<Values> {
   submitLabel?: string;
   /** Set when the record cannot be edited, with the reason. */
   readOnlyReason?: string | null;
+  /**
+   * Overrides the shell's own tracking, for an editor that decides "changed"
+   * some other way. Normally leave it alone: the shell owns the form, so it can
+   * see the edits itself and every editor gets the same warning for free.
+   */
+  dirty?: boolean;
 }
 
 /**
@@ -64,8 +71,14 @@ export function RecordEditorPage<Values>({
   actions,
   submitLabel = 'Save',
   readOnlyReason = null,
+  dirty,
 }: Props<Values>) {
   const navigate = useNavigate();
+  const [touched, setTouched] = useState(false);
+  const changed = dirty ?? touched;
+  // Nothing in this application saves on its own, so leaving with edits in the
+  // form loses them.
+  useUnsavedChanges(changed && !saving);
 
   return (
     <div>
@@ -84,7 +97,15 @@ export function RecordEditorPage<Values>({
       {readOnlyReason && <Alert type="info" showIcon message={readOnlyReason} style={{ marginBottom: 16 }} />}
 
       <Spin spinning={loading}>
-        <div style={{ display: 'grid', gap: 20, gridTemplateColumns: aside ? 'minmax(0, 1fr) 320px' : 'minmax(0, 1fr)', alignItems: 'start' }}>
+        {/* The card is capped with the form rather than stretched across the
+            page: a short form inside a full-width card reads as a mistake, and
+            a text field two thirds of a screen wide is harder to read, not
+            easier. */}
+        {/* Two columns only where there is room for both. The column sizes are
+            in the stylesheet, not inline, because they change at a breakpoint:
+            an inline `1fr 320px` held at every width squeezed the form to zero
+            on a phone while the side column pushed the page sideways. */}
+        <div className={aside ? 'ms-editor-grid ms-editor-grid--aside' : 'ms-editor-grid'}>
           <SectionCard>
             <Form<Values>
               form={form}
@@ -93,6 +114,7 @@ export function RecordEditorPage<Values>({
               disabled={saving || Boolean(readOnlyReason)}
               // Submitting with Enter should do what the Save button does.
               onFinish={() => void onSubmit()}
+              onValuesChange={() => setTouched(true)}
               style={{ maxWidth: 720 }}
             >
               {children}
@@ -102,7 +124,7 @@ export function RecordEditorPage<Values>({
         </div>
 
         {!readOnlyReason && (
-          <StickyActions status={status}>
+          <StickyActions status={changed ? 'You have unsaved changes.' : status} style={aside ? undefined : { maxWidth: 760 }}>
             <Space wrap>
               {actions}
               <Button onClick={() => navigate(listHref)} disabled={saving}>

@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Alert, Button, Descriptions, Drawer, Input, Select, Space, Table, Tag, Timeline, Typography, App } from 'antd';
+import { Alert, Button, Descriptions, Drawer, Input, Select, Space, Table, Timeline, Typography, App } from 'antd';
 import { useSearchParams } from 'react-router';
 import { emailLogsApi, type EmailDelivery, type EmailDeliveryDetail, type EmailDeliveryStatus } from '@/api/email-logs';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
-import { PageHeader } from '@/components/ui';
+import { PageHeader, TableCard, statusRowClass, StatusTag } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { WorkerStoppedAlert } from '@/components/WorkerStoppedAlert';
 
 const STATUS_COLOUR: Record<EmailDeliveryStatus, string> = {
   queued: 'default',
@@ -90,43 +91,55 @@ export function EmailLogsPage() {
       <PageHeader
         crumbs={[{ label: 'System' }, { label: 'Email logs' }]}
         title="Email logs"
-        description="Every transactional message the site has sent, with its provider events. Recipients are masked and message bodies are never stored."
+        description="Every email the site has sent. Recipients are masked; bodies are not stored."
       />
 
-      <Space style={{ marginBottom: 16 }} wrap>
-        <Select
-          aria-label="Filter by status"
-          placeholder="Status"
-          allowClear
-          value={status || undefined}
-          style={{ width: 160 }}
-          onChange={(value?: string) => setParam('status', value)}
-          options={STATUSES.map((value) => ({ value, label: value }))}
-        />
-        <Select
-          aria-label="Filter by category"
-          placeholder="Category"
-          allowClear
-          value={category || undefined}
-          style={{ width: 160 }}
-          onChange={(value?: string) => setParam('category', value)}
-          options={CATEGORIES.map((value) => ({ value, label: value }))}
-        />
-        <Input.Search
-          aria-label="Search by message or reference id"
-          placeholder="Message or reference id"
-          allowClear
-          defaultValue={search}
-          style={{ width: 280 }}
-          onSearch={(value) => setParam('search', value.trim() || undefined)}
-        />
-      </Space>
+      {/* Sign-in emails go straight from the server; enquiry emails are sent by
+          the background worker, which creates their record here when it sends.
+          With no worker there is nothing to list, and the empty log must not
+          read as "nothing was sent". */}
+      <WorkerStoppedAlert consequence="Enquiry emails are waiting and will be sent, and listed here, once it is running again. Sign-in emails are not affected." />
+
+      <TableCard
+        toolbar={
+          <>
+            <Select
+              aria-label="Filter by status"
+              placeholder="Status"
+              allowClear
+              value={status || undefined}
+              style={{ width: 160 }}
+              onChange={(value?: string) => setParam('status', value)}
+              options={STATUSES.map((value) => ({ value, label: value }))}
+            />
+            <Select
+              aria-label="Filter by category"
+              placeholder="Category"
+              allowClear
+              value={category || undefined}
+              style={{ width: 160 }}
+              onChange={(value?: string) => setParam('category', value)}
+              options={CATEGORIES.map((value) => ({ value, label: value }))}
+            />
+            <Input.Search
+              aria-label="Search by message or reference id"
+              placeholder="Message or reference id"
+              allowClear
+              defaultValue={search}
+              style={{ width: 280 }}
+              onSearch={(value) => setParam('search', value.trim() || undefined)}
+            />
+          </>
+        }
+      >
 
       {state.status === 'error' && (
         <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />
       )}
 
       <Table<EmailDelivery>
+        // Colour is on the rows that still need a decision, not on every row.
+        rowClassName={(row) => statusRowClass(row.status)}
         rowKey="id"
         size="small"
         loading={state.status === 'loading'}
@@ -140,7 +153,7 @@ export function EmailLogsPage() {
         scroll={{ x: 1000 }}
         columns={[
           { title: 'When', dataIndex: 'createdAt', render: formatDateTime, width: 180 },
-          { title: 'Status', dataIndex: 'status', width: 120, render: (value: EmailDeliveryStatus) => <Tag color={STATUS_COLOUR[value]}>{value}</Tag> },
+          { title: 'Status', dataIndex: 'status', width: 120, render: (value: EmailDeliveryStatus) => <StatusTag status={value} /> },
           { title: 'Message', dataIndex: 'templateKey' },
           {
             title: 'Recipient',
@@ -178,6 +191,7 @@ export function EmailLogsPage() {
           },
         ]}
       />
+      </TableCard>
 
       <Drawer title="Delivery detail" width={560} open={openId !== null} onClose={() => setOpenId(null)} destroyOnHidden>
         {detail.status === 'loading' && <Typography.Paragraph>Loading…</Typography.Paragraph>}
@@ -185,7 +199,7 @@ export function EmailLogsPage() {
         {detail.status === 'ready' && detail.data && (
           <>
             <Descriptions column={1} size="small" bordered items={[
-              { key: 'status', label: 'Status', children: <Tag color={STATUS_COLOUR[detail.data.status]}>{detail.data.status}</Tag> },
+              { key: 'status', label: 'Status', children: <StatusTag status={detail.data.status} /> },
               { key: 'template', label: 'Message', children: detail.data.templateKey },
               { key: 'category', label: 'Category', children: detail.data.category },
               { key: 'recipient', label: 'Recipient', children: revealed[detail.data.id] ?? detail.data.recipient },

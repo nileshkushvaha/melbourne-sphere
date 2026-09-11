@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Alert, App, Button, Card, Checkbox, Form, Input, Select, Space, Tag, Typography } from 'antd';
+import { Alert, App, Button, Checkbox, Form, Input, Select, Space, Tag, Typography } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
 import { businessesApi, toNamePath, WEEKDAYS, type DayHours, type HoursException, type HoursRecord, type PutHoursInput } from '@/api/businesses';
 import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
+import { SectionCard } from '@/components/ui';
 
 const DAY_STATES = [{ value: 'closed', label: 'Closed' }, { value: 'open24', label: 'Open 24 hours' }, { value: 'intervals', label: 'Set hours' }];
 const EXCEPTION_KINDS = [{ value: 'closed', label: 'Closed' }, { value: 'open24', label: 'Open 24 hours' }, { value: 'custom', label: 'Custom hours' }];
@@ -105,8 +106,9 @@ export function HoursEditor({ businessId, businessVersion, readOnly, onSaved }: 
   if (state.status === 'error') return <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} />;
   const status = record?.status;
   return (
-    <Card
+    <SectionCard
       title="Opening hours"
+      description="When the business is open. Saved on its own, separately from the fields above."
       extra={
         status && (
           <Space>
@@ -125,7 +127,9 @@ export function HoursEditor({ businessId, businessVersion, readOnly, onSaved }: 
         {mode === 'scheduled' && (
           <>
             {WEEKDAYS.map((day) => (
-              <div key={day} style={{ display: 'grid', gridTemplateColumns: '110px 170px 1fr', gap: 12, alignItems: 'start', marginBottom: 4 }}>
+              // Columns in the stylesheet: on a phone the day and its state share
+              // a row and the opening times take the next one.
+              <div key={day} className="ms-hours-day">
                 <Typography.Text strong style={{ paddingTop: 6 }}>{capitalise(day)}</Typography.Text>
                 <Form.Item name={['weekly', day, 'state']} style={{ marginBottom: 8 }}>
                   <Select aria-label={`${capitalise(day)} hours`} options={DAY_STATES} />
@@ -140,18 +144,18 @@ export function HoursEditor({ businessId, businessVersion, readOnly, onSaved }: 
                 <div>
                   {fields.map((field, index) => (
                     <div key={field.key} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, marginBottom: 12 }}>
-                      <Space align="baseline" wrap>
-                        <Form.Item name={[field.name, 'date']} label="Date" rules={[{ required: true, message: 'Date is required' }]}>
-                          <Input type="date" style={{ width: 170 }} />
+                      <div className="ms-field-row">
+                        <Form.Item name={[field.name, 'date']} label="Date" rules={[{ required: true, message: 'Date is required' }]} style={{ width: 170 }}>
+                          <Input type="date" />
                         </Form.Item>
-                        <Form.Item name={[field.name, 'kind']} label="Hours">
-                          <Select aria-label="Exception hours" style={{ width: 170 }} options={EXCEPTION_KINDS} />
+                        <Form.Item name={[field.name, 'kind']} label="Hours" style={{ width: 170 }}>
+                          <Select aria-label="Exception hours" style={{ width: '100%' }} options={EXCEPTION_KINDS} />
                         </Form.Item>
-                        <Form.Item name={[field.name, 'note']} label="Note">
-                          <Input maxLength={120} placeholder="e.g. Christmas Day" style={{ width: 220 }} />
+                        <Form.Item name={[field.name, 'note']} label="Note" style={{ width: 220 }}>
+                          <Input maxLength={120} placeholder="e.g. Christmas Day" />
                         </Form.Item>
                         <Button type="text" danger icon={<DeleteOutlined aria-hidden="true" />} aria-label="Remove exception" onClick={() => remove(field.name)} />
-                      </Space>
+                      </div>
                       {exceptions?.[index]?.kind === 'custom' && <IntervalRows name={[field.name, 'intervals']} disabled={readOnly} />}
                     </div>
                   ))}
@@ -171,6 +175,6 @@ export function HoursEditor({ businessId, businessVersion, readOnly, onSaved }: 
           </div>
         )}
       </Form>
-    </Card>
+    </SectionCard>
   );
 }

@@ -1,11 +1,13 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { Reflector } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { APP_CREATE_OPTIONS, configureApp } from '../src/app.setup.js';
 import { MailerPort } from '../src/auth/mailer/mailer.port.js';
 import { SESSION_COOKIE_NAME } from '../src/auth/session.service.js';
+import { PUBLIC_ROUTE_KEY, SESSION_ONLY_KEY } from '../src/auth/decorators.js';
 import { PasswordService } from '../src/auth/password.service.js';
 import { IdentityService } from '../src/identity/identity.service.js';
 import { EffectivePermissionsService } from '../src/authorization/effective-permissions.service.js';
@@ -369,7 +371,6 @@ describe('Every admin route denies by default (integration)', () => {
     '/api/v1/admin/auth/totp/enroll',
     '/api/v1/admin/auth/totp/verify',
     '/api/v1/admin/auth/totp/disable',
-    '/api/v1/admin/auth/totp/recovery-codes',
     // The settings registry is metadata about groups, filtered to the ones the
     // caller may view (SRS 1.2 SET 002, RBAC 007/010): an administrator with no
     // permissions gets an empty list, never a group they cannot open.
@@ -428,6 +429,53 @@ describe('Every admin route denies by default (integration)', () => {
     const routes = registeredRoutes();
     // If this ever reads zero the sweep below would pass vacuously.
     expect(routes.length).toBeGreaterThan(50);
+  });
+
+  /**
+   * The two allowlists above are the only exemptions from the sweep, so an
+   * entry that does not correspond to a real route is a way for a future route
+   * to be exempted silently. Both are checked against the running router and
+   * against the declaration the guard itself reads.
+   */
+  it('exempts only routes that exist and really are declared open', () => {
+    const registered = new Set(registeredRoutes().map((route) => route.path));
+    const reflector = app.get(Reflector);
+    const declarationOf = (path: string): 'PUBLIC' | 'SESSION ONLY' | 'OTHER' => {
+      const container = (app as unknown as { container: { getModules(): Map<string, { controllers: Map<unknown, { instance: object; metatype?: new (...args: never[]) => object }> }> } }).container;
+      for (const module of container.getModules().values()) {
+        for (const wrapper of module.controllers.values()) {
+          const metatype = wrapper.metatype;
+          if (!metatype) continue;
+          const controllerPath = Reflect.getMetadata('path', metatype) as string | undefined;
+          const prototype = Object.getPrototypeOf(wrapper.instance);
+          for (const name of Object.getOwnPropertyNames(prototype)) {
+            if (name === 'constructor') continue;
+            const handler = prototype[name] as ((...args: never[]) => unknown) | undefined;
+            if (typeof handler !== 'function') continue;
+            const methodPath = Reflect.getMetadata('path', handler) as string | undefined;
+            if (methodPath === undefined) continue;
+            const full = `/${['/api/v1', controllerPath, methodPath].filter((part) => part && part !== '/').map((part) => String(part).replace(/^\/+|\/+$/g, '')).join('/')}`;
+            if (full !== path) continue;
+            const targets = [handler, metatype] as Parameters<Reflector['getAllAndOverride']>[1];
+            if (reflector.getAllAndOverride<boolean>(PUBLIC_ROUTE_KEY, targets)) return 'PUBLIC';
+            if (reflector.getAllAndOverride<boolean>(SESSION_ONLY_KEY, targets)) return 'SESSION ONLY';
+            return 'OTHER';
+          }
+        }
+      }
+      return 'OTHER';
+    };
+
+    const problems: string[] = [];
+    for (const path of PUBLIC) {
+      if (!registered.has(path)) problems.push(`${path} is allowlisted as public but is not a route`);
+      else if (declarationOf(path) !== 'PUBLIC') problems.push(`${path} is allowlisted as public but is not declared @Public`);
+    }
+    for (const path of SESSION_ONLY) {
+      if (!registered.has(path)) problems.push(`${path} is allowlisted as session-only but is not a route`);
+      else if (declarationOf(path) !== 'SESSION ONLY') problems.push(`${path} is allowlisted as session-only but is not declared @SessionOnly`);
+    }
+    expect(problems).toEqual([]);
   });
 
   it('refuses an administrator with no permissions on every route that is not deliberately open', async () => {

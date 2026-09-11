@@ -72,7 +72,8 @@ describe('Security settings (integration)', () => {
       sessionAbsoluteHours: 12,
       passwordResetMinutes: 30,
       passwordMinLength: 12,
-      passwordHistoryDepth: 0,
+      // Three earlier passwords by default (client instruction, 12 September 2026).
+      passwordHistoryDepth: 3,
       loginMaxFailedAttempts: 5,
       loginBlockMinutes: 15,
     });
@@ -105,7 +106,9 @@ describe('Security settings (integration)', () => {
     expect(keys).not.toContain('passwordResetEnabled');
     // Every numeric bound has a floor, so none can be set to "off".
     for (const setting of settingGroup('security').settings) {
-      if (setting.key === 'passwordHistoryDepth') continue; // zero means "keep no history", which weakens nothing
+      // Zero keeps no history of earlier passwords; the current one is still
+      // refused, so nothing is switched off.
+      if (setting.key === 'passwordHistoryDepth') continue;
       expect(setting.bounds.min, setting.key).toBeGreaterThan(0);
     }
   });
@@ -127,7 +130,7 @@ describe('Security settings (integration)', () => {
     expect(JSON.stringify(refused.body)).toMatch(/at least 20/);
   });
 
-  it('refuses a reused password once history is switched on, and keeps only what the depth needs', async () => {
+  it('refuses a reused password within the depth, and keeps only what the depth needs', async () => {
     const db = testDatabase();
     await setSecurity({ passwordHistoryDepth: 2 }).then((res) => expect(res.status).toBe(200));
 
@@ -155,6 +158,12 @@ describe('Security settings (integration)', () => {
     await setSecurity({ passwordHistoryDepth: 0 }).then((res) => expect(res.status).toBe(200));
     expect(await db.adminPasswordHistory.count({ where: { adminId: admin.id } })).toBe(0);
     await change(second, TEST_ADMIN.password).expect(204);
+
+    // Even with no history kept, the password in use is never accepted as its
+    // own replacement: that is not a change.
+    const same = await change(TEST_ADMIN.password, TEST_ADMIN.password).expect(400);
+    expect(same.body.error.code).toBe('PASSWORD_REUSED');
+    expect(same.body.error.message).toMatch(/different from your current one/);
   });
 
   it('shortens the password reset link lifetime when the setting is narrowed', async () => {

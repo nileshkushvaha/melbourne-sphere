@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react';
 import { AppRoutes } from '@/app/routes';
 import { MediaDetailPage } from './MediaDetailPage';
 import { MediaLibraryPage } from './MediaLibraryPage';
-import { renderWithProviders, authenticatedProvider, user } from '@/test/render';
+import { renderWithProviders, authenticatedProvider, providerWithPermissions, user } from '@/test/render';
 import { jsonResponse } from '@/test/fetch-fakes';
 import { localFileProblem, variantUrl } from '@/api/media';
 
@@ -38,10 +38,11 @@ describe('media library', () => {
   it('lists assets with their status, size and usage count', async () => {
     renderWithProviders(<MediaLibraryPage />, { initialEntries: ['/admin/media?status=ready'] });
     expect(await screen.findByRole('heading', { level: 1, name: 'Media library' })).toBeInTheDocument();
-    const card = (await screen.findByText('laneway.png')).closest('.ant-card')!;
-    expect(within(card as HTMLElement).getByText('ready')).toBeInTheDocument();
-    expect(within(card as HTMLElement).getByText((_, node) => node?.textContent === '1200\u00d7800' && node.tagName === 'SPAN')).toBeInTheDocument();
-    expect(within(card as HTMLElement).getByText('1 use')).toBeInTheDocument();
+    // Each image is its own list item, so the assertions stay inside one tile.
+    const tile = (await screen.findByText('laneway.png')).closest('li')! as HTMLElement;
+    expect(within(tile).getByText('ready')).toBeInTheDocument();
+    expect(within(tile).getByText('1200 × 800')).toBeInTheDocument();
+    expect(within(tile).getByText('Used in 1 place')).toBeInTheDocument();
     expect(screen.getByAltText('A Melbourne laneway')).toHaveAttribute('src', 'https://cdn.test/media/thumb.webp');
     expect(calls[0]?.url).toBe('/api/v1/admin/media?status=ready&page=1&pageSize=24');
   });
@@ -63,6 +64,71 @@ describe('media library', () => {
     await ue.click(screen.getByRole('button', { name: /^save$/i }));
     const patch = calls.find((c) => c.method === 'PATCH')!;
     expect(JSON.parse(patch.body!)).toMatchObject({ expectedVersion: 2, altText: 'A Melbourne laneway', credit: 'Photo: Alex' });
+  });
+
+  it('names what is using an image instead of counting it, and links to each one', async () => {
+    renderWithProviders(<MediaDetailPage />, { initialEntries: ['/admin/media/m1'], routePath: '/media/:id' });
+    await screen.findByRole('heading', { level: 1, name: 'laneway.png' });
+
+    const section = (await screen.findByRole('heading', { level: 2, name: 'Where it is used' })).closest('.ant-card') as HTMLElement;
+    expect(within(section).getByRole('link', { name: 'Gallery Cafe' })).toHaveAttribute('href', '/admin/businesses/b1');
+    expect(within(section).getByText(/cannot be deleted while something still shows it/i)).toBeInTheDocument();
+  });
+
+  it('shows the sizes the site made and the file it came from', async () => {
+    renderWithProviders(<MediaDetailPage />, { initialEntries: ['/admin/media/m1'], routePath: '/media/:id' });
+    await screen.findByRole('heading', { level: 1, name: 'laneway.png' });
+
+    const panel = (await screen.findByRole('heading', { level: 2, name: 'This image' })).closest('.ant-card') as HTMLElement;
+    expect(within(panel).getByText('1200 × 800')).toBeInTheDocument();
+    expect(within(panel).getByText('117 KB')).toBeInTheDocument();
+    expect(within(panel).getByText('card')).toBeInTheDocument();
+    // Storage keys and signed URLs are never a thing an administrator needs.
+    expect(panel.textContent).not.toMatch(/objectKey|X-Amz|signature/i);
+  });
+
+  it('sets the focal point by clicking the picture, and can be moved from the keyboard', async () => {
+    const ue = user();
+    renderWithProviders(<MediaDetailPage />, { initialEntries: ['/admin/media/m1'], routePath: '/media/:id' });
+    await screen.findByRole('heading', { level: 1, name: 'laneway.png' });
+
+    const picker = await screen.findByRole('button', { name: /focal point for A Melbourne laneway/i });
+    expect(screen.getByText(/the middle of the image is kept in frame/i)).toBeInTheDocument();
+
+    // Arrow keys are the keyboard path; a drag-only control would be unusable.
+    picker.focus();
+    await ue.keyboard('{ArrowRight}');
+    expect(await screen.findByText(/55% from the left/)).toBeInTheDocument();
+
+    await ue.click(screen.getByRole('button', { name: /^save$/i }));
+    const patch = calls.find((call) => call.method === 'PATCH');
+    expect(JSON.parse(patch!.body!)).toMatchObject({ focalX: 0.55, focalY: 0.5, expectedVersion: 2 });
+  });
+
+  it('states the requirements before a file is chosen, and takes one by drop or by button', async () => {
+    renderWithProviders(<MediaLibraryPage />, { initialEntries: ['/admin/media'] });
+    await screen.findByRole('heading', { level: 1, name: 'Media library' });
+
+    expect(screen.getByText(/JPEG, PNG or WebP, up to 10 MB/i)).toBeInTheDocument();
+    expect(screen.getByText(/Drop an image here/i)).toBeInTheDocument();
+    // The keyboard path is a real button, not a drop zone only.
+    expect(screen.getByRole('button', { name: /choose an image/i })).toBeInTheDocument();
+  });
+
+  it('says plainly when background processing is not running, instead of leaving uploads on “processing”', async () => {
+    const stopped = { healthy: false, detail: 'No worker has checked in.', workers: [], oldestHeartbeatAgeSeconds: null, scheduler: { healthy: false, detail: '', stale: [] } };
+    const previous = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/admin/system/queues/workers')) return jsonResponse(200, { data: stopped });
+      return previous(input, init);
+    }) as typeof fetch;
+
+    // Reading worker liveness needs its own permission; without it the screen
+    // can only say an upload has waited a long time, which the next case covers.
+    renderWithProviders(<MediaLibraryPage />, { initialEntries: ['/admin/media'], authProvider: providerWithPermissions(['media.manage', 'system.queues.view']) });
+    expect(await screen.findByText('Background processing is not running')).toBeInTheDocument();
+    expect(screen.getByText(/prepared automatically once it is running again/i)).toBeInTheDocument();
   });
 
   it('hides the library without media.manage', async () => {
@@ -91,4 +157,6 @@ describe('client-side upload checks (SRS MED 001)', () => {
     expect(variantUrl(ready, 5000)).toBe('https://cdn.test/media/card.webp');
     expect(variantUrl({ variants: [] })).toBeNull();
   });
+
+
 });

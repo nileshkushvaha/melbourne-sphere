@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, App, Button, Form, Input, Modal, Select, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { Alert, App, Button, Form, Input, Modal, Select, Space, Table, Tooltip, Typography } from 'antd';
 import { WarningOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
 import { useSearchParams } from 'react-router';
@@ -7,10 +7,11 @@ import { REVIEW_STATUSES, moderationApi, type AdminComment, type ReviewDecision,
 import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
-import { PageHeader } from '@/components/ui';
+import { PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { expandToggle } from '@/components/ui/expandToggle';
+import { brand } from '@/config/theme';
 
-const STATUS_COLOURS: Record<ReviewStatus, string> = { pending: 'gold', approved: 'green', rejected: 'default', spam: 'red' };
 const DECISIONS: Record<ReviewDecision, { title: string; hint: string; danger?: boolean; reasonRequired: boolean }> = {
   approve: { title: 'Publish this comment?', hint: 'It appears under the article immediately.', reasonRequired: false },
   reject: { title: 'Reject this comment?', hint: 'It stays hidden. The original text is kept for the record.', danger: true, reasonRequired: true },
@@ -83,18 +84,25 @@ export function CommentsPage() {
   return (
     <div>
       <PageHeader crumbs={[{ label: 'Community' }, { label: 'Comments' }]} title="Comments" description="Comments arrive pending and never appear automatically. Rejecting keeps the original text for the record." />
-      <Space style={{ marginBottom: 16 }} wrap>
-        <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => setParam('status', v)} style={{ width: 160 }} options={REVIEW_STATUSES.map((s) => ({ value: s, label: s }))} />
-        <Select aria-label="Filter by reports" allowClear placeholder="Any" value={reported ? 'reported' : undefined} onChange={(v) => setParam('reported', v ? 'true' : undefined)} style={{ width: 190 }} options={[{ value: 'reported', label: 'Has open reports' }]} />
-      </Space>
+      <TableCard
+        toolbar={
+          <>
+            <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => setParam('status', v)} style={{ width: 160 }} options={REVIEW_STATUSES.map((s) => ({ value: s, label: s }))} />
+            <Select aria-label="Filter by reports" allowClear placeholder="Any" value={reported ? 'reported' : undefined} onChange={(v) => setParam('reported', v ? 'true' : undefined)} style={{ width: 190 }} options={[{ value: 'reported', label: 'Has open reports' }]} />
+          </>
+        }
+      >
       {state.status === 'error' && <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />}
       <Table<AdminComment>
+        // Colour is on the rows that still need a decision, not on every row.
+        rowClassName={(row) => statusRowClass(row.status)}
         rowKey="id"
         loading={state.status === 'loading'}
         dataSource={state.status === 'ready' ? state.data.data : []}
         pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => setParam('page', String(p)) } : false}
         scroll={{ x: 1000 }}
         expandable={{
+          expandIcon: expandToggle((comment) => `the comment by ${comment.displayName}`),
           expandedRowRender: (comment) => (
             <div style={{ maxWidth: 900 }}>
               <Typography.Paragraph style={{ whiteSpace: 'pre-line' }}>{comment.originalText}</Typography.Paragraph>
@@ -114,10 +122,10 @@ export function CommentsPage() {
             dataIndex: 'status',
             render: (v: ReviewStatus, comment) => (
               <Space size={4}>
-                <Tag color={STATUS_COLOURS[v]}>{v}</Tag>
+                <StatusTag status={v} />
                 {comment.openReportCount > 0 && (
                   <Tooltip title={`${comment.openReportCount} open report(s)`}>
-                    <WarningOutlined aria-label="Reported" style={{ color: '#b91c1c' }} />
+                    <WarningOutlined aria-label="Reported" style={{ color: brand.danger }} />
                   </Tooltip>
                 )}
               </Space>
@@ -139,6 +147,7 @@ export function CommentsPage() {
         ]}
         locale={{ emptyText: state.status === 'ready' ? 'No comments match.' : ' ' }}
       />
+      </TableCard>
       <Modal open={pending !== null} title={pending ? DECISIONS[pending.decision].title : ''} okText="Confirm" okButtonProps={{ danger: pending ? DECISIONS[pending.decision].danger : false }} onOk={() => void submitDecision()} onCancel={() => setPending(null)} destroyOnHidden>
         {pending && <Typography.Paragraph>{DECISIONS[pending.decision].hint}</Typography.Paragraph>}
         {dialogError && <Alert type="error" showIcon role="alert" message={dialogError} style={{ marginBottom: 12 }} />}

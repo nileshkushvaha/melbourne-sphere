@@ -1,11 +1,11 @@
-import { Alert, App, Button, Space, Table, Tag, Typography } from 'antd';
+import { App, Button, Space, Table, Tag, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { Link } from 'react-router';
 import { pagesApi, type StaticPage } from '@/api/settings';
 import { errorMessage } from '@/shared/useAsync';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
-import { PageHeader, StatusTag } from '@/components/ui';
+import { PageHeader, StatusTag, PageLoadError } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -45,7 +45,7 @@ export function PagesPage() {
   };
 
   if (state.status === 'error') {
-    return <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} />;
+    return <PageLoadError title="Pages" crumbs={[{ label: 'Website' }, { label: 'Pages' }]} message={state.message} reference={state.reference} onRetry={reload} />;
   }
   const pages = state.status === 'ready' ? state.data : [];
 
@@ -54,7 +54,7 @@ export function PagesPage() {
       <PageHeader
         crumbs={[{ label: 'Website' }, { label: 'Pages' }]}
         title="Pages"
-        description="The public information pages. About and the three policies belong to the product and are always here; below them are pages you have added. A page is visible to visitors only once it is published."
+        description="About and the policies are always here; pages you add appear below. Only published pages are public."
         actions={
           canManage ? (
             <Link to="/website/pages/new">
@@ -66,6 +66,8 @@ export function PagesPage() {
         }
       />
       <Table<StaticPage>
+        className="ms-scroll-table"
+        scroll={{ x: 640 }}
         rowKey="slug"
         dataSource={pages}
         loading={state.status === 'loading'}

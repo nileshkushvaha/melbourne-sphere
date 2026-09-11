@@ -1,10 +1,10 @@
-import { Alert, App, Button, Switch, Table, Tag } from 'antd';
+import { Alert, App, Button, Switch, Table } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
 import { Link } from 'react-router';
 import { blogApi, type BlogTerm } from '@/api/blog';
 import { isApiError } from '@/api/errors';
-import { PageHeader } from '@/components/ui';
+import { PageHeader, StatusTag } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -59,7 +59,7 @@ export function EditorialTermsPage({ config }: { config: EditorialTermsConfig })
           { title: 'Name', render: (_: unknown, row) => <Link to={`${listHref}/${row.id}`}>{row.name}</Link> },
           { title: 'Slug', dataIndex: 'slug', render: (v: string) => <code>{v}</code> },
           { title: 'Articles', dataIndex: 'postCount' },
-          { title: 'Status', dataIndex: 'active', render: (v: boolean) => <Tag color={v ? 'green' : 'default'}>{v ? 'active' : 'inactive'}</Tag> },
+          { title: 'Status', dataIndex: 'active', render: (v: boolean) => <StatusTag status={v ? 'active' : 'inactive'} /> },
           { title: 'Updated', dataIndex: 'updatedAt', render: formatDateTime },
           {
             title: <span className="sr-only">Actions</span>,

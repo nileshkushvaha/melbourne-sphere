@@ -1,6 +1,6 @@
 import nodemailer, { type SendMailOptions, type Transporter } from 'nodemailer';
 import type { SmtpConfig } from './config.js';
-import { PermanentMailError, TransientMailError, redactAddresses } from './errors.js';
+import { PermanentMailError, TransientMailError, redactSensitive } from './errors.js';
 
 /** One transactional message. Everything that becomes a header is validated before it reaches the transport. */
 export interface MailMessage {
@@ -8,8 +8,10 @@ export interface MailMessage {
   from: string;
   replyTo?: string | undefined;
   subject: string;
-  /** Plain-text body (SRS ENQ 005 requires one; HTML is not sent). */
+  /** Plain-text body; always sent (SRS ENQ 005 requires one). */
   text: string;
+  /** Optional HTML alternative, already escaped by the layout that built it. */
+  html?: string | undefined;
   /**
    * Stable, caller-owned identifier (for example the enquiry id). It becomes the
    * Message-ID header, so a retry after an ambiguous timeout carries the same id
@@ -127,14 +129,19 @@ export function toSendOptions(message: MailMessage): SendMailOptions {
   if (message.subject.trim().length === 0 || message.subject.length > 998) throw new PermanentMailError('Refusing to send: subject is empty or too long');
   if (typeof message.text !== 'string' || message.text.length === 0) throw new PermanentMailError('Refusing to send: body is empty');
   if (Buffer.byteLength(message.text, 'utf8') > MAX_TEXT_BYTES) throw new PermanentMailError('Refusing to send: body exceeds the size limit');
+  if (message.html !== undefined && Buffer.byteLength(message.html, 'utf8') > MAX_TEXT_BYTES) throw new PermanentMailError('Refusing to send: HTML body exceeds the size limit');
   return {
     to: message.to,
     from: message.from,
     ...(message.replyTo ? { replyTo: message.replyTo } : {}),
     subject: message.subject,
     text: message.text,
+    // The HTML part is optional and is built by the shared layout, which escapes
+    // everything; the plain-text part is always present (SRS ENQ 005).
+    ...(message.html ? { html: message.html } : {}),
     messageId: `<${message.messageId}>`,
-    // A visitor's message must never be treated as anything but plain text.
+    // Nothing in a message may make the transport read a file or fetch a URL,
+    // whichever part it appears in.
     disableFileAccess: true,
     disableUrlAccess: true,
   };
@@ -150,7 +157,9 @@ export function classify(error: unknown): TransientMailError | PermanentMailErro
   const shape = (typeof error === 'object' && error !== null ? error : {}) as TransportErrorShape;
   const code = shape.code ?? 'UNKNOWN';
   const status = typeof shape.responseCode === 'number' ? shape.responseCode : null;
-  const summary = redactAddresses(`SMTP ${code}${status !== null ? ` ${status}` : ''}: ${shape.message ?? 'delivery failed'}`).slice(0, 300);
+  // A relay can echo the credential it rejected, so the same redaction applies
+  // here as on the HTTP provider.
+  const summary = redactSensitive(`SMTP ${code}${status !== null ? ` ${status}` : ''}: ${shape.message ?? 'delivery failed'}`).slice(0, 300);
   if (status !== null) return status >= 500 ? new PermanentMailError(summary, error) : new TransientMailError(summary, error);
   if (PERMANENT_CODES.has(code)) return new PermanentMailError(summary, error);
   if (TRANSIENT_CODES.has(code)) return new TransientMailError(summary, error);

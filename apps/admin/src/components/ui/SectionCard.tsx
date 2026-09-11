@@ -19,9 +19,9 @@ export function SectionCard({ title, description, extra, children, bodyPadding, 
         title ? (
           <div style={{ paddingBlock: 4 }}>
             {/* A real heading keeps the document outline continuous (WCAG 1.3.1). */}
-            <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>{title}</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0, letterSpacing: '-0.01em' }}>{title}</h2>
             {description && (
-              <Typography.Text type="secondary" style={{ fontWeight: 400, fontSize: 13, whiteSpace: 'normal' }}>
+              <Typography.Text type="secondary" style={{ display: 'block', marginTop: 3, fontWeight: 400, fontSize: 13, lineHeight: 1.5, whiteSpace: 'normal' }}>
                 {description}
               </Typography.Text>
             )}

@@ -1,19 +1,25 @@
 import { useEffect } from 'react';
-import { App, DatePicker, Form, Input, InputNumber, Select, Switch, Typography } from 'antd';
-import dayjs from 'dayjs';
+import { App, Form, Input, InputNumber, Switch, Typography } from 'antd';
+import { ALERT_SEVERITIES, alertPresentation } from '@melbourne-sphere/domain/alerts';
 import { useNavigate, useParams } from 'react-router';
+import { melbourneLocalToUtc, melbourneOffsetLabel, utcToMelbourneLocal } from '@/api/blog';
 import { serviceAlertsApi, type AlertSeverity, type ServiceAlert } from '@/api/website';
 import { RecordEditorPage, SectionCard } from '@/components/ui';
+import { ServiceAlertPreview } from './ServiceAlertPreview';
+import { alertVisibility } from './alert-preview-model';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
 import { useRecordEditor } from '@/shared/useRecordEditor';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { FormSelect } from '@/components/FormSelect';
 
 interface Values {
   title: string;
   message: string;
   severity: AlertSeverity;
-  window?: [dayjs.Dayjs | null, dayjs.Dayjs | null];
+  /** `YYYY-MM-DDTHH:mm` as typed, in Melbourne time; converted once, on save. */
+  startsLocal: string;
+  endsLocal: string;
   linkLabel: string;
   linkUrl: string;
   dismissible: boolean;
@@ -31,7 +37,15 @@ export function ServiceAlertEditorPage() {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const [form] = Form.useForm<Values>();
-  const { saving, error, submit } = useRecordEditor<Values>(form);
+  const { saving, error, setError, submit } = useRecordEditor<Values>(form);
+  // Watched so the preview follows what is being typed rather than what was
+  // last saved; the preview is the reason the fields are worth filling in.
+  const draft = Form.useWatch([], form) as Partial<Values> | undefined;
+  // The offset of the date being scheduled, not of today: Melbourne is AEDT for
+  // half the year, and a label that says AEST beside a February date is wrong by
+  // an hour at exactly the moment it matters.
+  const offsetLabel = melbourneOffsetLabel(melbourneLocalToUtc(draft?.startsLocal ?? '') ?? new Date());
+  const endOffsetLabel = melbourneOffsetLabel(melbourneLocalToUtc(draft?.endsLocal ?? '') ?? melbourneLocalToUtc(draft?.startsLocal ?? '') ?? new Date());
 
   const [state] = useAsync<ServiceAlert | null>(
     () => (creating ? Promise.resolve(null) : serviceAlertsApi.list({ pageSize: 50 }).then((r) => r.data.find((row) => row.id === id) ?? null)),
@@ -50,22 +64,51 @@ export function ServiceAlertEditorPage() {
       dismissible: record.dismissible,
       priority: record.priority,
       displayOrder: record.displayOrder,
-      window: record.startsAt || record.endsAt ? [record.startsAt ? dayjs(record.startsAt) : null, record.endsAt ? dayjs(record.endsAt) : null] : undefined,
+      startsLocal: record.startsAt ? utcToMelbourneLocal(new Date(record.startsAt)) : '',
+      endsLocal: record.endsAt ? utcToMelbourneLocal(new Date(record.endsAt)) : '',
     });
   }, [record, form]);
 
+  /** What the preview draws: the values being typed, resolved to instants. */
+  const previewAlert = {
+    title: draft?.title ?? '',
+    message: draft?.message ?? '',
+    severity: (draft?.severity ?? 'informational') as AlertSeverity,
+    linkLabel: draft?.linkLabel ?? '',
+    linkUrl: draft?.linkUrl ?? '',
+    dismissible: draft?.dismissible ?? true,
+    startsAt: melbourneLocalToUtc(draft?.startsLocal ?? '')?.toISOString() ?? null,
+    endsAt: melbourneLocalToUtc(draft?.endsLocal ?? '')?.toISOString() ?? null,
+    status: record?.status === 'published' ? ('published' as const) : ('draft' as const),
+  };
+
   const save = () =>
     submit(async (values) => {
-      const [startsAt, endsAt] = values.window ?? [];
+      // Melbourne time in, an instant out — converted once, here. Reading the
+      // picker's value as browser-local time scheduled an alert at the wrong
+      // hour for anyone editing from outside Victoria (SRS 1.2 ALRT 003).
+      const startsAt = values.startsLocal ? melbourneLocalToUtc(values.startsLocal) : null;
+      if (values.startsLocal && !startsAt) {
+        setError('Enter a valid start date and time, or leave it empty');
+        throw new Error('invalid-start');
+      }
+      const endsAt = values.endsLocal ? melbourneLocalToUtc(values.endsLocal) : null;
+      if (values.endsLocal && !endsAt) {
+        setError('Enter a valid end date and time, or leave it empty');
+        throw new Error('invalid-end');
+      }
+      if (startsAt && endsAt && endsAt.getTime() <= startsAt.getTime()) {
+        setError('The alert must stop after it starts');
+        throw new Error('invalid-window');
+      }
       const payload = {
         title: values.title,
         message: values.message,
         severity: values.severity,
         linkLabel: values.linkLabel?.trim() || null,
         linkUrl: values.linkUrl?.trim() || null,
-        // Entered in Melbourne time, sent as an instant (SRS 1.2 ALRT 003).
-        startsAt: startsAt ? startsAt.toISOString() : null,
-        endsAt: endsAt ? endsAt.toISOString() : null,
+        startsAt: startsAt?.toISOString() ?? null,
+        endsAt: endsAt?.toISOString() ?? null,
         dismissible: values.dismissible,
         priority: values.priority,
         displayOrder: values.displayOrder,
@@ -81,11 +124,11 @@ export function ServiceAlertEditorPage() {
     <RecordEditorPage<Values>
       crumbs={[{ label: 'Website' }, { label: 'Service alerts', href: LIST }, { label: creating ? 'New alert' : 'Edit' }]}
       title={creating ? 'New service alert' : 'Edit service alert'}
-      description="Alerts appear above the header on every public page while they are published and inside their display window. Times are Melbourne time."
+      description="Shown above every public page while published and in its window. Melbourne time."
       listHref={LIST}
       listLabel="Back to alerts"
       form={form}
-      initialValues={{ title: '', message: '', severity: 'informational', linkLabel: '', linkUrl: '', dismissible: true, priority: 0, displayOrder: 0 }}
+      initialValues={{ title: '', message: '', severity: 'informational', startsLocal: '', endsLocal: '', linkLabel: '', linkUrl: '', dismissible: true, priority: 0, displayOrder: 0 }}
       loading={state.status === 'loading'}
       saving={saving}
       error={error ?? (state.status === 'error' ? state.message : null)}
@@ -93,52 +136,68 @@ export function ServiceAlertEditorPage() {
       onSubmit={save}
       submitLabel={creating ? 'Create alert' : 'Save changes'}
       aside={
-        record ? (
-          <SectionCard title="Status" description="Publishing is done from the list, so it is always a deliberate step.">
-            <Typography.Paragraph style={{ marginBottom: 8 }}>
-              {record.status === 'published' ? 'Published — shown while inside its display window.' : 'Draft — not visible to the public.'}
+        <div>
+          {/* This column is about as wide as a phone, so the phone-width preview
+              sits here beside the fields it follows; the wide-screen one is under
+              the form, where there is room for it to be honest. */}
+          <SectionCard title="On a phone" description="The same colours the public site uses, drawn from the one table both applications read.">
+            <ServiceAlertPreview alert={previewAlert} width={320} />
+            <Typography.Paragraph type="secondary" style={{ marginTop: 14, marginBottom: 0, fontSize: 12.5 }}>
+              This is a picture of the banner, not the banner: it is hidden from screen readers so it cannot announce itself while you type.
             </Typography.Paragraph>
+          </SectionCard>
+          <SectionCard title="Status" description="Publishing is done from the list, so it is always a deliberate step.">
+            <Typography.Paragraph style={{ marginBottom: 8 }}>{alertVisibility(previewAlert, new Date())}</Typography.Paragraph>
             <Typography.Text type="secondary">
               Editing the wording or severity brings this alert back for anyone who dismissed the earlier version.
             </Typography.Text>
           </SectionCard>
-        ) : undefined
+        </div>
       }
     >
       <Form.Item label="Title" name="title" rules={[{ required: true, min: 3, max: 120, message: 'Between 3 and 120 characters' }]}>
-        <Input maxLength={120} showCount />
+        <Input maxLength={120} showCount placeholder="e.g. Planned maintenance on Sunday morning" />
       </Form.Item>
       <Form.Item label="Message" name="message" extra="One or two sentences. It appears on every page, so keep it short." rules={[{ required: true, min: 5, max: 400, message: 'Between 5 and 400 characters' }]}>
-        <Input.TextArea rows={4} maxLength={400} showCount />
+        <Input.TextArea rows={4} maxLength={400} showCount placeholder="What visitors need to know, and what to do about it." />
       </Form.Item>
-      <Form.Item label="Severity" name="severity" extra="Emergency interrupts screen readers mid-sentence, so keep it for genuine outages." rules={[{ required: true }]}>
-        <Select
+      <Form.Item label="Severity" name="severity" extra="Emergency interrupts what a screen reader is saying, so keep it for genuine outages." rules={[{ required: true }]}>
+        <FormSelect
           style={{ maxWidth: 280 }}
-          options={[
-            { value: 'informational', label: 'Informational' },
-            { value: 'warning', label: 'Warning' },
-            { value: 'emergency', label: 'Emergency' },
-          ]}
+          options={ALERT_SEVERITIES.map((severity) => ({ value: severity, label: alertPresentation(severity).label }))}
         />
       </Form.Item>
-      <Form.Item label="Display window (Melbourne time)" name="window" extra="Leave empty to show it until you unpublish it.">
-        <DatePicker.RangePicker showTime allowEmpty={[true, true]} style={{ width: '100%', maxWidth: 460 }} />
+      <Form.Item label={`Starts (Melbourne time, ${offsetLabel})`} name="startsLocal" extra="Leave empty to start as soon as it is published.">
+        <Input type="datetime-local" style={{ maxWidth: 280 }} />
+      </Form.Item>
+      <Form.Item label={`Stops (Melbourne time, ${endOffsetLabel})`} name="endsLocal" extra="Leave empty to show it until you unpublish it.">
+        <Input type="datetime-local" style={{ maxWidth: 280 }} />
       </Form.Item>
       <Form.Item label="Link text" name="linkLabel" extra="Leave both link fields empty for an alert with no link.">
-        <Input maxLength={60} style={{ maxWidth: 320 }} />
+        <Input maxLength={60} style={{ maxWidth: 320 }} placeholder="e.g. Read the details" />
       </Form.Item>
-      <Form.Item label="Link address" name="linkUrl" extra="A page on this site (starting with /) or an https address. Checked when you save.">
-        <Input maxLength={300} />
+      <Form.Item label="Link address" name="linkUrl" extra="A page on this site (starting with /) or a full https address. Checked when you save.">
+        <Input maxLength={300} placeholder="/contact" />
       </Form.Item>
       <Form.Item label="Visitors can dismiss it" name="dismissible" valuePropName="checked">
         <Switch />
       </Form.Item>
       <Form.Item label="Priority" name="priority" extra="Higher shows first among alerts of the same severity.">
-        <InputNumber min={0} max={100} />
+        <InputNumber min={0} max={100} placeholder="0" />
       </Form.Item>
       <Form.Item label="Display order" name="displayOrder">
         <InputNumber min={0} max={9999} />
       </Form.Item>
+
+      <div style={{ marginTop: 8 }}>
+        <Typography.Title level={2} style={{ fontSize: 15, marginBottom: 4 }}>
+          On a wide screen
+        </Typography.Title>
+        <Typography.Paragraph type="secondary" style={{ fontSize: 13, marginBottom: 10 }}>
+          How the banner sits above the site’s header on a desktop.
+        </Typography.Paragraph>
+        <ServiceAlertPreview alert={previewAlert} />
+      </div>
     </RecordEditorPage>
   );
 }

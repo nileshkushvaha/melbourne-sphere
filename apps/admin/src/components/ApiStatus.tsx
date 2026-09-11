@@ -3,6 +3,7 @@ import { Alert, Button, Space, Typography } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { getLiveness } from '@/api/health';
 import { isApiError } from '@/api/errors';
+import { StatusTag } from '@/components/ui';
 
 type Status =
   | { state: 'loading' }
@@ -49,35 +50,34 @@ export function ApiStatus() {
 
   return (
     <section aria-labelledby="api-status-heading" aria-live="polite" aria-busy={status.state === 'loading'}>
-      <Typography.Title level={2} id="api-status-heading" style={{ fontSize: 18, marginTop: 0 }}>
-        API status
-      </Typography.Title>
-      {status.state === 'loading' && <Alert type="info" showIcon message="Checking the API…" />}
+      <h2 id="api-status-heading" className="sr-only">
+        Connection to the API
+      </h2>
+      {status.state === 'loading' && (
+        <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+          Checking the connection…
+        </Typography.Text>
+      )}
       {status.state === 'available' && (
-        <Alert
-          type="success"
-          showIcon
-          message="API reachable"
-          description={
-            <Space direction="vertical" size={4}>
-              <span>
-                <code>/api/v1/health</code> responded. This is a liveness check only; database readiness is reported by the API separately.
-              </span>
-              {status.requestId && <Typography.Text type="secondary">Request {status.requestId}</Typography.Text>}
-              {retry}
-            </Space>
-          }
-        />
+        // Healthy is a one-line fact, not a full-width green panel: the loud
+        // treatment is reserved for the state an administrator must act on.
+        <Space size={10} align="center">
+          <StatusTag status="connected" />
+          <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+            This interface can reach the API.
+          </Typography.Text>
+          {retry}
+        </Space>
       )}
       {status.state === 'unavailable' && (
         <Alert
           type="error"
           showIcon
-          message="API unavailable"
+          message="Cannot reach the API"
           description={
             <Space direction="vertical" size={4}>
-              <span>{status.message}</span>
-              {status.reference && <Typography.Text type="secondary">Reference: {status.reference}</Typography.Text>}
+              <span>{status.message} Nothing you save will be stored until the connection returns.</span>
+              {status.reference && <Typography.Text type="secondary">Quote reference {status.reference} if you report this.</Typography.Text>}
               {retry}
             </Space>
           }

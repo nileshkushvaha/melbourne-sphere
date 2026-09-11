@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useSyncExternalStore } from 'react';
+import { alertPresentation, type AlertSeverity } from '@melbourne-sphere/domain/alerts';
 import type { PublicServiceAlert } from '@/lib/api';
 
 const STORAGE_PREFIX = 'ms.alert.dismissed.';
@@ -23,14 +24,6 @@ function wasDismissed(alert: PublicServiceAlert): boolean {
     return false;
   }
 }
-
-const TONE: Record<string, string> = {
-  // Contrast checked against the band tokens; every combination meets WCAG 2.2 AA
-  // at the sizes used here (SRS 1.2 ALRT 004, NFR 006).
-  informational: 'bg-navy-900 text-white',
-  warning: 'bg-amber-100 text-amber-950',
-  emergency: 'bg-red-800 text-white',
-};
 
 /**
  * One alert. Dismissal is a real button, keyboard operable, with an accessible
@@ -59,11 +52,18 @@ export function ServiceAlertBanner({ alert }: { alert: PublicServiceAlert }) {
     }
   };
 
+  // The band's colours come from the shared table rather than from classes here,
+  // so the admin's preview and this banner cannot drift apart; an unknown
+  // severity throws rather than rendering as the mildest one (SRS 1.2 ALRT 004).
+  const presentation = alertPresentation(alert.severity as AlertSeverity);
+
   return (
     <div
       role={alert.role}
       aria-live={alert.ariaLive}
-      className={`${TONE[alert.severity] ?? TONE.informational} px-4 py-2.5 text-sm`}
+      data-tone={presentation.tone}
+      style={{ background: presentation.background, color: presentation.foreground }}
+      className="px-4 py-2.5 text-sm"
     >
       <div className="ms-container flex items-start justify-between gap-4">
         <p className="min-w-0">

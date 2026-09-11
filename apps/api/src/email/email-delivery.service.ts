@@ -7,6 +7,7 @@ import { FieldEncryptionService } from '../common/field-encryption.service.js';
 import type { RequestContext } from '../auth/auth.service.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import { emailTemplate, isEmailTemplateKey, maskEmail, type EmailFailureCode, type EmailTemplateKey } from './email-templates.js';
+import { emailDeliveries } from '../observability/metrics.registry.js';
 
 /**
  * How meaningful a status is (SRS 1.2 MAIL 008). A late or replayed event may
@@ -107,6 +108,8 @@ export class EmailDeliveryService {
       where: { id },
       data: { status: 'sent', sentAt: new Date(), attempts: { increment: 1 }, providerMessageId, failureCode: null, failureSummary: null },
     });
+    // Provider and outcome only: never the recipient (MON 001).
+    emailDeliveries.inc({ provider: 'api', outcome: 'sent' });
   }
 
   /** The attempt failed. `summary` is already redacted by the transport (MAIL 006). */
@@ -116,6 +119,9 @@ export class EmailDeliveryService {
       where: { id },
       data: { status: 'failed', failedAt: new Date(), attempts: { increment: 1 }, failureCode: code, failureSummary: summary.slice(0, 300) },
     });
+    // The failure code is itself a closed vocabulary, so it is a safe label and
+    // says whether the failure was permanent without a second metric.
+    emailDeliveries.inc({ provider: 'api', outcome: `failed_${code}` });
   }
 
   /**
@@ -147,6 +153,8 @@ export class EmailDeliveryService {
         if (timestampField) (data as Record<string, unknown>)[timestampField] = input.occurredAt;
         if (STATUS_RANK[input.status] > STATUS_RANK[delivery.status]) data.status = input.status;
         await tx.emailDelivery.update({ where: { id: delivery.id }, data });
+        // The provider's own verdict, by status name — a closed vocabulary.
+        emailDeliveries.inc({ provider: delivery.provider.slice(0, 20), outcome: input.status });
         return 'applied' as const;
       });
     } catch (error) {

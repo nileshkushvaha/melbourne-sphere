@@ -1,7 +1,9 @@
 # Dependency advisory disposition
 
 Every advisory `pnpm audit` reports for this repository, with what it means here.
-Reviewed 7 September 2026 as part of the authorization audit closure. Rerun with
+Reviewed 7 September 2026 as part of the authorization audit closure, and again
+on 8 September 2026 during the complete production-readiness audit, which added
+the three rows marked *new 8 Sep*. Rerun with
 `pnpm audit` and update the table when it changes; do not silence an advisory
 with an override to make the report green.
 
@@ -14,6 +16,9 @@ in a path this product actually takes.
 | `mysql2` | 3.15.3 | `packages/database > @prisma/client > prisma > mysql2` | High | **No** — `prisma` is a devDependency (migrations and generation). The application connects through the mariadb adapter; `mysql2` is not loaded at run time | ≥ 3.22.0 | Pinned by the Prisma CLI; the fix arrives with Prisma 8, which also changes the adapter contract | Development and CI only; those connections are loopback or a private CI network | None — it does not ship | Prisma 8 GA (already the pending upgrade decision) |
 | `path-to-regexp` | 8.2.0 | `apps/admin > @refinedev/antd > @ant-design/pro-layout > path-to-regexp` | High | **No** — the admin uses `@refinedev/react-router`; `pro-layout` is pulled in as a peer of the antd package but its route matcher is not used by any screen. 8.4.2 is also installed and is what the app resolves | ≥ 8.4.0 | Requires Refine to update `pro-layout`; forcing it would replace a version its own code was built against | Denial of service against a *route matcher we do not call*, in an interface that already requires an authenticated session | None | Refine ships an updated `@refinedev/antd`; re-check at the Refine 6 upgrade |
 | `deepmerge-ts` | 7.1.5 | `packages/database > @prisma/client > prisma > @prisma/config` | High | **No** — Prisma CLI configuration parsing at development time | ≥ 8.0.0 | Major version, owned by Prisma | Not in the runtime path | None | Prisma 8 GA |
+| `mariadb` (charset escaping) *new 8 Sep* | 3.4.5 | `packages/database > @prisma/adapter-mariadb > mariadb` | Moderate | **No** — the advisory is a SQL-injection risk in Buffer parameter escaping under the `big5`, `gbk`, `sjis`, `cp932` and `gb18030` client character sets. Every database, table and connection in this system is `utf8mb4` (asserted by the migration policy and confirmed against the audit database: 55 tables, 0 with any other collation), so the vulnerable escaping path is never selected | ≥ 3.4.7 | Same pin as the row above | None needed; the charset is not configurable by a request | Verified TLS and a private segment, as above | Prisma pins `mariadb ≥ 3.4.7` |
+| `mariadb` (cleartext transmission) *new 8 Sep* | 3.4.5 | `packages/database > @prisma/adapter-mariadb > mariadb` | Moderate | **Yes, in principle** — the same handshake exposure as the high-severity row above, from a different angle | ≥ 3.4.7 | Same pin | Production refuses to start without verified TLS to MySQL | Verified TLS | As above |
+| `mysql2` (zlib bomb) *new 8 Sep* | 3.15.3 | `packages/database > @prisma/client > prisma > mysql2` | Moderate | **No** — decompression-bomb denial of service in the compressed protocol handler, reachable only from a malicious *server*. `mysql2` ships with the Prisma CLI (a devDependency) and is not loaded at run time; the application uses the mariadb adapter, and compression is not enabled | ≥ 3.23.1 | Owned by the Prisma CLI | Development and CI only | None — it does not ship | Prisma 8 GA |
 | `uuid` | 8.3.2 | `tools/load > autocannon > hyperid > uuid` | Moderate | **No** — the load-test harness only, never deployed | ≥ 11.1.1 | Owned by `autocannon` | Development tool | None | `autocannon` updates `hyperid` |
 
 Nothing in `@casl/ability` 7.0.1 or the `@ucast/*` packages it depends on has an

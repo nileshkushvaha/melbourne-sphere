@@ -1,6 +1,30 @@
 # worker — background job runtime
 
-Standalone BullMQ consumer (SRS ARC 003). It has no HTTP surface: it reads jobs from Redis, uses the same MySQL database and field-encryption key as the API, and can be deployed and restarted independently.
+Standalone BullMQ consumer (SRS ARC 003). It reads jobs from Redis, uses the same MySQL database and field-encryption key as the API, and is deployed and restarted independently. Its only HTTP surface is an optional metrics and health endpoint (see Supervision).
+
+## The worker is not optional
+
+Nothing else consumes the queue. While no worker is running:
+
+* accepted enquiries are stored but **never delivered** — the visitor is told their message is on its way, and it is not;
+* uploaded images stay unprocessed, so they cannot be used on a page;
+* scheduled articles do not publish and retention never runs;
+* cache purges are not applied, so the public site can serve stale pages.
+
+None of that raises an error anywhere. It simply does not happen, which is why the worker must be supervised and monitored rather than started by hand — this is exactly the failure the audit recorded as F-01.
+
+## Supervision (required in production)
+
+Run the worker as a **separately supervised process**, not as a child of the API and not in the same container.
+
+* **Restart policy: always.** Compose `restart: unless-stopped`; Kubernetes a `Deployment` with the default `Always`; systemd `Restart=always` with `RestartSec=5`. A configuration error makes the worker exit at start-up on purpose, so pair the restart policy with the start-up alert below — an endless restart loop must page someone rather than look healthy.
+* **At least one replica, and a plan for two.** Every job is idempotent by its job id, so a second replica is safe and removes the single point of failure. `WORKER_CONCURRENCY` (1–20, default 2) sets how many jobs one replica runs at once.
+* **Health**: set `WORKER_METRICS_PORT` and use `GET /health` as the liveness probe. It answers from the process itself, so it fails when the process is gone or wedged.
+* **Liveness beyond the process**: each replica writes a heartbeat to Redis every 15 seconds under `ms:worker:heartbeat:<instance>`, with a 45-second expiry. The API reads those keys, so "is anything consuming the queue?" is answered by the system rather than by looking at a process list. `GET /api/v1/admin/system/queues/workers` returns the summary, and the Queue Monitor shows it.
+* **Graceful shutdown**: `SIGTERM` stops taking new work, finishes what is in flight, closes the metrics server, removes the heartbeat and disconnects. Give the supervisor at least 30 seconds before it sends `SIGKILL`.
+* **Alerts**: C4 (no worker heartbeat for 3 minutes) is the one that must page a human. W3 (heartbeats fresh but nothing completing) catches a wedged consumer, and W5 catches uploads that never finish processing. The rules and their thresholds are in `docs/operations/alert-response.md`.
+
+`docs/operations/monitoring.md` holds the metrics, and `docs/operations/failure-drills.md` records the drills that prove each signal fires.
 
 ## Jobs
 

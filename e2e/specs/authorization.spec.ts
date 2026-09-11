@@ -68,7 +68,7 @@ test.describe('Authorization journeys', () => {
   test('a super administrator sees the whole navigation and can open the access screens', async ({ page }) => {
     await signIn(page, fixture.superAdmin);
     const links = await navigationLinks(page);
-    for (const label of ['Dashboard', 'Businesses', 'Articles', 'Reviews', 'Roles', 'Permissions', 'Administrators', 'Audit log']) {
+    for (const label of ['Dashboard', 'Businesses', 'Articles', 'Reviews', 'Roles', 'Permissions', 'Administrators', 'Activity log']) {
       expect(links, `expected "${label}" in the navigation`).toContain(label);
     }
     await closeNavigation(page);
@@ -83,7 +83,7 @@ test.describe('Authorization journeys', () => {
     const links = await navigationLinks(page);
     expect(links).toContain('Reviews');
     expect(links).toContain('Comments');
-    for (const hidden of ['Roles', 'Permissions', 'Administrators', 'Audit log', 'Businesses', 'Media library']) {
+    for (const hidden of ['Roles', 'Permissions', 'Administrators', 'Activity log', 'Businesses', 'Media library']) {
       expect(links, `"${hidden}" must not be offered`).not.toContain(hidden);
     }
     await closeNavigation(page);

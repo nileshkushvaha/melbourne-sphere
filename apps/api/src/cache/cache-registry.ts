@@ -73,6 +73,7 @@ export const CACHE_TAG_TARGETS: readonly CacheTagTarget[] = [
   { key: 'alerts', label: 'Service alerts', description: 'The alert bar above the header, on every page.', tag: CACHE_TAGS.alerts },
   { key: 'testimonials', label: 'Testimonials', description: 'The testimonials section of the home page.', tag: CACHE_TAGS.testimonials },
   { key: 'partners', label: 'Client and partner logos', description: 'The logo section of the home page.', tag: CACHE_TAGS.partners },
+  { key: 'redirects', label: 'Redirect rules', description: 'Old addresses that send visitors somewhere else.', tag: CACHE_TAGS.redirects },
 ];
 
 export function cacheNamespace(key: string): CacheNamespace | null {

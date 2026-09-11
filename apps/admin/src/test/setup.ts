@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { configure } from '@testing-library/react';
+import { capabilityStore } from '@/auth/capability-store';
 
 // Ant Design renders are slow in jsdom and the suite runs files in parallel, so
 // the 1 s default for findBy* queries produces load-dependent flakes: a render
@@ -62,4 +63,14 @@ window.scrollTo ??= () => undefined;
 
 afterEach(() => {
   setViewport({ desktop: true, reducedMotion: false });
+  // Module-level state outlives a test's render. The capability store is written
+  // whenever a session is checked, so each test starts from "not known yet", as
+  // a fresh page load does, rather than from whatever the previous test held.
+  capabilityStore.set(undefined);
+  // The stored theme choice is the same kind of shared state.
+  try {
+    window.localStorage.removeItem('ms.admin.theme');
+  } catch {
+    // jsdom always has storage; nothing to undo if it does not.
+  }
 });

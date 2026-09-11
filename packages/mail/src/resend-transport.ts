@@ -1,5 +1,5 @@
 import type { ResendConfig } from './resend-config.js';
-import { PermanentMailError, TransientMailError, redactAddresses } from './errors.js';
+import { PermanentMailError, TransientMailError, redactSensitive } from './errors.js';
 import type { MailMessage, MailSendResult } from './transport.js';
 
 /**
@@ -33,6 +33,7 @@ export class ResendTransport {
       to: [message.to],
       subject: message.subject,
       text: message.text,
+      ...(message.html ? { html: message.html } : {}),
       ...(message.replyTo ?? this.config.replyTo ? { reply_to: message.replyTo ?? this.config.replyTo } : {}),
       // Our own identifier travels with the message so a provider event can be
       // matched back to the delivery record even before its id is stored.
@@ -73,7 +74,7 @@ function summariseNetworkError(error: unknown): string {
   const name = error instanceof Error ? error.name : 'Error';
   if (name === 'AbortError' || name === 'TimeoutError') return `Resend request timed out after ${RESEND_TIMEOUT_MS} ms`;
   const code = (error as { cause?: { code?: string } } | null)?.cause?.code;
-  return redactAddresses(`Resend request failed${code ? ` (${code})` : ''}`).slice(0, 300);
+  return redactSensitive(`Resend request failed${code ? ` (${code})` : ''}`).slice(0, 300);
 }
 
 /**
@@ -90,7 +91,9 @@ export async function classifyResponse(response: Response): Promise<TransientMai
   } catch {
     // A non-JSON error body tells us nothing worth keeping.
   }
-  const summary = redactAddresses(`Resend responded ${response.status}${detail}`).slice(0, 300);
+  // The provider's own text can echo the request, including the key it was
+  // authenticated with, so credentials are stripped as well as addresses.
+  const summary = redactSensitive(`Resend responded ${response.status}${detail}`).slice(0, 300);
   if (response.status === 429 || response.status >= 500) return new TransientMailError(summary);
   return new PermanentMailError(summary);
 }

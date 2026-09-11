@@ -70,7 +70,10 @@ describe('CacheManagerPage', () => {
       authProvider: providerWithPermissions(['system.cache.view']),
     });
 
-    const banner = await screen.findByText('Cache unavailable');
-    expect(within(banner.closest('.ant-alert') as HTMLElement).getByText(/served from the database instead/i)).toBeInTheDocument();
+    const banner = await screen.findByText('Caching is unavailable');
+    expect(within(banner.closest('.ant-alert') as HTMLElement).getByText(/the site is slower until this returns/i)).toBeInTheDocument();
+    // The server's own detail carries a driver code; the screen says what it
+    // means for the site instead.
+    expect(screen.queryByText(/ECONNREFUSED/)).not.toBeInTheDocument();
   });
 });
