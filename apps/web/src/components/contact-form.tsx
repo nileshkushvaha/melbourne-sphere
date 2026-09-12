@@ -16,7 +16,7 @@ const EMPTY: ContactFormValues = { name: '', email: '', topic: '', message: '', 
  * site key the form is not offered at all — the API would refuse the submission
  * anyway, and a form that always fails is worse than an honest notice.
  */
-export function ContactForm({ turnstileSiteKey }: { turnstileSiteKey: string | null }) {
+export function ContactForm({ turnstileSiteKey, compact = false }: { turnstileSiteKey: string | null; /** Renders for a narrow column (the policy-page sidebar): one field per row at every width, and no card of its own, because the panel around it already is one. */ compact?: boolean }) {
   const [values, setValues] = useState<ContactFormValues>(EMPTY);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -85,13 +85,13 @@ export function ContactForm({ turnstileSiteKey }: { turnstileSiteKey: string | n
   }
 
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-5 rounded-card-lg border border-border bg-surface-raised p-6 shadow-sm sm:p-8">
+    <form onSubmit={submit} noValidate className={compact ? 'flex flex-col gap-4' : 'flex flex-col gap-5 rounded-card-lg border border-border bg-surface-raised p-6 shadow-sm sm:p-8'}>
       {formError && (
         <p role="alert" className="rounded-card border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
           {formError}
         </p>
       )}
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className={compact ? 'grid gap-4' : 'grid gap-5 sm:grid-cols-2'}>
         <div>
           <Label htmlFor="contact-name">Your name</Label>
           <Input id="contact-name" value={values.name} onChange={(e) => set('name', e.target.value)} maxLength={CONTACT_LIMITS.name.max} autoComplete="name" aria-invalid={Boolean(fieldError('name'))} aria-describedby={fieldError('name') ? 'contact-name-error' : undefined} />
@@ -138,7 +138,7 @@ export function ContactForm({ turnstileSiteKey }: { turnstileSiteKey: string | n
         <Label htmlFor="contact-message">Message</Label>
         <textarea
           id="contact-message"
-          rows={6}
+          rows={compact ? 4 : 6}
           value={values.message}
           onChange={(e) => set('message', e.target.value)}
           maxLength={CONTACT_LIMITS.message.max}
@@ -171,7 +171,7 @@ export function ContactForm({ turnstileSiteKey }: { turnstileSiteKey: string | n
       <div className="cf-turnstile" data-sitekey={turnstileSiteKey} data-action="contact" />
       {fieldError('captchaToken') && <p className="text-sm text-danger">{fieldError('captchaToken')}</p>}
       <div>
-        <Button type="submit" size="lg" disabled={submitting}>
+        <Button type="submit" size={compact ? 'default' : 'lg'} className={compact ? 'w-full' : undefined} disabled={submitting}>
           {submitting ? 'Sending…' : 'Send message'}
         </Button>
       </div>

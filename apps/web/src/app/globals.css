@@ -98,11 +98,18 @@ body {
   line-height: 1.75;
 }
 
-.ms-prose > * + * {
+.ms-prose > * + *,
+/* A body rendered from stored HTML arrives inside one wrapper element, so the
+   rhythm has to reach through it; without this the paragraphs of an editor's
+   page ran together. */
+.ms-prose > .ms-prose-html > * + * {
   margin-top: 1rem;
 }
 
 .ms-prose h2 {
+  /* Cleared under the sticky header, so a link to a section does not land with
+     the heading hidden behind it. */
+  scroll-margin-top: 6rem;
   margin-top: 2rem;
   font-size: 1.5rem;
   line-height: 1.3;
@@ -267,4 +274,34 @@ body {
   .ms-route-spinner {
     animation-duration: 3s;
   }
+}
+
+/* The policy pages. They are read the way a document is — the opening
+   paragraph as a summary, the headings as the shape of it — so the first
+   paragraph is set larger and each section is separated by a rule rather than
+   by space alone. Nothing here is specific to one policy: the same treatment
+   applies to whichever of them an editor writes next. */
+.ms-prose-lead > .ms-prose-html > p:first-child {
+  font-size: 1.1875rem;
+  line-height: 1.7;
+  color: var(--ms-text);
+  max-width: 62ch;
+}
+
+.ms-prose-lead > .ms-prose-html > h2 {
+  margin-top: 2.75rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--ms-border);
+  max-width: var(--ms-prose-measure);
+}
+
+.ms-prose-lead > .ms-prose-html > h2:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.ms-prose-lead strong {
+  color: var(--ms-text);
+  font-weight: 640;
 }
