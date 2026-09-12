@@ -8,6 +8,7 @@ import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
 import { useBusy } from '@/shared/useBusy';
+import { RevealContact } from '@/components/RevealContact';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { FormSelect } from '@/components/FormSelect';
@@ -107,7 +108,13 @@ export function ReportsPage() {
               <Typography.Paragraph style={{ whiteSpace: 'pre-line' }}>{report.targetSnapshot}</Typography.Paragraph>
               {report.details && <Typography.Paragraph>Reporter’s note: {report.details}</Typography.Paragraph>}
               <Typography.Paragraph type="secondary">
-                {report.reporterEmail ? `Reporter contact: ${report.reporterEmail}` : 'No reporter contact provided'}
+                {report.reporterEmail ? (
+                  <>
+                    Reporter contact: <RevealContact masked={report.reporterEmail} reveal={() => api.revealReporterEmail(report.id)} />
+                  </>
+                ) : (
+                  'No reporter contact provided'
+                )}
                 {report.resolutionNote ? ` · outcome note: ${report.resolutionNote}` : ''}
               </Typography.Paragraph>
             </div>

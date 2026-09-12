@@ -1,3 +1,4 @@
+import { maskEmail } from '@melbourne-sphere/mail';
 import { createHmac } from 'node:crypto';
 import { ConflictException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -172,7 +173,8 @@ export class CommentsService {
       postId: row.postId,
       postTitle,
       displayName: row.displayName,
-      email: this.encryption.decrypt(row.privateEmailEncrypted, 'comment'),
+      // Masked; the address itself is a separate permissioned, recorded read.
+      email: maskEmail(this.encryption.decrypt(row.privateEmailEncrypted, 'comment')),
       originalText: row.originalText,
       publicText: row.publicText,
       redactionReason: row.redactionReason,
@@ -185,5 +187,27 @@ export class CommentsService {
       version: row.version,
       createdAt: row.createdAt.toISOString(),
     };
+  }
+
+  /**
+   * The visitor's own address, for the one record being acted on. Kept out of
+   * the list, permissioned separately and recorded, so that reading a queue
+   * does not read everyone's contact details (SRS MON 001).
+   */
+  async revealEmail(id: string, actor: AdminPrincipal, ctx: RequestContext): Promise<string | null> {
+    const db = await this.database.client();
+    const row = await db.comment.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException({ code: 'NOT_FOUND', message: 'No such record' });
+    await this.audit.record({
+      action: 'comment.email.reveal',
+      actorAdminId: actor.id,
+      targetType: 'comment',
+      targetId: id,
+      metadata: { postId: row.postId },
+      requestId: ctx.requestId,
+      ipAddress: ctx.ip,
+      userAgent: ctx.userAgent,
+    });
+    return row.privateEmailEncrypted ? this.encryption.decrypt(row.privateEmailEncrypted, 'comment') : null;
   }
 }

@@ -79,6 +79,14 @@ export class EnquiriesAdminController {
     return { data: await this.enquiries.get(id) };
   }
 
+  @RequirePermissions('community.contacts.view')
+  @Get(':id/contact')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Reveal the visitor’s contact details. Every reveal is recorded (SRS ENQ 007).' })
+  async contact(@Param('id') id: string, @CurrentAdmin() admin: AdminPrincipal, @Req() req: AuthenticatedRequest) {
+    return { data: await this.enquiries.revealContact(id, admin, ctxOf(req)) };
+  }
+
   @RequirePermissions('enquiries.manage')
   @Patch(':id')
   @HttpCode(200)

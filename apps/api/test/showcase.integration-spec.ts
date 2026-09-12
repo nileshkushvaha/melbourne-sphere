@@ -133,7 +133,7 @@ describe('Testimonials and partners (integration)', () => {
 
   it('records an activity event for every mutation in both modules', async () => {
     const db = testDatabase();
-    const testimonial = (await createTestimonial().expect(201)).body.data.id as string;
+    await createTestimonial().expect(201);
     const partner = (await createPartner().expect(201)).body.data.id as string;
     await agent().delete(`/api/v1/admin/partners/${partner}`).set('Origin', ORIGIN).set('Cookie', cookie).expect(204);
 

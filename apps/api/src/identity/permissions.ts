@@ -97,6 +97,11 @@ export const PERMISSIONS = {
   'website.faqs.update': { label: 'Edit FAQs', description: 'Edit frequently asked questions and their display order', module: 'Website' },
   'website.faqs.publish': { label: 'Publish FAQs', description: 'Publish and unpublish frequently asked questions', module: 'Website' },
   'website.faqs.delete': { label: 'Delete FAQs', description: 'Delete frequently asked questions', module: 'Website' },
+  'community.contacts.view': {
+    label: 'Reveal visitor contact details',
+    description: 'Reveal the email address or phone number a visitor gave with an enquiry, review, comment or abuse report. Every reveal is recorded.',
+    module: 'Community',
+  },
   'website.alerts.view': { label: 'View service alerts', description: 'View service alerts', module: 'Website' },
   'website.alerts.create': { label: 'Create service alerts', description: 'Create service alerts', module: 'Website' },
   'website.alerts.update': { label: 'Edit service alerts', description: 'Edit service alerts, their severity, display window and order', module: 'Website' },

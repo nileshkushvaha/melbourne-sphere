@@ -3249,6 +3249,30 @@
         ]
       }
     },
+    "/api/v1/admin/reviews/{id}/email": {
+      "get": {
+        "operationId": "ReviewsAdminController_reviewerEmail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Reveal the reviewer’s private address. Every reveal is recorded.",
+        "tags": [
+          "admin-reviews"
+        ]
+      }
+    },
     "/api/v1/admin/reviews/{id}": {
       "get": {
         "operationId": "ReviewsAdminController_get",
@@ -3437,6 +3461,30 @@
         "summary": "Replace or restore the published text; the original and rating are never changed",
         "tags": [
           "admin-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/reports/{id}/reporter-email": {
+      "get": {
+        "operationId": "ReportsAdminController_reporterEmail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Reveal the reporter’s address. Every reveal is recorded (SRS REP 001).",
+        "tags": [
+          "admin-reports"
         ]
       }
     },
@@ -3847,6 +3895,30 @@
           }
         },
         "summary": "Change the handling status (independent of delivery)",
+        "tags": [
+          "admin-enquiries"
+        ]
+      }
+    },
+    "/api/v1/admin/enquiries/{id}/contact": {
+      "get": {
+        "operationId": "EnquiriesAdminController_contact",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Reveal the visitor’s contact details. Every reveal is recorded (SRS ENQ 007).",
         "tags": [
           "admin-enquiries"
         ]
@@ -5326,6 +5398,30 @@
           }
         },
         "summary": "List comments (status, post, reported)",
+        "tags": [
+          "admin-comments"
+        ]
+      }
+    },
+    "/api/v1/admin/comments/{id}/email": {
+      "get": {
+        "operationId": "CommentsAdminController_commenterEmail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Reveal the commenter’s private address. Every reveal is recorded.",
         "tags": [
           "admin-comments"
         ]

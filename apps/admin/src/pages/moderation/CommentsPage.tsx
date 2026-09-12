@@ -7,6 +7,7 @@ import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { blogApi } from '@/api/blog';
+import { RevealContact } from '@/components/RevealContact';
 import { RemoteSelect } from '@/components/RemoteSelect';
 import { useListParams } from '@/shared/useListParams';
 import { useBusy } from '@/shared/useBusy';
@@ -146,7 +147,7 @@ export function CommentsPage() {
                 />
               )}
               <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
-                Contact: {comment.email} · acknowledged {comment.acknowledgedVersion}
+                Contact: <RevealContact masked={comment.email} reveal={() => api.revealCommentEmail(comment.id)} /> · acknowledged {comment.acknowledgedVersion}
                 {comment.moderationReason ? ` · reason: ${comment.moderationReason}` : ''}
               </Typography.Paragraph>
             </div>

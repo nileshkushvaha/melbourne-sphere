@@ -36,6 +36,9 @@ export interface ReviewListQuery {
 /** Review moderation and abuse reports; the API enforces `reviews.moderate` and `reports.manage`. */
 export function moderationApi(client: HttpClient = httpClient) {
   return {
+    revealReviewEmail: (id: string) => client.request<{ data: { email: string | null } }>(`/admin/reviews/${encodeURIComponent(id)}/email`).then((r) => r.data.data.email),
+    revealCommentEmail: (id: string) => client.request<{ data: { email: string | null } }>(`/admin/comments/${encodeURIComponent(id)}/email`).then((r) => r.data.data.email),
+    revealReporterEmail: (id: string) => client.request<{ data: { email: string | null } }>(`/admin/reports/${encodeURIComponent(id)}/reporter-email`).then((r) => r.data.data.email),
     listReviews: (query: ReviewListQuery = {}, signal?: AbortSignal) => client.request<{ data: AdminReview[]; meta: CollectionMeta }>('/admin/reviews', { query: enabledFilters(query), signal }).then((r) => r.data),
     decide: (id: string, decision: ReviewDecision, body: { expectedVersion: number; reason?: string }) =>
       client.request<{ data: AdminReview }>(`/admin/reviews/${encodeURIComponent(id)}/${decision}`, { method: 'POST', body }).then((r) => r.data.data),

@@ -8,6 +8,7 @@ import { errorMessage, useAsync } from '@/shared/useAsync';
 import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
 import { useBusy } from '@/shared/useBusy';
 import { businessesApi } from '@/api/businesses';
+import { RevealContact } from '@/components/RevealContact';
 import { RemoteSelect } from '@/components/RemoteSelect';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -117,8 +118,14 @@ export function EnquiriesPage() {
               <Typography.Paragraph strong>{enquiry.subject}</Typography.Paragraph>
               <Typography.Paragraph style={{ whiteSpace: 'pre-line' }}>{enquiry.message}</Typography.Paragraph>
               <Typography.Paragraph type="secondary">
-                From {enquiry.name} · {enquiry.email}
-                {enquiry.phone ? ` · ${enquiry.phone}` : ''} · acknowledged {enquiry.acknowledgedVersion}
+                From {enquiry.name} · <RevealContact masked={enquiry.email} reveal={() => api.revealContact(enquiry.id).then((contact) => contact.email)} />
+                {enquiry.phone ? (
+                  <>
+                    {' · '}
+                    <RevealContact masked={enquiry.phone} what="phone number" reveal={() => api.revealContact(enquiry.id).then((contact) => contact.phone)} />
+                  </>
+                ) : null}{' '}
+                · acknowledged {enquiry.acknowledgedVersion}
                 {enquiry.lastError ? ` · last error: ${enquiry.lastError}` : ''}
                 {enquiry.suppressionReason ? ` · suppressed: ${enquiry.suppressionReason}` : ''}
               </Typography.Paragraph>

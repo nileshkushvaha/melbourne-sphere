@@ -172,7 +172,8 @@ describe('Reviews, moderation and abuse reports (integration)', () => {
     await agent().get('/api/v1/admin/reviews').expect(401);
     await admin(agent().get('/api/v1/admin/reviews'), readerCookie).expect(403);
     const list = await admin(agent().get(`/api/v1/admin/reviews?status=pending&businessId=${businessId}`)).expect(200);
-    expect(list.body.data[0]).toMatchObject({ status: 'pending', businessName: 'Review Test Cafe', email: expect.stringContaining('@') });
+    // Enough of the address to tell two reviewers apart, and no more.
+    expect(list.body.data[0]).toMatchObject({ status: 'pending', businessName: 'Review Test Cafe', email: expect.stringContaining('\u2022') });
     const target = list.body.data.find((r: { id: string }) => r.id === reviewId);
     expect(target).toBeTruthy();
 
@@ -212,6 +213,13 @@ describe('Reviews, moderation and abuse reports (integration)', () => {
     const restored = await admin(agent().patch(`/api/v1/admin/reviews/${reviewId}/redaction`)).send({ expectedVersion: redacted.body.data.version, publicText: null, reason: 'Restored after review' }).expect(200);
     expect(restored.body.data.publicText).toBeNull();
     expect((await agent().get(`/api/v1/businesses/${businessId}/reviews`).expect(200)).body.data[0].redacted).toBe(false);
+
+    // The reviewer's whole address needs its own permission, and is recorded.
+    const db = testDatabase();
+    await admin(agent().get(`/api/v1/admin/reviews/${reviewId}/email`), readerCookie).expect(403);
+    const revealed = await admin(agent().get(`/api/v1/admin/reviews/${reviewId}/email`)).expect(200);
+    expect(revealed.body.data.email).toBe('jo@example.com');
+    expect(await db.auditLog.count({ where: { action: 'review.email.reveal', targetId: reviewId } })).toBe(1);
   });
 
   it('handles abuse reports without disclosing targets or reporters', async () => {
@@ -230,7 +238,10 @@ describe('Reviews, moderation and abuse reports (integration)', () => {
     await agent().get('/api/v1/admin/reports').expect(401);
     await admin(agent().get('/api/v1/admin/reports'), readerCookie).expect(403);
     const list = await admin(agent().get('/api/v1/admin/reports?status=open')).expect(200);
-    expect(list.body.data[0]).toMatchObject({ targetType: 'review', reviewId, commentId: null, reason: 'privacy', reporterEmail: 'reporter@example.com', targetStatus: 'approved' });
+    // The queue shows a masked address; the whole one is a separate, recorded step.
+    expect(list.body.data[0]).toMatchObject({ targetType: 'review', reviewId, commentId: null, reason: 'privacy', targetStatus: 'approved' });
+    expect(list.body.data[0].reporterEmail).not.toBe('reporter@example.com');
+    expect(list.body.data[0].reporterEmail).toMatch(/@example\.com$/);
     const reportId = list.body.data[0].id;
     const investigating = await admin(agent().post(`/api/v1/admin/reports/${reportId}/investigate`)).send({ expectedVersion: list.body.data[0].version }).expect(200);
     expect(investigating.body.data.status).toBe('investigating');
@@ -242,6 +253,11 @@ describe('Reviews, moderation and abuse reports (integration)', () => {
     await admin(agent().post(`/api/v1/admin/reports/${reportId}/resolve`)).send({ expectedVersion: resolved.body.data.version, outcome: 'remove' }).expect(409);
     const audit = (await db.auditLog.findMany({ where: { targetType: 'abuse_report' }, orderBy: { createdAt: 'asc' } })).map((a) => a.action);
     expect(audit).toEqual(['report.submitted', 'report.investigate', 'report.resolve']);
+
+    await admin(agent().get(`/api/v1/admin/reports/${reportId}/reporter-email`), readerCookie).expect(403);
+    const reporter = await admin(agent().get(`/api/v1/admin/reports/${reportId}/reporter-email`)).expect(200);
+    expect(reporter.body.data.email).toBe('reporter@example.com');
+    expect(await db.auditLog.count({ where: { action: 'report.email.reveal', targetId: reportId } })).toBe(1);
   });
   it('publishes the approved rating distribution, zeros included, and nothing before the first approval', async () => {
     // The listing under test is a second business so the other specs' state

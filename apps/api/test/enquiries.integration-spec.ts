@@ -188,9 +188,22 @@ describe('Enquiries, outbox and delivery states (integration)', () => {
   it('restricts admin views and separates handling from delivery state', async () => {
     await agent().get('/api/v1/admin/enquiries').expect(401);
     const readerList = await admin(agent().get('/api/v1/admin/enquiries'), readerCookie).expect(200);
-    expect(readerList.body.data[0]).toMatchObject({ email: 'jo@example.com', deliveryStatus: 'queued', handlingStatus: 'new' });
+    // The list carries a masked address: enough to tell two enquiries apart,
+    // without putting every visitor's address on screen — and without
+    // decrypting twenty of them because someone opened a page (SRS ENQ 007).
+    expect(readerList.body.data[0]).toMatchObject({ deliveryStatus: 'queued', handlingStatus: 'new' });
+    expect(readerList.body.data[0].email).not.toBe('jo@example.com');
+    expect(readerList.body.data[0].email).toMatch(/@example\.com$/);
     // Read-only role cannot change anything.
     await admin(agent().patch(`/api/v1/admin/enquiries/${enquiryId}`), readerCookie).send({ expectedVersion: 1, handlingStatus: 'inProgress' }).expect(403);
+
+    // The whole address is a separate permission, and reading it is recorded.
+    await admin(agent().get(`/api/v1/admin/enquiries/${enquiryId}/contact`), readerCookie).expect(403);
+    const revealed = await admin(agent().get(`/api/v1/admin/enquiries/${enquiryId}/contact`)).expect(200);
+    expect(revealed.body.data.email).toBe('jo@example.com');
+    const db = testDatabase();
+    const entry = await db.auditLog.findFirst({ where: { action: 'enquiry.contact.reveal', targetId: enquiryId } });
+    expect(entry, 'revealing a visitor address must leave a record of who did it').toBeTruthy();
 
     const filtered = await admin(agent().get(`/api/v1/admin/enquiries?handlingStatus=new&businessId=${routable}`)).expect(200);
     expect(filtered.body.meta.total).toBeGreaterThan(0);
@@ -210,6 +223,8 @@ describe('Enquiries, outbox and delivery states (integration)', () => {
     expect(retried.body.data).toMatchObject({ deliveryStatus: 'queued', lastError: null });
     expect(await db.outboxEvent.count({ where: { resourceId: enquiryId, status: 'pending' } })).toBe(1);
     const actions = (await db.auditLog.findMany({ where: { targetId: enquiryId }, orderBy: { createdAt: 'asc' } })).map((a) => a.action);
-    expect(actions).toEqual(['enquiry.accepted', 'enquiry.handling', 'enquiry.retry']);
+    // The reveal in the previous test is part of this enquiry's history: looking
+    // at a visitor's address is an event in its own right, not a side effect.
+    expect(actions).toEqual(['enquiry.accepted', 'enquiry.contact.reveal', 'enquiry.handling', 'enquiry.retry']);
   });
 });

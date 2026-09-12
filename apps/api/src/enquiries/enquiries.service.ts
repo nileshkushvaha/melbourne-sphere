@@ -1,3 +1,4 @@
+import { maskEmail } from '@melbourne-sphere/mail';
 import { createHmac } from 'node:crypto';
 import { ConflictException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -28,6 +29,16 @@ const stale = () => new ConflictException({ code: 'STALE_VERSION', message: 'Thi
  * commit together, so an accepted request is never lost; delivery itself is the
  * worker's job and the receipt never claims it happened.
  */
+
+/**
+ * A phone number with only its last digits left, for a list that must show
+ * which enquiry is which without putting the number on screen.
+ */
+function maskPhone(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  return digits.length <= 3 ? '\u2022\u2022\u2022' : `\u2022\u2022\u2022 ${digits.slice(-3)}`;
+}
+
 @Injectable()
 export class EnquiriesService {
   private readonly secret: string;
@@ -176,8 +187,12 @@ export class EnquiriesService {
       businessId: row.businessId,
       businessName,
       name: row.name,
-      email: this.encryption.decrypt(row.emailEncrypted, 'enquiry'),
-      phone: row.phoneEncrypted ? this.encryption.decrypt(row.phoneEncrypted, 'enquiry') : null,
+      // Masked, not decrypted: a list of twenty enquiries used to put twenty
+      // visitors' addresses on screen whether or not anyone needed one, and
+      // materialise them in plaintext whether or not anyone looked. The whole
+      // address is a separate, permissioned, recorded request (SRS ENQ 007).
+      email: maskEmail(this.encryption.decrypt(row.emailEncrypted, 'enquiry')),
+      phone: row.phoneEncrypted ? maskPhone(this.encryption.decrypt(row.phoneEncrypted, 'enquiry')) : null,
       subject: row.subject,
       message: row.message,
       handlingStatus: row.handlingStatus,
@@ -190,6 +205,33 @@ export class EnquiriesService {
       acknowledgedVersion: row.acknowledgedVersion,
       version: row.version,
       createdAt: row.createdAt.toISOString(),
+    };
+  }
+
+  /**
+   * The whole contact detail, for the one record being acted on.
+   *
+   * Separate from the list because a moderator reading a queue does not need
+   * anyone's address, and the recording is the point: without it there is no
+   * answer to "who looked at this person's email" (SRS ENQ 007, MON 001).
+   */
+  async revealContact(id: string, actor: AdminPrincipal, ctx: RequestContext): Promise<{ email: string; phone: string | null }> {
+    const db = await this.database.client();
+    const row = await db.enquiry.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException({ code: 'NOT_FOUND', message: 'No such enquiry' });
+    await this.audit.record({
+      action: 'enquiry.contact.reveal',
+      actorAdminId: actor.id,
+      targetType: 'enquiry',
+      targetId: id,
+      metadata: { businessId: row.businessId },
+      requestId: ctx.requestId,
+      ipAddress: ctx.ip,
+      userAgent: ctx.userAgent,
+    });
+    return {
+      email: this.encryption.decrypt(row.emailEncrypted, 'enquiry'),
+      phone: row.phoneEncrypted ? this.encryption.decrypt(row.phoneEncrypted, 'enquiry') : null,
     };
   }
 }

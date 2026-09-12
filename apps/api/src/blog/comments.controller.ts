@@ -24,6 +24,14 @@ export class CommentsAdminController {
     return this.comments.adminList(query);
   }
 
+  @RequirePermissions('community.contacts.view')
+  @Get(':id/email')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Reveal the commenter’s private address. Every reveal is recorded.' })
+  async commenterEmail(@Param('id') id: string, @CurrentAdmin() admin: AdminPrincipal, @Req() req: AuthenticatedRequest) {
+    return { data: { email: await this.comments.revealEmail(id, admin, ctxOf(req)) } };
+  }
+
   @RequirePermissions('comments.moderate')
   @Get(':id')
   @Header('Cache-Control', 'no-store')

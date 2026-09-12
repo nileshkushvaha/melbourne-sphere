@@ -1,3 +1,4 @@
+import { maskEmail } from '@melbourne-sphere/mail';
 import { createHmac } from 'node:crypto';
 import { ConflictException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -241,7 +242,8 @@ export class ReviewsService {
       businessId: row.businessId,
       businessName,
       displayName: row.displayName,
-      email: this.encryption.decrypt(row.privateEmailEncrypted, row.businessId),
+      // Masked; the address itself is a separate permissioned, recorded read.
+      email: maskEmail(this.encryption.decrypt(row.privateEmailEncrypted, row.businessId)),
       rating: row.rating,
       originalText: row.originalText,
       publicText: row.publicText,
@@ -256,5 +258,27 @@ export class ReviewsService {
       version: row.version,
       createdAt: row.createdAt.toISOString(),
     };
+  }
+
+  /**
+   * The visitor's own address, for the one record being acted on. Kept out of
+   * the list, permissioned separately and recorded, so that reading a queue
+   * does not read everyone's contact details (SRS MON 001).
+   */
+  async revealEmail(id: string, actor: AdminPrincipal, ctx: RequestContext): Promise<string | null> {
+    const db = await this.database.client();
+    const row = await db.review.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException({ code: 'NOT_FOUND', message: 'No such record' });
+    await this.audit.record({
+      action: 'review.email.reveal',
+      actorAdminId: actor.id,
+      targetType: 'review',
+      targetId: id,
+      metadata: { businessId: row.businessId },
+      requestId: ctx.requestId,
+      ipAddress: ctx.ip,
+      userAgent: ctx.userAgent,
+    });
+    return row.privateEmailEncrypted ? this.encryption.decrypt(row.privateEmailEncrypted, row.businessId) : null;
   }
 }

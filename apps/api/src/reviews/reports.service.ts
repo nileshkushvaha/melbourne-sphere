@@ -1,3 +1,4 @@
+import { maskEmail } from '@melbourne-sphere/mail';
 import { ConflictException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import type { AbuseReport, Prisma } from '@melbourne-sphere/database';
 import { AuditService } from '../audit/audit.service.js';
@@ -124,7 +125,8 @@ export class ReportsService {
       parentId: review?.businessId ?? comment?.postId ?? '',
       reason: row.reason,
       details: row.details,
-      reporterEmail: row.reporterEmailEncrypted ? this.encryption.decrypt(row.reporterEmailEncrypted, row.reviewId ?? row.commentId ?? '') : null,
+      // Masked; the address itself is a separate permissioned, recorded read.
+      reporterEmail: row.reporterEmailEncrypted ? maskEmail(this.encryption.decrypt(row.reporterEmailEncrypted, row.reviewId ?? row.commentId ?? '')) : null,
       targetSnapshot: row.targetSnapshot,
       status: row.status,
       outcome: row.outcome,
@@ -135,5 +137,27 @@ export class ReportsService {
       createdAt: row.createdAt.toISOString(),
       resolvedAt: row.resolvedAt?.toISOString() ?? null,
     };
+  }
+
+  /**
+   * The visitor's own address, for the one record being acted on. Kept out of
+   * the list, permissioned separately and recorded, so that reading a queue
+   * does not read everyone's contact details (SRS MON 001).
+   */
+  async revealReporterEmail(id: string, actor: AdminPrincipal, ctx: RequestContext): Promise<string | null> {
+    const db = await this.database.client();
+    const row = await db.abuseReport.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException({ code: 'NOT_FOUND', message: 'No such record' });
+    await this.audit.record({
+      action: 'report.email.reveal',
+      actorAdminId: actor.id,
+      targetType: 'abuse_report',
+      targetId: id,
+      metadata: { reason: row.reason },
+      requestId: ctx.requestId,
+      ipAddress: ctx.ip,
+      userAgent: ctx.userAgent,
+    });
+    return row.reporterEmailEncrypted ? this.encryption.decrypt(row.reporterEmailEncrypted, row.reviewId ?? row.commentId ?? '') : null;
   }
 }

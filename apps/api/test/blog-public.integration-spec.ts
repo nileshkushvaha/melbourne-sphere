@@ -147,7 +147,10 @@ describe('Public blog and comments (integration)', () => {
     await agent().get('/api/v1/admin/comments').expect(401);
     const list = await admin(agent().get(`/api/v1/admin/comments?status=pending&postId=${ids.main}`)).expect(200);
     expect(list.body.meta.total).toBe(2);
-    expect(list.body.data[0]).toMatchObject({ postTitle: 'Where to find laneway coffee', email: 'sam@example.com' });
+    // The queue identifies a commenter without printing their address in full.
+    expect(list.body.data[0]).toMatchObject({ postTitle: 'Where to find laneway coffee' });
+    expect(list.body.data[0].email).not.toBe('sam@example.com');
+    expect(list.body.data[0].email).toMatch(/@example\.com$/);
     const target = list.body.data.find((c: { id: string }) => c.id === ids.comment)!;
     await admin(agent().post(`/api/v1/admin/comments/${ids.comment}/reject`)).send({ expectedVersion: target.version }).expect(400); // reason required
     const approved = await admin(agent().post(`/api/v1/admin/comments/${ids.comment}/approve`)).send({ expectedVersion: target.version }).expect(200);
@@ -186,5 +189,10 @@ describe('Public blog and comments (integration)', () => {
     expect(adminList.body.data[0]).toMatchObject({ targetType: 'comment', commentId: ids.comment, reviewId: null, targetStatus: 'approved' });
     const flagged = await admin(agent().get('/api/v1/admin/comments?reported=true')).expect(200);
     expect(flagged.body.meta.total).toBe(1);
+
+    // Reading a commenter's whole address is its own step, and it is recorded.
+    const revealed = await admin(agent().get(`/api/v1/admin/comments/${ids.comment}/email`)).expect(200);
+    expect(revealed.body.data.email).toBe('sam@example.com');
+    expect(await db.auditLog.count({ where: { action: 'comment.email.reveal', targetId: ids.comment } })).toBe(1);
   });
 });

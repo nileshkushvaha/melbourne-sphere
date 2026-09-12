@@ -97,6 +97,14 @@ export class ReviewsAdminController {
     return this.reviews.adminList(query);
   }
 
+  @RequirePermissions('community.contacts.view')
+  @Get(':id/email')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Reveal the reviewer’s private address. Every reveal is recorded.' })
+  async reviewerEmail(@Param('id') id: string, @CurrentAdmin() admin: AdminPrincipal, @Req() req: AuthenticatedRequest) {
+    return { data: { email: await this.reviews.revealEmail(id, admin, ctxOf(req)) } };
+  }
+
   @RequirePermissions('reviews.moderate')
   @Get(':id')
   @Header('Cache-Control', 'no-store')
@@ -148,6 +156,14 @@ export class ReviewsAdminController {
 @Controller('admin/reports')
 export class ReportsAdminController {
   constructor(private readonly reports: ReportsService) {}
+
+  @RequirePermissions('community.contacts.view')
+  @Get(':id/reporter-email')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Reveal the reporter’s address. Every reveal is recorded (SRS REP 001).' })
+  async reporterEmail(@Param('id') id: string, @CurrentAdmin() admin: AdminPrincipal, @Req() req: AuthenticatedRequest) {
+    return { data: { email: await this.reports.revealReporterEmail(id, admin, ctxOf(req)) } };
+  }
 
   @RequirePermissions('reports.manage')
   @Get()

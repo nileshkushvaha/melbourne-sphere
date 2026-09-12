@@ -9,6 +9,7 @@ import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
 import { useBusy } from '@/shared/useBusy';
 import { businessesApi } from '@/api/businesses';
+import { RevealContact } from '@/components/RevealContact';
 import { RemoteSelect } from '@/components/RemoteSelect';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -155,7 +156,7 @@ export function ReviewsPage() {
                 <Alert type="info" showIcon message="Published text differs from the original" description={<span style={{ whiteSpace: 'pre-line' }}>{review.publicText}{review.redactionReason ? ` — ${review.redactionReason}` : ''}</span>} />
               )}
               <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
-                Contact: {review.email} · acknowledged {review.acknowledgedVersion}
+                Contact: <RevealContact masked={review.email} reveal={() => api.revealReviewEmail(review.id)} /> · acknowledged {review.acknowledgedVersion}
                 {review.moderationReason ? ` · reason: ${review.moderationReason}` : ''}
               </Typography.Paragraph>
             </div>

@@ -1046,6 +1046,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/reviews/{id}/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reveal the reviewer’s private address. Every reveal is recorded. */
+        get: operations["ReviewsAdminController_reviewerEmail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/reviews/{id}": {
         parameters: {
             query?: never;
@@ -1125,6 +1142,23 @@ export interface paths {
         head?: never;
         /** Replace or restore the published text; the original and rating are never changed */
         patch: operations["ReviewsAdminController_redact"];
+        trace?: never;
+    };
+    "/api/v1/admin/reports/{id}/reporter-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reveal the reporter’s address. Every reveal is recorded (SRS REP 001). */
+        get: operations["ReportsAdminController_reporterEmail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/admin/reports": {
@@ -1258,6 +1292,23 @@ export interface paths {
         head?: never;
         /** Change the handling status (independent of delivery) */
         patch: operations["EnquiriesAdminController_update"];
+        trace?: never;
+    };
+    "/api/v1/admin/enquiries/{id}/contact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reveal the visitor’s contact details. Every reveal is recorded (SRS ENQ 007). */
+        get: operations["EnquiriesAdminController_contact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/admin/enquiries/{id}/retry": {
@@ -1727,6 +1778,23 @@ export interface paths {
         };
         /** List comments (status, post, reported) */
         get: operations["CommentsAdminController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/comments/{id}/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reveal the commenter’s private address. Every reveal is recorded. */
+        get: operations["CommentsAdminController_commenterEmail"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7374,6 +7442,25 @@ export interface operations {
             };
         };
     };
+    ReviewsAdminController_reviewerEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     ReviewsAdminController_get: {
         parameters: {
             query?: never;
@@ -7492,6 +7579,25 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AdminReviewDto"];
                 };
+            };
+        };
+    };
+    ReportsAdminController_reporterEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -7705,6 +7811,25 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AdminEnquiryDto"];
                 };
+            };
+        };
+    };
+    EnquiriesAdminController_contact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -8547,6 +8672,25 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AdminCommentDto"][];
                 };
+            };
+        };
+    };
+    CommentsAdminController_commenterEmail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

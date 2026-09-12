@@ -68,6 +68,7 @@ export const PERMISSION = {
   websiteAlertsPublish: 'website.alerts.publish',
   websiteAlertsDelete: 'website.alerts.delete',
   websiteTestimonialsView: 'website.testimonials.view',
+  communityContactsView: 'community.contacts.view',
   websiteTestimonialsCreate: 'website.testimonials.create',
   websiteTestimonialsUpdate: 'website.testimonials.update',
   websiteTestimonialsPublish: 'website.testimonials.publish',

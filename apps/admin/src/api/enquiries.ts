@@ -21,6 +21,7 @@ export interface EnquiryListQuery {
 /** Enquiry handling (SRS ENQ 007); the API enforces `enquiries.read` and `enquiries.manage`. */
 export function enquiriesApi(client: HttpClient = httpClient) {
   return {
+    revealContact: (id: string) => client.request<{ data: { email: string; phone: string | null } }>(`/admin/enquiries/${encodeURIComponent(id)}/contact`).then((r) => r.data.data),
     list: (query: EnquiryListQuery = {}, signal?: AbortSignal) => client.request<{ data: AdminEnquiry[]; meta: CollectionMeta }>('/admin/enquiries', { query: queryParams(query), signal }).then((r) => r.data),
     setHandling: (id: string, body: { expectedVersion: number; handlingStatus: HandlingStatus }) =>
       client.request<{ data: AdminEnquiry }>(`/admin/enquiries/${encodeURIComponent(id)}`, { method: 'PATCH', body }).then((r) => r.data.data),
