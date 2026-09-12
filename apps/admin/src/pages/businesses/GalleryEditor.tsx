@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Alert, App, Button, Input, Space, Tag, Typography } from 'antd';
+import { Alert, App, Button, Input, Space, Typography } from 'antd';
 import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
 import { MediaPicker } from '@/components/MediaPicker';
 import { mediaApi, type GalleryEntry, type MediaAsset } from '@/api/media';
 import { isApiError } from '@/api/errors';
 import { errorMessage, useAsync } from '@/shared/useAsync';
-import { SectionCard } from '@/components/ui';
+import { Pill, SectionCard } from '@/components/ui';
 import { brand } from '@/config/theme';
 
 interface Item {
@@ -103,7 +103,7 @@ export function GalleryEditor({ businessId, businessVersion, readOnly, onSaved }
                 <Input aria-label={`Caption for image ${index + 1}`} placeholder="Caption (optional)" value={item.caption ?? ''} maxLength={255} disabled={readOnly} onChange={(e) => update(current.map((i, x) => (x === index ? { ...i, caption: e.target.value || null } : i)))} />
               </Space>
               <Space direction="vertical" size={4}>
-                {item.isCover ? <Tag color="green">Cover</Tag> : <Button size="small" disabled={readOnly} onClick={() => update(current.map((i, x) => ({ ...i, isCover: x === index })))}>Make cover</Button>}
+                {item.isCover ? <Pill tone="positive">Cover</Pill> : <Button size="small" disabled={readOnly} onClick={() => update(current.map((i, x) => ({ ...i, isCover: x === index })))}>Make cover</Button>}
                 <Space>
                   <Button size="small" icon={<ArrowUpOutlined aria-hidden="true" />} aria-label={`Move image ${index + 1} up`} disabled={readOnly || index === 0} onClick={() => move(index, -1)} />
                   <Button size="small" icon={<ArrowDownOutlined aria-hidden="true" />} aria-label={`Move image ${index + 1} down`} disabled={readOnly || index === current.length - 1} onClick={() => move(index, 1)} />

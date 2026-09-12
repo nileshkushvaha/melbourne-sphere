@@ -12,6 +12,10 @@
     "./alerts": {
       "types": "./dist/alerts.d.ts",
       "default": "./dist/alerts.js"
+    },
+    "./seo-routes": {
+      "types": "./dist/seo-routes.d.ts",
+      "default": "./dist/seo-routes.js"
     }
   },
   "scripts": {

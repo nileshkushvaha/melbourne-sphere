@@ -1,13 +1,17 @@
-import { Alert, App, Button, Input, Select, Space, Table } from 'antd';
+import { App, Button, Input, Select, Space, Table } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { faqsApi, type Faq } from '@/api/website';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
-import { PageHeader, TableCard, StatusTag } from '@/components/ui';
+import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
+import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+
+/** The parameters that narrow this list; everything else is sort or page. */
+const FILTERS = ['q', 'status'] as const;
 
 /**
  * Frequently asked questions (SRS 1.2 FAQ 002). Publication is an explicit
@@ -18,21 +22,14 @@ export function FaqsPage() {
   useDocumentTitle('FAQs');
   const { can } = useCapabilities();
   const { message, modal } = App.useApp();
-  const [params, setParams] = useSearchParams();
-  const page = Number(params.get('page') ?? '1') || 1;
-  const status = (params.get('status') ?? '') as '' | 'draft' | 'published';
-  const q = params.get('q') ?? '';
+  const list = useListParams(FILTERS);
+  const page = list.page;
+  const status = (list.get('status') ?? '') as '' | 'draft' | 'published';
+  const q = list.get('q') ?? '';
 
   const navigate = useNavigate();
   const [state, reload] = useAsync(() => faqsApi.list({ page, pageSize: 20, status: status || undefined, q: q || undefined }), [page, status, q]);
 
-  const setParam = (key: string, value: string | undefined) => {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    if (key !== 'page') next.delete('page');
-    setParams(next);
-  };
 
   const setPublished = (record: Faq, published: boolean) => {
     modal.confirm({
@@ -95,30 +92,32 @@ export function FaqsPage() {
               allowClear
               value={status || undefined}
               style={{ width: 160 }}
-              onChange={(value?: string) => setParam('status', value)}
+              onChange={(value?: string) => list.set('status', value)}
               options={[
                 { value: 'draft', label: 'Draft' },
                 { value: 'published', label: 'Published' },
               ]}
             />
-            <Input.Search aria-label="Search questions" placeholder="Search questions" allowClear defaultValue={q} style={{ width: 280 }} onSearch={(value) => setParam('q', value.trim() || undefined)} />
+            <Input.Search aria-label="Search questions" placeholder="Search questions" allowClear defaultValue={q} style={{ width: 280 }} onSearch={(value) => list.set('q', value.trim() || undefined)} />
           </>
         }
       >
 
-      {state.status === 'error' && (
-        <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />
-      )}
+      {state.status === 'error' && <ErrorState message={state.message} reference={state.reference} onRetry={reload} />}
 
       <Table<Faq>
         rowKey="id"
         size="small"
         loading={state.status === 'loading'}
         dataSource={state.status === 'ready' ? state.data.data : []}
-        locale={{ emptyText: 'No questions yet. Add the ones people actually ask.' }}
+        locale={{
+          emptyText: (
+            <ListEmpty state={state} filtered={list.filtered} noun="questions" onClear={list.clear} empty={{ title: 'No questions yet', description: 'Add the questions people actually ask, in the order they should appear.', action: can(PERMISSION.websiteFaqsCreate) ? { label: 'New question', onClick: () => navigate('/website/faqs/new') } : undefined }} />
+          ),
+        }}
         pagination={
           state.status === 'ready'
-            ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => setParam('page', String(p)) }
+            ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) }
             : false
         }
         scroll={{ x: 900 }}

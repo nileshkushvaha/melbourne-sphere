@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Alert, App, Button, Form, Input, Modal, Select, Space, Table, Typography } from 'antd';
 import { useOnError } from '@refinedev/core';
-import { useSearchParams } from 'react-router';
 import { DELIVERY_STATUSES, HANDLING_STATUSES, enquiriesApi, type AdminEnquiry, type DeliveryStatus, type HandlingStatus } from '@/api/enquiries';
 import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
-import { PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
+import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
+import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { useCapabilities } from '@/auth/access-control';
 import { PERMISSION } from '@/auth/permissions';
@@ -22,6 +22,9 @@ const DELIVERY_LABELS: Record<DeliveryStatus, string> = {
 };
 const HANDLING_LABELS: Record<HandlingStatus, string> = { new: 'new', inProgress: 'in progress', closed: 'closed' };
 
+/** The parameters that narrow this list; everything else is sort or page. */
+const FILTERS = ['deliveryStatus', 'handlingStatus'] as const;
+
 /**
  * Enquiry handling (SRS ENQ 004/007). Delivery state and handling state are
  * shown separately: closing an enquiry never claims the email arrived.
@@ -33,22 +36,15 @@ export function EnquiriesPage() {
   const { mutate: onAuthError } = useOnError();
   const { can } = useCapabilities();
   const canManage = can(PERMISSION.enquiriesManage);
-  const [params, setParams] = useSearchParams();
-  const handlingStatus = (params.get('handlingStatus') as HandlingStatus | null) ?? undefined;
-  const deliveryStatus = (params.get('deliveryStatus') as DeliveryStatus | null) ?? undefined;
-  const page = Number(params.get('page') ?? '1') || 1;
+  const list = useListParams(FILTERS);
+  const handlingStatus = (list.get('handlingStatus') as HandlingStatus | null) ?? undefined;
+  const deliveryStatus = (list.get('deliveryStatus') as DeliveryStatus | null) ?? undefined;
+  const page = list.page;
   const [state, reload] = useAsync((signal) => api.list({ handlingStatus, deliveryStatus, page, pageSize: 20 }, signal), [handlingStatus, deliveryStatus, page]);
   const [retrying, setRetrying] = useState<AdminEnquiry | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [form] = Form.useForm<{ reason: string }>();
 
-  const setParam = (key: string, value: string | undefined) => {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    if (key !== 'page') next.delete('page');
-    setParams(next);
-  };
 
   const changeHandling = async (enquiry: AdminEnquiry, next: HandlingStatus) => {
     try {
@@ -84,19 +80,19 @@ export function EnquiriesPage() {
       <TableCard
         toolbar={
           <>
-            <Select aria-label="Filter by handling status" allowClear placeholder="Any handling status" value={handlingStatus} onChange={(v) => setParam('handlingStatus', v)} style={{ width: 200 }} options={HANDLING_STATUSES.map((s) => ({ value: s, label: HANDLING_LABELS[s] }))} />
-            <Select aria-label="Filter by delivery status" allowClear placeholder="Any delivery status" value={deliveryStatus} onChange={(v) => setParam('deliveryStatus', v)} style={{ width: 220 }} options={DELIVERY_STATUSES.map((s) => ({ value: s, label: DELIVERY_LABELS[s] }))} />
+            <Select aria-label="Filter by handling status" allowClear placeholder="Any handling status" value={handlingStatus} onChange={(v) => list.set('handlingStatus', v)} style={{ width: 200 }} options={HANDLING_STATUSES.map((s) => ({ value: s, label: HANDLING_LABELS[s] }))} />
+            <Select aria-label="Filter by delivery status" allowClear placeholder="Any delivery status" value={deliveryStatus} onChange={(v) => list.set('deliveryStatus', v)} style={{ width: 220 }} options={DELIVERY_STATUSES.map((s) => ({ value: s, label: DELIVERY_LABELS[s] }))} />
           </>
         }
       >
-      {state.status === 'error' && <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />}
+      {state.status === 'error' && <ErrorState message={state.message} reference={state.reference} onRetry={reload} />}
       <Table<AdminEnquiry>
         // Colour is on the rows that still need a decision, not on every row.
         rowClassName={(row) => statusRowClass(row.deliveryStatus)}
         rowKey="id"
         loading={state.status === 'loading'}
         dataSource={state.status === 'ready' ? state.data.data : []}
-        pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => setParam('page', String(p)) } : false}
+        pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) } : false}
         scroll={{ x: 1100 }}
         expandable={{
           expandIcon: expandToggle((enquiry) => `the enquiry from ${enquiry.name}`),
@@ -153,7 +149,11 @@ export function EnquiriesPage() {
               ) : null,
           },
         ]}
-        locale={{ emptyText: state.status === 'ready' ? 'No enquiries match.' : ' ' }}
+        locale={{
+          emptyText: (
+            <ListEmpty state={state} filtered={list.filtered} noun="enquiries" onClear={list.clear} empty={{ title: 'No enquiries yet', description: 'Enquiries visitors send to a business listing are recorded here.' }} />
+          ),
+        }}
       />
       </TableCard>
       <Modal open={retrying !== null} title="Re-queue this delivery" okText="Retry delivery" onOk={() => void submitRetry()} onCancel={() => setRetrying(null)} destroyOnHidden>

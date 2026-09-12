@@ -1062,8 +1062,12 @@ model Post {
   categoryId       String
   coverMediaId     String?
   coverAlt         String?        @db.VarChar(255)
+  /// Used when the article is shared, if it should differ from the cover image.
+  ogImageMediaId   String?
   seoTitle         String?        @db.VarChar(180)
   seoDescription   String?        @db.VarChar(300)
+  /// Comma-separated; recorded for internal search and reporting.
+  seoKeywords      String?        @db.VarChar(255)
   commentsEnabled  Boolean        @default(true)
   /// UTC instant; the admin picks it in Australia/Melbourne (SRS BLOG 002).
   scheduledAt      DateTime?      @db.DateTime(3)
@@ -1076,6 +1080,7 @@ model Post {
 
   author   Author       @relation(fields: [authorId], references: [id], onDelete: Restrict)
   cover    MediaAsset?  @relation("PostCover", fields: [coverMediaId], references: [id], onDelete: Restrict)
+  ogImage  MediaAsset?  @relation("PostShareImage", fields: [ogImageMediaId], references: [id], onDelete: Restrict)
   category BlogCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   tags     PostTag[]
   comments Comment[]
@@ -1189,6 +1194,8 @@ model MediaAsset {
   variants   MediaVariant[]
   businesses BusinessMedia[]
   coverOf    Post[]          @relation("PostCover")
+  shareImageOf Post[]        @relation("PostShareImage")
+  pageShareImageOf StaticPage[] @relation("StaticPageShareImage")
   testimonials Testimonial[]  @relation("TestimonialMedia")
   partners   PartnerOrganisation[] @relation("PartnerMedia")
   authorOf   Author[]        @relation("AuthorImage")
@@ -1469,6 +1476,10 @@ model StaticPage {
   bodyFormat       PostBodyFormat   @default(html)
   seoTitle         String?          @db.VarChar(180)
   seoDescription   String?          @db.VarChar(300)
+  /// Comma-separated; recorded for internal search and reporting.
+  seoKeywords      String?          @db.VarChar(255)
+  /// Used when the page is shared; falls back to the site-wide share image.
+  ogImageMediaId   String?
   status           StaticPageStatus @default(draft)
   /// Contact routing address for the Contact page; validated before activation.
   contactEmail     String?          @db.VarChar(255)
@@ -1478,7 +1489,8 @@ model StaticPage {
   createdAt        DateTime         @default(now()) @db.DateTime(3)
   updatedAt        DateTime         @updatedAt @db.DateTime(3)
 
-  updatedBy AdminUser? @relation("StaticPageEditor", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
+  updatedBy AdminUser?  @relation("StaticPageEditor", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
+  ogImage   MediaAsset? @relation("StaticPageShareImage", fields: [ogImageMediaId], references: [id], onDelete: Restrict)
 
   @@index([status])
   @@map("static_pages")

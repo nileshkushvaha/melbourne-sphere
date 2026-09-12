@@ -1,12 +1,16 @@
-import { Alert, Button, Input, Select, Table } from 'antd';
+import { Button, Input, Select, Table } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { Link, useSearchParams } from 'react-router';
+import { Link } from 'react-router';
 import { adminsApi, type AdminListItem } from '@/api/admins';
 import { authorizationApi } from '@/api/authorization';
-import { PageHeader, StatusTag, TableCard } from '@/components/ui';
+import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
+import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+
+/** The parameters that narrow this list; everything else is sort or page. */
+const FILTERS = ['q', 'status'] as const;
 
 /**
  * Administrators (SRS ADM 003, RBAC 004). Inviting happens on its own route so
@@ -15,10 +19,10 @@ import { useDocumentTitle } from '@/shared/useDocumentTitle';
  */
 export function AdministratorsPage() {
   useDocumentTitle('Administrators');
-  const [params, setParams] = useSearchParams();
-  const page = Number(params.get('page') ?? '1') || 1;
-  const q = params.get('q') ?? '';
-  const status = (params.get('status') as AdminListItem['status'] | null) ?? undefined;
+  const list = useListParams(FILTERS);
+  const page = list.page;
+  const q = list.get('q') ?? '';
+  const status = (list.get('status') as AdminListItem['status'] | null) ?? undefined;
   const [state, reload] = useAsync(() => adminsApi.list({ page, pageSize: 20, q: q || undefined, status, sort: 'createdAt', order: 'desc' }), [page, q, status]);
   // Roles arrive on an account as keys; a reader recognises the name they chose,
   // so the list is fetched once to translate them. A key that no longer resolves
@@ -26,13 +30,6 @@ export function AdministratorsPage() {
   const [rolesState] = useAsync((signal) => authorizationApi().listRoles({ page: 1, pageSize: 50 }, signal), []);
   const roleName = (key: string) => (rolesState.status === 'ready' ? rolesState.data.data.find((role) => role.key === key)?.name : undefined) ?? key;
 
-  const setParam = (key: string, value: string | undefined) => {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    if (key !== 'page') next.delete('page');
-    setParams(next);
-  };
 
   return (
     <div>
@@ -51,18 +48,18 @@ export function AdministratorsPage() {
       <TableCard
         toolbar={
           <>
-            <Input.Search aria-label="Search by email or name" placeholder="Search email or name" allowClear defaultValue={q} onSearch={(v) => setParam('q', v.trim() || undefined)} style={{ width: 280 }} />
-            <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => setParam('status', v)} style={{ width: 160 }} options={[{ value: 'invited', label: 'Invited' }, { value: 'active', label: 'Active' }, { value: 'disabled', label: 'Disabled' }]} />
+            <Input.Search aria-label="Search by email or name" placeholder="Search email or name" allowClear defaultValue={q} onSearch={(v) => list.set('q', v.trim() || undefined)} style={{ width: 280 }} />
+            <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => list.set('status', v)} style={{ width: 160 }} options={[{ value: 'invited', label: 'Invited' }, { value: 'active', label: 'Active' }, { value: 'disabled', label: 'Disabled' }]} />
           </>
         }
       >
-      {state.status === 'error' && <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />}
+      {state.status === 'error' && <ErrorState message={state.message} reference={state.reference} onRetry={reload} />}
       <Table<AdminListItem>
         rowKey="id"
         className="ms-scroll-table"
         loading={state.status === 'loading'}
         dataSource={state.status === 'ready' ? state.data.data : []}
-        pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => setParam('page', String(p)) } : false}
+        pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) } : false}
         scroll={{ x: 720 }}
         columns={[
           { title: 'Name', dataIndex: 'displayName', render: (v: string, r) => <Link to={`/admins/${r.id}`}>{v}</Link> },
@@ -72,7 +69,11 @@ export function AdministratorsPage() {
           { title: 'Two-step sign-in', dataIndex: 'totpEnabled', width: 150, render: (v: boolean) => (v ? 'On' : 'Off') },
           { title: 'Last signed in', dataIndex: 'lastLoginAt', width: 190, render: (v: string | null) => (v ? formatDateTime(v) : 'Never') },
         ]}
-        locale={{ emptyText: state.status === 'ready' ? 'No administrators match.' : ' ' }}
+        locale={{
+          emptyText: (
+            <ListEmpty state={state} filtered={list.filtered} noun="administrators" onClear={list.clear} empty={{ title: 'No administrators yet', description: 'Invite someone to give them access to this admin.' }} />
+          ),
+        }}
       />
       </TableCard>
     </div>

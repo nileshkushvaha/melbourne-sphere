@@ -27,6 +27,8 @@ const USAGE_INCLUDE = {
   variants: true,
   businesses: { include: { business: { select: { name: true } } } },
   coverOf: { select: { id: true, title: true } },
+  shareImageOf: { select: { id: true, title: true } },
+  pageShareImageOf: { select: { id: true, title: true } },
   authorOf: { select: { id: true, displayName: true } },
   testimonials: { select: { id: true, displayName: true } },
   partners: { select: { id: true, name: true } },
@@ -38,6 +40,10 @@ function relationUsages(row: UsageRow): MediaAssetDto['usages'] {
   return [
     ...row.businesses.map((b) => ({ kind: 'business' as const, id: b.businessId, label: b.business.name })),
     ...row.coverOf.map((p) => ({ kind: 'post' as const, id: p.id, label: p.title })),
+    // A share image is a separate use: removing the cover must not make an
+    // image look unused while an article still shares it.
+    ...row.shareImageOf.map((p) => ({ kind: 'post' as const, id: p.id, label: `${p.title} (share image)` })),
+    ...row.pageShareImageOf.map((p) => ({ kind: 'page' as const, id: p.id, label: `${p.title} (share image)` })),
     ...row.authorOf.map((a) => ({ kind: 'author' as const, id: a.id, label: a.displayName })),
     ...row.testimonials.map((t) => ({ kind: 'testimonial' as const, id: t.id, label: t.displayName })),
     ...row.partners.map((p) => ({ kind: 'partner' as const, id: p.id, label: p.name })),

@@ -30,7 +30,11 @@ export async function generateMetadata({ params }: PageProps<'/blog/[slug]'>): P
       publishedTime: post.firstPublishedAt,
       modifiedTime: post.updatedAt,
       authors: [post.author.displayName],
-      ...(post.cover.length > 0 ? { images: [(post.cover.find((v) => v.kind === 'hero') ?? post.cover.at(-1))!.url] } : {}),
+      // The article's own share image when it sets one, otherwise its cover —
+      // the same order the editor is shown.
+      ...(post.shareImage ?? post.cover.length > 0
+        ? { images: [(post.shareImage ?? post.cover.find((v) => v.kind === 'hero') ?? post.cover.at(-1))!.url] }
+        : {}),
     },
   };
 }

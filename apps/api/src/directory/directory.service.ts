@@ -33,6 +33,39 @@ const include = {
   localArea: { select: { id: true, name: true, active: true } },
 } as const;
 
+/** What the list screen needs; the detail view keeps the fuller `include`. */
+const listInclude = {
+  address: { select: { suburb: true, line1: true, postcode: true } },
+  primaryCategory: { select: { id: true, name: true, active: true } },
+  localArea: { select: { id: true, name: true, active: true } },
+} as const;
+
+/** A placement covering this instant: started, and not yet ended (SRS DIR 007). */
+const currentPlacement = (now: Date) => ({ startsAt: { lte: now }, OR: [{ endsAt: null }, { endsAt: { gt: now } }] });
+
+/**
+ * What an administrator's search matches: the name and address they can see, and
+ * the phone when they type digits. `contains` is a scan; the directory is bounded
+ * at 10,000 listings (SRS DIR 005) and the admin list is always paginated.
+ */
+function searchTerms(term: string): Prisma.BusinessWhereInput[] {
+  const digits = term.replace(/\D/g, '');
+  return [
+    { name: { contains: term } },
+    { slug: { contains: term } },
+    { address: { suburb: { contains: term } } },
+    ...(/^\d{4}$/.test(term) ? [{ address: { postcode: term } } as Prisma.BusinessWhereInput] : []),
+    // A phone is stored normalised, so a search has to be normalised to match it.
+    ...(digits.length >= 4 ? [{ normalizedPhone: { contains: digits } } as Prisma.BusinessWhereInput] : []),
+  ];
+}
+
+/** The part of a listing the publication rule looks at (SRS BUS 002). */
+type BlockerFields = Pick<Business, 'name' | 'slug' | 'description' | 'eligibilityVerifiedAt' | 'contentRightsReviewedAt' | 'publicPhone' | 'publicEmail' | 'publicUrl' | 'privateEnquiryEmailEncrypted'> & {
+  primaryCategory: Pick<Category, 'active'>;
+  localArea: Pick<LocalArea, 'active'>;
+};
+
 const stale = () => new ConflictException({ code: 'STALE_VERSION', message: 'This listing was changed by someone else. Reload and try again.' });
 const notFound = () => new NotFoundException({ code: 'NOT_FOUND', message: 'Listing not found' });
 const validation = (field: string, message: string) => new HttpException({ code: 'VALIDATION_ERROR', message, fields: { [field]: [message] } }, HttpStatus.BAD_REQUEST);
@@ -74,19 +107,37 @@ export class DirectoryService {
     private readonly redirects: RedirectsService,
     private readonly cache: CacheService,
   ) {
-    // Taxonomy terms in use by active (non-archived) listings cannot be deactivated (SRS BUS 007).
-    this.taxonomy.referencedByActiveListings = async (kind, id) => {
+    // Taxonomy terms in use by active (non-archived) listings cannot be
+    // deactivated (SRS BUS 007), and the admin lists show the same number. One
+    // implementation answers both, grouped so a page of terms costs a fixed
+    // number of queries.
+    this.taxonomy.referenceCounts = async (kind, ids) => {
+      const counts = new Map<string, number>();
+      if (ids.length === 0) return counts;
       const db = await this.database.client();
       const active: BusinessStatus[] = ['draft', 'published'];
+      const add = (id: string | null, n: number) => {
+        if (id) counts.set(id, (counts.get(id) ?? 0) + n);
+      };
       if (kind === 'category') {
+        // A listing has one primary category and any number of additional
+        // ones; both count as using the term.
         const [primary, secondary] = await Promise.all([
-          db.business.count({ where: { primaryCategoryId: id, status: { in: active } } }),
-          db.businessCategory.count({ where: { categoryId: id, business: { status: { in: active } } } }),
+          db.business.groupBy({ by: ['primaryCategoryId'], where: { primaryCategoryId: { in: ids }, status: { in: active } }, _count: { _all: true } }),
+          db.businessCategory.groupBy({ by: ['categoryId'], where: { categoryId: { in: ids }, business: { status: { in: active } } }, _count: { _all: true } }),
         ]);
-        return primary + secondary;
+        for (const row of primary) add(row.primaryCategoryId, row._count._all);
+        for (const row of secondary) add(row.categoryId, row._count._all);
+        return counts;
       }
-      if (kind === 'service') return db.businessService.count({ where: { serviceId: id, business: { status: { in: active } } } });
-      return db.business.count({ where: { localAreaId: id, status: { in: active } } });
+      if (kind === 'service') {
+        const rows = await db.businessService.groupBy({ by: ['serviceId'], where: { serviceId: { in: ids }, business: { status: { in: active } } }, _count: { _all: true } });
+        for (const row of rows) add(row.serviceId, row._count._all);
+        return counts;
+      }
+      const rows = await db.business.groupBy({ by: ['localAreaId'], where: { localAreaId: { in: ids }, status: { in: active } }, _count: { _all: true } });
+      for (const row of rows) add(row.localAreaId, row._count._all);
+      return counts;
     };
   }
 
@@ -130,7 +181,8 @@ export class DirectoryService {
     };
   }
 
-  private blockersFor(row: BusinessRow): string[] {
+  /** Takes only the fields the rule reads, so the list can ask without loading a full record. */
+  private blockersFor(row: BlockerFields): string[] {
     return publicationBlockers({
       name: row.name,
       slug: row.slug,
@@ -165,34 +217,68 @@ export class DirectoryService {
 
   async list(q: ListBusinessesQueryDto): Promise<{ data: BusinessListItemDto[]; meta: ReturnType<typeof collectionMeta> }> {
     const db = await this.database.client();
+    const now = new Date();
     const where: Prisma.BusinessWhereInput = {
       ...(q.status ? { status: q.status } : {}),
       ...(q.categoryId ? { OR: [{ primaryCategoryId: q.categoryId }, { categories: { some: { categoryId: q.categoryId } } }] } : {}),
       ...(q.localAreaId ? { localAreaId: q.localAreaId } : {}),
-      ...(q.q ? { AND: [{ OR: [{ name: { contains: q.q } }, { slug: { contains: q.q } }] }] } : {}),
+      ...(q.q ? { AND: [{ OR: searchTerms(q.q) }] } : {}),
+      // "Featured" means a placement covering this moment, the same window the
+      // public block uses (SRS DIR 007) — not merely "has ever been featured".
+      ...(q.featured ? { featuredPlacements: { [q.featured === 'yes' ? 'some' : 'none']: currentPlacement(now) } } : {}),
     };
     const [total, rows] = await Promise.all([
       db.business.count({ where }),
-      db.business.findMany({ where, include, orderBy: [{ [q.sort]: q.order }, { id: 'asc' }], skip: skipFor(q.page, q.pageSize), take: q.pageSize }),
+      // Only what the list shows or computes from: the gallery, links, services
+      // and secondary categories are a detail-screen concern.
+      db.business.findMany({
+        where,
+        include: listInclude,
+        orderBy: [{ [q.sort]: q.order }, { id: 'asc' }],
+        skip: skipFor(q.page, q.pageSize),
+        take: q.pageSize,
+      }),
     ]);
-    const data = await Promise.all(
-      rows.map(async (row) => ({
-        id: row.id,
-        name: row.name,
-        slug: row.slug,
-        status: row.status,
-        primaryCategoryId: row.primaryCategoryId,
-        primaryCategoryName: row.primaryCategory.name,
-        localAreaId: row.localAreaId,
-        localAreaName: row.localArea.name,
-        publishable: this.blockersFor(row).length === 0,
-        duplicateFlagged: (await this.findDuplicates(row.id, row.normalizedName, row.normalizedPhone, row.address)).length > 0,
-        firstPublishedAt: row.firstPublishedAt?.toISOString() ?? null,
-        updatedAt: row.updatedAt.toISOString(),
-        version: row.version,
-      })),
-    );
+
+    // Two queries for the whole page rather than two per row: a page of 20 used
+    // to cost 20 duplicate lookups on its own.
+    const [duplicateNames, featuredIds] = await Promise.all([this.duplicateNamesAmong(rows), this.featuredNow(rows.map((row) => row.id), now)]);
+
+    const data = rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      status: row.status,
+      primaryCategoryId: row.primaryCategoryId,
+      primaryCategoryName: row.primaryCategory.name,
+      localAreaId: row.localAreaId,
+      localAreaName: row.localArea.name,
+      suburb: row.address?.suburb ?? null,
+      featuredNow: featuredIds.has(row.id),
+      publishable: this.blockersFor(row).length === 0,
+      duplicateFlagged: row.status !== 'archived' && duplicateNames.has(row.normalizedName),
+      firstPublishedAt: row.firstPublishedAt?.toISOString() ?? null,
+      updatedAt: row.updatedAt.toISOString(),
+      version: row.version,
+    }));
     return { data, meta: collectionMeta(q.page, q.pageSize, total) };
+  }
+
+  /** Normalised names that more than one live listing uses, for the page's rows. */
+  private async duplicateNamesAmong(rows: { normalizedName: string; status: string }[]): Promise<Set<string>> {
+    const names = [...new Set(rows.filter((row) => row.status !== 'archived').map((row) => row.normalizedName))];
+    if (names.length === 0) return new Set();
+    const db = await this.database.client();
+    const counts = await db.business.groupBy({ by: ['normalizedName'], where: { normalizedName: { in: names }, status: { not: 'archived' } }, _count: { _all: true } });
+    return new Set(counts.filter((row) => row._count._all > 1).map((row) => row.normalizedName));
+  }
+
+  /** Which of these listings have a featured placement in force right now. */
+  private async featuredNow(ids: string[], now: Date): Promise<Set<string>> {
+    if (ids.length === 0) return new Set();
+    const db = await this.database.client();
+    const placements = await db.featuredPlacement.findMany({ where: { businessId: { in: ids }, ...currentPlacement(now) }, select: { businessId: true } });
+    return new Set(placements.map((placement) => placement.businessId));
   }
 
   async get(id: string, actor: AdminPrincipal): Promise<BusinessDto> {

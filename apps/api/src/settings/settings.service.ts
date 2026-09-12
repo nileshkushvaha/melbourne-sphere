@@ -5,8 +5,11 @@ import { DatabaseService } from '../database/database.service.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import { DEFAULT_HOME_SETTINGS, HOME_SETTINGS_KEY, validateHomeSettings, type HomeSettings } from './home-settings.js';
 import { DEFAULT_GENERAL_SETTINGS, GENERAL_SETTINGS_KEY, SOCIAL_PLATFORMS, validateGeneralSettings, type GeneralSettings } from './general-settings.js';
+import { DEFAULT_SEO_SETTINGS, EMPTY_ROUTE_SEO, SEO_SETTINGS_KEY, validateSeoSettings, type SeoSettings } from './seo-settings.js';
+import type { UpdateSeoSettingsDto } from './dto/seo-settings.dto.js';
+import type { PublicRouteSeoDto } from './dto/general-settings.dto.js';
 import { MediaService } from '../media/media.service.js';
-import { CACHE_TAGS } from '@melbourne-sphere/domain';
+import { CACHE_TAGS, SEO_ROUTES } from '@melbourne-sphere/domain';
 import { SettingsStoreService } from './settings-store.service.js';
 import { WEBSITE_GROUP } from './registry.js';
 import type { HomeSettingsRecordDto, PublicHeroSlideDto, PublicHomeDto, UpdateHomeSettingsDto } from './dto/settings.dto.js';
@@ -213,6 +216,34 @@ export class SettingsService {
       headerTopBarEnabled: value.headerTopBarEnabled,
       social: SOCIAL_PLATFORMS.flatMap((platform) => (value.social[platform] ? [{ platform, url: value.social[platform]! }] : [])),
       footer: { copyrightText: value.copyrightText, text: value.footerText },
+      // The public site renders these into the pages that have no record of
+      // their own; sharing the shell payload keeps it to one cached request.
+      seo: await this.publicRouteSeo(),
+    };
+  }
+
+  /** Route overrides with their share images resolved, for the public site. */
+  private async publicRouteSeo(): Promise<PublicRouteSeoDto> {
+    const stored = await this.storedSeo();
+    const images = await this.resolveRouteShareImages(stored.value.routes);
+    const routes = Object.fromEntries(
+      SEO_ROUTES.map((route) => {
+        const entry = stored.value.routes[route.key] ?? EMPTY_ROUTE_SEO;
+        return [route.key, { ...entry, ogImage: images[route.key] ?? null }];
+      }),
+    );
+    return {
+      routes,
+      twitterCard: stored.value.twitterCard,
+      // These are public identifiers — visible in the page source of any site
+      // that uses them — and the site only acts on the analytics ones after a
+      // visitor has accepted them (see the consent banner in apps/web).
+      googleSiteVerification: stored.value.verification.googleSearchConsole,
+      analytics: {
+        googleAnalyticsId: stored.value.verification.googleAnalyticsId,
+        googleTagManagerId: stored.value.verification.googleTagManagerId,
+        facebookPixelId: stored.value.verification.facebookPixelId,
+      },
     };
   }
 
@@ -224,5 +255,80 @@ export class SettingsService {
   /** Exposed for tests and future settings keys. */
   static defaults(): HomeSettings {
     return { ...DEFAULT_HOME_SETTINGS, heroPhrases: [...DEFAULT_HOME_SETTINGS.heroPhrases] };
+  }
+
+  // ---- search metadata for routes with no record of their own (SEO 001) ------
+
+  /**
+   * Stored SEO settings, or the defaults. Like general settings, a document
+   * that no longer validates is reported and replaced rather than allowed to
+   * break every public page's metadata.
+   */
+  private async storedSeo(): Promise<{ value: SeoSettings; version: number; updatedAt: string; updatedByAdminId: string | null }> {
+    const row = await this.store.readDocument(WEBSITE_GROUP, SEO_SETTINGS_KEY);
+    if (row.data === null) return { value: structuredClone(DEFAULT_SEO_SETTINGS), version: 0, updatedAt: row.updatedAt, updatedByAdminId: null };
+    const { errors, value } = validateSeoSettings(row.data);
+    if (Object.keys(errors).length > 0) {
+      this.logger.warn('stored SEO settings failed validation; serving defaults');
+      return { value: structuredClone(DEFAULT_SEO_SETTINGS), version: row.version, updatedAt: row.updatedAt, updatedByAdminId: row.updatedByAdminId };
+    }
+    return { value, version: row.version, updatedAt: row.updatedAt, updatedByAdminId: row.updatedByAdminId };
+  }
+
+  /** The document as the admin edits it, with every declared route present. */
+  async seoSettings() {
+    const stored = await this.storedSeo();
+    const routes: SeoSettings['routes'] = {};
+    for (const route of SEO_ROUTES) routes[route.key] = stored.value.routes[route.key] ?? { ...EMPTY_ROUTE_SEO };
+    const shareImages = await this.resolveRouteShareImages(routes);
+    return { routes, twitterCard: stored.value.twitterCard, verification: stored.value.verification, shareImages, version: stored.version, updatedAt: stored.updatedAt, updatedByAdminId: stored.updatedByAdminId };
+  }
+
+  /** The resolved share image per route, so the admin can show what it chose. */
+  private async resolveRouteShareImages(routes: SeoSettings['routes']): Promise<Record<string, SettingsImageDto>> {
+    const entries = await Promise.all(
+      Object.entries(routes)
+        .filter(([, entry]) => entry.ogImageMediaId !== null)
+        .map(async ([key, entry]) => [key, await this.media.publicImageRefOfKind(entry.ogImageMediaId, 'hero')] as const),
+    );
+    return Object.fromEntries(entries.filter((entry): entry is readonly [string, SettingsImageDto] => entry[1] !== null));
+  }
+
+  async updateSeoSettings(input: UpdateSeoSettingsDto, actor: AdminPrincipal, ctx: RequestContext) {
+    const { errors, value } = validateSeoSettings(input);
+    if (Object.keys(errors).length > 0) throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Some settings are invalid', fields: errors }, HttpStatus.BAD_REQUEST);
+
+    // A share image must exist and be processed, or the route would advertise a
+    // broken image to every social platform that fetches it.
+    const mediaErrors: Record<string, string[]> = {};
+    for (const [key, entry] of Object.entries(value.routes)) {
+      if (!entry.ogImageMediaId) continue;
+      if (!(await this.media.publicImageRefOfKind(entry.ogImageMediaId, 'hero'))) mediaErrors[`routes.${key}.ogImageMediaId`] = ['That image does not exist or is still being processed'];
+    }
+    if (Object.keys(mediaErrors).length > 0) throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Some settings are invalid', fields: mediaErrors }, HttpStatus.BAD_REQUEST);
+
+    const row = await this.store.writeDocument({
+      group: WEBSITE_GROUP,
+      key: SEO_SETTINGS_KEY,
+      data: value as unknown as Prisma.InputJsonObject,
+      expectedVersion: input.expectedVersion,
+      actor,
+      ctx,
+      audit: {
+        action: 'settings.seo.update',
+        // What changed shape, never the wording itself.
+        metadata: {
+          routesWithOverrides: Object.values(value.routes).filter((entry) => entry.metaTitle || entry.metaDescription || entry.metaKeywords || entry.canonicalUrl || entry.ogImageMediaId || entry.robots !== 'default').length,
+          twitterCard: value.twitterCard,
+          // Which tools are connected, never the identifiers themselves.
+          connectedTools: Object.values(value.verification).filter(Boolean).length,
+        },
+      },
+      // Metadata is rendered into every one of these pages.
+      tags: [CACHE_TAGS.settings],
+    });
+    const routes: SeoSettings['routes'] = {};
+    for (const route of SEO_ROUTES) routes[route.key] = value.routes[route.key] ?? { ...EMPTY_ROUTE_SEO };
+    return { routes, twitterCard: value.twitterCard, verification: value.verification, shareImages: await this.resolveRouteShareImages(routes), version: row.version, updatedAt: row.updatedAt, updatedByAdminId: row.updatedByAdminId };
   }
 }

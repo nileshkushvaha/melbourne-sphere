@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { staticPageMetadata } from '@/lib/route-seo';
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
@@ -90,12 +91,7 @@ const MELBOURNE_POINTS = [
 export async function generateMetadata(): Promise<Metadata> {
   const page = await fetchStaticPage('about');
   if (!page) return { title: 'About', robots: { index: false } };
-  return {
-    title: page.seoTitle ?? page.title,
-    description: page.seoDescription ?? undefined,
-    alternates: { canonical: '/about' },
-    openGraph: { type: 'website', url: '/about', title: page.seoTitle ?? page.title, description: page.seoDescription ?? undefined },
-  };
+  return staticPageMetadata(page, '/about');
 }
 
 /**

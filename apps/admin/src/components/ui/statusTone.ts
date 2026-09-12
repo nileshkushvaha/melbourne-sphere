@@ -22,6 +22,8 @@ const TONES: Record<string, { tone: Tone; label?: string }> = {
   providerAccepted: { tone: 'positive', label: 'accepted by provider' },
   suppressed: { tone: 'neutral' },
   succeeded: { tone: 'positive' },
+  success: { tone: 'positive', label: 'succeeded' },
+  failure: { tone: 'critical', label: 'refused' },
   draft: { tone: 'neutral' },
   inactive: { tone: 'neutral' },
   invited: { tone: 'progress' },

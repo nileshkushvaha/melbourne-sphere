@@ -2,21 +2,29 @@ import { useState } from 'react';
 import { Alert, App, Button, Form, Input, Modal, Select, Space, Table, Tooltip, Typography } from 'antd';
 import { WarningOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
-import { useSearchParams } from 'react-router';
 import { REVIEW_STATUSES, moderationApi, type AdminComment, type ReviewDecision, type ReviewStatus } from '@/api/moderation';
 import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
-import { PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
+import { useListParams } from '@/shared/useListParams';
+import { useBusy } from '@/shared/useBusy';
+import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { expandToggle } from '@/components/ui/expandToggle';
 import { brand } from '@/config/theme';
 
-const DECISIONS: Record<ReviewDecision, { title: string; hint: string; danger?: boolean; reasonRequired: boolean }> = {
-  approve: { title: 'Publish this comment?', hint: 'It appears under the article immediately.', reasonRequired: false },
-  reject: { title: 'Reject this comment?', hint: 'It stays hidden. The original text is kept for the record.', danger: true, reasonRequired: true },
-  spam: { title: 'Mark this comment as spam?', hint: 'Same as rejecting, but recorded as spam for abuse signals.', danger: true, reasonRequired: true },
+/**
+ * One entry per decision, so the dialog's title, its button and the message
+ * afterwards can never describe different actions — they are read from the same
+ * row rather than assembled from nested conditions at three call sites.
+ */
+const DECISIONS: Record<ReviewDecision, { title: string; hint: string; confirm: string; done: string; danger?: boolean; reasonRequired: boolean }> = {
+  approve: { title: 'Publish this comment?', hint: 'It appears under the article immediately.', confirm: 'Publish comment', done: 'Comment published.', reasonRequired: false },
+  reject: { title: 'Reject this comment?', hint: 'It stays hidden. The original text is kept for the record.', confirm: 'Reject comment', done: 'Comment rejected.', danger: true, reasonRequired: true },
+  spam: { title: 'Mark this comment as spam?', hint: 'Same as rejecting, but recorded as spam for abuse signals.', confirm: 'Mark as spam', done: 'Comment marked as spam.', danger: true, reasonRequired: true },
 };
+
+const FILTERS = ['status', 'reported'] as const;
 
 /** Comment moderation (SRS COM 001): the same states and rules as reviews. */
 export function CommentsPage() {
@@ -24,24 +32,17 @@ export function CommentsPage() {
   const api = moderationApi();
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
-  const [params, setParams] = useSearchParams();
-  const status = (params.get('status') as ReviewStatus | null) ?? undefined;
-  const reported = params.get('reported') === 'true';
-  const page = Number(params.get('page') ?? '1') || 1;
+  const list = useListParams(FILTERS);
+  const status = list.get('status') as ReviewStatus | undefined;
+  const reported = list.get('reported') === 'true';
+  const page = list.page;
   const [state, reload] = useAsync((signal) => api.listComments({ status, reported: reported || undefined, page, pageSize: 20 }, signal), [status, reported, page]);
   const [pending, setPending] = useState<{ comment: AdminComment; decision: ReviewDecision } | null>(null);
   const [redacting, setRedacting] = useState<AdminComment | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
+  const [busy, run] = useBusy();
   const [decisionForm] = Form.useForm<{ reason?: string }>();
   const [redactForm] = Form.useForm<{ publicText: string; reason: string }>();
-
-  const setParam = (key: string, value: string | undefined) => {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    if (key !== 'page') next.delete('page');
-    setParams(next);
-  };
 
   const handleError = (error: unknown) => {
     if (isApiError(error) && error.kind === 'unauthorized') onAuthError(error);
@@ -49,37 +50,39 @@ export function CommentsPage() {
     else setDialogError(errorMessage(error));
   };
 
-  const submitDecision = async () => {
-    if (!pending) return;
-    setDialogError(null);
-    const values = await decisionForm.validateFields().catch(() => null);
-    if (!values) return;
-    try {
-      await api.decideComment(pending.comment.id, pending.decision, { expectedVersion: pending.comment.version, reason: values.reason || undefined });
-      message.success(`Comment ${pending.decision === 'approve' ? 'published' : pending.decision === 'reject' ? 'rejected' : 'marked as spam'}`);
-      setPending(null);
-      decisionForm.resetFields();
-      reload();
-    } catch (error) {
-      handleError(error);
-    }
-  };
+  const submitDecision = () =>
+    run(async () => {
+      if (!pending) return;
+      setDialogError(null);
+      const values = await decisionForm.validateFields().catch(() => null);
+      if (!values) return;
+      try {
+        await api.decideComment(pending.comment.id, pending.decision, { expectedVersion: pending.comment.version, reason: values.reason || undefined });
+        message.success(DECISIONS[pending.decision].done);
+        setPending(null);
+        decisionForm.resetFields();
+        reload();
+      } catch (error) {
+        handleError(error);
+      }
+    });
 
-  const submitRedaction = async () => {
-    if (!redacting) return;
-    setDialogError(null);
-    const values = await redactForm.validateFields().catch(() => null);
-    if (!values) return;
-    try {
-      await api.redactComment(redacting.id, { expectedVersion: redacting.version, publicText: values.publicText?.trim() ? values.publicText : null, reason: values.reason });
-      message.success('Published text updated');
-      setRedacting(null);
-      redactForm.resetFields();
-      reload();
-    } catch (error) {
-      handleError(error);
-    }
-  };
+  const submitRedaction = () =>
+    run(async () => {
+      if (!redacting) return;
+      setDialogError(null);
+      const values = await redactForm.validateFields().catch(() => null);
+      if (!values) return;
+      try {
+        await api.redactComment(redacting.id, { expectedVersion: redacting.version, publicText: values.publicText?.trim() ? values.publicText : null, reason: values.reason });
+        message.success('Published text updated.');
+        setRedacting(null);
+        redactForm.resetFields();
+        reload();
+      } catch (error) {
+        handleError(error);
+      }
+    });
 
   return (
     <div>
@@ -87,19 +90,19 @@ export function CommentsPage() {
       <TableCard
         toolbar={
           <>
-            <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => setParam('status', v)} style={{ width: 160 }} options={REVIEW_STATUSES.map((s) => ({ value: s, label: s }))} />
-            <Select aria-label="Filter by reports" allowClear placeholder="Any" value={reported ? 'reported' : undefined} onChange={(v) => setParam('reported', v ? 'true' : undefined)} style={{ width: 190 }} options={[{ value: 'reported', label: 'Has open reports' }]} />
+            <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => list.set('status', v)} style={{ width: 160 }} options={REVIEW_STATUSES.map((s) => ({ value: s, label: s }))} />
+            <Select aria-label="Filter by reports" allowClear placeholder="Any" value={reported ? 'reported' : undefined} onChange={(v) => list.set('reported', v ? 'true' : undefined)} style={{ width: 190 }} options={[{ value: 'reported', label: 'Has open reports' }]} />
           </>
         }
       >
-      {state.status === 'error' && <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />}
+      {state.status === 'error' && <ErrorState message={state.message} reference={state.reference} onRetry={reload} />}
       <Table<AdminComment>
         // Colour is on the rows that still need a decision, not on every row.
         rowClassName={(row) => statusRowClass(row.status)}
         rowKey="id"
         loading={state.status === 'loading'}
         dataSource={state.status === 'ready' ? state.data.data : []}
-        pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => setParam('page', String(p)) } : false}
+        pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: list.setPage } : false}
         scroll={{ x: 1000 }}
         expandable={{
           expandIcon: expandToggle((comment) => `the comment by ${comment.displayName}`),
@@ -145,10 +148,20 @@ export function CommentsPage() {
             ),
           },
         ]}
-        locale={{ emptyText: state.status === 'ready' ? 'No comments match.' : ' ' }}
+        locale={{
+          emptyText: (
+            <ListEmpty
+              state={state}
+              filtered={list.filtered}
+              noun="comments"
+              onClear={list.clear}
+              empty={{ title: 'No comments yet', description: <>Comments appear here as readers leave them on articles. None have been submitted.</> }}
+            />
+          ),
+        }}
       />
       </TableCard>
-      <Modal open={pending !== null} title={pending ? DECISIONS[pending.decision].title : ''} okText="Confirm" okButtonProps={{ danger: pending ? DECISIONS[pending.decision].danger : false }} onOk={() => void submitDecision()} onCancel={() => setPending(null)} destroyOnHidden>
+      <Modal open={pending !== null} title={pending ? DECISIONS[pending.decision].title : ''} okText={pending ? DECISIONS[pending.decision].confirm : 'Confirm'} okButtonProps={{ danger: pending ? DECISIONS[pending.decision].danger : false }} confirmLoading={busy} onOk={() => void submitDecision()} onCancel={() => setPending(null)} destroyOnHidden>
         {pending && <Typography.Paragraph>{DECISIONS[pending.decision].hint}</Typography.Paragraph>}
         {dialogError && <Alert type="error" showIcon role="alert" message={dialogError} style={{ marginBottom: 12 }} />}
         <Form form={decisionForm} layout="vertical" requiredMark={false}>
@@ -157,7 +170,7 @@ export function CommentsPage() {
           </Form.Item>
         </Form>
       </Modal>
-      <Modal open={redacting !== null} title="Edit the published text" okText="Save" onOk={() => void submitRedaction()} onCancel={() => setRedacting(null)} destroyOnHidden>
+      <Modal open={redacting !== null} title="Edit the published text" okText="Save published text" confirmLoading={busy} onOk={() => void submitRedaction()} onCancel={() => setRedacting(null)} destroyOnHidden>
         <Typography.Paragraph>The original comment is always kept. Clear the field to publish the original again.</Typography.Paragraph>
         {dialogError && <Alert type="error" showIcon role="alert" message={dialogError} style={{ marginBottom: 12 }} />}
         <Form form={redactForm} layout="vertical" requiredMark={false}>

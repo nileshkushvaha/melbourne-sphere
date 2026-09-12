@@ -5,6 +5,7 @@ import { CurrentAdmin, Public, RequirePermissions, type AuthenticatedRequest } f
 import { getRequestId } from '../common/request-id.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import { HomeSettingsRecordDto, PublicHomeDto, UpdateHomeSettingsDto } from './dto/settings.dto.js';
+import { SeoSettingsRecordDto, UpdateSeoSettingsDto } from './dto/seo-settings.dto.js';
 import { GeneralSettingsRecordDto, PublicSiteSettingsDto, UpdateGeneralSettingsDto } from './dto/general-settings.dto.js';
 import { SettingsService } from './settings.service.js';
 import { StaticPagesService } from './static-pages.service.js';
@@ -75,6 +76,25 @@ export class SettingsAdminController {
   @ApiOkResponse({ type: GeneralSettingsRecordDto })
   async putGeneral(@Body() body: UpdateGeneralSettingsDto, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest) {
     return { data: await this.settings.updateGeneralSettings(body, actor, ctxOf(req)) };
+  }
+
+  @RequirePermissions('settings.manage')
+  @Get('seo')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Search and social metadata for routes with no record of their own' })
+  @ApiOkResponse({ type: SeoSettingsRecordDto })
+  async getSeo() {
+    return { data: await this.settings.seoSettings() };
+  }
+
+  @RequirePermissions('settings.manage')
+  @Put('seo')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Replace the SEO settings (expectedVersion; audited)' })
+  @ApiOkResponse({ type: SeoSettingsRecordDto })
+  async putSeo(@Body() body: UpdateSeoSettingsDto, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest) {
+    return { data: await this.settings.updateSeoSettings(body, actor, ctxOf(req)) };
   }
 
   @RequirePermissions('settings.manage')

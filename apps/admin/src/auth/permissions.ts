@@ -133,6 +133,7 @@ export const ROUTE_PERMISSIONS: { path: string; permissions: PermissionCode[] }[
   { path: '/comments', permissions: [PERMISSION.commentsModerate] },
   { path: '/reports', permissions: [PERMISSION.reportsManage] },
   { path: '/settings/general', permissions: [PERMISSION.settingsManage] },
+  { path: '/settings/seo', permissions: [PERMISSION.settingsManage] },
   { path: '/settings', permissions: [PERMISSION.settingsManage] },
   { path: '/website/pages/new', permissions: [PERMISSION.settingsManage] },
   { path: '/website/pages/:slug', permissions: [PERMISSION.settingsManage] },

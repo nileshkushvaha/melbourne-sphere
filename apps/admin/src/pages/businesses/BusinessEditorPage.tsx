@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, App, Button, Col, Form, Input, InputNumber, List, Modal, Row, Select, Space, Switch, Typography } from 'antd';
+import { CheckCircleOutlined, CloseCircleOutlined, LinkOutlined } from '@ant-design/icons';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useInvalidate, useOnError, useOne } from '@refinedev/core';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -13,7 +14,9 @@ import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { BrandOptionLabel } from '@/components/BrandIcon';
 import { brandLabel } from '@/shared/brands';
-import { PageHeader, PageLoader, RecordMetadata, SectionCard, StatusTag, StickyActions } from '@/components/ui';
+import { DangerZone, PageHeader, PageLoader, RecordMetadata, SectionCard, StatusTag, StickyActions } from '@/components/ui';
+import { PermalinkField } from '@/components/PermalinkField';
+import { brand } from '@/config/theme';
 import { useUnsavedChanges } from '@/shared/useUnsavedChanges';
 import { useCapabilities } from '@/auth/access-control';
 import { PERMISSION } from '@/auth/permissions';
@@ -45,6 +48,21 @@ type FormValues = Omit<CreateBusinessInput, 'address' | 'contentRightsReviewed'>
   address?: { line1?: string; line2?: string | null; suburb?: string; postcode?: string; latitude?: number | null; longitude?: number | null };
   contentRightsReviewed?: boolean;
   links?: { kind: (typeof LINK_KINDS)[number]; url: string; label?: string | null }[];
+};
+
+/** Field names as the form labels them, for the error summary. */
+const FIELD_LABELS: Record<string, string> = {
+  name: 'the business name',
+  description: 'the description',
+  primaryCategoryId: 'the primary category',
+  localAreaId: 'the local area',
+  address: 'the address',
+  publicPhone: 'the public phone',
+  publicEmail: 'the public email',
+  publicUrl: 'the website',
+  privateEnquiryEmail: 'the enquiry address',
+  links: 'the social links',
+  slug: 'the web address',
 };
 
 const toForm = (b: BusinessRecord): FormValues => ({
@@ -113,10 +131,10 @@ export function BusinessEditorPage() {
   const canPublish = can(PERMISSION.listingsPublish);
   const [form] = Form.useForm<FormValues>();
   const hasAddress = Form.useWatch('hasAddress', form);
+  const slugValue = Form.useWatch('slug', form);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [newSlug, setNewSlug] = useState('');
   const [pendingAction, setPendingAction] = useState<{ action: BusinessAction; blockers?: string[]; needsOverride?: boolean } | null>(null);
   const [actionForm] = Form.useForm<{ reason?: string; duplicateOverrideReason?: string }>();
 
@@ -141,22 +159,26 @@ export function BusinessEditorPage() {
    * once a listing has been published, because the old address has to keep
    * working — this route is the one that leaves the redirect behind.
    */
-  const changeAddress = async () => {
-    if (!business) return;
-    const slug = newSlug.trim();
-    if (slug === '' || slug === business.slug) return;
+  const changeAddress = async (slug: string) => {
+    // Not published yet: the address is still part of the record being edited.
+    if (!business?.firstPublishedAt) {
+      form.setFieldValue('slug', slug);
+      setDirty(true);
+      return;
+    }
     try {
       await api.changeSlug(business.id, { slug, expectedVersion: business.version });
-      message.success('Public address changed. The old one now sends visitors to the new page.');
-      setNewSlug('');
+      message.success('Address changed. The old one now sends visitors to the new page.');
       await refresh();
     } catch (error) {
       if (isApiError(error) && error.kind === 'unauthorized') onAuthError(error);
       else message.error(errorMessage(error));
+      throw error; // keeps the editor open with what was typed
     }
   };
 
   const submit = async (values: FormValues) => {
+    if (saving) return; // a second click while the first request is in flight
     setFormError(null);
     setSaving(true);
     try {
@@ -220,85 +242,92 @@ export function BusinessEditorPage() {
   if (capabilitiesLoading) return <PageLoader label="Checking your permissions…" />;
   if (!isNew && !business) return <PageLoader label="Loading this listing…" />;
   const readOnly = !canWrite || business?.status === 'archived';
-  const actions = business ? ACTIONS_BY_STATUS[business.status].filter((a) => (a === 'publish' || a === 'unpublish' ? canPublish : canWrite)) : [];
+  const allowed = business ? ACTIONS_BY_STATUS[business.status].filter((action) => (action === 'publish' || action === 'unpublish' ? canPublish : canWrite)) : [];
+  // Publishing sits with the publishing state; archiving is destructive and sits
+  // on its own, away from the save button.
+  const publishActions = allowed.filter((action) => action === 'publish' || action === 'unpublish');
+  const lifecycleActions = allowed.filter((action) => action === 'archive' || action === 'restore');
+  /** Field names the form is currently unhappy about, for the error summary. */
+  const invalidFields = form.getFieldsError().filter((field) => field.errors.length > 0).map((field) => FIELD_LABELS[String(field.name[0])] ?? String(field.name[0]));
   const options = (items: { id: string; name: string }[]) => items.map((i) => ({ value: i.id, label: i.name }));
 
   return (
     <div>
       <PageHeader
-        crumbs={[{ label: 'Business', href: '/businesses' }, { label: isNew ? 'New business' : business!.name }]}
-        title={isNew ? 'New business' : business!.name}
+        crumbs={[{ label: 'Business', href: '/businesses' }, { label: 'Businesses', href: '/businesses' }, { label: isNew ? 'New business' : business!.name }]}
+        title={isNew ? 'Add business' : business!.name}
+        description={isNew ? 'Create a Melbourne listing. It stays a private draft until you publish it.' : undefined}
         meta={
           business ? (
-            <StatusTag status={business.status} />
+            <Space size={8} wrap>
+              <StatusTag status={business.status} />
+              <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                Updated {formatDateTime(business.updatedAt)}
+              </Typography.Text>
+            </Space>
           ) : null
         }
         actions={
-          business ? (
-            <Space wrap>
-              <Link to="/businesses">
-                <Button>All businesses</Button>
-              </Link>
-              {actions.map((a) => (
-                <Button
-                  key={a}
-                  danger={ACTION_LABELS[a].danger}
-                  type={a === 'publish' ? 'primary' : 'default'}
-                  onClick={() => {
-                    actionForm.resetFields();
-                    setPendingAction({ action: a, needsOverride: a === 'publish' && business.duplicateWarnings.length > 0 });
-                  }}
-                >
-                  {ACTION_LABELS[a].label}
-                </Button>
-              ))}
-            </Space>
-          ) : (
+          <Space wrap>
             <Link to="/businesses">
               <Button>All businesses</Button>
             </Link>
-          )
+            {business?.status === 'published' && (
+              <Button href={`${import.meta.env.VITE_PUBLIC_SITE_URL ?? ''}/business/${business.slug}`} target="_blank" rel="noreferrer noopener" icon={<LinkOutlined aria-hidden="true" />}>
+                View listing
+              </Button>
+            )}
+          </Space>
         }
       />
-      {business && business.status === 'draft' && business.publicationBlockers.length > 0 && (
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 20 }}
-          message={`Not ready to publish — ${business.publicationBlockers.length} thing${business.publicationBlockers.length === 1 ? '' : 's'} to fix`}
-          description={<List size="small" dataSource={business.publicationBlockers} renderItem={(b) => <List.Item>{b}</List.Item>} />}
-        />
-      )}
       {business && business.duplicateWarnings.length > 0 && (
         <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="Possible duplicate" description={<ul style={{ margin: 0, paddingInlineStart: 18 }}>{business.duplicateWarnings.map((d) => <li key={d.businessId}><Link to={`/businesses/${encodeURIComponent(d.businessId)}`}>{d.name}</Link> ({d.slug}) — matched on {d.match.replace(/_/g, ' ')}</li>)}</ul>} />
       )}
       {business?.status === 'archived' && <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Archived listings are read-only. Restore it to make changes." />}
-      {formError && <Alert type="error" showIcon message={formError} style={{ marginBottom: 16 }} role="alert" />}
+      {formError && (
+        <Alert
+          type="error"
+          showIcon
+          role="alert"
+          style={{ marginBottom: 16 }}
+          message={formError}
+          description={invalidFields.length > 0 ? `Check ${invalidFields.join(', ')}. Nothing has been lost — your changes are still on this page.` : undefined}
+          action={invalidFields.length > 0 ? <Button size="small" onClick={() => form.scrollToField(form.getFieldsError().find((f) => f.errors.length > 0)!.name, { behavior: 'smooth', block: 'center' })}>Go to the first problem</Button> : undefined}
+        />
+      )}
       <Form<FormValues> form={form} layout="vertical" onFinish={submit} onValuesChange={() => setDirty(true)} disabled={readOnly} initialValues={{ addressVisibility: 'full', hasAddress: true, secondaryCategoryIds: [], serviceIds: [], links: [] }}>
         <Row gutter={24}>
-          <Col xs={24} lg={14}>
-            <SectionCard title="Business identity" description="What this business is called and how it is described in the directory.">
-              <Form.Item label="Name" name="name" rules={[{ required: true, message: 'Name is required' }, { min: 2, max: 120, message: 'Name must be 2–120 characters' }]}>
+          <Col xs={24} lg={16}>
+            <SectionCard title="Business identity" description="What visitors use to recognise this business.">
+              <Form.Item label="Business name" name="name" rules={[{ required: true, message: 'Enter the business name' }, { min: 2, max: 120, message: 'Use between 2 and 120 characters' }]}>
                 <Input maxLength={120} placeholder="e.g. Carlton Corner Bakery" />
               </Form.Item>
-              <Form.Item
-                label="Public address"
-                name="slug"
-                extra={
-                  business?.firstPublishedAt
-                    ? 'Fixed once the listing has been published, so links people have already shared keep working. Use “Change the public address” below to move it.'
-                    : 'The last part of the listing’s web address. Made from the name when left blank.'
-                }
-              >
-                <Input maxLength={140} placeholder="carlton-corner-bakery" disabled={readOnly || business?.firstPublishedAt !== null && business !== null} />
+              {/* The address, shown the way a CMS shows it. Before the listing has
+                  been published it is part of the form; afterwards it moves through
+                  the endpoint that leaves a redirect behind (SRS SEO 004). */}
+              {/* The address is part of the record, so it is still a field —
+                  it is simply not one an editor types into. */}
+              <Form.Item name="slug" hidden>
+                <Input />
               </Form.Item>
+              <PermalinkField
+                base="/business"
+                value={slugValue ?? business?.slug ?? ''}
+                disabled={readOnly}
+                onSave={changeAddress}
+                note={
+                  business?.firstPublishedAt
+                    ? 'The old address will send visitors to the new one, so links already shared keep working.'
+                    : 'Made from the name when left blank. It can be changed freely until the listing is published.'
+                }
+              />
               <Form.Item label="Description" name="description" extra="At least 40 characters are required to publish." rules={[{ required: true, message: 'Description is required' }]}>
                 <Input.TextArea rows={6} maxLength={5000} showCount placeholder="What the business does, who it serves and what makes it worth visiting." />
               </Form.Item>
             </SectionCard>
 
-            <SectionCard title="Categories and services" description="How visitors filter and find this business.">
-              <Form.Item label="Primary category" name="primaryCategoryId" extra="The one category this business belongs in first." rules={[{ required: true, message: 'Choose a primary category' }]}>
+            <SectionCard title="Categories and services" description="Where this business appears in directory search and browsing.">
+              <Form.Item label="Primary category" name="primaryCategoryId" extra="Where it is classified first in the directory." rules={[{ required: true, message: 'Choose a primary category' }]}>
                 <FormSelect showSearch optionFilterProp="label" placeholder="Choose a category" options={categories.status === 'ready' ? options(categories.data) : []} />
               </Form.Item>
               <Form.Item label="Secondary categories" name="secondaryCategoryIds">
@@ -395,8 +424,57 @@ export function BusinessEditorPage() {
             </SectionCard>
           </Col>
 
-          <Col xs={24} lg={10}>
-            <SectionCard title="Before publishing" description="Checks an editor makes once, recorded against the listing.">
+          <Col xs={24} lg={8}>
+            <div className="ms-editor-sidebar">
+            {business && (
+              <SectionCard title="Publishing" description="Where this listing stands, and what is still needed.">
+                <Space size={8} wrap style={{ marginBottom: 12 }}>
+                  <StatusTag status={business.status} />
+                </Space>
+                {/* The server decides what publication needs (SRS BUS 002); this
+                    lists what it said, rather than checking the rule again here. */}
+                {business.status === 'draft' && (
+                  business.publicationBlockers.length > 0 ? (
+                    <>
+                      <Typography.Text strong style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>
+                        {business.publicationBlockers.length} thing{business.publicationBlockers.length === 1 ? '' : 's'} to fix before publishing
+                      </Typography.Text>
+                      <List
+                        size="small"
+                        dataSource={business.publicationBlockers}
+                        renderItem={(blocker) => (
+                          <List.Item style={{ paddingInline: 0, alignItems: 'flex-start', gap: 8 }}>
+                            <CloseCircleOutlined aria-hidden="true" style={{ color: brand.danger, marginTop: 4 }} />
+                            <span style={{ flex: 1 }}>{blocker}</span>
+                          </List.Item>
+                        )}
+                      />
+                    </>
+                  ) : (
+                    <Typography.Paragraph style={{ marginBottom: 12 }}>
+                      <CheckCircleOutlined aria-hidden="true" style={{ color: brand.success, marginRight: 8 }} />
+                      Everything needed to publish is in place.
+                    </Typography.Paragraph>
+                  )
+                )}
+                <Space wrap style={{ marginTop: 12 }}>
+                  {publishActions.map((action) => (
+                    <Button
+                      key={action}
+                      type={action === 'publish' ? 'primary' : 'default'}
+                      onClick={() => {
+                        actionForm.resetFields();
+                        setPendingAction({ action, needsOverride: action === 'publish' && business.duplicateWarnings.length > 0 });
+                      }}
+                    >
+                      {ACTION_LABELS[action].label}
+                    </Button>
+                  ))}
+                </Space>
+              </SectionCard>
+            )}
+
+            <SectionCard title="Verification" description="Checks an editor makes once, recorded against the listing.">
               <Form.Item
                 label="How the Melbourne address was checked"
                 name="eligibilitySource"
@@ -422,27 +500,6 @@ export function BusinessEditorPage() {
               </Form.Item>
             </SectionCard>
 
-            {business?.firstPublishedAt && canPublish && (
-              <SectionCard
-                title="Change the public address"
-                description="Visitors who follow the old address are sent to the new one, so links already shared keep working."
-              >
-                <Space.Compact style={{ width: '100%' }}>
-                  <Input
-                    value={newSlug}
-                    onChange={(event) => setNewSlug(event.target.value)}
-                    placeholder={business.slug}
-                    disabled={readOnly}
-                    aria-label="New public address"
-                    maxLength={140}
-                  />
-                  <Button onClick={() => void changeAddress()} disabled={readOnly || newSlug.trim() === '' || newSlug.trim() === business.slug}>
-                    Change address
-                  </Button>
-                </Space.Compact>
-              </SectionCard>
-            )}
-
             {business && (
               <SectionCard title="Record history" description="When this listing changed, and which version you are editing.">
                 <RecordMetadata
@@ -456,9 +513,34 @@ export function BusinessEditorPage() {
                 />
               </SectionCard>
             )}
+            </div>
           </Col>
         </Row>
       </Form>
+
+      {business && lifecycleActions.length > 0 && (
+        <DangerZone title={business.status === 'archived' ? 'Restore this listing' : 'Archive this listing'}>
+          <Typography.Paragraph style={{ marginBottom: 12 }}>
+            {business.status === 'archived'
+              ? 'Restoring returns it to draft. It stays out of the directory until it is published again.'
+              : 'Archiving removes it from the directory and from search straight away. Nothing is deleted, and it can be restored.'}
+          </Typography.Paragraph>
+          <Space wrap>
+            {lifecycleActions.map((action) => (
+              <Button
+                key={action}
+                danger={ACTION_LABELS[action].danger}
+                onClick={() => {
+                  actionForm.resetFields();
+                  setPendingAction({ action });
+                }}
+              >
+                {ACTION_LABELS[action].label}
+              </Button>
+            ))}
+          </Space>
+        </DangerZone>
+      )}
 
       {/* The gallery and the opening hours are saved through their own endpoints,
           so they keep their own buttons — but they belong to this record, so they
@@ -473,7 +555,9 @@ export function BusinessEditorPage() {
       {!readOnly && (
         <StickyActions
           status={
-            dirty
+            saving
+              ? 'Saving…'
+              : dirty
               ? 'You have unsaved changes.'
               : business && business.status === 'draft' && business.publicationBlockers.length > 0
                 ? `Saved. ${business.publicationBlockers.length} thing${business.publicationBlockers.length === 1 ? '' : 's'} still to fix before it can be published.`
@@ -483,7 +567,16 @@ export function BusinessEditorPage() {
           }
         >
           {!isNew && (
-            <Button onClick={() => void refresh()} disabled={saving || !dirty}>
+            <Button
+              onClick={() => {
+                // Put the saved values back. Refetching alone left the form as it
+                // was: an unchanged record is the same object, so nothing reset.
+                if (business) form.setFieldsValue(toForm(business));
+                setFormError(null);
+                setDirty(false);
+              }}
+              disabled={saving || !dirty}
+            >
               Discard changes
             </Button>
           )}

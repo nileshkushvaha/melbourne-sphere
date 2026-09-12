@@ -65,6 +65,7 @@ export class PublicPostCardDto {
   @ApiProperty({ format: 'date-time' }) publishedAt!: string;
   @ApiProperty({ type: String, nullable: true }) coverAlt!: string | null;
   @ApiProperty({ type: [PublicImageVariantDto], description: 'Published cover renditions; empty when the article has no processed cover' }) cover!: PublicImageVariantDto[];
+  @ApiProperty({ type: PublicImageVariantDto, nullable: true, description: 'Image used when the article is shared; null means the cover is used' }) shareImage!: PublicImageVariantDto | null;
 }
 
 export class PublicPostDto extends PublicPostCardDto {

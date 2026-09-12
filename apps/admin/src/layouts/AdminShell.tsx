@@ -11,6 +11,7 @@ import {
   EditOutlined,
   EnvironmentOutlined,
   FileSearchOutlined,
+  SearchOutlined,
   FileTextOutlined,
   LinkOutlined,
   LogoutOutlined,
@@ -101,6 +102,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: '/settings/general', label: 'General settings', icon: <SettingOutlined aria-hidden="true" />, permission: 'settings.manage' },
       { key: '/settings', label: 'Home page settings', icon: <LayoutOutlined aria-hidden="true" />, permission: 'settings.manage' },
+      { key: '/settings/seo', label: 'SEO settings', icon: <SearchOutlined aria-hidden="true" />, permission: 'settings.manage' },
       { key: '/redirects', label: 'SEO redirects', icon: <LinkOutlined aria-hidden="true" />, permission: 'redirects.manage' },
       { key: '/admins', label: 'Administrators', icon: <TeamOutlined aria-hidden="true" />, permission: 'admins.manage' },
       { key: '/roles', label: 'Roles', icon: <SafetyCertificateOutlined aria-hidden="true" />, permission: 'roles.view' },

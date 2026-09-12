@@ -3,6 +3,8 @@ import { App, Form, Input, InputNumber, Select } from 'antd';
 import { useNavigate, useParams } from 'react-router';
 import { taxonomyApi, type TermItem } from '@/api/taxonomy';
 import { RecordEditorPage } from '@/components/ui';
+import { PermalinkField } from '@/components/PermalinkField';
+import { slugify } from '@/shared/slug';
 import { useAsync } from '@/shared/useAsync';
 import { useRecordEditor } from '@/shared/useRecordEditor';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -23,6 +25,9 @@ export function TermEditorPage({ config }: { config: TermsPageConfig }) {
   const { message } = App.useApp();
   const navigate = useNavigate();
   const [form] = Form.useForm();
+  // The address is made from the name until someone changes it, so the row
+  // needs to see the name being typed.
+  const name = Form.useWatch('name', form) as string | undefined;
   const { saving, error, submit } = useRecordEditor<Record<string, unknown>>(form);
 
   const [state] = useAsync(() => (isNew ? Promise.resolve(null) : api.get(id)), [config.kind, id]);
@@ -41,7 +46,7 @@ export function TermEditorPage({ config }: { config: TermsPageConfig }) {
   }, [term, form]);
 
   const listHref = `/${config.kind}`;
-  const title = isNew ? `New ${config.singular.toLowerCase()}` : (term?.name ?? config.singular);
+  const title = isNew ? `Add ${config.singular.toLowerCase()}` : (term?.name ?? config.singular);
   useDocumentTitle(title);
 
   const save = () =>
@@ -74,7 +79,14 @@ export function TermEditorPage({ config }: { config: TermsPageConfig }) {
       submitLabel={isNew ? 'Create' : 'Save'}
       onSubmit={save}
     >
-      {config.fields.map((field) => (
+      {config.fields.map((field) =>
+        field.input === 'permalink' ? (
+          // An ordinary form control, so Ant validates it and shows any
+          // refusal from the API under this row rather than only at the top.
+          <Form.Item key={field.name} name={field.name} style={{ marginBottom: 0 }}>
+            <PermalinkField base={field.base ?? ''} placeholder={name ? slugify(name) : undefined} note={field.help} />
+          </Form.Item>
+        ) : (
         <Form.Item key={field.name} label={field.label} name={field.name} extra={field.help} rules={field.required ? [{ required: true, message: `${field.label} is required` }] : undefined}>
           {field.input === 'textarea' ? (
             <Input.TextArea rows={4} maxLength={field.max} />
@@ -89,10 +101,11 @@ export function TermEditorPage({ config }: { config: TermsPageConfig }) {
               options={parents.status === 'ready' ? parents.data.filter((entry) => entry.id !== term?.id).map((entry) => ({ value: entry.id, label: entry.name })) : []}
             />
           ) : (
-            <Input maxLength={field.max} />
+            <Input maxLength={field.max} placeholder={field.placeholder} />
           )}
         </Form.Item>
-      ))}
+        ),
+      )}
     </RecordEditorPage>
   );
 }

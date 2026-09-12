@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, App, Button, Form, Input, Space, Switch, Tag, Typography } from 'antd';
+import { Alert, App, Button, Form, Input, Space, Switch, Typography } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useOnError } from '@refinedev/core';
@@ -10,7 +10,7 @@ import { useCapabilities } from '@/auth/access-control';
 import { PERMISSION } from '@/auth/permissions';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
-import { PageHeader, PageLoader, SectionCard, StickyActions } from '@/components/ui';
+import { PageHeader, PageLoader, Pill, SectionCard, StickyActions } from '@/components/ui';
 import { PermissionMatrix } from './PermissionMatrix';
 
 interface FormValues {
@@ -127,7 +127,7 @@ export function RoleEditorPage() {
             ? 'This is a protected system role. It always carries every permission and cannot be edited or deleted.'
             : 'A role carries permissions. Administrators inherit everything their active roles carry.'
         }
-        meta={role?.isSystem ? <Tag color="gold">System role</Tag> : undefined}
+        meta={role?.isSystem ? <Pill tone="attention">System role</Pill> : undefined}
       />
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
       <Form<FormValues>
@@ -138,7 +138,6 @@ export function RoleEditorPage() {
         onValuesChange={() => setDirty(true)}
         disabled={readOnly}
         initialValues={{ isActive: true }}
-        style={{ maxWidth: 900 }}
       >
         <SectionCard title="Role details">
           <Form.Item

@@ -192,13 +192,18 @@ describe('Website pages', () => {
     renderWithProviders(<PageCreatePage />, { initialEntries: ['/admin/website/pages/new'], authProvider: providerWithPermissions(['settings.manage']) });
 
     await userEvent.type(await screen.findByLabelText(/^title/i), 'Community Guidelines');
-    // The suggestion is a starting point, not a decision.
-    expect(screen.getByLabelText(/^address/i)).toHaveValue('community-guidelines');
-    await userEvent.clear(screen.getByLabelText(/^address/i));
-    await userEvent.type(screen.getByLabelText(/^address/i), 'house-rules');
+    // The suggestion is a starting point, not a decision: it is shown, not typed.
+    expect(await screen.findByText('/community-guidelines')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    const address = screen.getByLabelText('Web address');
+    await userEvent.clear(address);
+    await userEvent.type(address, 'house-rules');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
     await userEvent.type(screen.getByLabelText(/^title/i), '!');
-    // Once the editor has typed an address, the title stops overwriting it.
-    expect(screen.getByLabelText(/^address/i)).toHaveValue('house-rules');
+    // Once the editor has written an address, the title stops overwriting it.
+    expect(await screen.findByText('/house-rules')).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText('Page content'), 'Say what you would say to a neighbour.');
     await userEvent.click(screen.getByRole('button', { name: /create page/i }));

@@ -20,6 +20,8 @@ const PAGE: StaticPageContent = {
   body: '<h2>Being useful</h2><p>Say what you would say to a neighbour.</p>',
   seoTitle: null,
   seoDescription: 'How we expect people to behave in reviews and comments.',
+  seoKeywords: null,
+  ogImage: null,
   updatedAt: '2026-09-08T02:00:00.000Z',
 };
 

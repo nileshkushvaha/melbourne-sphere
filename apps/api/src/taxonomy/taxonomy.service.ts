@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service.js';
 import type { RequestContext } from '../auth/auth.service.js';
 import { collectionMeta, skipFor } from '../common/pagination.js';
 import { isValidSlug, slugify } from '../common/slug.js';
+import { RedirectsService } from '../seo/redirects.service.js';
 import { DatabaseService } from '../database/database.service.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import type {
@@ -53,7 +54,17 @@ export class TaxonomyService {
   constructor(
     private readonly database: DatabaseService,
     private readonly audit: AuditService,
+    private readonly redirects: RedirectsService,
   ) {}
+
+  /**
+   * Where a term lives on the public site, or null when it has no page of its
+   * own. Services are search facets and have no route, so changing a service's
+   * address breaks nothing and leaves no redirect behind.
+   */
+  private publicPath(kind: 'category' | 'localArea', slug: string): string {
+    return kind === 'category' ? `/business/category/${slug}` : `/business/area/${slug}`;
+  }
 
   // ---- public reads ---------------------------------------------------------
 
@@ -94,20 +105,29 @@ export class TaxonomyService {
   async listCategories(q: ListTermsQueryDto) {
     const db = await this.database.client();
     const where: Prisma.CategoryWhereInput = this.listWhere(q);
-    const [total, rows] = await Promise.all([db.category.count({ where }), db.category.findMany({ where, orderBy: this.listOrder(q), skip: skipFor(q.page, q.pageSize), take: q.pageSize })]);
-    return { data: rows.map(toCategoryDto), meta: collectionMeta(q.page, q.pageSize, total) };
+    const [total, rows] = await Promise.all([
+      db.category.count({ where }),
+      db.category.findMany({ where, include: { parent: { select: { name: true } } }, orderBy: this.listOrder(q), skip: skipFor(q.page, q.pageSize), take: q.pageSize }),
+    ]);
+    const counts = await this.referenceCounts('category', rows.map((r) => r.id));
+    return {
+      data: rows.map((row) => ({ ...toCategoryDto(row), listingCount: counts.get(row.id) ?? 0, parentName: row.parent?.name ?? null })),
+      meta: collectionMeta(q.page, q.pageSize, total),
+    };
   }
   async listServices(q: ListTermsQueryDto) {
     const db = await this.database.client();
     const where: Prisma.ServiceWhereInput = this.listWhere(q);
     const [total, rows] = await Promise.all([db.service.count({ where }), db.service.findMany({ where, include: { synonyms: true }, orderBy: this.listOrder(q), skip: skipFor(q.page, q.pageSize), take: q.pageSize })]);
-    return { data: rows.map(toServiceDto), meta: collectionMeta(q.page, q.pageSize, total) };
+    const counts = await this.referenceCounts('service', rows.map((r) => r.id));
+    return { data: rows.map((row) => ({ ...toServiceDto(row), listingCount: counts.get(row.id) ?? 0 })), meta: collectionMeta(q.page, q.pageSize, total) };
   }
   async listLocalAreas(q: ListTermsQueryDto) {
     const db = await this.database.client();
     const where: Prisma.LocalAreaWhereInput = this.listWhere(q);
     const [total, rows] = await Promise.all([db.localArea.count({ where }), db.localArea.findMany({ where, orderBy: this.listOrder(q), skip: skipFor(q.page, q.pageSize), take: q.pageSize })]);
-    return { data: rows.map(toLocalAreaDto), meta: collectionMeta(q.page, q.pageSize, total) };
+    const counts = await this.referenceCounts('localArea', rows.map((r) => r.id));
+    return { data: rows.map((row) => ({ ...toLocalAreaDto(row), listingCount: counts.get(row.id) ?? 0 })), meta: collectionMeta(q.page, q.pageSize, total) };
   }
 
   async getCategory(id: string): Promise<CategoryDto> {
@@ -163,8 +183,13 @@ export class TaxonomyService {
       }
       (data as Prisma.CategoryUpdateManyMutationInput & { parentId?: string | null }).parentId = input.parentId;
     }
-    const result = await db.category.updateMany({ where: { id, version: input.expectedVersion }, data: { ...data, version: { increment: 1 } } });
-    if (result.count !== 1) throw stale();
+    await db.$transaction(async (tx) => {
+      const result = await tx.category.updateMany({ where: { id, version: input.expectedVersion }, data: { ...data, version: { increment: 1 } } });
+      if (result.count !== 1) throw stale();
+      // A category has a public page, so moving it leaves a 301 behind rather
+      // than a dead URL (SRS SEO 004) — the same rule business listings follow.
+      if (data.slug) await this.redirects.recordSlugChange(tx, { sourcePath: this.publicPath('category', current.slug), targetPath: this.publicPath('category', String(data.slug)), resourceType: 'category', resourceId: id, actorAdminId: actor.id, reason: null });
+    });
     await this.audit.record({ action: 'taxonomy.category.update', actorAdminId: actor.id, targetType: 'category', targetId: id, metadata: { fields: Object.keys(data).join(',') }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return this.getCategory(id);
   }
@@ -244,8 +269,11 @@ export class TaxonomyService {
       // Re-verification is recorded with the actor's timestamp (SRS BUS 008).
       data.eligibilityVerifiedAt = input.eligibilitySource ? new Date() : null;
     }
-    const result = await db.localArea.updateMany({ where: { id, version: input.expectedVersion }, data: { ...data, version: { increment: 1 } } });
-    if (result.count !== 1) throw stale();
+    await db.$transaction(async (tx) => {
+      const result = await tx.localArea.updateMany({ where: { id, version: input.expectedVersion }, data: { ...data, version: { increment: 1 } } });
+      if (result.count !== 1) throw stale();
+      if (data.slug) await this.redirects.recordSlugChange(tx, { sourcePath: this.publicPath('localArea', current.slug), targetPath: this.publicPath('localArea', String(data.slug)), resourceType: 'local_area', resourceId: id, actorAdminId: actor.id, reason: null });
+    });
     await this.audit.record({ action: 'taxonomy.area.update', actorAdminId: actor.id, targetType: 'local_area', targetId: id, metadata: { fields: Object.keys(data).join(',') }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return this.getLocalArea(id);
   }
@@ -278,8 +306,17 @@ export class TaxonomyService {
     return kind === 'category' ? this.getCategory(id) : kind === 'service' ? this.getService(id) : this.getLocalArea(id);
   }
 
-  /** Overridden by DirectoryService (which owns Business rows) to count active listing references. */
-  referencedByActiveListings: (kind: TermKind, id: string) => Promise<number> = async () => 0;
+  /**
+   * Overridden by DirectoryService, which owns Business rows, to count the
+   * active listings referencing each term. Batched by id so a list of twenty
+   * terms costs one query rather than twenty.
+   */
+  referenceCounts: (kind: TermKind, ids: string[]) => Promise<Map<string, number>> = async () => new Map();
+
+  /** The single-term form of the same rule, used when deactivating (SRS BUS 007). */
+  async referencedByActiveListings(kind: TermKind, id: string): Promise<number> {
+    return (await this.referenceCounts(kind, [id])).get(id) ?? 0;
+  }
 
   private resolveSlug(name: string, explicit: string | undefined): string {
     const slug = explicit ?? slugify(name);

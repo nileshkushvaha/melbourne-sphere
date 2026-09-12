@@ -41,7 +41,7 @@ describe('comments moderation queue', () => {
     expect(calls[0]?.url).toBe('/api/v1/admin/comments?status=pending&page=1&pageSize=20');
     await ue.click(within(row).getByRole('button', { name: 'Publish' }));
     const dialog = await screen.findByRole('dialog');
-    await ue.click(within(dialog).getByRole('button', { name: /confirm/i }));
+    await ue.click(within(dialog).getByRole('button', { name: 'Publish comment' }));
     expect(JSON.parse(calls.find((c) => c.url.endsWith('/approve'))!.body!)).toEqual({ expectedVersion: 1 });
   });
 
@@ -51,11 +51,64 @@ describe('comments moderation queue', () => {
     const row = (await screen.findByText('Where to find laneway coffee')).closest('tr')!;
     await ue.click(within(row).getByRole('button', { name: 'Reject' }));
     const dialog = await screen.findByRole('dialog');
-    await ue.click(within(dialog).getByRole('button', { name: /confirm/i }));
+    await ue.click(within(dialog).getByRole('button', { name: 'Reject comment' }));
     expect(await within(dialog).findByText('A reason is required')).toBeInTheDocument();
     await ue.type(within(dialog).getByLabelText(/reason/i), 'Off topic');
-    await ue.click(within(dialog).getByRole('button', { name: /confirm/i }));
+    // Not an exact name: Ant's loading icon is still animating out under jsdom,
+    // which leaves an empty span inside the button's accessible name.
+    await ue.click(screen.getByRole('button', { name: /Reject comment/ }));
     expect(JSON.parse(calls.find((c) => c.url.endsWith('/reject'))!.body!)).toEqual({ expectedVersion: 1, reason: 'Off topic' });
+  });
+
+  it('tells an empty queue apart from filtered-out results, and clears the filters', async () => {
+    const ue = user();
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      calls.push({ url: String(input), method: 'GET' });
+      return jsonResponse(200, { data: [], meta: { ...meta, total: 0 } });
+    }) as typeof fetch;
+
+    const { unmount } = renderWithProviders(<CommentsPage />, { initialEntries: ['/admin/comments'] });
+    expect(await screen.findByText('No comments yet')).toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(<CommentsPage />, { initialEntries: ['/admin/comments?status=pending'] });
+    expect(await screen.findByText('No comments match your filters')).toBeInTheDocument();
+    await ue.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(await screen.findByText('No comments yet')).toBeInTheDocument();
+  });
+
+  it('reports a failed load instead of showing an empty queue', async () => {
+    globalThis.fetch = (async () => jsonResponse(500, { error: { code: 'INTERNAL', message: 'Boom', requestId: 'req-7' } })) as typeof fetch;
+    renderWithProviders(<CommentsPage />, { initialEntries: ['/admin/comments'] });
+    expect(await screen.findByRole('alert')).toHaveTextContent(/something went wrong|boom/i);
+    expect(screen.queryByText('No comments yet')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+  });
+
+  it('sends one decision when the confirm button is clicked twice', async () => {
+    const ue = user();
+    let release: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? 'GET';
+      calls.push({ url, method, body: typeof init?.body === 'string' ? init.body : undefined });
+      if (url.endsWith('/approve')) {
+        await held;
+        return jsonResponse(200, { data: { ...comment, status: 'approved', version: 2 } });
+      }
+      return jsonResponse(200, { data: [comment], meta });
+    }) as typeof fetch;
+
+    renderWithProviders(<CommentsPage />, { initialEntries: ['/admin/comments'] });
+    const row = (await screen.findByText('Where to find laneway coffee')).closest('tr')!;
+    await ue.click(within(row).getByRole('button', { name: 'Publish' }));
+    const dialog = await screen.findByRole('dialog');
+    const confirm = within(dialog).getByRole('button', { name: 'Publish comment' });
+    await ue.click(confirm);
+    await ue.click(confirm);
+    expect(calls.filter((c) => c.url.endsWith('/approve'))).toHaveLength(1);
+    release!();
   });
 
   it('hides the queue without comments.moderate', async () => {

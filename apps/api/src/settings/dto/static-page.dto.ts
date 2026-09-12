@@ -1,3 +1,4 @@
+import { SettingsImageDto } from './general-settings.dto.js';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Length, MaxLength, Min } from 'class-validator';
@@ -16,6 +17,9 @@ export class StaticPageDto {
   @ApiProperty({ enum: BODY_FORMATS }) bodyFormat!: BodyFormat;
   @ApiProperty({ type: String, nullable: true }) seoTitle!: string | null;
   @ApiProperty({ type: String, nullable: true }) seoDescription!: string | null;
+  @ApiProperty({ type: String, nullable: true }) seoKeywords!: string | null;
+  @ApiProperty({ type: String, nullable: true }) ogImageMediaId!: string | null;
+  @ApiProperty({ type: SettingsImageDto, nullable: true, description: 'Resolved share image, or null when the site image is used' }) ogImage!: SettingsImageDto | null;
   @ApiProperty({ enum: ['draft', 'published'] }) status!: 'draft' | 'published';
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) publishedAt!: string | null;
   @ApiProperty({ type: [String], description: 'Reasons this page cannot be published yet (SRS CFG 002)' }) publicationBlockers!: string[];
@@ -40,6 +44,8 @@ export class CreateStaticPageDto {
   @ApiPropertyOptional({ enum: BODY_FORMATS, default: 'html' }) @IsOptional() @IsIn(BODY_FORMATS) bodyFormat?: BodyFormat;
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 180 }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(180) seoTitle?: string | null;
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 300 }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(300) seoDescription?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 255, description: 'Comma-separated; recorded, not read by search engines' }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(255) seoKeywords?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Ready media asset used when the page is shared' }) @IsOptional() @emptyToNull() @IsString() @MaxLength(64) ogImageMediaId?: string | null;
 }
 
 export class UpdateStaticPageDto {
@@ -49,6 +55,8 @@ export class UpdateStaticPageDto {
   @ApiPropertyOptional({ enum: BODY_FORMATS, default: 'html' }) @IsOptional() @IsIn(BODY_FORMATS) bodyFormat?: BodyFormat;
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 180 }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(180) seoTitle?: string | null;
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 300 }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(300) seoDescription?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 255, description: 'Comma-separated; recorded, not read by search engines' }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(255) seoKeywords?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Ready media asset used when the page is shared' }) @IsOptional() @emptyToNull() @IsString() @MaxLength(64) ogImageMediaId?: string | null;
   @ApiPropertyOptional({ maxLength: 500, description: 'Stored with the revision of the previous published text' }) @IsOptional() @trim() @IsString() @MaxLength(500) revisionReason?: string;
 }
 
@@ -63,6 +71,9 @@ export class PublicStaticPageDto {
   @ApiProperty({ description: 'Sanitised HTML' }) body!: string;
   @ApiProperty({ type: String, nullable: true }) seoTitle!: string | null;
   @ApiProperty({ type: String, nullable: true }) seoDescription!: string | null;
+  @ApiProperty({ type: String, nullable: true }) seoKeywords!: string | null;
+  @ApiProperty({ type: String, nullable: true }) ogImageMediaId!: string | null;
+  @ApiProperty({ type: SettingsImageDto, nullable: true, description: 'Resolved share image, or null when the site image is used' }) ogImage!: SettingsImageDto | null;
   @ApiProperty({ format: 'date-time' }) updatedAt!: string;
 }
 

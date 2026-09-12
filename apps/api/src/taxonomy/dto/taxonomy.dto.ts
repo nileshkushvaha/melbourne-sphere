@@ -135,6 +135,18 @@ export class CategoryDto {
   @ApiProperty({ format: 'date-time' }) updatedAt!: string;
 }
 
+/**
+ * A category as the admin list shows it: the record, plus the two facts the
+ * list needs and the detail screen does not — how many listings use it, and
+ * the parent's name rather than its id. Both are computed per page in one
+ * query each, so the list stays a fixed number of round trips however many
+ * rows it holds.
+ */
+export class CategoryListItemDto extends CategoryDto {
+  @ApiProperty({ description: 'Draft and published listings using this as their primary or an additional category.' }) listingCount!: number;
+  @ApiProperty({ type: String, nullable: true }) parentName!: string | null;
+}
+
 export class PublicCategoryDto {
   @ApiProperty() id!: string;
   @ApiProperty() name!: string;
@@ -154,6 +166,10 @@ export class ServiceDto {
   @ApiProperty({ format: 'date-time' }) updatedAt!: string;
 }
 
+export class ServiceListItemDto extends ServiceDto {
+  @ApiProperty({ description: 'Draft and published listings offering this service.' }) listingCount!: number;
+}
+
 export class LocalAreaDto {
   @ApiProperty() id!: string;
   @ApiProperty() name!: string;
@@ -166,4 +182,8 @@ export class LocalAreaDto {
   @ApiProperty() version!: number;
   @ApiProperty({ format: 'date-time' }) createdAt!: string;
   @ApiProperty({ format: 'date-time' }) updatedAt!: string;
+}
+
+export class LocalAreaListItemDto extends LocalAreaDto {
+  @ApiProperty({ description: 'Draft and published listings in this area.' }) listingCount!: number;
 }

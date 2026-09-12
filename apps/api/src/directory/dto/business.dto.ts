@@ -11,12 +11,13 @@ const emptyToNull = () => Transform(({ value }) => (typeof value === 'string' &&
 export const BUSINESS_SORT_FIELDS = ['name', 'updatedAt', 'createdAt', 'firstPublishedAt', 'status'] as const;
 
 export class ListBusinessesQueryDto extends PaginationQueryDto {
-  @ApiPropertyOptional({ description: 'Case-insensitive match on name or slug', maxLength: 120 }) @IsOptional() @trim() @IsString() @MaxLength(120) q?: string;
+  @ApiPropertyOptional({ description: 'Case-insensitive match on name, slug, suburb or postcode; digits also match the public phone', maxLength: 120 }) @IsOptional() @trim() @IsString() @MaxLength(120) q?: string;
   @ApiPropertyOptional({ enum: ['draft', 'published', 'archived'] }) @IsOptional() @IsIn(['draft', 'published', 'archived']) status?: 'draft' | 'published' | 'archived';
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(64) categoryId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(64) localAreaId?: string;
   @ApiPropertyOptional({ enum: BUSINESS_SORT_FIELDS, default: 'updatedAt' }) @IsOptional() @IsIn(BUSINESS_SORT_FIELDS) sort: (typeof BUSINESS_SORT_FIELDS)[number] = 'updatedAt';
   @ApiPropertyOptional({ enum: ['asc', 'desc'], default: 'desc' }) @IsOptional() @IsIn(['asc', 'desc']) override order: 'asc' | 'desc' = 'desc';
+  @ApiPropertyOptional({ enum: ['yes', 'no'], description: 'Whether a featured placement is in force right now (SRS DIR 007)' }) @IsOptional() @IsIn(['yes', 'no']) featured?: 'yes' | 'no';
 }
 
 export class AddressInputDto {
@@ -141,6 +142,8 @@ export class BusinessListItemDto {
   @ApiProperty() primaryCategoryName!: string;
   @ApiProperty() localAreaId!: string;
   @ApiProperty() localAreaName!: string;
+  @ApiProperty({ type: String, nullable: true, description: 'Suburb of the street address, where there is one' }) suburb!: string | null;
+  @ApiProperty({ description: 'A featured placement is in force right now (SRS DIR 007)' }) featuredNow!: boolean;
   @ApiProperty() publishable!: boolean;
   @ApiProperty() duplicateFlagged!: boolean;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) firstPublishedAt!: string | null;

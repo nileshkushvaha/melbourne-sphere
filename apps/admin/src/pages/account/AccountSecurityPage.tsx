@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, App, Button, Card, Form, Input, Space, Table, Tag, Typography } from 'antd';
+import { Alert, App, Button, Card, Form, Input, Space, Table, Typography } from 'antd';
 import { QRCodeSVG } from 'qrcode.react';
 import { useGetIdentity } from '@refinedev/core';
 import { accountApi, type SessionListItem } from '@/api/admins';
@@ -8,7 +8,7 @@ import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { readableAddress, readableClient } from '@/shared/forensics';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
-import { PageHeader } from '@/components/ui';
+import { ErrorState, PageHeader, Pill } from '@/components/ui';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
 type EnrolState = { step: 'idle' } | { step: 'scan'; otpauthUri: string; secret: string } | { step: 'done'; recoveryCodes: string[] };
@@ -177,6 +177,9 @@ export function AccountSecurityPage() {
         </Card>
 
         <Card title="Where you are signed in" extra={<Typography.Text type="secondary" style={{ fontSize: 13 }}>Signing out a device does not change your password.</Typography.Text>}>
+          {/* Without this, a failed request left an empty table that reads as
+              "you are signed in nowhere" — the opposite of the truth. */}
+          {sessions.status === 'error' && <ErrorState message={sessions.message} reference={sessions.reference} onRetry={reloadSessions} />}
           <Table<SessionListItem>
             rowKey="id"
             size="small"
@@ -193,7 +196,7 @@ export function AccountSecurityPage() {
                 render: (value: string | null, session) => (
                   <Space size={8} wrap>
                     {readableClient(value)}
-                    {session.current && <Tag color="blue">Current session</Tag>}
+                    {session.current && <Pill tone="progress">Current session</Pill>}
                   </Space>
                 ),
               },

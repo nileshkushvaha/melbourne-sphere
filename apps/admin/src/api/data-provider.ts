@@ -65,8 +65,10 @@ export interface ListContract {
 
 export const LIST_CONTRACTS: Readonly<Record<string, ListContract>> = {
   businesses: {
-    sortFields: ['name', 'status', 'createdAt', 'updatedAt', 'publishedAt'],
-    filters: { q: 'q', status: 'status', primaryCategoryId: 'categoryId', localAreaId: 'localAreaId' },
+    // BUSINESS_SORT_FIELDS in apps/api/src/directory/dto/business.dto.ts. `publishedAt`
+    // was listed here and is not accepted by the API: choosing it answered 400.
+    sortFields: ['name', 'status', 'createdAt', 'updatedAt', 'firstPublishedAt'],
+    filters: { q: 'q', status: 'status', primaryCategoryId: 'categoryId', localAreaId: 'localAreaId', featured: 'featured' },
   },
 };
 

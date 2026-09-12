@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { Alert, App, Button, Form, Input, Modal, Select, Space, Table, Tooltip, Typography } from 'antd';
 import { FlagOutlined, WarningOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
-import { useSearchParams } from 'react-router';
 import { moderationApi, REVIEW_STATUSES, type AdminReview, type ReviewDecision, type ReviewStatus } from '@/api/moderation';
 import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
-import { PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
+import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
+import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { expandToggle } from '@/components/ui/expandToggle';
 import { brand } from '@/config/theme';
@@ -18,6 +18,9 @@ const DECISION_LABELS: Record<ReviewDecision, { title: string; hint: string; dan
   spam: { title: 'Mark this review as spam?', hint: 'Same as rejecting, but recorded as spam for abuse signals.', danger: true, reasonRequired: true },
 };
 
+/** The parameters that narrow this list; everything else is sort or page. */
+const FILTERS = ['repeatFlagged', 'reported', 'status'] as const;
+
 /**
  * Review moderation queue (SRS REV 003). Decisions carry the record version and
  * a reason; aggregates are maintained by the API inside the same transaction.
@@ -27,11 +30,11 @@ export function ReviewsPage() {
   const api = moderationApi();
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
-  const [params, setParams] = useSearchParams();
-  const status = (params.get('status') as ReviewStatus | null) ?? undefined;
-  const repeatFlagged = params.get('repeatFlagged') === 'true';
-  const reported = params.get('reported') === 'true';
-  const page = Number(params.get('page') ?? '1') || 1;
+  const list = useListParams(FILTERS);
+  const status = (list.get('status') as ReviewStatus | null) ?? undefined;
+  const repeatFlagged = list.get('repeatFlagged') === 'true';
+  const reported = list.get('reported') === 'true';
+  const page = list.page;
   const [state, reload] = useAsync((signal) => api.listReviews({ status, repeatFlagged: repeatFlagged || undefined, reported: reported || undefined, page, pageSize: 20 }, signal), [status, repeatFlagged, reported, page]);
   const [pending, setPending] = useState<{ review: AdminReview; decision: ReviewDecision } | null>(null);
   const [redacting, setRedacting] = useState<AdminReview | null>(null);
@@ -39,13 +42,6 @@ export function ReviewsPage() {
   const [decisionForm] = Form.useForm<{ reason?: string }>();
   const [redactForm] = Form.useForm<{ publicText: string; reason: string }>();
 
-  const setParam = (key: string, value: string | undefined) => {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    if (key !== 'page') next.delete('page');
-    setParams(next);
-  };
 
   const handleError = (error: unknown, fallback: string) => {
     if (isApiError(error) && error.kind === 'unauthorized') {
@@ -98,19 +94,19 @@ export function ReviewsPage() {
       <TableCard
         toolbar={
           <>
-            <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => setParam('status', v)} style={{ width: 160 }} options={REVIEW_STATUSES.map((s) => ({ value: s, label: s }))} />
-            <Select aria-label="Filter by flag" allowClear placeholder="Any flag" value={repeatFlagged ? 'repeat' : reported ? 'reported' : undefined} style={{ width: 190 }} onChange={(v) => { setParam('repeatFlagged', v === 'repeat' ? 'true' : undefined); setParam('reported', v === 'reported' ? 'true' : undefined); }} options={[{ value: 'repeat', label: 'Repeat submissions' }, { value: 'reported', label: 'Has open reports' }]} />
+            <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => list.set('status', v)} style={{ width: 160 }} options={REVIEW_STATUSES.map((s) => ({ value: s, label: s }))} />
+            <Select aria-label="Filter by flag" allowClear placeholder="Any flag" value={repeatFlagged ? 'repeat' : reported ? 'reported' : undefined} style={{ width: 190 }} onChange={(v) => { list.set('repeatFlagged', v === 'repeat' ? 'true' : undefined); list.set('reported', v === 'reported' ? 'true' : undefined); }} options={[{ value: 'repeat', label: 'Repeat submissions' }, { value: 'reported', label: 'Has open reports' }]} />
           </>
         }
       >
-      {state.status === 'error' && <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />}
+      {state.status === 'error' && <ErrorState message={state.message} reference={state.reference} onRetry={reload} />}
       <Table<AdminReview>
         // Colour is on the rows that still need a decision, not on every row.
         rowClassName={(row) => statusRowClass(row.status)}
         rowKey="id"
         loading={state.status === 'loading'}
         dataSource={state.status === 'ready' ? state.data.data : []}
-        pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => setParam('page', String(p)) } : false}
+        pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) } : false}
         scroll={{ x: 1100 }}
         expandable={{
           expandIcon: expandToggle((review) => `the review by ${review.displayName} of ${review.businessName}`),
@@ -164,7 +160,11 @@ export function ReviewsPage() {
             ),
           },
         ]}
-        locale={{ emptyText: state.status === 'ready' ? 'No reviews match.' : ' ' }}
+        locale={{
+          emptyText: (
+            <ListEmpty state={state} filtered={list.filtered} noun="reviews" onClear={list.clear} empty={{ title: 'No reviews yet', description: 'Reviews visitors submit to business listings arrive here for moderation.' }} />
+          ),
+        }}
       />
       </TableCard>
       <Modal open={pending !== null} title={pending ? DECISION_LABELS[pending.decision].title : ''} okText="Confirm" okButtonProps={{ danger: pending ? DECISION_LABELS[pending.decision].danger : false }} onOk={() => void submitDecision()} onCancel={() => setPending(null)} destroyOnHidden>

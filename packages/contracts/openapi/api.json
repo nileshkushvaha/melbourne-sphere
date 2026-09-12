@@ -1430,7 +1430,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryListItemDto"
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "List categories (q, status, sort, order, page, pageSize)",
@@ -1689,7 +1699,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServiceListItemDto"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -1947,7 +1967,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LocalAreaListItemDto"
+                  }
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2168,7 +2198,7 @@
             "name": "q",
             "required": false,
             "in": "query",
-            "description": "Case-insensitive match on name or slug",
+            "description": "Case-insensitive match on name, slug, suburb or postcode; digits also match the public phone",
             "schema": {
               "maxLength": 120,
               "type": "string"
@@ -2216,6 +2246,19 @@
                 "createdAt",
                 "firstPublishedAt",
                 "status"
+              ]
+            }
+          },
+          {
+            "name": "featured",
+            "required": false,
+            "in": "query",
+            "description": "Whether a featured placement is in force right now (SRS DIR 007)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no"
               ]
             }
           }
@@ -6204,6 +6247,58 @@
         ]
       }
     },
+    "/api/v1/admin/settings/seo": {
+      "get": {
+        "operationId": "SettingsAdminController_getSeo",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeoSettingsRecordDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Search and social metadata for routes with no record of their own",
+        "tags": [
+          "admin-settings"
+        ]
+      },
+      "put": {
+        "operationId": "SettingsAdminController_putSeo",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSeoSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeoSettingsRecordDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Replace the SEO settings (expectedVersion; audited)",
+        "tags": [
+          "admin-settings"
+        ]
+      }
+    },
     "/api/v1/admin/settings/registry": {
       "get": {
         "operationId": "SettingsGroupsController_registry",
@@ -9485,6 +9580,67 @@
           "children"
         ]
       },
+      "CategoryListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "parentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "listingCount": {
+            "type": "number",
+            "description": "Draft and published listings using this as their primary or an additional category."
+          },
+          "parentName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "description",
+          "parentId",
+          "sortOrder",
+          "active",
+          "version",
+          "createdAt",
+          "updatedAt",
+          "listingCount",
+          "parentName"
+        ]
+      },
       "CreateCategoryDto": {
         "type": "object",
         "properties": {
@@ -9614,6 +9770,55 @@
           "expectedVersion"
         ]
       },
+      "ServiceListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "synonyms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "listingCount": {
+            "type": "number",
+            "description": "Draft and published listings offering this service."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "synonyms",
+          "active",
+          "version",
+          "createdAt",
+          "updatedAt",
+          "listingCount"
+        ]
+      },
       "CreateServiceDto": {
         "type": "object",
         "properties": {
@@ -9714,6 +9919,68 @@
         },
         "required": [
           "expectedVersion"
+        ]
+      },
+      "LocalAreaListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "editorialIntro": {
+            "type": "string",
+            "nullable": true
+          },
+          "eligibilitySource": {
+            "type": "string",
+            "nullable": true
+          },
+          "eligibilityVerifiedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "listingCount": {
+            "type": "number",
+            "description": "Draft and published listings in this area."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "editorialIntro",
+          "eligibilitySource",
+          "eligibilityVerifiedAt",
+          "sortOrder",
+          "active",
+          "version",
+          "createdAt",
+          "updatedAt",
+          "listingCount"
         ]
       },
       "CreateLocalAreaDto": {
@@ -9870,6 +10137,15 @@
           "localAreaName": {
             "type": "string"
           },
+          "suburb": {
+            "type": "string",
+            "nullable": true,
+            "description": "Suburb of the street address, where there is one"
+          },
+          "featuredNow": {
+            "type": "boolean",
+            "description": "A featured placement is in force right now (SRS DIR 007)"
+          },
           "publishable": {
             "type": "boolean"
           },
@@ -9898,6 +10174,8 @@
           "primaryCategoryName",
           "localAreaId",
           "localAreaName",
+          "suburb",
+          "featuredNow",
           "publishable",
           "duplicateFlagged",
           "firstPublishedAt",
@@ -12376,6 +12654,17 @@
             "nullable": true,
             "description": "Ready media asset used as the profile photo"
           },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Ready media asset used when the article is shared; falls back to the cover"
+          },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255,
+            "description": "Comma-separated; recorded, not read by search engines"
+          },
           "seoTitle": {
             "type": "string",
             "nullable": true,
@@ -12463,6 +12752,17 @@
             "type": "string",
             "nullable": true,
             "description": "Ready media asset used as the profile photo"
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Ready media asset used when the article is shared; falls back to the cover"
+          },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255,
+            "description": "Comma-separated; recorded, not read by search engines"
           },
           "seoTitle": {
             "type": "string",
@@ -12735,6 +13035,17 @@
             "nullable": true,
             "description": "Ready media asset used as the article cover"
           },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Ready media asset used when the article is shared; falls back to the cover"
+          },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255,
+            "description": "Comma-separated; recorded, not read by search engines"
+          },
           "seoTitle": {
             "type": "string",
             "nullable": true,
@@ -12882,11 +13193,29 @@
               }
             ]
           },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "ogImage": {
+            "nullable": true,
+            "description": "Published share image, or null when the cover is used instead",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PostCoverDto"
+              }
+            ]
+          },
           "seoTitle": {
             "type": "string",
             "nullable": true
           },
           "seoDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoKeywords": {
             "type": "string",
             "nullable": true
           },
@@ -12924,8 +13253,11 @@
           "coverAlt",
           "coverMediaId",
           "cover",
+          "ogImageMediaId",
+          "ogImage",
           "seoTitle",
           "seoDescription",
+          "seoKeywords",
           "archivedAt",
           "createdAt"
         ]
@@ -13065,6 +13397,17 @@
             "type": "string",
             "nullable": true,
             "description": "Ready media asset used as the article cover"
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Ready media asset used when the article is shared; falls back to the cover"
+          },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255,
+            "description": "Comma-separated; recorded, not read by search engines"
           },
           "seoTitle": {
             "type": "string",
@@ -13292,6 +13635,16 @@
             "items": {
               "$ref": "#/components/schemas/PublicImageVariantDto"
             }
+          },
+          "shareImage": {
+            "nullable": true,
+            "description": "Image used when the article is shared; null means the cover is used",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicImageVariantDto"
+              }
+            ]
           }
         },
         "required": [
@@ -13304,7 +13657,8 @@
           "tags",
           "publishedAt",
           "coverAlt",
-          "cover"
+          "cover",
+          "shareImage"
         ]
       },
       "PublicBlogTermDto": {
@@ -13462,6 +13816,16 @@
               "$ref": "#/components/schemas/PublicImageVariantDto"
             }
           },
+          "shareImage": {
+            "nullable": true,
+            "description": "Image used when the article is shared; null means the cover is used",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicImageVariantDto"
+              }
+            ]
+          },
           "body": {
             "type": "string",
             "description": "Allowlist-sanitised HTML"
@@ -13508,6 +13872,7 @@
           "publishedAt",
           "coverAlt",
           "cover",
+          "shareImage",
           "body",
           "seoTitle",
           "seoDescription",
@@ -13677,6 +14042,7 @@
             "enum": [
               "business",
               "post",
+              "page",
               "author",
               "testimonial",
               "partner",
@@ -14513,6 +14879,75 @@
           "heroSlides"
         ]
       },
+      "SettingsImageDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "alt": {
+            "type": "string"
+          },
+          "width": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "alt",
+          "width",
+          "height"
+        ]
+      },
+      "PublicRouteSeoEntryDto": {
+        "type": "object",
+        "properties": {
+          "metaTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "metaDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "metaKeywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "canonicalUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "robots": {
+            "type": "string",
+            "description": "\"default\" means the page keeps its own rule"
+          },
+          "ogImage": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettingsImageDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "metaTitle",
+          "metaDescription",
+          "metaKeywords",
+          "canonicalUrl",
+          "robots",
+          "ogImage"
+        ]
+      },
       "PublicPhoneNumberDto": {
         "type": "object",
         "properties": {
@@ -14562,33 +14997,6 @@
           "phone",
           "websiteUrl",
           "address"
-        ]
-      },
-      "SettingsImageDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "url": {
-            "type": "string"
-          },
-          "alt": {
-            "type": "string"
-          },
-          "width": {
-            "type": "number"
-          },
-          "height": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "id",
-          "url",
-          "alt",
-          "width",
-          "height"
         ]
       },
       "PublicSiteBrandingDto": {
@@ -14670,6 +15078,62 @@
           "text"
         ]
       },
+      "PublicAnalyticsDto": {
+        "type": "object",
+        "properties": {
+          "googleAnalyticsId": {
+            "type": "string",
+            "nullable": true
+          },
+          "googleTagManagerId": {
+            "type": "string",
+            "nullable": true
+          },
+          "facebookPixelId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "googleAnalyticsId",
+          "googleTagManagerId",
+          "facebookPixelId"
+        ]
+      },
+      "PublicRouteSeoDto": {
+        "type": "object",
+        "properties": {
+          "routes": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PublicRouteSeoEntryDto"
+            },
+            "description": "Keyed by route; every declared route is present"
+          },
+          "twitterCard": {
+            "type": "string"
+          },
+          "googleSiteVerification": {
+            "type": "string",
+            "nullable": true,
+            "description": "Search Console verification tag"
+          },
+          "analytics": {
+            "description": "Loaded by the public site only after the visitor accepts analytics cookies",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicAnalyticsDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "routes",
+          "twitterCard",
+          "googleSiteVerification",
+          "analytics"
+        ]
+      },
       "PublicSiteSettingsDto": {
         "type": "object",
         "properties": {
@@ -14711,6 +15175,9 @@
           },
           "footer": {
             "$ref": "#/components/schemas/PublicSiteFooterDto"
+          },
+          "seo": {
+            "$ref": "#/components/schemas/PublicRouteSeoDto"
           }
         },
         "required": [
@@ -14723,7 +15190,8 @@
           "branding",
           "headerTopBarEnabled",
           "social",
-          "footer"
+          "footer",
+          "seo"
         ]
       },
       "HeroSlideDto": {
@@ -15096,6 +15564,160 @@
           "expectedVersion"
         ]
       },
+      "RouteSeoDto": {
+        "type": "object",
+        "properties": {
+          "metaTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "metaDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "metaKeywords": {
+            "type": "string",
+            "nullable": true,
+            "description": "Comma-separated; recorded and published, but search engines ignore it"
+          },
+          "canonicalUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "Absolute https URL; null means the page’s own address"
+          },
+          "robots": {
+            "type": "string",
+            "enum": [
+              "default",
+              "index,follow",
+              "noindex,follow",
+              "noindex,nofollow"
+            ]
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "metaTitle",
+          "metaDescription",
+          "metaKeywords",
+          "canonicalUrl",
+          "robots",
+          "ogImageMediaId"
+        ]
+      },
+      "SeoVerificationDto": {
+        "type": "object",
+        "properties": {
+          "googleSearchConsole": {
+            "type": "string",
+            "nullable": true
+          },
+          "googleAnalyticsId": {
+            "type": "string",
+            "nullable": true
+          },
+          "googleTagManagerId": {
+            "type": "string",
+            "nullable": true
+          },
+          "facebookPixelId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "googleSearchConsole",
+          "googleAnalyticsId",
+          "googleTagManagerId",
+          "facebookPixelId"
+        ]
+      },
+      "SeoSettingsRecordDto": {
+        "type": "object",
+        "properties": {
+          "routes": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RouteSeoDto"
+            },
+            "description": "One entry per route declared in SEO_ROUTES"
+          },
+          "twitterCard": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "summary_large_image"
+            ]
+          },
+          "verification": {
+            "$ref": "#/components/schemas/SeoVerificationDto"
+          },
+          "shareImages": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SettingsImageDto"
+            },
+            "description": "Resolved share image per route, for preview; absent when none is set"
+          },
+          "version": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedByAdminId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "routes",
+          "twitterCard",
+          "verification",
+          "shareImages",
+          "version",
+          "updatedAt",
+          "updatedByAdminId"
+        ]
+      },
+      "UpdateSeoSettingsDto": {
+        "type": "object",
+        "properties": {
+          "routes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            }
+          },
+          "twitterCard": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "summary_large_image"
+            ]
+          },
+          "verification": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "expectedVersion": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Version returned by GET; 0 when nothing has been saved yet"
+          }
+        },
+        "required": [
+          "routes",
+          "verification",
+          "expectedVersion"
+        ]
+      },
       "UpdateHomeSettingsDto": {
         "type": "object",
         "properties": {
@@ -15363,6 +15985,24 @@
             "type": "string",
             "nullable": true
           },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "ogImage": {
+            "nullable": true,
+            "description": "Resolved share image, or null when the site image is used",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettingsImageDto"
+              }
+            ]
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -15422,6 +16062,9 @@
           "bodyFormat",
           "seoTitle",
           "seoDescription",
+          "seoKeywords",
+          "ogImageMediaId",
+          "ogImage",
           "status",
           "publishedAt",
           "publicationBlockers",
@@ -15469,6 +16112,17 @@
             "type": "string",
             "nullable": true,
             "maxLength": 300
+          },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255,
+            "description": "Comma-separated; recorded, not read by search engines"
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Ready media asset used when the page is shared"
           }
         },
         "required": [
@@ -15511,6 +16165,17 @@
             "type": "string",
             "nullable": true,
             "maxLength": 300
+          },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255,
+            "description": "Comma-separated; recorded, not read by search engines"
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Ready media asset used when the page is shared"
           },
           "revisionReason": {
             "type": "string",
@@ -15576,6 +16241,24 @@
             "type": "string",
             "nullable": true
           },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "ogImage": {
+            "nullable": true,
+            "description": "Resolved share image, or null when the site image is used",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettingsImageDto"
+              }
+            ]
+          },
           "updatedAt": {
             "type": "string",
             "format": "date-time"
@@ -15587,6 +16270,9 @@
           "body",
           "seoTitle",
           "seoDescription",
+          "seoKeywords",
+          "ogImageMediaId",
+          "ogImage",
           "updatedAt"
         ]
       },

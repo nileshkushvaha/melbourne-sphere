@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { Manrope, Sora } from 'next/font/google';
+import { SiteAnalytics } from '@/components/site-analytics';
 import { SiteFooter } from '@/components/site-footer';
 import { ServiceAlertBar } from '@/components/service-alert-bar';
 import { SiteHeader } from '@/components/site-header';
@@ -37,6 +38,10 @@ export async function generateMetadata(): Promise<Metadata> {
     // the generated icon module is pulled into every render, including error and
     // not-found responses, where it prevented the HTML from being produced.
     icons: { icon: favicon ? favicon.url : '/favicon.ico' },
+    // A verification tag proves ownership to Google; it loads nothing and sets
+    // no cookie. The analytics identifiers beside it in the settings are
+    // deliberately not rendered — see the note on the SEO settings screen.
+    ...(settings.seo?.googleSiteVerification ? { verification: { google: settings.seo.googleSiteVerification } } : {}),
   };
 }
 
@@ -68,6 +73,12 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
           {children}
         </main>
         <SiteFooter />
+        {/* The cookie question and the analytics it governs. Placed last so it
+            is the final thing in the tab order: a visitor who ignores it can
+            use the whole site first. */}
+        <Suspense fallback={null}>
+          <SiteAnalytics />
+        </Suspense>
         {/* Loaded only when a site key is configured; the widget renders itself into .cf-turnstile (SRS SEC 002). */}
         {turnstileSiteKey() && <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="lazyOnload" />}
       </body>

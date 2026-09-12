@@ -20,6 +20,34 @@ if (!/^https?:\/\/[^/\s]+$/.test(apiOrigin)) {
  * pointed at an arbitrary host.
  */
 const mediaBaseUrl = (process.env.MEDIA_PUBLIC_BASE_URL ?? "").trim();
+
+if (!mediaBaseUrl) {
+  // Not fatal — a site with no media configured still builds — but it must not
+  // be silent. Unset, `next/image` refuses every uploaded image, and a page
+  // that shows one fails to render at all: the home page, the blog and every
+  // business listing answered 500 with nothing in the log to explain why.
+  console.warn(
+    "[next.config] MEDIA_PUBLIC_BASE_URL is not set, so no uploaded image may be displayed.\n" +
+      "              Set it to the published media origin, e.g. http://127.0.0.1:9010/melbourne-sphere-media",
+  );
+}
+
+/**
+ * Next 16 refuses to fetch a remote image whose hostname resolves to a private
+ * or loopback address, because on a deployed server that is how an attacker
+ * reaches internal services (SSRF). In local development the object store *is*
+ * on loopback — MinIO on 127.0.0.1 — so every uploaded image is refused and the
+ * page fails to render.
+ *
+ * The exception is therefore granted only when the configured media origin is
+ * itself a loopback host. Production media lives on a real storage or CDN
+ * hostname, so this stays false there and the protection remains in force; it
+ * cannot be switched on by accident, because it is derived from the same
+ * setting that decides where images come from.
+ */
+const LOOPBACK_HOST = /^(localhost|127(\.\d+){3}|\[::1\]|::1)$/i;
+const mediaIsLoopback = mediaBaseUrl !== "" && LOOPBACK_HOST.test(new URL(mediaBaseUrl).hostname);
+
 const remotePatterns = mediaBaseUrl
   ? [
       (() => {
@@ -30,6 +58,18 @@ const remotePatterns = mediaBaseUrl
   : [];
 
 const nextConfig: NextConfig = {
+  /**
+   * Development only. Next blocks requests to its dev resources whose Origin is
+   * a host it does not recognise as its own, which is what stops a page on
+   * another site from reaching your dev server. It knows itself as `localhost`,
+   * so opening the site at `http://127.0.0.1:3000` — the same machine, by its
+   * IP — made every Hot Module Replacement socket fail: the page loaded, but no
+   * edit ever reached the browser.
+   *
+   * These are the loopback names for this machine and nothing else. The setting
+   * has no effect on `next build` or `next start`.
+   */
+  allowedDevOrigins: ["127.0.0.1", "localhost", "[::1]"],
   experimental: {
     // Next 16 otherwise answers a 404 with a bare error document whose content
     // lives only in the flight payload, so the page renders blank. This routes
@@ -37,7 +77,7 @@ const nextConfig: NextConfig = {
     // HTML with the site shell.
     globalNotFound: true,
   },
-  images: { remotePatterns },
+  images: { remotePatterns, dangerouslyAllowLocalIP: mediaIsLoopback },
   // Source-only workspace package (SRS ARC 001 table: packages/ui).
   transpilePackages: ["@melbourne-sphere/ui"],
   async rewrites() {

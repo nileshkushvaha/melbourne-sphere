@@ -1,13 +1,17 @@
-import { Alert, App, Button, Input, Select, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { App, Button, Input, Select, Space, Table, Tooltip, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { partnersApi, type PartnerOrganisation } from '@/api/website';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
-import { PageHeader, TableCard, StatusTag } from '@/components/ui';
+import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
+import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+
+/** The parameters that narrow this list; everything else is sort or page. */
+const FILTERS = ['status'] as const;
 
 /**
  * Client and partner logos (SRS 1.2 PTNR 005). These records are public
@@ -21,19 +25,12 @@ export function PartnersPage() {
   const { can } = useCapabilities();
   const { message, modal } = App.useApp();
   const navigate = useNavigate();
-  const [params, setParams] = useSearchParams();
-  const page = Number(params.get('page') ?? '1') || 1;
-  const status = (params.get('status') ?? '') as '' | 'draft' | 'published';
+  const list = useListParams(FILTERS);
+  const page = list.page;
+  const status = (list.get('status') ?? '') as '' | 'draft' | 'published';
 
   const [state, reload] = useAsync(() => partnersApi.list({ page, pageSize: 20, status: status || undefined }), [page, status]);
 
-  const setParam = (key: string, value: string | undefined) => {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    if (key !== 'page') next.delete('page');
-    setParams(next);
-  };
 
   const authorise = (record: PartnerOrganisation) => {
     let note = '';
@@ -131,7 +128,7 @@ export function PartnersPage() {
               allowClear
               value={status || undefined}
               style={{ width: 160 }}
-              onChange={(value?: string) => setParam('status', value)}
+              onChange={(value?: string) => list.set('status', value)}
               options={[
                 { value: 'draft', label: 'Draft' },
                 { value: 'published', label: 'Published' },
@@ -141,19 +138,21 @@ export function PartnersPage() {
         }
       >
 
-      {state.status === 'error' && (
-        <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />
-      )}
+      {state.status === 'error' && <ErrorState message={state.message} reference={state.reference} onRetry={reload} />}
 
       <Table<PartnerOrganisation>
         rowKey="id"
         size="small"
         loading={state.status === 'loading'}
         dataSource={state.status === 'ready' ? state.data.data : []}
-        locale={{ emptyText: 'No organisations yet.' }}
+        locale={{
+          emptyText: (
+            <ListEmpty state={state} filtered={list.filtered} noun="organisations" onClear={list.clear} empty={{ title: 'No clients or partners yet', description: 'Add an organisation to show its logo on the website.', action: can(PERMISSION.websiteClientsCreate) ? { label: 'New organisation', onClick: () => navigate('/website/partners/new') } : undefined }} />
+          ),
+        }}
         pagination={
           state.status === 'ready'
-            ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => setParam('page', String(p)) }
+            ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) }
             : false
         }
         scroll={{ x: 1000 }}
@@ -167,7 +166,7 @@ export function PartnersPage() {
             render: (_: unknown, record) =>
               record.authorisedAt ? (
                 <Tooltip title={record.authorisationNote ?? 'No note recorded'}>
-                  <Tag color="green">{formatDateTime(record.authorisedAt)}</Tag>
+                  <Typography.Text>{formatDateTime(record.authorisedAt)}</Typography.Text>
                 </Tooltip>
               ) : (
                 <Typography.Text type="secondary">—</Typography.Text>

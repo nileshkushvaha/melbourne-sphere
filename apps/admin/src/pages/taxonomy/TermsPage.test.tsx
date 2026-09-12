@@ -40,7 +40,7 @@ describe('taxonomy terms page (local areas)', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Local areas' })).toBeInTheDocument();
     const row = (await screen.findByText('Docklands')).closest('tr')!;
     expect(within(row).getByText('inactive')).toBeInTheDocument();
-    expect(within(row).getByText('no')).toBeInTheDocument();
+    expect(within(row).getByText('Not verified')).toBeInTheDocument();
     expect(calls[0]?.url).toBe('/api/v1/admin/areas?page=1&pageSize=20&status=active&sort=sortOrder&order=desc');
     expect(screen.getByRole('link', { name: 'Local areas' })).toBeInTheDocument();
   });
@@ -48,7 +48,7 @@ describe('taxonomy terms page (local areas)', () => {
   it('creates on its own route, maps field errors from the envelope, and confirms deactivation', async () => {
     const ue = user();
     renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/areas/new'] });
-    expect(await screen.findByRole('heading', { level: 1, name: /new local area/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: /add local area/i })).toBeInTheDocument();
     await ue.type(screen.getByLabelText(/^name/i), 'Carlton');
     await ue.click(screen.getByRole('button', { name: /^create$/i }));
     expect(await screen.findByText(/already used/i)).toBeInTheDocument();
@@ -81,7 +81,7 @@ describe('taxonomy terms page (local areas)', () => {
   it('links each term to its own editable address', async () => {
     renderWithProviders(<TermsPage config={AREAS_CONFIG} />, { initialEntries: ['/admin/areas'] });
     expect(await screen.findByRole('link', { name: 'Carlton' })).toHaveAttribute('href', '/admin/areas/l1');
-    expect(screen.getByRole('link', { name: /new local area/i })).toHaveAttribute('href', '/admin/areas/new');
+    expect(screen.getByRole('link', { name: /add local area/i })).toHaveAttribute('href', '/admin/areas/new');
   });
 });
 

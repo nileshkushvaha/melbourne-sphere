@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { routeMetadata } from '@/lib/route-seo';
 import { notFound } from 'next/navigation';
 import { InformationPage } from '@/components/information-page';
 import { JsonLdScript } from '@/components/json-ld';
@@ -6,11 +7,14 @@ import { fetchFaqs } from '@/lib/api';
 import { faqRichResultsEnabled } from '@/lib/site';
 import { faqPageJsonLd } from '@/lib/structured-data';
 
-export const metadata: Metadata = {
-  title: 'Frequently asked questions',
-  description: 'Answers to common questions about listing a business, reviews and using Melbourne Sphere.',
-  alternates: { canonical: '/faqs' },
-};
+/** The page's own metadata, with any administrator overrides applied (SEO 001). */
+export async function generateMetadata(): Promise<Metadata> {
+  return routeMetadata('faqs', {
+    title: 'Frequently asked questions',
+    description: 'Answers to common questions about listing a business, reviews and using Melbourne Sphere.',
+    alternates: { canonical: '/faqs' },
+  });
+}
 
 /**
  * Published questions as a disclosure list (SRS 1.2 FAQ 004).

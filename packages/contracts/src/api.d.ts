@@ -2125,6 +2125,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/settings/seo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search and social metadata for routes with no record of their own */
+        get: operations["SettingsAdminController_getSeo"];
+        /** Replace the SEO settings (expectedVersion; audited) */
+        put: operations["SettingsAdminController_putSeo"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/settings/registry": {
         parameters: {
             query?: never;
@@ -3241,6 +3259,23 @@ export interface components {
             description: string | null;
             children: components["schemas"]["PublicCategoryDto"][];
         };
+        CategoryListItemDto: {
+            id: string;
+            name: string;
+            slug: string;
+            description: string | null;
+            parentId: string | null;
+            sortOrder: number;
+            active: boolean;
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description Draft and published listings using this as their primary or an additional category. */
+            listingCount: number;
+            parentName: string | null;
+        };
         CreateCategoryDto: {
             name: string;
             /** @description Lowercase-hyphen slug; generated from the name when omitted */
@@ -3277,6 +3312,20 @@ export interface components {
             expectedVersion: number;
             reason?: string;
         };
+        ServiceListItemDto: {
+            id: string;
+            name: string;
+            slug: string;
+            synonyms: string[];
+            active: boolean;
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description Draft and published listings offering this service. */
+            listingCount: number;
+        };
         CreateServiceDto: {
             name: string;
             /** @description Lowercase-hyphen slug; generated from the name when omitted */
@@ -3304,6 +3353,24 @@ export interface components {
             slug?: string;
             synonyms?: string[];
             sortOrder?: number;
+        };
+        LocalAreaListItemDto: {
+            id: string;
+            name: string;
+            slug: string;
+            editorialIntro: string | null;
+            eligibilitySource: string | null;
+            /** Format: date-time */
+            eligibilityVerifiedAt: string | null;
+            sortOrder: number;
+            active: boolean;
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** @description Draft and published listings in this area. */
+            listingCount: number;
         };
         CreateLocalAreaDto: {
             name: string;
@@ -3350,6 +3417,10 @@ export interface components {
             primaryCategoryName: string;
             localAreaId: string;
             localAreaName: string;
+            /** @description Suburb of the street address, where there is one */
+            suburb: string | null;
+            /** @description A featured placement is in force right now (SRS DIR 007) */
+            featuredNow: boolean;
             publishable: boolean;
             duplicateFlagged: boolean;
             /** Format: date-time */
@@ -4030,6 +4101,10 @@ export interface components {
             links?: components["schemas"]["AuthorLinkDto"][];
             /** @description Ready media asset used as the profile photo */
             imageMediaId?: string | null;
+            /** @description Ready media asset used when the article is shared; falls back to the cover */
+            ogImageMediaId?: string | null;
+            /** @description Comma-separated; recorded, not read by search engines */
+            seoKeywords?: string | null;
             seoTitle?: string | null;
             seoDescription?: string | null;
         };
@@ -4054,6 +4129,10 @@ export interface components {
             links?: components["schemas"]["AuthorLinkDto"][];
             /** @description Ready media asset used as the profile photo */
             imageMediaId?: string | null;
+            /** @description Ready media asset used when the article is shared; falls back to the cover */
+            ogImageMediaId?: string | null;
+            /** @description Comma-separated; recorded, not read by search engines */
+            seoKeywords?: string | null;
             seoTitle?: string | null;
             seoDescription?: string | null;
             expectedVersion: number;
@@ -4130,6 +4209,10 @@ export interface components {
             coverAlt?: string | null;
             /** @description Ready media asset used as the article cover */
             coverMediaId?: string | null;
+            /** @description Ready media asset used when the article is shared; falls back to the cover */
+            ogImageMediaId?: string | null;
+            /** @description Comma-separated; recorded, not read by search engines */
+            seoKeywords?: string | null;
             seoTitle?: string | null;
             seoDescription?: string | null;
             /** @description Whether visitors may comment (SRS COM 002) */
@@ -4174,8 +4257,12 @@ export interface components {
             coverMediaId: string | null;
             /** @description Published cover rendition, or null while none is processed */
             cover: components["schemas"]["PostCoverDto"] | null;
+            ogImageMediaId: string | null;
+            /** @description Published share image, or null when the cover is used instead */
+            ogImage: components["schemas"]["PostCoverDto"] | null;
             seoTitle: string | null;
             seoDescription: string | null;
+            seoKeywords: string | null;
             /** Format: date-time */
             archivedAt: string | null;
             /** Format: date-time */
@@ -4222,6 +4309,10 @@ export interface components {
             coverAlt?: string | null;
             /** @description Ready media asset used as the article cover */
             coverMediaId?: string | null;
+            /** @description Ready media asset used when the article is shared; falls back to the cover */
+            ogImageMediaId?: string | null;
+            /** @description Comma-separated; recorded, not read by search engines */
+            seoKeywords?: string | null;
             seoTitle?: string | null;
             seoDescription?: string | null;
             /** @description Whether visitors may comment (SRS COM 002) */
@@ -4285,6 +4376,8 @@ export interface components {
             coverAlt: string | null;
             /** @description Published cover renditions; empty when the article has no processed cover */
             cover: components["schemas"]["PublicImageVariantDto"][];
+            /** @description Image used when the article is shared; null means the cover is used */
+            shareImage: components["schemas"]["PublicImageVariantDto"] | null;
         };
         PublicBlogTermDto: {
             name: string;
@@ -4330,6 +4423,8 @@ export interface components {
             coverAlt: string | null;
             /** @description Published cover renditions; empty when the article has no processed cover */
             cover: components["schemas"]["PublicImageVariantDto"][];
+            /** @description Image used when the article is shared; null means the cover is used */
+            shareImage: components["schemas"]["PublicImageVariantDto"] | null;
             /** @description Allowlist-sanitised HTML */
             body: string;
             seoTitle: string | null;
@@ -4385,7 +4480,7 @@ export interface components {
         };
         MediaUsageDto: {
             /** @enum {string} */
-            kind: "business" | "post" | "author" | "testimonial" | "partner" | "setting";
+            kind: "business" | "post" | "page" | "author" | "testimonial" | "partner" | "setting";
             id: string;
             label: string;
         };
@@ -4629,6 +4724,22 @@ export interface components {
             /** @description Present only when counters are enabled and the data is available (SRS HERO 007) */
             counters?: components["schemas"]["HomeCountersDto"];
         };
+        SettingsImageDto: {
+            id: string;
+            url: string;
+            alt: string;
+            width: number;
+            height: number;
+        };
+        PublicRouteSeoEntryDto: {
+            metaTitle: string | null;
+            metaDescription: string | null;
+            metaKeywords: string | null;
+            canonicalUrl: string | null;
+            /** @description "default" means the page keeps its own rule */
+            robots: string;
+            ogImage: components["schemas"]["SettingsImageDto"] | null;
+        };
         PublicPhoneNumberDto: {
             /** @description Formatted for reading, e.g. 03 9000 0000 */
             display: string;
@@ -4642,13 +4753,6 @@ export interface components {
             websiteUrl: string | null;
             /** @description Free text, at most four lines */
             address: string | null;
-        };
-        SettingsImageDto: {
-            id: string;
-            url: string;
-            alt: string;
-            width: number;
-            height: number;
         };
         PublicSiteBrandingDto: {
             logo: components["schemas"]["SettingsImageDto"] | null;
@@ -4667,6 +4771,22 @@ export interface components {
             copyrightText: string | null;
             text: string | null;
         };
+        PublicAnalyticsDto: {
+            googleAnalyticsId: string | null;
+            googleTagManagerId: string | null;
+            facebookPixelId: string | null;
+        };
+        PublicRouteSeoDto: {
+            /** @description Keyed by route; every declared route is present */
+            routes: {
+                [key: string]: components["schemas"]["PublicRouteSeoEntryDto"];
+            };
+            twitterCard: string;
+            /** @description Search Console verification tag */
+            googleSiteVerification: string | null;
+            /** @description Loaded by the public site only after the visitor accepts analytics cookies */
+            analytics: components["schemas"]["PublicAnalyticsDto"];
+        };
         PublicSiteSettingsDto: {
             name: string;
             shortName: string | null;
@@ -4680,6 +4800,7 @@ export interface components {
             /** @description Configured profiles in a fixed order; empty when none are set */
             social: components["schemas"]["PublicSocialLinkDto"][];
             footer: components["schemas"]["PublicSiteFooterDto"];
+            seo: components["schemas"]["PublicRouteSeoDto"];
         };
         HeroSlideDto: {
             /** @description Ready media asset used as the background image */
@@ -4784,6 +4905,52 @@ export interface components {
             /** @description Version returned by GET; 0 when no settings row has been saved yet */
             expectedVersion: number;
         };
+        RouteSeoDto: {
+            metaTitle: string | null;
+            metaDescription: string | null;
+            /** @description Comma-separated; recorded and published, but search engines ignore it */
+            metaKeywords: string | null;
+            /** @description Absolute https URL; null means the page’s own address */
+            canonicalUrl: string | null;
+            /** @enum {string} */
+            robots: "default" | "index,follow" | "noindex,follow" | "noindex,nofollow";
+            ogImageMediaId: string | null;
+        };
+        SeoVerificationDto: {
+            googleSearchConsole: string | null;
+            googleAnalyticsId: string | null;
+            googleTagManagerId: string | null;
+            facebookPixelId: string | null;
+        };
+        SeoSettingsRecordDto: {
+            /** @description One entry per route declared in SEO_ROUTES */
+            routes: {
+                [key: string]: components["schemas"]["RouteSeoDto"];
+            };
+            /** @enum {string} */
+            twitterCard: "summary" | "summary_large_image";
+            verification: components["schemas"]["SeoVerificationDto"];
+            /** @description Resolved share image per route, for preview; absent when none is set */
+            shareImages: {
+                [key: string]: components["schemas"]["SettingsImageDto"];
+            };
+            version: number;
+            /** Format: date-time */
+            updatedAt: string;
+            updatedByAdminId: string | null;
+        };
+        UpdateSeoSettingsDto: {
+            routes: {
+                [key: string]: Record<string, never>;
+            };
+            /** @enum {string} */
+            twitterCard?: "summary" | "summary_large_image";
+            verification: {
+                [key: string]: string;
+            };
+            /** @description Version returned by GET; 0 when nothing has been saved yet */
+            expectedVersion: number;
+        };
         UpdateHomeSettingsDto: {
             /** @description Stable accessible headline (SRS HERO 002) */
             heroHeadline: string;
@@ -4863,6 +5030,10 @@ export interface components {
             bodyFormat: "html" | "markdown";
             seoTitle: string | null;
             seoDescription: string | null;
+            seoKeywords: string | null;
+            ogImageMediaId: string | null;
+            /** @description Resolved share image, or null when the site image is used */
+            ogImage: components["schemas"]["SettingsImageDto"] | null;
             /** @enum {string} */
             status: "draft" | "published";
             /** Format: date-time */
@@ -4900,6 +5071,10 @@ export interface components {
             bodyFormat: "html" | "markdown";
             seoTitle?: string | null;
             seoDescription?: string | null;
+            /** @description Comma-separated; recorded, not read by search engines */
+            seoKeywords?: string | null;
+            /** @description Ready media asset used when the page is shared */
+            ogImageMediaId?: string | null;
         };
         UpdateStaticPageDto: {
             /** @description 0 for a page that has never been saved */
@@ -4913,6 +5088,10 @@ export interface components {
             bodyFormat: "html" | "markdown";
             seoTitle?: string | null;
             seoDescription?: string | null;
+            /** @description Comma-separated; recorded, not read by search engines */
+            seoKeywords?: string | null;
+            /** @description Ready media asset used when the page is shared */
+            ogImageMediaId?: string | null;
             /** @description Stored with the revision of the previous published text */
             revisionReason?: string;
         };
@@ -4931,6 +5110,10 @@ export interface components {
             body: string;
             seoTitle: string | null;
             seoDescription: string | null;
+            seoKeywords: string | null;
+            ogImageMediaId: string | null;
+            /** @description Resolved share image, or null when the site image is used */
+            ogImage: components["schemas"]["SettingsImageDto"] | null;
             /** Format: date-time */
             updatedAt: string;
         };
@@ -6239,7 +6422,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CategoryListItemDto"][];
+                };
             };
         };
     };
@@ -6379,7 +6564,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["ServiceListItemDto"][];
+                };
             };
         };
     };
@@ -6519,7 +6706,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["LocalAreaListItemDto"][];
+                };
             };
         };
     };
@@ -6644,12 +6833,14 @@ export interface operations {
                 page?: components["schemas"]["Object"];
                 pageSize?: components["schemas"]["Object"];
                 order?: "asc" | "desc";
-                /** @description Case-insensitive match on name or slug */
+                /** @description Case-insensitive match on name, slug, suburb or postcode; digits also match the public phone */
                 q?: string;
                 status?: "draft" | "published" | "archived";
                 categoryId?: string;
                 localAreaId?: string;
                 sort?: "name" | "updatedAt" | "createdAt" | "firstPublishedAt" | "status";
+                /** @description Whether a featured placement is in force right now (SRS DIR 007) */
+                featured?: "yes" | "no";
             };
             header?: never;
             path?: never;
@@ -8998,6 +9189,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GeneralSettingsRecordDto"];
+                };
+            };
+        };
+    };
+    SettingsAdminController_getSeo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeoSettingsRecordDto"];
+                };
+            };
+        };
+    };
+    SettingsAdminController_putSeo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSeoSettingsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeoSettingsRecordDto"];
                 };
             };
         };

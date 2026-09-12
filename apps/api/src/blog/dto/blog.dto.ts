@@ -37,6 +37,8 @@ export class AuthorInputDto {
   @ApiPropertyOptional({ type: [String], maxItems: MAX_EXPERTISE, description: 'Topic labels shown on author cards' }) @IsOptional() @IsArray() @ArrayMaxSize(MAX_EXPERTISE) @IsString({ each: true }) expertise?: string[];
   @ApiPropertyOptional({ type: [AuthorLinkDto], maxItems: MAX_AUTHOR_LINKS }) @IsOptional() @IsArray() @ArrayMaxSize(MAX_AUTHOR_LINKS) @ValidateNested({ each: true }) @Type(() => AuthorLinkDto) links?: AuthorLinkDto[];
   @ApiPropertyOptional({ type: String, nullable: true, description: 'Ready media asset used as the profile photo' }) @IsOptional() @emptyToNull() @IsString() @MaxLength(64) imageMediaId?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Ready media asset used when the article is shared; falls back to the cover' }) @IsOptional() @emptyToNull() @IsString() @MaxLength(64) ogImageMediaId?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 255, description: 'Comma-separated; recorded, not read by search engines' }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(255) seoKeywords?: string | null;
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 180 }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(180) seoTitle?: string | null;
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 300 }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(300) seoDescription?: string | null;
 }
@@ -114,6 +116,8 @@ export class PostFieldsDto {
   @ApiPropertyOptional({ type: [String], maxItems: 10 }) @IsOptional() @IsArray() @ArrayMaxSize(10) @IsString({ each: true }) tagIds?: string[];
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 255 }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(255) coverAlt?: string | null;
   @ApiPropertyOptional({ type: String, nullable: true, description: 'Ready media asset used as the article cover' }) @IsOptional() @emptyToNull() @IsString() @MaxLength(64) coverMediaId?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Ready media asset used when the article is shared; falls back to the cover' }) @IsOptional() @emptyToNull() @IsString() @MaxLength(64) ogImageMediaId?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 255, description: 'Comma-separated; recorded, not read by search engines' }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(255) seoKeywords?: string | null;
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 180 }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(180) seoTitle?: string | null;
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 300 }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(300) seoDescription?: string | null;
   @ApiPropertyOptional({ description: 'Whether visitors may comment (SRS COM 002)' }) @IsOptional() @IsBoolean() commentsEnabled?: boolean;
@@ -174,8 +178,11 @@ export class PostDto extends PostSummaryDto {
   @ApiProperty({ type: String, nullable: true }) coverAlt!: string | null;
   @ApiProperty({ type: String, nullable: true }) coverMediaId!: string | null;
   @ApiProperty({ type: PostCoverDto, nullable: true, description: 'Published cover rendition, or null while none is processed' }) cover!: { id: string; url: string; alt: string } | null;
+  @ApiProperty({ type: String, nullable: true }) ogImageMediaId!: string | null;
+  @ApiProperty({ type: PostCoverDto, nullable: true, description: 'Published share image, or null when the cover is used instead' }) ogImage!: { id: string; url: string; alt: string } | null;
   @ApiProperty({ type: String, nullable: true }) seoTitle!: string | null;
   @ApiProperty({ type: String, nullable: true }) seoDescription!: string | null;
+  @ApiProperty({ type: String, nullable: true }) seoKeywords!: string | null;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) archivedAt!: string | null;
   @ApiProperty({ format: 'date-time' }) createdAt!: string;
 }

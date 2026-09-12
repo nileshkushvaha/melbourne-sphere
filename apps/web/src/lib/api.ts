@@ -96,6 +96,8 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   headerTopBarEnabled: false,
   social: [],
   footer: { copyrightText: null, text: null },
+  // Nothing overridden: every page keeps the text it was written with.
+  seo: { routes: {}, twitterCard: 'summary_large_image', googleSiteVerification: null, analytics: { googleAnalyticsId: null, googleTagManagerId: null, facebookPixelId: null } },
 };
 
 export async function fetchSiteSettings(): Promise<SiteSettings> {
@@ -274,6 +276,9 @@ export interface StaticPageContent {
   body: string;
   seoTitle: string | null;
   seoDescription: string | null;
+  seoKeywords: string | null;
+  /** Set only when the page carries its own share image. */
+  ogImage: { url: string; alt: string; width: number; height: number } | null;
   updatedAt: string;
 }
 

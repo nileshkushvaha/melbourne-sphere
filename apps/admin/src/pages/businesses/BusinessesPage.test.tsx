@@ -75,11 +75,11 @@ describe('businesses pages', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Businesses' })).toBeInTheDocument();
     const row = (await screen.findByRole('link', { name: 'Little Collins Espresso' })).closest('tr')!;
     expect(within(row).getByText('draft')).toBeInTheDocument();
-    expect(within(row).getByText('incomplete')).toBeInTheDocument();
+    expect(within(row).getByText('not ready')).toBeInTheDocument();
     expect(within(row).getByLabelText('Possible duplicate')).toBeInTheDocument();
     expect(calls.find((c) => c.url.startsWith('/api/v1/admin/businesses?'))?.url).toBe('/api/v1/admin/businesses?page=1&pageSize=20&sort=name&order=asc&q=espresso&status=draft&categoryId=c1');
     expect(screen.getByRole('link', { name: 'Businesses' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /new business/i })).toHaveAttribute('href', '/admin/businesses/new');
+    expect(screen.getByRole('link', { name: /add business/i })).toHaveAttribute('href', '/admin/businesses/new');
   });
 
   it('hides write controls for read-only roles', async () => {
@@ -87,7 +87,7 @@ describe('businesses pages', () => {
     provider.getPermissions = async () => ['listings.read'];
     renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses'], authProvider: provider });
     await screen.findByRole('link', { name: 'Little Collins Espresso' });
-    expect(screen.queryByRole('link', { name: /new business/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /add business/i })).not.toBeInTheDocument();
   });
 
   // Mounts the whole route tree so the post-create navigation is real; it is the
@@ -95,8 +95,8 @@ describe('businesses pages', () => {
   it('creates a draft, maps nested field errors from the envelope, then navigates to the new record', { timeout: 60_000 }, async () => {
     const ue = user();
     renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses/new'] });
-    expect(await screen.findByRole('heading', { level: 1, name: 'New business' })).toBeInTheDocument();
-    await ue.type(screen.getByLabelText(/^name/i), 'Fresh Cafe');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Add business' })).toBeInTheDocument();
+    await ue.type(screen.getByLabelText('Business name'), 'Fresh Cafe');
     await ue.type(screen.getByLabelText(/^description/i), 'A brand new cafe with a long enough description for publication.');
     await ue.click(screen.getByLabelText(/primary category/i));
     await ue.click(await screen.findByTitle('Cafes'));
@@ -163,7 +163,8 @@ describe('businesses pages', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Little Collins Espresso' })).toBeInTheDocument();
     // The heading now counts what is outstanding, so the operator sees the size
     // of the job before opening the list.
-    expect(screen.getByText(/Not ready to publish — 1 thing to fix/)).toBeInTheDocument();
+    // What is still missing is listed beside the publish action, from the server's own blockers.
+    expect(screen.getByText(/1 thing to fix before publishing/)).toBeInTheDocument();
     expect(screen.getByDisplayValue('owner@example.com')).toBeInTheDocument();
     await ue.click(screen.getByRole('button', { name: /save changes/i }));
     expect(await screen.findByText(/changed by someone else/i)).toBeInTheDocument();
@@ -188,7 +189,7 @@ describe('businesses pages', () => {
     renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses/b1'], authProvider: providerWithPermissions(['listings.read', 'listings.write', 'listings.publish']) });
     await screen.findByRole('heading', { level: 1, name: 'Little Collins Espresso' });
 
-    for (const section of ['Business identity', 'Categories and services', 'Melbourne location', 'Contact details', 'Private enquiry address', 'Before publishing', 'Record history']) {
+    for (const section of ['Business identity', 'Categories and services', 'Melbourne location', 'Contact details', 'Private enquiry address', 'Publishing', 'Verification', 'Record history']) {
       expect(screen.getByRole('heading', { level: 2, name: section })).toBeInTheDocument();
     }
     // The private address says what it is for and what it is not.
@@ -198,18 +199,19 @@ describe('businesses pages', () => {
     expect(document.body.textContent).not.toMatch(/encrypt/i);
   });
 
-  it('offers a way to move a published listing without breaking the old address', async () => {
+  it('moves a published listing through the address control, leaving the old address working', async () => {
     renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses/b-published'], authProvider: providerWithPermissions(['listings.read', 'listings.write', 'listings.publish']) });
     await screen.findByRole('heading', { level: 1, name: 'Little Collins Espresso' });
 
-    const heading = await screen.findByRole('heading', { level: 2, name: 'Change the public address' });
-    const card = heading.closest('.ant-card')! as HTMLElement;
-    expect(card.textContent).toMatch(/links already shared keep working/i);
-
+    // The address is shown, not typed into, until Edit is pressed.
+    expect(screen.getByText('/business/little-collins-espresso')).toBeInTheDocument();
     const ue = user();
-    await ue.type(screen.getByLabelText('New public address'), 'moved-espresso');
-    await waitFor(() => expect(screen.getByRole('button', { name: /change address/i })).toBeEnabled());
-    await ue.click(screen.getByRole('button', { name: /change address/i }));
+    await ue.click(screen.getByRole('button', { name: 'Edit' }));
+    const field = screen.getByLabelText('Web address');
+    expect(screen.getByText(/links already shared keep working/i)).toBeInTheDocument();
+    await ue.clear(field);
+    await ue.type(field, 'moved-espresso');
+    await ue.click(screen.getByRole('button', { name: 'Save' }));
 
     const posted = await waitFor(() => {
       const call = calls.find((entry) => entry.method === 'POST' && entry.url.endsWith('/slug'));
@@ -219,13 +221,25 @@ describe('businesses pages', () => {
     expect(JSON.parse(posted.body!)).toMatchObject({ slug: 'moved-espresso', expectedVersion: 3 });
   });
 
+  it('refuses an address that is not a slug, before asking the server', async () => {
+    renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses/b-published'], authProvider: providerWithPermissions(['listings.read', 'listings.write', 'listings.publish']) });
+    await screen.findByRole('heading', { level: 1, name: 'Little Collins Espresso' });
+    const ue = user();
+    await ue.click(screen.getByRole('button', { name: 'Edit' }));
+    await ue.clear(screen.getByLabelText('Web address'));
+    await ue.type(screen.getByLabelText('Web address'), 'Not A Slug!');
+    await ue.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/lowercase letters, numbers and hyphens/i);
+    expect(calls.some((entry) => entry.method === 'POST' && entry.url.endsWith('/slug'))).toBe(false);
+  });
+
   it('keeps the save action in reach and says whether there is anything unsaved', async () => {
     renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses/b1'], authProvider: providerWithPermissions(['listings.read', 'listings.write']) });
     await screen.findByRole('heading', { level: 1, name: 'Little Collins Espresso' });
 
     expect(screen.getByText(/1 thing still to fix before it can be published/i)).toBeInTheDocument();
     const ue = user();
-    await ue.type(screen.getByLabelText('Name'), '!');
+    await ue.type(screen.getByLabelText('Business name'), '!');
     expect(await screen.findByText('You have unsaved changes.')).toBeInTheDocument();
   });
 });

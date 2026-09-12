@@ -28,15 +28,16 @@ describe('action visibility follows permissions', () => {
     globalThis.fetch = originalFetch;
   });
 
-  it('hides "New business" from an administrator who may only read listings', async () => {
+  it('hides "Add business" from an administrator who may only read listings', async () => {
     renderWithProviders(<BusinessesPage />, { initialEntries: ['/admin/businesses'], authProvider: providerWithPermissions(['listings.read']) });
     expect(await screen.findByRole('heading', { level: 1, name: 'Businesses' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /new business/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /add business/i })).not.toBeInTheDocument();
   });
 
-  it('offers "New business" once the write permission is held', async () => {
+  it('offers "Add business" once the write permission is held', async () => {
     renderWithProviders(<BusinessesPage />, { initialEntries: ['/admin/businesses'], authProvider: providerWithPermissions(['listings.read', 'listings.write']) });
-    expect(await screen.findByRole('button', { name: /new business/i })).toBeInTheDocument();
+    // The page header's action; the empty state offers the same thing again.
+    expect(await screen.findByRole('link', { name: /add business/i })).toHaveAttribute('href', '/admin/businesses/new');
   });
 
   it('hides "New article" from an administrator without the editorial permission', async () => {

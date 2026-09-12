@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { fetchSiteSettings, fetchStaticPages, fetchFaqs } from '@/lib/api';
 import { contactChannelFrom } from '@/lib/site';
 import { renderCopyright } from '@/lib/copyright';
+import { ConsentPreferencesLink } from './consent-banner';
 import { BrandMark } from './brand-mark';
 import { SocialLinks } from './social-links';
 
@@ -136,7 +137,12 @@ export async function SiteFooter() {
             {copyright}
             {settings.organisationName && settings.organisationName !== settings.name ? ` · ${settings.organisationName}` : ''} · Melbourne, Victoria, Australia
           </p>
-          <p className="max-w-2xl sm:text-right">Hours and contact details are supplied by businesses and checked by our editors; tell us when something looks wrong.</p>
+          <div className="flex max-w-2xl flex-col gap-2 sm:items-end sm:text-right">
+            <p>Hours and contact details are supplied by businesses and checked by our editors; tell us when something looks wrong.</p>
+            {/* Only rendered once the question has been answered, so it is a way
+                back to a decision rather than a second prompt. */}
+            <ConsentPreferencesLink />
+          </div>
         </div>
       </div>
     </footer>

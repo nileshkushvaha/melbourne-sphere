@@ -44,6 +44,7 @@ const PageEditorPage = lazy(() => import('@/pages/website/PageEditorPage').then(
 const PageCreatePage = lazy(() => import('@/pages/website/PageCreatePage').then((m) => ({ default: m.PageCreatePage })));
 const SiteSettingsPage = lazy(() => import('@/pages/settings/SiteSettingsPage').then((m) => ({ default: m.SiteSettingsPage })));
 const GeneralSettingsPage = lazy(() => import('@/pages/settings/GeneralSettingsPage').then((m) => ({ default: m.GeneralSettingsPage })));
+const SeoSettingsPage = lazy(() => import('@/pages/settings/SeoSettingsPage').then((m) => ({ default: m.SeoSettingsPage })));
 const AuditLogPage = lazy(() => import('@/pages/AuditLogPage').then((m) => ({ default: m.AuditLogPage })));
 const EmailLogsPage = lazy(() => import('@/pages/system/EmailLogsPage').then((m) => ({ default: m.EmailLogsPage })));
 const FaqsPage = lazy(() => import('@/pages/website/FaqsPage').then((m) => ({ default: m.FaqsPage })));
@@ -128,6 +129,7 @@ export function AppRoutes() {
         <Route path="/reviews" element={<ReviewsPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/settings/general" element={<GeneralSettingsPage />} />
+        <Route path="/settings/seo" element={<SeoSettingsPage />} />
         <Route path="/settings" element={<SiteSettingsPage />} />
         <Route path="/redirects" element={<RedirectsPage />} />
         <Route path="/redirects/new" element={<RedirectEditorPage />} />

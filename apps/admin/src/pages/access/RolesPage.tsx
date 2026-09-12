@@ -8,9 +8,13 @@ import { isApiError } from '@/api/errors';
 import { useCapabilities } from '@/auth/access-control';
 import { PERMISSION } from '@/auth/permissions';
 import { errorMessage, useAsync } from '@/shared/useAsync';
+import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { formatDateTime } from '@/shared/format';
-import { EmptyState, PageHeader, StatusTag, TableCard } from '@/components/ui';
+import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard } from '@/components/ui';
+
+/** The parameters that narrow this list; everything else is sort or page. */
+const FILTERS = ['q'] as const;
 
 /**
  * Roles (SRS RBAC 010). Creating and editing appear only with the matching
@@ -23,9 +27,11 @@ export function RolesPage() {
   const { message, modal } = App.useApp();
   const { mutate: onAuthError } = useOnError();
   const { can } = useCapabilities();
-  const [page, setPage] = useState(1);
-  const [q, setQ] = useState('');
-  const [search, setSearch] = useState('');
+  const list = useListParams(FILTERS);
+  const search = list.get('q') ?? '';
+  // The field keeps what is being typed; the address bar keeps what was searched.
+  const [q, setQ] = useState(search);
+  const page = list.page;
 
   const [state, reload] = useAsync((signal) => api.listRoles({ page, pageSize: 20, q: search || undefined }, signal), [page, search]);
 
@@ -64,23 +70,27 @@ export function RolesPage() {
             placeholder="Search roles"
             value={q}
             onChange={(event) => setQ(event.target.value)}
-            onSearch={(value) => {
-              setPage(1);
-              setSearch(value.trim());
-            }}
+            onSearch={(value) => list.set('q', value.trim() || undefined)}
             style={{ width: 280 }}
           />
         }
         summary={meta ? `${rows.length} of ${meta.total} role${meta.total === 1 ? '' : 's'}` : undefined}
       >
+        {state.status === 'error' && <ErrorState message={state.message} reference={state.reference} onRetry={reload} />}
         {state.status === 'ready' && rows.length === 0 ? (
-          <EmptyState title="No roles match" description="Try a different search, or create a role for a group of administrators." />
+          <ListEmpty
+            state={state}
+            filtered={list.filtered}
+            noun="roles"
+            onClear={list.clear}
+            empty={{ title: 'No roles yet', description: 'A role is a named set of permissions you can give to several administrators at once.' }}
+          />
         ) : (
           <Table<RoleListItem>
             rowKey="id"
             dataSource={rows}
             loading={state.status === 'loading'}
-            pagination={{ current: page, pageSize: meta?.pageSize ?? 20, total: meta?.total ?? 0, onChange: setPage, showSizeChanger: false }}
+            pagination={{ current: page, pageSize: meta?.pageSize ?? 20, total: meta?.total ?? 0, onChange: list.setPage, showSizeChanger: false }}
             className="ms-scroll-table"
             // A fixed floor rather than max-content: the columns then share the
             // card's width instead of the table dictating it, so nothing is

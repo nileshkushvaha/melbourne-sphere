@@ -23,6 +23,8 @@ const PAGE: StaticPageContent = {
   body: '<p>Melbourne Sphere is an independent directory of businesses across Melbourne.</p>',
   seoTitle: 'About Melbourne Sphere',
   seoDescription: 'An independently edited directory of Melbourne businesses, local guides and city stories.',
+  seoKeywords: null,
+  ogImage: null,
   updatedAt: '2026-09-08T01:00:00.000Z',
 };
 

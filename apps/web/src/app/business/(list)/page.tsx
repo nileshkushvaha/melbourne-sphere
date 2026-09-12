@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { routeMetadata } from '@/lib/route-seo';
 import { BusinessResults } from '@/components/business-results';
 import { isFiltered, parseSearchParams, toQueryString } from '@/lib/search-params';
 
@@ -9,12 +10,17 @@ import { isFiltered, parseSearchParams, toQueryString } from '@/lib/search-param
 export async function generateMetadata({ searchParams }: PageProps<'/business'>): Promise<Metadata> {
   const state = parseSearchParams(await searchParams);
   const filtered = isFiltered(state);
-  return {
+  const base: Metadata = {
     title: filtered ? `Search results${state.q ? ` for “${state.q}”` : ''}` : 'Businesses',
     description: 'Every published business across Melbourne. Filter by category, local area and rating.',
     alternates: { canonical: `/business${toQueryString(state)}` },
     robots: filtered ? { index: false, follow: true } : undefined,
   };
+  // A filtered search is not the directory index: it keeps its own normalised
+  // canonical and stays out of the index (SEO 003), whatever has been
+  // configured for the index itself.
+  if (filtered) return base;
+  return routeMetadata('directory', base);
 }
 
 export default async function BusinessListPage({ searchParams }: PageProps<'/business'>) {

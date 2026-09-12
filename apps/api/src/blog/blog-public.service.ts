@@ -1,10 +1,11 @@
+import type { MediaVariantKind } from '@melbourne-sphere/database';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@melbourne-sphere/database';
 import { collectionMeta, skipFor } from '../common/pagination.js';
 import { DatabaseService } from '../database/database.service.js';
 import { ObjectStoragePort } from '../media/storage.port.js';
 import { relatedScore } from './post-rules.js';
-import type { ListPublicPostsQueryDto, PublicBlogTermDto, PublicPostCardDto, PublicPostDto } from './dto/public-post.dto.js';
+import type { ListPublicPostsQueryDto, PublicBlogTermDto, PublicImageVariantDto, PublicPostCardDto, PublicPostDto } from './dto/public-post.dto.js';
 
 const cardInclude = {
   author: {
@@ -17,6 +18,7 @@ const cardInclude = {
   category: { select: { name: true, slug: true } },
   tags: { include: { tag: { select: { name: true, slug: true, active: true } } } },
   cover: { include: { variants: true } },
+  ogImage: { include: { variants: true } },
 } satisfies Prisma.PostInclude;
 
 type CardRow = Prisma.PostGetPayload<{ include: typeof cardInclude }>;
@@ -127,10 +129,20 @@ export class BlogPublicService {
       tags: row.tags.filter((t) => t.tag.active).map((t) => ({ name: t.tag.name, slug: t.tag.slug })),
       publishedAt: (row.publishedAt ?? row.createdAt).toISOString(),
       coverAlt: row.coverAlt ?? row.cover?.altText ?? null,
-      cover:
-        row.cover && row.cover.status === 'ready' && row.cover.variants.length > 0
-          ? row.cover.variants.slice().sort((a, b) => a.width - b.width).map((v) => ({ kind: v.kind, url: this.storage.publicUrl(v.objectKey), width: v.width, height: v.height }))
-          : [],
+      cover: this.renditions(row.cover),
+      // The image used when the article is shared. An article that sets one
+      // publishes that; otherwise the cover stands in, which is what readers
+      // expect and what the editor is told on the screen.
+      shareImage: this.renditions(row.ogImage).at(-1) ?? null,
     };
+  }
+
+  /** Published renditions of an asset, smallest first; empty unless it is ready. */
+  private renditions(asset: { status: string; variants: { kind: MediaVariantKind; objectKey: string; width: number; height: number }[] } | null | undefined): PublicImageVariantDto[] {
+    if (!asset || asset.status !== 'ready') return [];
+    return asset.variants
+      .slice()
+      .sort((a, b) => a.width - b.width)
+      .map((v) => ({ kind: v.kind, url: this.storage.publicUrl(v.objectKey), width: v.width, height: v.height }));
   }
 }

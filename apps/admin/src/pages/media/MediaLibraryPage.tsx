@@ -2,11 +2,12 @@ import { useMemo, useRef, useState } from 'react';
 import { Alert, App, Button, Form, Input, Progress, Select, Space, Typography } from 'antd';
 import { DeleteOutlined, UploadOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
-import { Link, useSearchParams } from 'react-router';
+import { Link } from 'react-router';
 import { MEDIA_STATUSES, localFileProblem, mediaApi, uploadImage, variantUrl, type MediaAsset, type MediaStatus } from '@/api/media';
 import { isApiError } from '@/api/errors';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { EmptyState, ErrorState, PageHeader, SectionCard, StatusTag, TableCard } from '@/components/ui';
+import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { brand } from '@/config/theme';
 import { PERMISSION } from '@/auth/permissions';
@@ -18,6 +19,9 @@ const WAITING_TOO_LONG_MS = 2 * 60 * 1000;
 
 const STATUS_LABELS: Record<MediaStatus, string> = { quarantined: 'processing', ready: 'ready', rejected: 'rejected' };
 
+/** The parameters that narrow this list; everything else is sort or page. */
+const FILTERS = ['q', 'status'] as const;
+
 /**
  * Media library (SRS MED 001–004). Uploads go straight to storage through a
  * signed URL; the API validates the bytes and the worker publishes the
@@ -28,17 +32,17 @@ export function MediaLibraryPage() {
   const api = mediaApi();
   const { message, modal } = App.useApp();
   const { mutate: onAuthError } = useOnError();
-  const [params, setParams] = useSearchParams();
-  const status = (params.get('status') as MediaStatus | null) ?? undefined;
-  const page = Number(params.get('page') ?? '1') || 1;
+  const list = useListParams(FILTERS);
+  const status = (list.get('status') as MediaStatus | null) ?? undefined;
+  const page = list.page;
   const { can } = useCapabilities();
   const mayViewQueues = can(PERMISSION.systemQueuesView);
 
   const [state, reload] = useAsync(
     // The clock is read where the data is fetched, not while rendering: a render
     // that reads the time answers differently every time React calls it.
-    async (signal) => ({ ...(await api.list({ status, page, pageSize: 24, q: params.get('q') ?? undefined }, signal)), loadedAt: Date.now() }),
-    [status, page, params.get('q')],
+    async (signal) => ({ ...(await api.list({ status, page, pageSize: 24, q: list.get('q') ?? undefined }, signal)), loadedAt: Date.now() }),
+    [status, page, list.get('q')],
   );
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -48,13 +52,6 @@ export function MediaLibraryPage() {
   const fileInput = useRef<HTMLInputElement>(null);
   const [uploadForm] = Form.useForm<{ altText: string }>();
 
-  const setParam = (key: string, value: string | undefined) => {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    if (key !== 'page') next.delete('page');
-    setParams(next);
-  };
 
   const handleError = (error: unknown, setter: (msg: string) => void) => {
     if (isApiError(error) && error.kind === 'unauthorized') onAuthError(error);
@@ -260,7 +257,7 @@ export function MediaLibraryPage() {
               allowClear
               placeholder="All statuses"
               value={status}
-              onChange={(v) => setParam('status', v)}
+              onChange={(v) => list.set('status', v)}
               style={{ width: 190 }}
               options={MEDIA_STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
             />
@@ -268,8 +265,8 @@ export function MediaLibraryPage() {
               allowClear
               aria-label="Search images by name"
               placeholder="Search by file name"
-              defaultValue={params.get('q') ?? ''}
-              onSearch={(value) => setParam('q', value.trim() || undefined)}
+              defaultValue={list.get('q') ?? ''}
+              onSearch={(value) => list.set('q', value.trim() || undefined)}
               style={{ width: 240 }}
             />
           </>
@@ -359,13 +356,13 @@ export function MediaLibraryPage() {
 
       {state.status === 'ready' && state.data.meta.pageCount > 1 && (
         <Space style={{ marginTop: 16 }}>
-          <Button disabled={page <= 1} onClick={() => setParam('page', String(page - 1))}>
+          <Button disabled={page <= 1} onClick={() => list.set('page', String(page - 1))}>
             Previous
           </Button>
           <Typography.Text>
             Page {state.data.meta.page} of {state.data.meta.pageCount}
           </Typography.Text>
-          <Button disabled={page >= state.data.meta.pageCount} onClick={() => setParam('page', String(page + 1))}>
+          <Button disabled={page >= state.data.meta.pageCount} onClick={() => list.set('page', String(page + 1))}>
             Next
           </Button>
         </Space>

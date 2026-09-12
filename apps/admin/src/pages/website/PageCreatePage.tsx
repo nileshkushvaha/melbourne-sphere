@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useRef } from 'react';
 import { App, Form, Input, Typography } from 'antd';
 import { useNavigate } from 'react-router';
 import { pagesApi } from '@/api/settings';
 import { RecordEditorPage } from '@/components/ui';
 import { RichTextEditorLazy } from '@/components/RichTextEditorLazy';
 import { useRecordEditor } from '@/shared/useRecordEditor';
+import { PermalinkField } from '@/components/PermalinkField';
+import { slugify } from '@/shared/slug';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
 interface Values {
@@ -17,17 +19,6 @@ interface Values {
 
 function BodyField({ value, onChange }: { value?: string; onChange?: (html: string) => void }) {
   return <RichTextEditorLazy value={value ?? ''} onChange={(html) => onChange?.(html)} ariaLabel="Page content" minHeight={320} />;
-}
-
-/** Turns a title into a plausible address, which the editor can then change. */
-function slugFrom(title: string): string {
-  return title
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 64);
 }
 
 /**
@@ -43,11 +34,12 @@ export function PageCreatePage() {
   const { message } = App.useApp();
   const navigate = useNavigate();
   const [form] = Form.useForm<Values>();
-  const slug = Form.useWatch('slug', form) ?? '';
   const { saving, error, submit } = useRecordEditor<Values>(form);
-  // Only until the editor types an address of their own: after that the title
-  // no longer overwrites what they wrote.
-  const [slugEdited, setSlugEdited] = useState(false);
+  // The address follows the title only while it still matches the title. Once
+  // the editor has written their own, the title stops overwriting it — and
+  // this holds without tracking whether they "have edited it yet", which was a
+  // separate piece of state that could disagree with the field.
+  const lastTitle = useRef('');
 
   const save = () =>
     submit(async (values) => {
@@ -87,29 +79,20 @@ export function PageCreatePage() {
       >
         <Input
           maxLength={180}
+          placeholder="e.g. Community guidelines"
           onChange={(event) => {
-            if (!slugEdited) form.setFieldValue('slug', slugFrom(event.target.value));
+            const title = event.target.value;
+            const current = String(form.getFieldValue('slug') ?? '');
+            if (current === '' || current === slugify(lastTitle.current)) form.setFieldValue('slug', slugify(title));
+            lastTitle.current = title;
           }}
         />
       </Form.Item>
 
-      <Form.Item
-        label="Address"
-        name="slug"
-        rules={[{ required: true, message: 'An address is required' }]}
-        extra={
-          <>
-            Lower-case letters, numbers and hyphens. Addresses the site already uses — blog, business, contact — are refused.
-            {slug && (
-              <>
-                {' '}
-                The page will be at <code>/{slug}</code>.
-              </>
-            )}
-          </>
-        }
-      >
-        <Input maxLength={64} onChange={() => setSlugEdited(true)} />
+      {/* The address is shown the way it is everywhere else in the admin: a
+          line under the title, made from the title until someone changes it. */}
+      <Form.Item name="slug" rules={[{ required: true, message: 'An address is required' }]} style={{ marginBottom: 20 }}>
+        <PermalinkField base="" source="title" onSave={undefined} note="Addresses the site already uses — blog, business, contact — are refused. A page's address cannot be changed after it is created." />
       </Form.Item>
 
       <Form.Item label="Content" name="body" rules={[{ required: true, message: 'Content is required' }]} extra="Headings, lists, links and emphasis are kept; scripts and styles are removed.">

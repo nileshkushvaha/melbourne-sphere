@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { staticPageMetadata } from '@/lib/route-seo';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { InformationPage } from '@/components/information-page';
@@ -20,11 +21,7 @@ export async function generateMetadata({ params }: PageProps<'/[slug]'>): Promis
   const { slug } = await params;
   const page = await fetchStaticPage(slug);
   if (!page) return { title: 'Page not found', robots: { index: false } };
-  return {
-    title: page.seoTitle ?? page.title,
-    description: page.seoDescription ?? undefined,
-    alternates: { canonical: `/${page.slug}` },
-  };
+  return staticPageMetadata(page);
 }
 
 /** Information page (SRS CFG 002): sanitised rich content, published only. */

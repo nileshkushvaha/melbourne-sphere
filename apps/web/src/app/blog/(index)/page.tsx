@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { routeMetadata } from '@/lib/route-seo';
 import Link from 'next/link';
 import { PostCard } from '@/components/post-card';
 import { FeaturedPostCard } from '@/components/featured-post-card';
@@ -6,11 +7,14 @@ import { Pagination } from '@/components/pagination';
 import { gridColumns } from '@/components/page-shell';
 import { fetchBlogTerms, fetchPosts } from '@/lib/api';
 
-export const metadata: Metadata = {
-  title: 'Blog',
-  description: 'Guides, interviews and news about Melbourne businesses and neighbourhoods.',
-  alternates: { canonical: '/blog' },
-};
+/** The page's own metadata, with any administrator overrides applied (SEO 001). */
+export async function generateMetadata(): Promise<Metadata> {
+  return routeMetadata('blog', {
+    title: 'Blog',
+    description: 'Guides, interviews and news about Melbourne businesses and neighbourhoods.',
+    alternates: { canonical: '/blog' },
+  });
+}
 
 /** Blog index (SRS BLOG 005): 12 per page, newest published first, server rendered. */
 export default async function BlogIndexPage({ searchParams }: PageProps<'/blog'>) {

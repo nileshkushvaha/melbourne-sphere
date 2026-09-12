@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+import { routeMetadata } from '@/lib/route-seo';
 import Link from 'next/link';
 import { ArrowRightIcon, MapPinIcon, PenLineIcon, ShieldCheckIcon } from 'lucide-react';
 import { JsonLdScript } from '@/components/json-ld';
@@ -15,7 +17,10 @@ import { heroSlides } from '@/lib/hero-assets';
 import { usablePhrases } from '@/lib/hero';
 import { contactChannelFrom } from '@/lib/site';
 
-export const metadata = { alternates: { canonical: '/' } };
+/** The front page's metadata, with any administrator overrides applied (SEO 001). */
+export function generateMetadata(): Promise<Metadata> {
+  return routeMetadata('home', { alternates: { canonical: '/' } });
+}
 /** Rendered per request (data cached 300 s per fetch) so builds never depend on a live API (SRS CACHE 001). */
 export const dynamic = 'force-dynamic';
 

@@ -15,6 +15,17 @@ export function settingsApi(client: HttpClient = httpClient) {
   };
 }
 
+export type SeoSettings = components['schemas']['SeoSettingsRecordDto'];
+export type UpdateSeoSettings = components['schemas']['UpdateSeoSettingsDto'];
+
+/** Search metadata for routes with no record of their own (SRS SEO 001). */
+export function seoSettingsApi(client: HttpClient = httpClient) {
+  return {
+    get: (signal?: AbortSignal) => client.request<{ data: SeoSettings }>('/admin/settings/seo', { signal }).then((r) => r.data.data),
+    put: (body: UpdateSeoSettings) => client.request<{ data: SeoSettings }>('/admin/settings/seo', { method: 'PUT', body }).then((r) => r.data.data),
+  };
+}
+
 export type GeneralSettings = components['schemas']['GeneralSettingsRecordDto'];
 export type UpdateGeneralSettings = components['schemas']['UpdateGeneralSettingsDto'];
 

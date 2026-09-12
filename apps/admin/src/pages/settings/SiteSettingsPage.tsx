@@ -100,7 +100,7 @@ export function SiteSettingsPage() {
         description="The banner, headline and counters on the public home page."
       />
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} role="alert" />}
-      <Form<FormValues> form={form} layout="vertical" requiredMark={false} onFinish={submit} disabled={state.status !== 'ready'} style={{ maxWidth: 860 }}>
+      <Form<FormValues> form={form} layout="vertical" requiredMark={false} onFinish={submit} disabled={state.status !== 'ready'}>
         <SectionCard title="Hero wording" description="The heading and the phrases that rotate beneath it.">
           <Form.Item label="Headline" name="heroHeadline" extra="Read by screen readers. Must make sense without the rotating phrases." rules={[{ required: true, message: 'Headline is required' }]}>
             <Input maxLength={80} showCount />

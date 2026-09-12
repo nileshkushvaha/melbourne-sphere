@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 import type { ReactNode } from 'react';
 import { dashboardApi, type DashboardMetric } from '@/api/dashboard';
 import { ApiStatus } from '@/components/ApiStatus';
-import { EmptyState, PageHeader, SectionCard, StatCard } from '@/components/ui';
+import { EmptyState, PageHeader, Pill, SectionCard, StatCard } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -121,7 +121,7 @@ export function DashboardPage() {
                           <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
                             <Space size={8}>
                               <span>{formatDateTime(post.scheduledAt)}</span>
-                              {post.overdue && <Tag color="red">overdue</Tag>}
+                              {post.overdue && <Pill tone="critical">overdue</Pill>}
                             </Space>
                           </Typography.Paragraph>
                         </div>

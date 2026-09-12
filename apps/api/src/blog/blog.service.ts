@@ -304,6 +304,7 @@ export class BlogService {
     if (await db.post.findUnique({ where: { slug } })) throw slugTaken();
     await this.assertReferences(input.authorId, input.categoryId, input.tagIds ?? []);
     if (input.coverMediaId) await this.media.assertUsableImage(input.coverMediaId);
+    if (input.ogImageMediaId) await this.media.assertUsableImage(input.ogImageMediaId);
     const bodyMarkdown = input.bodyMarkdown ?? '';
     // Markdown stays the default so an API client that omits the field keeps the
     // original behaviour; the admin editor always sends 'html' explicitly.
@@ -320,6 +321,8 @@ export class BlogService {
         categoryId: input.categoryId,
         coverAlt: input.coverAlt ?? null,
         coverMediaId: input.coverMediaId ?? null,
+        ogImageMediaId: input.ogImageMediaId ?? null,
+        seoKeywords: input.seoKeywords ?? null,
         seoTitle: input.seoTitle ?? null,
         seoDescription: input.seoDescription ?? null,
         commentsEnabled: input.commentsEnabled ?? true,
@@ -346,6 +349,7 @@ export class BlogService {
       await this.assertReferences(input.authorId ?? current.authorId, input.categoryId ?? current.categoryId, input.tagIds ?? current.tags.map((t) => t.tagId));
     }
     if (input.coverMediaId) await this.media.assertUsableImage(input.coverMediaId);
+    if (input.ogImageMediaId) await this.media.assertUsableImage(input.ogImageMediaId);
     const data: Prisma.PostUncheckedUpdateInput = { version: { increment: 1 } };
     if (input.title !== undefined) data.title = input.title;
     if (input.slug !== undefined) data.slug = input.slug;
@@ -359,6 +363,8 @@ export class BlogService {
     if (input.categoryId !== undefined) data.categoryId = input.categoryId;
     if (input.coverAlt !== undefined) data.coverAlt = input.coverAlt;
     if (input.coverMediaId !== undefined) data.coverMediaId = input.coverMediaId ?? null;
+    if (input.ogImageMediaId !== undefined) data.ogImageMediaId = input.ogImageMediaId ?? null;
+    if (input.seoKeywords !== undefined) data.seoKeywords = input.seoKeywords ?? null;
     if (input.seoTitle !== undefined) data.seoTitle = input.seoTitle;
     if (input.seoDescription !== undefined) data.seoDescription = input.seoDescription;
     if (input.commentsEnabled !== undefined) data.commentsEnabled = input.commentsEnabled;
@@ -601,8 +607,11 @@ export class BlogService {
       coverAlt: row.coverAlt,
       coverMediaId: row.coverMediaId,
       cover: await this.media.publicImageRef(row.coverMediaId),
+      ogImageMediaId: row.ogImageMediaId,
+      ogImage: await this.media.publicImageRef(row.ogImageMediaId),
       seoTitle: row.seoTitle,
       seoDescription: row.seoDescription,
+      seoKeywords: row.seoKeywords,
       archivedAt: row.archivedAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),
     };

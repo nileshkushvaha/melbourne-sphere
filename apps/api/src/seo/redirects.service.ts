@@ -14,7 +14,8 @@ type Tx = Prisma.TransactionClient;
 interface RecordChangeInput {
   sourcePath: string;
   targetPath: string;
-  resourceType: 'business' | 'post';
+  /** What moved. Stored as a plain string column, so this list grows without a migration. */
+  resourceType: 'business' | 'post' | 'category' | 'local_area';
   resourceId: string;
   actorAdminId: string;
   reason?: string | null;

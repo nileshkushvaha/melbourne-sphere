@@ -39,6 +39,11 @@ interface Props<Values> {
    * see the edits itself and every editor gets the same warning for free.
    */
   dirty?: boolean;
+  /**
+   * Lay the fields out in as many readable columns as the window allows. Turn
+   * it off for an editor whose fields are already arranged by hand.
+   */
+  columns?: boolean;
 }
 
 /**
@@ -72,6 +77,7 @@ export function RecordEditorPage<Values>({
   submitLabel = 'Save',
   readOnlyReason = null,
   dirty,
+  columns = true,
 }: Props<Values>) {
   const navigate = useNavigate();
   const [touched, setTouched] = useState(false);
@@ -97,10 +103,6 @@ export function RecordEditorPage<Values>({
       {readOnlyReason && <Alert type="info" showIcon message={readOnlyReason} style={{ marginBottom: 16 }} />}
 
       <Spin spinning={loading}>
-        {/* The card is capped with the form rather than stretched across the
-            page: a short form inside a full-width card reads as a mistake, and
-            a text field two thirds of a screen wide is harder to read, not
-            easier. */}
         {/* Two columns only where there is room for both. The column sizes are
             in the stylesheet, not inline, because they change at a breakpoint:
             an inline `1fr 320px` held at every width squeezed the form to zero
@@ -115,16 +117,20 @@ export function RecordEditorPage<Values>({
               // Submitting with Enter should do what the Save button does.
               onFinish={() => void onSubmit()}
               onValuesChange={() => setTouched(true)}
-              style={{ maxWidth: 720 }}
             >
-              {children}
+              <div className={columns ? 'ms-form-grid' : undefined}>{children}</div>
             </Form>
           </SectionCard>
-          {aside}
+          {/* The side column follows the reader down a long form, the way the
+              business editor's publishing panel does — a panel that scrolls out
+              of sight is a panel you have to scroll back up to use. It sticks
+              only where there are two columns; stacked on a narrow screen it is
+              part of the page. */}
+          {aside && <div className="ms-editor-sidebar">{aside}</div>}
         </div>
 
         {!readOnlyReason && (
-          <StickyActions status={changed ? 'You have unsaved changes.' : status} style={aside ? undefined : { maxWidth: 760 }}>
+          <StickyActions status={changed ? 'You have unsaved changes.' : status}>
             <Space wrap>
               {actions}
               <Button onClick={() => navigate(listHref)} disabled={saving}>

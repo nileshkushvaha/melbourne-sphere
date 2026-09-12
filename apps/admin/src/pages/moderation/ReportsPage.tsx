@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Alert, App, Button, Form, Input, Modal, Select, Space, Table, Tag, Typography } from 'antd';
 import { useOnError } from '@refinedev/core';
-import { Link, useSearchParams } from 'react-router';
+import { Link } from 'react-router';
 import { moderationApi, REPORT_STATUSES, type AdminReport, type ReportOutcome, type ReportStatus } from '@/api/moderation';
 import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
-import { PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
+import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
+import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { FormSelect } from '@/components/FormSelect';
 import { expandToggle } from '@/components/ui/expandToggle';
@@ -21,6 +22,9 @@ const OUTCOMES: { value: ReportOutcome; label: string }[] = [
   { value: 'spam', label: 'Spam' },
 ];
 
+/** The parameters that narrow this list; everything else is sort or page. */
+const FILTERS = ['status'] as const;
+
 /**
  * Abuse report queue (SRS REP 002). Resolving records the decision only;
  * removing a review remains a separate moderation action on the Reviews page.
@@ -30,21 +34,14 @@ export function ReportsPage() {
   const api = moderationApi();
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
-  const [params, setParams] = useSearchParams();
-  const status = (params.get('status') as ReportStatus | null) ?? undefined;
-  const page = Number(params.get('page') ?? '1') || 1;
+  const list = useListParams(FILTERS);
+  const status = (list.get('status') as ReportStatus | null) ?? undefined;
+  const page = list.page;
   const [state, reload] = useAsync((signal) => api.listReports({ status, page, pageSize: 20 }, signal), [status, page]);
   const [resolving, setResolving] = useState<AdminReport | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [form] = Form.useForm<{ outcome: ReportOutcome; note?: string }>();
 
-  const setParam = (key: string, value: string | undefined) => {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    if (key !== 'page') next.delete('page');
-    setParams(next);
-  };
 
   const handleError = (error: unknown) => {
     if (isApiError(error) && error.kind === 'unauthorized') onAuthError(error);
@@ -85,18 +82,18 @@ export function ReportsPage() {
       <TableCard
         toolbar={
           <>
-            <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => setParam('status', v)} style={{ width: 180 }} options={REPORT_STATUSES.map((s) => ({ value: s, label: s }))} />
+            <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => list.set('status', v)} style={{ width: 180 }} options={REPORT_STATUSES.map((s) => ({ value: s, label: s }))} />
           </>
         }
       >
-      {state.status === 'error' && <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />}
+      {state.status === 'error' && <ErrorState message={state.message} reference={state.reference} onRetry={reload} />}
       <Table<AdminReport>
         // Colour is on the rows that still need a decision, not on every row.
         rowClassName={(row) => statusRowClass(row.status)}
         rowKey="id"
         loading={state.status === 'loading'}
         dataSource={state.status === 'ready' ? state.data.data : []}
-        pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => setParam('page', String(p)) } : false}
+        pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) } : false}
         scroll={{ x: 1000 }}
         expandable={{
           expandIcon: expandToggle((report) => `the ${reasonLabel(report.reason).toLowerCase()} report about a ${report.targetType}`),
@@ -136,7 +133,11 @@ export function ReportsPage() {
             ),
           },
         ]}
-        locale={{ emptyText: state.status === 'ready' ? 'No reports match.' : ' ' }}
+        locale={{
+          emptyText: (
+            <ListEmpty state={state} filtered={list.filtered} noun="reports" onClear={list.clear} empty={{ title: 'No abuse reports', description: 'Reports visitors raise about a review or comment arrive here.' }} />
+          ),
+        }}
       />
       </TableCard>
       <Modal open={resolving !== null} title="Resolve this report" okText="Resolve" onOk={() => void submitResolution()} onCancel={() => setResolving(null)} destroyOnHidden>

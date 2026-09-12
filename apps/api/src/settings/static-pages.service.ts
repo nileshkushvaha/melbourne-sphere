@@ -5,6 +5,7 @@ import type { RequestContext } from '../auth/auth.service.js';
 import { DatabaseService } from '../database/database.service.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import { renderSanitisedBody, toPlainText } from '../blog/sanitise.js';
+import { MediaService } from '../media/media.service.js';
 import { CacheService } from '../cache/cache.service.js';
 import { CACHE_TAGS } from '@melbourne-sphere/domain';
 import {
@@ -41,6 +42,7 @@ export class StaticPagesService {
     private readonly database: DatabaseService,
     private readonly audit: AuditService,
     private readonly cache: CacheService,
+    private readonly media: MediaService,
   ) {}
 
   /**
@@ -52,8 +54,8 @@ export class StaticPagesService {
     const rows = await db.staticPage.findMany({ orderBy: { updatedAt: 'desc' } });
     const bySlug = new Map(rows.map((row) => [row.slug, row]));
     return [
-      ...SYSTEM_PAGES.map((definition) => this.toDto(definition.slug, bySlug.get(definition.slug))),
-      ...rows.filter((row) => !isSystemPage(row.slug)).map((row) => this.toDto(row.slug, row)),
+      ...(await Promise.all(SYSTEM_PAGES.map((definition) => this.toDto(definition.slug, bySlug.get(definition.slug))))),
+      ...(await Promise.all(rows.filter((row) => !isSystemPage(row.slug)).map((row) => this.toDto(row.slug, row)))),
     ];
   }
 
@@ -93,6 +95,8 @@ export class StaticPagesService {
         bodyFormat,
         sanitizedBody: renderSanitisedBody(input.body, bodyFormat),
         seoTitle: input.seoTitle ?? null,
+        seoKeywords: input.seoKeywords ?? null,
+        ogImageMediaId: input.ogImageMediaId ?? null,
         seoDescription: input.seoDescription ?? null,
         updatedByAdminId: actor.id,
       },
@@ -155,6 +159,9 @@ export class StaticPagesService {
       title: row.title,
       body: row.sanitizedBody,
       seoTitle: row.seoTitle,
+      seoKeywords: row.seoKeywords,
+      ogImageMediaId: row.ogImageMediaId,
+      ogImage: await this.media.publicImageRefOfKind(row.ogImageMediaId, 'hero'),
       seoDescription: row.seoDescription,
       updatedAt: row.updatedAt.toISOString(),
     };
@@ -186,6 +193,8 @@ export class StaticPagesService {
       bodyFormat,
       sanitizedBody,
       seoTitle: input.seoTitle ?? null,
+      seoKeywords: input.seoKeywords ?? null,
+      ogImageMediaId: input.ogImageMediaId ?? null,
       seoDescription: input.seoDescription ?? null,
       updatedByAdminId: actor.id,
     };
@@ -246,7 +255,7 @@ export class StaticPagesService {
     return staticPageBlockers({ title: row.title, plainBody: toPlainText(row.sanitizedBody) });
   }
 
-  private toDto(slug: string, row?: StaticPage): StaticPageDto {
+  private async toDto(slug: string, row?: StaticPage): Promise<StaticPageDto> {
     const definition: StaticPageDefinition = systemPageDefinition(slug) ?? { slug, defaultTitle: slug, purpose: CUSTOM_PAGE_PURPOSE, template: 'generic' };
     const system = isSystemPage(slug);
     if (!row) {
@@ -257,6 +266,9 @@ export class StaticPagesService {
         bodySource: '',
         bodyFormat: 'html',
         seoTitle: null,
+        seoKeywords: null,
+        ogImageMediaId: null,
+        ogImage: null,
         seoDescription: null,
         status: 'draft',
         publishedAt: null,
@@ -277,6 +289,9 @@ export class StaticPagesService {
       bodySource: row.bodySource,
       bodyFormat: row.bodyFormat,
       seoTitle: row.seoTitle,
+      seoKeywords: row.seoKeywords,
+      ogImageMediaId: row.ogImageMediaId,
+      ogImage: await this.media.publicImageRefOfKind(row.ogImageMediaId, 'hero'),
       seoDescription: row.seoDescription,
       status: row.status,
       publishedAt: row.publishedAt?.toISOString() ?? null,

@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiExtraModels, ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsBoolean, IsInt, IsObject, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
 import { LIMITS, SOCIAL_PLATFORMS, type SocialPlatform } from '../general-settings.js';
@@ -111,6 +111,37 @@ export class PublicSiteFooterDto {
 }
 
 /** Everything the public site needs to render its shell (SRS CFG 001, UX 002). */
+/**
+ * Search metadata the public site applies to the routes with no record of
+ * their own, with each share image already resolved so the site never has to
+ * look one up while rendering a page.
+ */
+export class PublicRouteSeoEntryDto {
+  @ApiProperty({ type: String, nullable: true }) metaTitle!: string | null;
+  @ApiProperty({ type: String, nullable: true }) metaDescription!: string | null;
+  @ApiProperty({ type: String, nullable: true }) metaKeywords!: string | null;
+  @ApiProperty({ type: String, nullable: true }) canonicalUrl!: string | null;
+  @ApiProperty({ description: '"default" means the page keeps its own rule' }) robots!: string;
+  @ApiProperty({ type: SettingsImageDto, nullable: true }) ogImage!: SettingsImageDto | null;
+}
+
+export class PublicAnalyticsDto {
+  @ApiProperty({ type: String, nullable: true }) googleAnalyticsId!: string | null;
+  @ApiProperty({ type: String, nullable: true }) googleTagManagerId!: string | null;
+  @ApiProperty({ type: String, nullable: true }) facebookPixelId!: string | null;
+}
+
+export class PublicRouteSeoDto {
+  @ApiProperty({ type: 'object', additionalProperties: { $ref: getSchemaPath(PublicRouteSeoEntryDto) }, description: 'Keyed by route; every declared route is present' })
+  routes!: Record<string, PublicRouteSeoEntryDto>;
+  @ApiProperty() twitterCard!: string;
+  @ApiProperty({ type: String, nullable: true, description: 'Search Console verification tag' })
+  googleSiteVerification!: string | null;
+  @ApiProperty({ type: PublicAnalyticsDto, description: 'Loaded by the public site only after the visitor accepts analytics cookies' })
+  analytics!: PublicAnalyticsDto;
+}
+
+@ApiExtraModels(PublicRouteSeoEntryDto)
 export class PublicSiteSettingsDto {
   @ApiProperty() name!: string;
   @ApiProperty({ type: String, nullable: true }) shortName!: string | null;
@@ -122,4 +153,5 @@ export class PublicSiteSettingsDto {
   @ApiProperty({ description: 'Whether the contact strip above the navigation is shown' }) headerTopBarEnabled!: boolean;
   @ApiProperty({ type: [PublicSocialLinkDto], description: 'Configured profiles in a fixed order; empty when none are set' }) social!: PublicSocialLinkDto[];
   @ApiProperty({ type: PublicSiteFooterDto }) footer!: PublicSiteFooterDto;
+  @ApiProperty({ type: PublicRouteSeoDto }) seo!: PublicRouteSeoDto;
 }

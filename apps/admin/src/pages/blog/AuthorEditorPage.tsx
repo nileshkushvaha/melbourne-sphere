@@ -24,7 +24,6 @@ const LINK_KINDS = ['website', 'facebook', 'instagram', 'x', 'linkedin', 'youtub
 
 interface FormValues {
   displayName: string;
-  slug?: string;
   role?: string | null;
   shortBio?: string | null;
   bio?: string | null;
@@ -73,7 +72,6 @@ export function AuthorEditorPage() {
     if (!author) return;
     form.setFieldsValue({
       displayName: author.displayName,
-      slug: author.slug,
       role: author.role,
       shortBio: author.shortBio,
       bio: author.bio,
@@ -163,11 +161,6 @@ export function AuthorEditorPage() {
                     <Input maxLength={120} placeholder="e.g. Food editor" />
                   </Form.Item>
                 </Col>
-                <Col xs={24} md={12}>
-                  <Form.Item label="Slug" name="slug" extra="Used in author links. Generated from the name when left blank.">
-                    <Input maxLength={100} placeholder="priya-raman" />
-                  </Form.Item>
-                </Col>
                 <Col xs={24} md={6}>
                   <Form.Item label="Pronouns" name="pronouns" extra="Shown on the author profile, if given.">
                     <Input maxLength={40} placeholder="e.g. they/them" />
@@ -234,7 +227,10 @@ export function AuthorEditorPage() {
             </SectionCard>
           </Col>
 
+          {/* The side column follows the reader down a long form, the same
+              way the business editor's does. */}
           <Col xs={24} xl={8}>
+            <div className="ms-editor-sidebar ms-editor-sidebar--xl">
             <SectionCard title="Photo" description="Choose a processed image from the media library.">
               <Space direction="vertical" size={12} style={{ width: '100%' }}>
                 <Avatar size={112} src={photo?.url} icon={<UserOutlined aria-hidden="true" />} alt="" />
@@ -284,6 +280,7 @@ export function AuthorEditorPage() {
                 <Typography.Text type="secondary">Last updated {formatDateTime(author.updatedAt)}</Typography.Text>
               </SectionCard>
             )}
+            </div>
           </Col>
         </Row>
 

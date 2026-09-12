@@ -145,7 +145,7 @@ export function GeneralSettingsPage() {
         description="Name, contact details, branding and footer."
       />
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} role="alert" />}
-      <Form<FormValues> form={form} layout="vertical" requiredMark={false} onFinish={submit} disabled={state.status !== 'ready'} style={{ maxWidth: 980 }}>
+      <Form<FormValues> form={form} layout="vertical" requiredMark={false} onFinish={submit} disabled={state.status !== 'ready'}>
         <SectionCard title="Site identity" description="Used in the header, page titles, search results and the copyright line.">
           <Row gutter={16}>
             <Col xs={24} md={8}>

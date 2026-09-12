@@ -5,7 +5,7 @@ import { pagesApi, type StaticPage } from '@/api/settings';
 import { errorMessage } from '@/shared/useAsync';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
-import { PageHeader, StatusTag, PageLoadError } from '@/components/ui';
+import { PageHeader, PageLoadError, Pill, StatusTag } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -91,7 +91,7 @@ export function PagesPage() {
             width: 190,
             render: (_: unknown, record) => (
               <Space size={6} wrap>
-                <Tag color={record.isSystem ? 'blue' : undefined}>{record.isSystem ? 'Part of the product' : 'Added by an editor'}</Tag>
+                <Pill tone={record.isSystem ? 'progress' : 'neutral'}>{record.isSystem ? 'Part of the product' : 'Added by an editor'}</Pill>
                 {record.template === 'about' && <Tag>About template</Tag>}
               </Space>
             ),

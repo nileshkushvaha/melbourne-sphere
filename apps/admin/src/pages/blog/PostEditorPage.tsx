@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, App, Button, Col, Form, Input, List, Modal, Row, Select, Space, Switch, Tooltip, Typography } from 'antd';
+import { Alert, App, Button, Col, Form, Input, List, Modal, Row, Select, Space, Switch, Typography } from 'antd';
 import { PictureOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -16,6 +16,8 @@ import { ErrorState, PageLoader, PageHeader, SectionCard, StatusTag, StickyActio
 import type { MediaAsset } from '@/api/media';
 import { useCapabilities } from '@/auth/access-control';
 import { PERMISSION } from '@/auth/permissions';
+import { PermalinkField } from '@/components/PermalinkField';
+import { slugify } from '@/shared/slug';
 import { FormSelect } from '@/components/FormSelect';
 import { brand } from '@/config/theme';
 
@@ -54,18 +56,30 @@ interface FormValues {
   bodyMarkdown: string;
   coverMediaId?: string | null;
   coverAlt?: string | null;
+  ogImageMediaId?: string | null;
   authorId: string;
   categoryId: string;
   tagIds: string[];
   seoTitle?: string | null;
   seoDescription?: string | null;
+  seoKeywords?: string | null;
   commentsEnabled: boolean;
   revisionReason?: string;
 }
 
-/** Form.Item injects value/onChange; this wrapper keeps them optional for the type checker. */
+/**
+ * Form.Item injects value/onChange; this wrapper keeps them optional for the
+ * type checker, and swallows the editor's opening note.
+ *
+ * The editor normalises the HTML it is given and reports the result, so it
+ * emits a change as soon as it mounts — with nothing typed. The form took that
+ * as an edit and told the writer they had unsaved changes on a blank page,
+ * which then blocked navigation with a warning about losing work that did not
+ * exist. A value identical to the one we handed it is not a change.
+ */
 function RichTextEditorField({ value, onChange, disabled }: { value?: string; onChange?: (html: string) => void; disabled?: boolean }) {
-  return <RichTextEditorLazy value={value ?? ''} onChange={(html) => onChange?.(html)} disabled={disabled} />;
+  const current = value ?? '';
+  return <RichTextEditorLazy value={current} onChange={(html) => { if (html !== current) onChange?.(html); }} disabled={disabled} />;
 }
 
 /**
@@ -92,9 +106,10 @@ export function PostEditorPage() {
   const [pending, setPending] = useState<{ action: PostAction; blockers?: string[] } | null>(null);
   const [actionForm] = Form.useForm<{ reason?: string; scheduledLocal?: string }>();
   const [reloadKey, setReloadKey] = useState(0);
-  const [coverPicker, setCoverPicker] = useState(false);
+  // Which image is being chosen: the one on the article, or the one used when
+  // it is shared.
+  const [picking, setPicking] = useState<'cover' | 'share' | null>(null);
   // Both are drafts layered over the loaded article: null means "follow the article".
-  const [slugDraft, setSlugDraft] = useState<string | null>(null);
   const [formatOverride, setFormatOverride] = useState<'html' | 'markdown' | null>(null);
 
   const [state, reload] = useAsync((signal) => (isNew ? Promise.resolve(null) : api.getPost(id!, signal)), [id, reloadKey]);
@@ -115,17 +130,20 @@ export function PostEditorPage() {
         bodyMarkdown: post.bodyMarkdown,
         coverMediaId: post.coverMediaId,
         coverAlt: post.coverAlt,
+        ogImageMediaId: post.ogImageMediaId,
         authorId: post.authorId,
         categoryId: post.categoryId,
         tagIds: post.tagIds,
         seoTitle: post.seoTitle,
         seoDescription: post.seoDescription,
+        seoKeywords: post.seoKeywords,
         commentsEnabled: post.commentsEnabled,
       });
     }
   }, [post, form]);
 
   const coverAsset = post?.cover ?? null;
+  const shareAsset = post?.ogImage ?? null;
   // Each watch is its own hook call: short-circuiting them would make the later
   // ones conditional.
   const watchedSeoTitle = Form.useWatch('seoTitle', form) as string | undefined;
@@ -139,7 +157,6 @@ export function PostEditorPage() {
 
   // New articles use the rich editor; existing Markdown articles stay Markdown until converted.
   const bodyFormat: 'html' | 'markdown' = formatOverride ?? (post?.bodyFormat === 'markdown' ? 'markdown' : 'html');
-  const newSlug = slugDraft ?? post?.slug ?? '';
 
   const offsetLabel = useMemo(() => melbourneOffsetLabel(new Date()), []);
 
@@ -204,16 +221,21 @@ export function PostEditorPage() {
     }
   };
 
-  const changeSlug = async () => {
+  /**
+   * Moves a published article. The address row awaits this, so a refusal has to
+   * be rethrown: swallowing it would close the editor as though the move had
+   * worked.
+   */
+  const changeSlug = async (slug: string) => {
     if (!post) return;
     setFormError(null);
     try {
-      await api.changePostSlug(post.id, { slug: newSlug.trim(), expectedVersion: post.version });
-      message.success('Public address changed; the old one now redirects');
-      setSlugDraft(null);
+      await api.changePostSlug(post.id, { slug, expectedVersion: post.version });
+      message.success('Public address changed; the old one now redirects.');
       setReloadKey((k) => k + 1);
     } catch (error) {
       handleError(error, setFormError);
+      throw error;
     }
   };
 
@@ -287,12 +309,21 @@ export function PostEditorPage() {
               <Form.Item label="Title" name="title" rules={[{ required: true, min: 3, message: 'Title is required' }]}>
                 <Input maxLength={180} size="large" showCount placeholder="A clear, specific headline" />
               </Form.Item>
+              {/* The address sits under the title, read-only until it is
+                  edited — the same row every other record in the admin uses.
+                  Before publication it is just a form value; afterwards saving
+                  it goes through the API, which leaves a 301 behind (SEO 004). */}
+              <Form.Item name="slug" style={{ marginBottom: 0 }}>
+                <PermalinkField
+                  base="/blog"
+                  source="title"
+                  disabled={readOnly || (Boolean(post?.firstPublishedAt) && !canPublish)}
+                  placeholder={watchedTitle ? slugify(watchedTitle) : undefined}
+                  note={post?.firstPublishedAt ? 'The old address keeps working through a permanent redirect (301).' : 'Made from the title when left empty.'}
+                  onSave={post?.firstPublishedAt ? changeSlug : undefined}
+                />
+              </Form.Item>
               <Row gutter={16}>
-                <Col xs={24} md={12}>
-                  <Form.Item label="Slug" name="slug" extra={post?.firstPublishedAt ? 'Locked after publication; change it below to keep a redirect.' : 'Generated from the title when left blank.'}>
-                    <Input maxLength={160} placeholder="a-clear-specific-headline" disabled={readOnly || Boolean(post?.firstPublishedAt)} />
-                  </Form.Item>
-                </Col>
                 <Col xs={24} md={12}>
                   <Form.Item label="Comments" name="commentsEnabled" valuePropName="checked" extra="Turn off to close comments on this article.">
                     <Switch />
@@ -369,18 +400,21 @@ export function PostEditorPage() {
               <Form.Item label="SEO title" name="seoTitle" extra="Defaults to the article title.">
                 <Input maxLength={180} showCount placeholder="Shown as the headline in search results" />
               </Form.Item>
-              <Form.Item label="Meta description" name="seoDescription" extra="Defaults to the excerpt." style={{ marginBottom: 0 }}>
+              <Form.Item label="Meta description" name="seoDescription" extra="Defaults to the excerpt.">
                 <Input.TextArea rows={3} maxLength={300} showCount placeholder="The summary shown under the title in search results" />
+              </Form.Item>
+              <Form.Item label="Keywords" name="seoKeywords" extra="Comma separated. Search engines ignore this tag; it will not affect ranking." style={{ marginBottom: 0 }}>
+                <Input maxLength={255} placeholder="e.g. carlton, coffee, breakfast" />
               </Form.Item>
             </SectionCard>
 
             <SectionCard title="Shared on social media" description="How a link to this article is likely to appear when someone shares it.">
               <div style={{ border: '1px solid #E2E8F0', borderRadius: 10, overflow: 'hidden' }}>
-                {coverAsset ? (
-                  <img src={coverAsset.url} alt="" style={{ width: '100%', aspectRatio: '1.91 / 1', objectFit: 'cover', display: 'block' }} />
+                {(shareAsset ?? coverAsset) ? (
+                  <img src={(shareAsset ?? coverAsset)!.url} alt="" style={{ width: '100%', aspectRatio: '1.91 / 1', objectFit: 'cover', display: 'block' }} />
                 ) : (
                   <div style={{ aspectRatio: '1.91 / 1', background: brand.placeholderFill, display: 'flex', alignItems: 'center', justifyContent: 'center', color: brand.textMuted, fontSize: 13 }}>
-                    No cover image — most networks will show plain text
+                    No image chosen — most networks will show plain text
                   </div>
                 )}
                 <div style={{ padding: '10px 12px' }}>
@@ -398,8 +432,11 @@ export function PostEditorPage() {
             </SectionCard>
           </Col>
 
+          {/* The side column follows the reader down a long form, the same
+              way the business editor's does. */}
           <Col xs={24} xl={8}>
-            <SectionCard title="Cover image" description="Shown on the article, listings and social shares.">
+            <div className="ms-editor-sidebar ms-editor-sidebar--xl">
+            <SectionCard title="Featured image" description="Shown at the top of the article and in listings.">
               {coverAsset ? (
                 <img src={coverAsset.url} alt={coverAsset.alt} style={{ width: '100%', borderRadius: 10, marginBottom: 12, aspectRatio: '16 / 9', objectFit: 'cover' }} />
               ) : (
@@ -411,7 +448,7 @@ export function PostEditorPage() {
                 <Input />
               </Form.Item>
               <Space wrap>
-                <Button icon={<PictureOutlined aria-hidden="true" />} onClick={() => setCoverPicker(true)} disabled={readOnly}>
+                <Button icon={<PictureOutlined aria-hidden="true" />} onClick={() => setPicking('cover')} disabled={readOnly}>
                   {coverAsset ? 'Replace image' : 'Choose image'}
                 </Button>
                 {coverAsset && (
@@ -427,9 +464,42 @@ export function PostEditorPage() {
                   </Button>
                 )}
               </Space>
-              <Form.Item label="Cover caption or alt override" name="coverAlt" extra="Leave empty to use the alt text stored with the image." style={{ marginTop: 16, marginBottom: 0 }}>
+              <Form.Item label="Caption or alt override" name="coverAlt" extra="Leave empty to use the alt text stored with the image." style={{ marginTop: 16, marginBottom: 0 }}>
                 <Input maxLength={255} placeholder="Describe the image for someone who cannot see it" />
               </Form.Item>
+            </SectionCard>
+
+            {/* A separate image for sharing, because the picture that works at
+                the top of an article is often the wrong shape for a social card
+                (1.91:1, and read at thumbnail size). Empty means the featured
+                image is used, which is what most articles want. */}
+            <SectionCard title="Share image" description="Used when the article is shared. Leave empty to share the featured image.">
+              {shareAsset ? (
+                <img src={shareAsset.url} alt={shareAsset.alt} style={{ width: '100%', borderRadius: 10, marginBottom: 12, aspectRatio: '1.91 / 1', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', aspectRatio: '1.91 / 1', borderRadius: 10, background: brand.placeholderFill, marginBottom: 12, color: brand.textSubtle, fontSize: 13, textAlign: 'center', padding: 12 }}>
+                  {coverAsset ? 'The featured image is used' : 'No image yet'}
+                </div>
+              )}
+              <Form.Item name="ogImageMediaId" hidden>
+                <Input />
+              </Form.Item>
+              <Space wrap>
+                <Button icon={<PictureOutlined aria-hidden="true" />} onClick={() => setPicking('share')} disabled={readOnly}>
+                  {shareAsset ? 'Replace image' : 'Choose image'}
+                </Button>
+                {shareAsset && (
+                  <Button
+                    onClick={() => {
+                      form.setFieldValue('ogImageMediaId', null);
+                      void form.submit();
+                    }}
+                    disabled={readOnly}
+                  >
+                    Use the featured image
+                  </Button>
+                )}
+              </Space>
             </SectionCard>
 
             <SectionCard title="Publishing">
@@ -454,18 +524,7 @@ export function PostEditorPage() {
               </SectionCard>
             )}
 
-            {post?.firstPublishedAt && canPublish && (
-              <SectionCard title="Change the public URL" description="The old address keeps working through a permanent redirect (301).">
-                <Space.Compact style={{ width: '100%' }}>
-                  <Input value={newSlug} onChange={(event) => setSlugDraft(event.target.value)} placeholder={post.slug} disabled={readOnly} aria-label="New slug" />
-                  <Tooltip title="Creates a 301 from the old address">
-                    <Button onClick={() => void changeSlug()} disabled={readOnly || newSlug.trim() === '' || newSlug.trim() === post.slug}>
-                      Change
-                    </Button>
-                  </Tooltip>
-                </Space.Compact>
-              </SectionCard>
-            )}
+            </div>
           </Col>
         </Row>
         {!readOnly && (
@@ -490,13 +549,14 @@ export function PostEditorPage() {
         )}
       </Form>
       <MediaPicker
-        open={coverPicker}
-        onCancel={() => setCoverPicker(false)}
+        open={picking !== null}
+        onCancel={() => setPicking(null)}
         onPick={(assets: MediaAsset[]) => {
           const asset = assets[0];
-          setCoverPicker(false);
-          if (!asset) return;
-          form.setFieldValue('coverMediaId', asset.id);
+          const slot = picking;
+          setPicking(null);
+          if (!asset || !slot) return;
+          form.setFieldValue(slot === 'cover' ? 'coverMediaId' : 'ogImageMediaId', asset.id);
           void form.submit();
         }}
       />

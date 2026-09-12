@@ -52,7 +52,7 @@ export function AuthorsPage() {
       />
       {state.status === 'error' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} />}
       <Space style={{ marginBottom: 12 }} wrap>
-        <Input.Search allowClear placeholder="Search by name, role or slug" value={search} onChange={(event) => setSearch(event.target.value)} style={{ width: 300 }} aria-label="Search authors" />
+        <Input.Search allowClear placeholder="Search by name or role" value={search} onChange={(event) => setSearch(event.target.value)} style={{ width: 300 }} aria-label="Search authors" />
       </Space>
       <Table<Author>
         rowKey="id"
@@ -85,7 +85,6 @@ export function AuthorsPage() {
               </Space>
             ),
           },
-          { title: 'Slug', dataIndex: 'slug', render: (value: string) => <code>{value}</code> },
           {
             title: 'Topics',
             render: (_: unknown, row) => (row.expertise.length === 0 ? <Typography.Text type="secondary">—</Typography.Text> : <Space wrap size={4}>{row.expertise.slice(0, 3).map((topic) => <Tag key={topic}>{topic}</Tag>)}</Space>),

@@ -1,84 +1,134 @@
-import { Alert, Button, Input, Select, Space, Table, Tag, Tooltip, Typography } from 'antd';
-import { PlusOutlined, WarningOutlined } from '@ant-design/icons';
+import { useEffect, useState } from 'react';
+import { Alert, Button, Dropdown, Input, Select, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { MoreOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons';
 import { useList } from '@refinedev/core';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import type { BusinessListItem, BusinessStatus } from '@/api/businesses';
 import { isApiError } from '@/api/errors';
 import { taxonomyApi, type CategoryItem, type LocalAreaItem } from '@/api/taxonomy';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
-import { PageHeader, StatusTag, TableCard } from '@/components/ui';
+import { EmptyState, PageHeader, Pill, StatusTag, TableCard } from '@/components/ui';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { useCapabilities } from '@/auth/access-control';
 import { PERMISSION } from '@/auth/permissions';
 import { brand } from '@/config/theme';
 
-const SORTS = ['updatedAt', 'name', 'status', 'createdAt', 'publishedAt'] as const;
-type Sort = (typeof SORTS)[number];
+const PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 350;
 
-/** The sort keys the API accepts, in the words an administrator would use. */
-const SORT_LABELS: Record<Sort, string> = {
-  updatedAt: 'Last changed',
-  name: 'Name',
-  status: 'Status',
-  createdAt: 'Date added',
-  publishedAt: 'Date published',
-};
+/** The sort keys the API accepts (BUSINESS_SORT_FIELDS), in an administrator's words. */
+const SORTS = {
+  'updatedAt:desc': 'Recently changed',
+  'updatedAt:asc': 'Longest unchanged',
+  'name:asc': 'Name A–Z',
+  'name:desc': 'Name Z–A',
+  'createdAt:desc': 'Recently added',
+  'firstPublishedAt:desc': 'Recently published',
+  'status:asc': 'Status',
+} as const;
+type SortKey = keyof typeof SORTS;
+const DEFAULT_SORT: SortKey = 'updatedAt:desc';
+
+const STATUSES: BusinessStatus[] = ['draft', 'published', 'archived'];
 
 /**
- * Business listings index (SRS BUS 001–006, ADM 002). Reads go through the
- * Refine data provider using the documented list contract; URL state keeps
- * filters shareable and survivable across refresh.
+ * Business listings index (SRS BUS 001–006, DIR 005/006).
+ *
+ * Filters, sort and page live in the URL, so a view can be shared, reloaded and
+ * returned to from a listing. Every filter is answered by the server: the page
+ * never holds more than one page of listings, whatever the directory grows to.
  */
 export function BusinessesPage() {
   useDocumentTitle('Businesses');
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const { can } = useCapabilities();
   const canWrite = can(PERMISSION.listingsWrite);
   const page = Number(params.get('page') ?? '1') || 1;
   const q = params.get('q') ?? '';
-  const status = (params.get('status') as BusinessStatus | null) ?? undefined;
+  const status = (STATUSES as string[]).includes(params.get('status') ?? '') ? (params.get('status') as BusinessStatus) : undefined;
   const categoryId = params.get('categoryId') ?? undefined;
   const localAreaId = params.get('localAreaId') ?? undefined;
-  const sort = (SORTS as readonly string[]).includes(params.get('sort') ?? '') ? (params.get('sort') as Sort) : 'updatedAt';
-  const order = params.get('order') === 'asc' ? 'asc' : 'desc';
+  const featured = params.get('featured') === 'yes' || params.get('featured') === 'no' ? (params.get('featured') as 'yes' | 'no') : undefined;
+  // `sort` and `order` stay separate in the address, as every other admin list
+  // writes them; the control below joins them so there is one thing to choose.
+  const sortParam = `${params.get('sort') ?? ''}:${params.get('order') ?? ''}`;
+  const sortKey: SortKey = Object.hasOwn(SORTS, sortParam) ? (sortParam as SortKey) : DEFAULT_SORT;
+  const [sort, order] = sortKey.split(':') as [string, 'asc' | 'desc'];
+
+  // What is typed, against what has been asked for: the field stays responsive
+  // while the request waits for a pause in typing. When the address changes from
+  // elsewhere — a cleared filter, the Back button — the field follows it; that is
+  // done during render rather than in an effect, so there is no extra pass.
+  const [typed, setTyped] = useState(q);
+  const [shownQuery, setShownQuery] = useState(q);
+  if (shownQuery !== q) {
+    setShownQuery(q);
+    setTyped(q);
+  }
+
+  const setParam = (key: string, value: string | undefined) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    // Any change but the page itself returns to the first page: page 7 of a
+    // different filter is not where the reader meant to be (DIR 005).
+    if (key !== 'page') next.delete('page');
+    setParams(next, { replace: key === 'q' });
+  };
+
+  useEffect(() => {
+    if (typed === q) return;
+    const timer = window.setTimeout(() => setParam('q', typed.trim() || undefined), SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setParam reads the current params by design
+  }, [typed, q]);
 
   const list = useList<BusinessListItem>({
     resource: 'businesses',
-    pagination: { currentPage: page, pageSize: 20 },
+    pagination: { currentPage: page, pageSize: PAGE_SIZE },
     sorters: [{ field: sort, order }],
     filters: [
       { field: 'q', operator: 'contains', value: q || undefined },
       { field: 'status', operator: 'eq', value: status },
       { field: 'primaryCategoryId', operator: 'eq', value: categoryId },
       { field: 'localAreaId', operator: 'eq', value: localAreaId },
+      { field: 'featured', operator: 'eq', value: featured },
     ],
-    queryOptions: { retry: false },
+    queryOptions: { retry: false, placeholderData: (previous) => previous },
     errorNotification: false,
   });
   const [categories] = useAsync(() => taxonomyApi<CategoryItem>('categories').list({ pageSize: 50, sort: 'name' }).then((r) => r.data), []);
   const [areas] = useAsync(() => taxonomyApi<LocalAreaItem>('areas').list({ pageSize: 50, sort: 'name' }).then((r) => r.data), []);
 
-  const setParam = (key: string, value: string | undefined) => {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    if (key !== 'page') next.delete('page');
-    setParams(next);
-  };
+  const nameOf = (items: { id: string; name: string }[] | undefined, id: string) => items?.find((item) => item.id === id)?.name ?? id;
+  /** The filters in force, so they can be seen and removed one at a time (DIR 006). */
+  const chips: { key: string; label: string }[] = [
+    ...(q ? [{ key: 'q', label: `“${q}”` }] : []),
+    ...(status ? [{ key: 'status', label: `Status: ${status}` }] : []),
+    ...(categoryId ? [{ key: 'categoryId', label: `Category: ${nameOf(categories.status === 'ready' ? categories.data : undefined, categoryId)}` }] : []),
+    ...(localAreaId ? [{ key: 'localAreaId', label: `Area: ${nameOf(areas.status === 'ready' ? areas.data : undefined, localAreaId)}` }] : []),
+    ...(featured ? [{ key: 'featured', label: featured === 'yes' ? 'Featured now' : 'Not featured' }] : []),
+  ];
+  const clearFilters = () => setParams(new URLSearchParams(sortKey === DEFAULT_SORT ? {} : { sort, order }));
 
   const error = list.query.error;
+  const rows = list.result?.data ?? [];
+  const total = list.result?.total ?? 0;
+  const loading = list.query.isPending || list.query.isPlaceholderData;
+
   return (
     <div>
       <PageHeader
         crumbs={[{ label: 'Business' }, { label: 'Businesses' }]}
         title="Businesses"
-        description="Drafts stay private. Publishing needs a Melbourne address, content rights and a contact."
+        description="Every Melbourne listing, its publishing state and where it appears in the directory."
         actions={
           canWrite ? (
             <Link to="/businesses/new">
               <Button type="primary" icon={<PlusOutlined aria-hidden="true" />}>
-                New business
+                Add business
               </Button>
             </Link>
           ) : null
@@ -87,49 +137,192 @@ export function BusinessesPage() {
       <TableCard
         toolbar={
           <>
-            <Input.Search aria-label="Search by name, slug or phone" placeholder="Search name, slug or phone" allowClear defaultValue={q} onSearch={(v) => setParam('q', v.trim() || undefined)} style={{ width: 260 }} />
-            <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => setParam('status', v)} style={{ width: 150 }} options={(['draft', 'published', 'archived'] as const).map((s) => ({ value: s, label: s }))} />
-            <Select aria-label="Filter by category" allowClear showSearch optionFilterProp="label" placeholder="All categories" value={categoryId} onChange={(v) => setParam('categoryId', v)} style={{ width: 200 }} options={categories.status === 'ready' ? categories.data.map((c) => ({ value: c.id, label: c.name })) : []} />
-            <Select aria-label="Filter by local area" allowClear showSearch optionFilterProp="label" placeholder="All areas" value={localAreaId} onChange={(v) => setParam('localAreaId', v)} style={{ width: 180 }} options={areas.status === 'ready' ? areas.data.map((a) => ({ value: a.id, label: a.name })) : []} />
-            <Select aria-label="Sort by" value={sort} onChange={(v) => setParam('sort', v)} style={{ width: 170 }} options={SORTS.map((s) => ({ value: s, label: `Sort: ${SORT_LABELS[s]}` }))} />
-            <Select aria-label="Sort direction" value={order} onChange={(v) => setParam('order', v)} style={{ width: 130 }} options={[{ value: 'asc', label: 'Ascending' }, { value: 'desc', label: 'Descending' }]} />
+            <Input.Search
+              aria-label="Search businesses"
+              placeholder="Search name, suburb, postcode or phone"
+              allowClear
+              value={typed}
+              loading={loading && typed !== ''}
+              onChange={(event) => setTyped(event.target.value)}
+              onSearch={(value) => setParam('q', value.trim() || undefined)}
+              style={{ width: 280 }}
+            />
+            <Select aria-label="Filter by status" allowClear placeholder="Any status" value={status} onChange={(value) => setParam('status', value)} style={{ width: 150 }} options={STATUSES.map((value) => ({ value, label: value }))} />
+            <Select
+              aria-label="Filter by category"
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="Any category"
+              value={categoryId}
+              onChange={(value) => setParam('categoryId', value)}
+              style={{ width: 190 }}
+              options={categories.status === 'ready' ? categories.data.map((item) => ({ value: item.id, label: item.name })) : []}
+            />
+            <Select
+              aria-label="Filter by local area"
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="Any area"
+              value={localAreaId}
+              onChange={(value) => setParam('localAreaId', value)}
+              style={{ width: 170 }}
+              options={areas.status === 'ready' ? areas.data.map((item) => ({ value: item.id, label: item.name })) : []}
+            />
+            <Select
+              aria-label="Filter by featured placement"
+              allowClear
+              placeholder="Featured"
+              value={featured}
+              onChange={(value) => setParam('featured', value)}
+              style={{ width: 150 }}
+              options={[
+                { value: 'yes', label: 'Featured now' },
+                { value: 'no', label: 'Not featured' },
+              ]}
+            />
+            <Select
+              aria-label="Sort by"
+              value={sortKey}
+              onChange={(value: SortKey) => {
+                const [field, direction] = value.split(':');
+                const next = new URLSearchParams(params);
+                next.set('sort', field!);
+                next.set('order', direction!);
+                next.delete('page');
+                setParams(next);
+              }}
+              style={{ width: 190 }}
+              options={Object.entries(SORTS).map(([value, label]) => ({ value, label: `Sort: ${label}` }))}
+            />
           </>
         }
+        summary={list.query.isSuccess ? `${total} listing${total === 1 ? '' : 's'}${chips.length > 0 ? ' match these filters' : ''}` : undefined}
       >
-      {list.query.isError && (
-        <Alert type="error" showIcon message={isApiError(error) ? error.userMessage : 'Could not load businesses.'} description={isApiError(error) ? error.reference : null} action={<Button onClick={() => void list.query.refetch()}>Retry</Button>} style={{ marginBottom: 16 }} />
-      )}
-      <Table<BusinessListItem>
-        rowKey="id"
-        loading={list.query.isPending}
-        dataSource={list.result.data}
-        pagination={{ current: page, pageSize: 20, total: list.result.total, showSizeChanger: false, onChange: (p) => setParam('page', String(p)) }}
-        scroll={{ x: 900 }}
-        columns={[
-          {
-            title: 'Name',
-            dataIndex: 'name',
-            render: (v: string, item) => (
-              <Space>
-                <Link to={`/businesses/${encodeURIComponent(item.id)}`}>{v}</Link>
-                {item.duplicateFlagged && (
-                  <Tooltip title="Possible duplicate of another listing">
-                    <WarningOutlined style={{ color: brand.warning }} aria-label="Possible duplicate" />
-                  </Tooltip>
-                )}
-              </Space>
+        {chips.length > 0 && (
+          <div className="ms-table-toolbar" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+            <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+              Filters:
+            </Typography.Text>
+            {chips.map((chip) => (
+              <Tag key={chip.key} closable onClose={() => setParam(chip.key, undefined)} closeIcon aria-label={`Remove filter ${chip.label}`}>
+                {chip.label}
+              </Tag>
+            ))}
+            <Button type="link" size="small" style={{ paddingInline: 0 }} onClick={clearFilters}>
+              Clear filters
+            </Button>
+          </div>
+        )}
+
+        {/* A failed request is never reported as "no businesses" (SRS DIR 006). */}
+        {list.query.isError && (
+          <Alert
+            type="error"
+            showIcon
+            role="alert"
+            style={{ margin: '14px 16px 0' }}
+            message={isApiError(error) ? error.userMessage : 'We could not load the businesses.'}
+            description={isApiError(error) ? error.reference : null}
+            action={<Button onClick={() => void list.query.refetch()}>Try again</Button>}
+          />
+        )}
+
+        <Table<BusinessListItem>
+          rowKey="id"
+          className="ms-scroll-table"
+          loading={loading}
+          dataSource={rows}
+          pagination={total > PAGE_SIZE ? { current: page, pageSize: PAGE_SIZE, total, showSizeChanger: false, onChange: (next) => setParam('page', String(next)) } : false}
+          scroll={{ x: 900 }}
+          columns={[
+            {
+              title: 'Business',
+              dataIndex: 'name',
+              render: (name: string, row) => (
+                <span>
+                  <Space size={6}>
+                    <Link to={`/businesses/${encodeURIComponent(row.id)}`} style={{ fontWeight: 500 }}>
+                      {name}
+                    </Link>
+                    {row.duplicateFlagged && (
+                      <Tooltip title="Another live listing has the same name">
+                        <WarningOutlined style={{ color: brand.warning }} aria-label="Possible duplicate" />
+                      </Tooltip>
+                    )}
+                  </Space>
+                  {row.suburb && (
+                    <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+                      {row.suburb}
+                    </Typography.Text>
+                  )}
+                </span>
+              ),
+            },
+            { title: 'Category', dataIndex: 'primaryCategoryName', width: 170, responsive: ['lg'] },
+            { title: 'Area', dataIndex: 'localAreaName', width: 150, responsive: ['lg'] },
+            {
+              title: 'Status',
+              dataIndex: 'status',
+              width: 170,
+              render: (value: BusinessStatus, row) => (
+                <Space size={4} wrap>
+                  <StatusTag status={value} />
+                  {value === 'draft' && !row.publishable && <Tag>not ready</Tag>}
+                </Space>
+              ),
+            },
+            {
+              title: 'Featured',
+              dataIndex: 'featuredNow',
+              width: 110,
+              responsive: ['md'],
+              render: (value: boolean) => (value ? <Pill tone="progress">Featured</Pill> : <Typography.Text type="secondary">—</Typography.Text>),
+            },
+            { title: 'Updated', dataIndex: 'updatedAt', width: 180, responsive: ['md'], render: formatDateTime },
+            {
+              title: <span className="sr-only">Actions</span>,
+              width: 60,
+              fixed: 'right',
+              render: (_: unknown, row) => (
+                <Dropdown
+                  trigger={['click']}
+                  menu={{
+                    items: [
+                      { key: 'edit', label: <Link to={`/businesses/${encodeURIComponent(row.id)}`}>{canWrite ? 'Edit listing' : 'View listing'}</Link> },
+                      ...(row.status === 'published'
+                        ? [
+                            {
+                              key: 'view',
+                              label: (
+                                <a href={`${import.meta.env.VITE_PUBLIC_SITE_URL ?? ''}/business/${row.slug}`} target="_blank" rel="noreferrer noopener">
+                                  View on the website
+                                </a>
+                              ),
+                            },
+                          ]
+                        : []),
+                    ],
+                  }}
+                >
+                  <Button type="text" icon={<MoreOutlined aria-hidden="true" />} aria-label={`Actions for ${row.name}`} />
+                </Dropdown>
+              ),
+            },
+          ]}
+          locale={{
+            emptyText: list.query.isSuccess ? (
+              chips.length > 0 ? (
+                <EmptyState title="No businesses match these filters" description="Try a different search, or remove a filter to widen the results." action={{ label: 'Clear filters', onClick: clearFilters }} />
+              ) : (
+                <EmptyState title="No businesses yet" description="Add the first Melbourne listing. It stays a private draft until you publish it." action={canWrite ? { label: 'Add business', onClick: () => navigate('/businesses/new') } : undefined} />
+              )
+            ) : (
+              ' '
             ),
-          },
-          // The address matters when checking a listing, but it is the first
-          // thing to go on a phone: the name is what the reader is scanning for.
-          { title: 'Address', dataIndex: 'slug', responsive: ['lg'], render: (v: string) => <Typography.Text type="secondary" style={{ fontSize: 12 }}>/{v}</Typography.Text> },
-          { title: 'Category', dataIndex: 'primaryCategoryName' },
-          { title: 'Area', dataIndex: 'localAreaName' },
-          { title: 'Status', dataIndex: 'status', render: (v: BusinessStatus, item) => <Space size={4}><StatusTag status={v} />{v === 'draft' && !item.publishable && <Tag>incomplete</Tag>}</Space> },
-          { title: 'Last changed', dataIndex: 'updatedAt', responsive: ['md'], render: formatDateTime },
-        ]}
-        locale={{ emptyText: list.query.isSuccess ? 'No businesses match.' : ' ' }}
-      />
+          }}
+        />
       </TableCard>
     </div>
   );

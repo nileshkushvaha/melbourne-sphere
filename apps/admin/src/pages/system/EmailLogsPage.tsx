@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Alert, Button, Descriptions, Drawer, Input, Select, Space, Table, Timeline, Typography, App } from 'antd';
-import { useSearchParams } from 'react-router';
 import { emailLogsApi, type EmailDelivery, type EmailDeliveryDetail, type EmailDeliveryStatus } from '@/api/email-logs';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
-import { PageHeader, TableCard, statusRowClass, StatusTag } from '@/components/ui';
+import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
+import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { WorkerStoppedAlert } from '@/components/WorkerStoppedAlert';
 
@@ -27,6 +27,9 @@ const CATEGORIES = ['auth', 'enquiry', 'moderation', 'system'];
 /** Statuses a resend is refused for (SRS 1.2 MAIL 009); the server refuses them too. */
 const RESEND_REFUSED: EmailDeliveryStatus[] = ['delivered', 'complained', 'suppressed'];
 
+/** The parameters that narrow this list; everything else is sort or page. */
+const FILTERS = ['category', 'search', 'status'] as const;
+
 /**
  * Transactional email delivery log (SRS 1.2 MAIL 010). Read-only: no create,
  * edit or delete. Recipients are masked until an administrator with the
@@ -36,14 +39,14 @@ export function EmailLogsPage() {
   useDocumentTitle('Email logs');
   const { can } = useCapabilities();
   const { message, modal } = App.useApp();
-  const [params, setParams] = useSearchParams();
+  const list = useListParams(FILTERS);
   const [openId, setOpenId] = useState<string | null>(null);
   const [revealed, setRevealed] = useState<Record<string, string>>({});
 
-  const page = Number(params.get('page') ?? '1') || 1;
-  const status = (params.get('status') ?? '') as EmailDeliveryStatus | '';
-  const category = params.get('category') ?? '';
-  const search = params.get('search') ?? '';
+  const page = list.page;
+  const status = (list.get('status') ?? '') as EmailDeliveryStatus | '';
+  const category = list.get('category') ?? '';
+  const search = list.get('search') ?? '';
 
   const [state, reload] = useAsync(
     () => emailLogsApi.list({ page, pageSize: 25, status: status || undefined, category: category || undefined, search: search || undefined }),
@@ -51,13 +54,6 @@ export function EmailLogsPage() {
   );
   const [detail] = useAsync<EmailDeliveryDetail | null>(() => (openId ? emailLogsApi.detail(openId) : Promise.resolve(null)), [openId]);
 
-  const setParam = (key: string, value: string | undefined) => {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    if (key !== 'page') next.delete('page');
-    setParams(next);
-  };
 
   const reveal = async (id: string) => {
     try {
@@ -109,7 +105,7 @@ export function EmailLogsPage() {
               allowClear
               value={status || undefined}
               style={{ width: 160 }}
-              onChange={(value?: string) => setParam('status', value)}
+              onChange={(value?: string) => list.set('status', value)}
               options={STATUSES.map((value) => ({ value, label: value }))}
             />
             <Select
@@ -118,7 +114,7 @@ export function EmailLogsPage() {
               allowClear
               value={category || undefined}
               style={{ width: 160 }}
-              onChange={(value?: string) => setParam('category', value)}
+              onChange={(value?: string) => list.set('category', value)}
               options={CATEGORIES.map((value) => ({ value, label: value }))}
             />
             <Input.Search
@@ -127,15 +123,13 @@ export function EmailLogsPage() {
               allowClear
               defaultValue={search}
               style={{ width: 280 }}
-              onSearch={(value) => setParam('search', value.trim() || undefined)}
+              onSearch={(value) => list.set('search', value.trim() || undefined)}
             />
           </>
         }
       >
 
-      {state.status === 'error' && (
-        <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />
-      )}
+      {state.status === 'error' && <ErrorState message={state.message} reference={state.reference} onRetry={reload} />}
 
       <Table<EmailDelivery>
         // Colour is on the rows that still need a decision, not on every row.
@@ -144,10 +138,14 @@ export function EmailLogsPage() {
         size="small"
         loading={state.status === 'loading'}
         dataSource={state.status === 'ready' ? state.data.data : []}
-        locale={{ emptyText: 'No messages have been sent yet.' }}
+        locale={{
+          emptyText: (
+            <ListEmpty state={state} filtered={list.filtered} noun="messages" onClear={list.clear} empty={{ title: 'No messages sent yet', description: 'Every email the site sends is recorded here with its delivery result.' }} />
+          ),
+        }}
         pagination={
           state.status === 'ready'
-            ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => setParam('page', String(p)) }
+            ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) }
             : false
         }
         scroll={{ x: 1000 }}

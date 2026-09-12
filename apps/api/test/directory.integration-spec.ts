@@ -165,6 +165,48 @@ describe('Business listings core (integration)', () => {
     expect(audit?.reason).toContain('Different owner');
   });
 
+  it('searches the fields an administrator can see, and filters on a featured placement in force now', async () => {
+    const db = testDatabase();
+    const created = await post('/api/v1/admin/businesses')
+      .send({ ...validBody(), name: 'Docklands Dumplings', publicPhone: '03 9111 2222', address: { line1: '9 Bourke St', suburb: 'Docklands', postcode: '3008' } })
+      .expect(201);
+    const id = created.body.data.id as string;
+    const list = async (query: string) => (await agent().get(`/api/v1/admin/businesses?${query}`).set('Cookie', cookie).expect(200)).body.data as { id: string; suburb: string | null; featuredNow: boolean }[];
+
+    // Name, suburb, postcode and the phone as typed with spaces.
+    for (const [label, query] of [['name', 'q=dumplings'], ['suburb', 'q=Docklands'], ['postcode', 'q=3008'], ['phone', 'q=9111 2222']] as const) {
+      expect((await list(query)).map((row) => row.id), label).toContain(id);
+    }
+    expect((await list('q=3000')).map((row) => row.id)).not.toContain(id);
+    expect((await list('q=dumplings'))[0]!.suburb).toBe('Docklands');
+
+    // Featured is "in force now", not "has ever been featured".
+    expect((await list('featured=yes')).map((row) => row.id)).not.toContain(id);
+    const ended = await db.featuredPlacement.create({ data: { businessId: id, startsAt: new Date(Date.now() - 7_200_000), endsAt: new Date(Date.now() - 3_600_000), position: 0 } });
+    expect((await list('featured=yes')).map((row) => row.id)).not.toContain(id);
+    await db.featuredPlacement.update({ where: { id: ended.id }, data: { endsAt: null } });
+    expect((await list('featured=yes')).map((row) => row.id)).toContain(id);
+    expect((await list('featured=yes'))[0]!.featuredNow).toBe(true);
+    expect((await list('featured=no')).map((row) => row.id)).not.toContain(id);
+    await db.featuredPlacement.delete({ where: { id: ended.id } });
+
+    // An unsupported sort key is a field error, not a silent default.
+    await agent().get('/api/v1/admin/businesses?sort=publishedAt').set('Cookie', cookie).expect(400);
+  });
+
+  it('flags a duplicate name on the list without asking per row', async () => {
+    // Same name, different addresses: the slug is unique, the normalised name is not.
+    const first = await post('/api/v1/admin/businesses').send({ ...validBody(), name: 'Twin Bakery', slug: 'twin-bakery-carlton' }).expect(201);
+    const second = await post('/api/v1/admin/businesses').send({ ...validBody(), name: 'Twin  bakery', slug: 'twin-bakery-fitzroy' }).expect(201);
+    const rows = (await agent().get('/api/v1/admin/businesses?q=twin').set('Cookie', cookie).expect(200)).body.data as { id: string; duplicateFlagged: boolean }[];
+    expect(rows.filter((row) => [first.body.data.id, second.body.data.id].includes(row.id)).every((row) => row.duplicateFlagged)).toBe(true);
+
+    // Archiving one leaves the other alone: a duplicate of an archived listing is not a duplicate.
+    await post(`/api/v1/admin/businesses/${second.body.data.id}/archive`).send({ expectedVersion: second.body.data.version }).expect(200);
+    const after = (await agent().get('/api/v1/admin/businesses?q=twin').set('Cookie', cookie).expect(200)).body.data as { id: string; duplicateFlagged: boolean }[];
+    expect(after.find((row) => row.id === first.body.data.id)!.duplicateFlagged).toBe(false);
+  });
+
   it('taxonomy terms used by active listings cannot be deactivated; archived references do not block', async () => {
     const db = testDatabase();
     const cafes = await db.category.findUniqueOrThrow({ where: { id: ids.cafes } });

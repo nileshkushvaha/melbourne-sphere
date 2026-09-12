@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { routeMetadata } from '@/lib/route-seo';
 import Link from 'next/link';
 import { MailIcon, PenLineIcon, PhoneIcon, ShieldCheckIcon, StoreIcon } from 'lucide-react';
 import { InformationPage } from '@/components/information-page';
@@ -15,12 +16,12 @@ export const dynamic = 'force-dynamic';
  * cannot redirect enquiries by typing a different address into page copy. The
  * contact details themselves come from settings and change without a release.
  */
-export function generateMetadata(): Metadata {
-  return {
+export function generateMetadata(): Promise<Metadata> {
+  return routeMetadata('contact', {
     title: 'Contact us',
     description: 'How to reach the Melbourne Sphere editors about a listing, a correction or a review.',
     alternates: { canonical: '/contact' },
-  };
+  });
 }
 
 const ROUTES = [
