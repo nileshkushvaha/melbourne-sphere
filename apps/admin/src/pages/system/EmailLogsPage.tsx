@@ -6,6 +6,7 @@ import { useCapabilities } from '@/auth/access-control';
 import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
+import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 import { useBusy } from '@/shared/useBusy';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -56,8 +57,8 @@ export function EmailLogsPage() {
   const search = list.get('search') ?? '';
 
   const [state, reload] = useAsync(
-    () => emailLogsApi.list({ page, pageSize: 25, status: status || undefined, category: category || undefined, search: search || undefined }),
-    [page, status, category, search],
+    () => emailLogsApi.list({ page, pageSize: list.pageSize, status: status || undefined, category: category || undefined, search: search || undefined }),
+    [page, list.pageSize, status, category, search],
   );
   const [detail] = useAsync<EmailDeliveryDetail | null>(() => (openId ? emailLogsApi.detail(openId) : Promise.resolve(null)), [openId]);
 
@@ -161,7 +162,7 @@ export function EmailLogsPage() {
         }}
         pagination={
           state.status === 'ready'
-            ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) }
+            ? tablePagination(state.data.meta, list)
             : false
         }
         scroll={{ x: 1000 }}

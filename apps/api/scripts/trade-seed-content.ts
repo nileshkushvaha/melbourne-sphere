@@ -65,6 +65,19 @@ export interface TradeProfile {
   /** Category slug and name. */
   slug: string;
   name: string;
+  /**
+   * What a business in this trade calls itself, completing "X is a ___".
+   * Written out per trade rather than derived from the category name: the
+   * name is a plural heading, and trimming its "s" produced "a plumber
+   * business" and, for Gyms & fitness, "a fitnes".
+   */
+  self: string;
+  /**
+   * Whether customers come to the business or it comes to them. A plumber
+   * works across a suburb; a café is on a street in one, and saying a café
+   * "works across the inner north" is how seeded copy gives itself away.
+   */
+  siting?: 'premises';
   /** The category this one sits under. */
   parent: string;
   /** What belongs in the category, for its own page. */
@@ -93,6 +106,9 @@ function seedOf(value: string): number {
 
 const pick = <T,>(list: T[], index: number): T => list[index % list.length]!;
 
+/** "a" or "an". Every phrase in this file starts with an ordinary consonant or vowel sound, so the letter is enough. */
+const article = (phrase: string): string => ('aeiou'.includes(phrase[0]!.toLowerCase()) ? 'an' : 'a');
+
 /** Melbourne's compass, for a sentence about where a business works. */
 const QUARTER: Record<string, string> = {
   'melbourne-cbd': 'the city', carlton: 'the inner north', 'carlton-north': 'the inner north', docklands: 'the west of the city',
@@ -116,12 +132,15 @@ export function tradeBusinesses(trade: TradeProfile, phoneFrom: number): SeedBus
     const established = 1996 + ((base + index * 13) % 27);
     const services = trade.services.filter((_, position) => position < 3 + ((base + index) % Math.max(1, trade.services.length - 2)));
 
-    const description = [
-      `${name} is a ${trade.name.toLowerCase().replace(/s$/, '')} business working across ${place.suburb} and ${QUARTER[place.slug] ?? 'inner Melbourne'}, trading since ${established}.`,
-      pick(trade.angles, base + index),
-      pick(trade.practice, base * 7 + index),
-      `Quotes are given before work starts, and ${place.suburb} and the surrounding suburbs are covered from the ${street} base.`,
-    ].join(' ');
+    const opening =
+      trade.siting === 'premises'
+        ? `${name} is ${article(trade.self)} ${trade.self} on ${street} in ${place.suburb}, trading since ${established}.`
+        : `${name} is ${article(trade.self)} ${trade.self} working across ${place.suburb} and ${QUARTER[place.slug] ?? 'inner Melbourne'}, trading since ${established}.`;
+    const closing =
+      trade.siting === 'premises'
+        ? `Bookings can be made by phone or online, and walk-ins are taken whenever there is room.`
+        : `Quotes are given before work starts, and ${place.suburb} and the surrounding suburbs are covered from the ${street} base.`;
+    const description = [opening, pick(trade.angles, base + index), pick(trade.practice, base * 7 + index), closing].join(' ');
 
     const reviews: SeedReview[] = Array.from({ length: 2 + ((base + index) % 2) }, (_, position) => ({
       name: pick(REVIEWERS, base + index * 4 + position * 9),
@@ -167,7 +186,7 @@ export const TRADE_PARENTS: { slug: string; name: string; description: string }[
 
 export const TRADES: TradeProfile[] = [
   {
-    slug: 'plumbers', name: 'Plumbers', parent: 'home-services',
+    slug: 'plumbers', name: 'Plumbers', self: 'licensed plumbing business', parent: 'home-services',
     description: 'Licensed plumbers for blocked drains, burst pipes, hot water, gas fitting and bathroom work.',
     imageQueries: ['plumber pipe repair', 'plumbing tools wrench', 'bathroom sink installation'],
     services: ['Blocked drains', 'Burst pipes', 'Hot water systems', 'Gas fitting', 'Bathroom plumbing', 'Emergency call-out'],
@@ -186,7 +205,7 @@ export const TRADES: TradeProfile[] = [
     hours: 'trade',
   },
   {
-    slug: 'electricians', name: 'Electricians', parent: 'home-services',
+    slug: 'electricians', name: 'Electricians', self: 'electrical contractor', parent: 'home-services',
     description: 'A-grade electricians for switchboards, safety switches, lighting, power points and EV chargers.',
     imageQueries: ['electrician switchboard wiring', 'electrician installing light', 'electrical tools cables'],
     services: ['Switchboard upgrades', 'Safety switches', 'Lighting', 'Power points', 'EV charger installation', 'Fault finding'],
@@ -205,7 +224,7 @@ export const TRADES: TradeProfile[] = [
     hours: 'trade',
   },
   {
-    slug: 'roofing', name: 'Roofing', parent: 'home-services',
+    slug: 'roofing', name: 'Roofing', self: 'roofing business', parent: 'home-services',
     description: 'Roof repairs, restoration, gutters and leak detection on tile and metal roofs.',
     imageQueries: ['roofer roof tiles repair', 'metal roof installation', 'roof gutter cleaning'],
     services: ['Leak detection', 'Roof repairs', 'Roof restoration', 'Gutters and downpipes', 'Skylights', 'Storm damage'],
@@ -224,7 +243,7 @@ export const TRADES: TradeProfile[] = [
     hours: 'trade',
   },
   {
-    slug: 'painting-decorating', name: 'Painting & decorating', parent: 'home-services',
+    slug: 'painting-decorating', name: 'Painting & decorating', self: 'painting and decorating business', parent: 'home-services',
     description: 'Interior and exterior painting, plaster repair and wallpapering for homes and small commercial work.',
     imageQueries: ['painter painting wall roller', 'house painting exterior', 'paint brushes colour'],
     services: ['Interior painting', 'Exterior painting', 'Plaster repair', 'Wallpapering', 'Heritage colours', 'Commercial painting'],
@@ -243,7 +262,7 @@ export const TRADES: TradeProfile[] = [
     hours: 'trade',
   },
   {
-    slug: 'flooring', name: 'Flooring', parent: 'home-services',
+    slug: 'flooring', name: 'Flooring', self: 'flooring business', parent: 'home-services',
     description: 'Timber, laminate, vinyl and carpet — supply, installation, sanding and polishing.',
     imageQueries: ['wooden floor installation', 'floor sanding polishing', 'carpet laying floor'],
     services: ['Timber flooring', 'Floor sanding', 'Polishing', 'Laminate and vinyl', 'Carpet', 'Repairs'],
@@ -262,7 +281,7 @@ export const TRADES: TradeProfile[] = [
     hours: 'trade',
   },
   {
-    slug: 'heating-cooling', name: 'Heating & cooling', parent: 'home-services',
+    slug: 'heating-cooling', name: 'Heating & cooling', self: 'heating and cooling business', parent: 'home-services',
     description: 'Split systems, ducted heating and evaporative cooling — installation, service and repair.',
     imageQueries: ['air conditioner installation technician', 'hvac technician unit', 'ducted heating vent'],
     services: ['Split system installation', 'Ducted heating', 'Evaporative cooling', 'Servicing', 'Repairs', 'Emergency call-out'],
@@ -281,7 +300,7 @@ export const TRADES: TradeProfile[] = [
     hours: 'trade',
   },
   {
-    slug: 'locksmiths', name: 'Locksmiths', parent: 'home-services',
+    slug: 'locksmiths', name: 'Locksmiths', self: 'locksmith', parent: 'home-services',
     description: 'Lockouts, rekeying, deadlocks, restricted keys and security upgrades for homes and shops.',
     imageQueries: ['locksmith door lock key', 'door lock installation', 'keys locksmith workshop'],
     services: ['Emergency lockouts', 'Rekeying', 'Deadlocks', 'Restricted key systems', 'Shopfront locks', 'Safes'],
@@ -300,7 +319,7 @@ export const TRADES: TradeProfile[] = [
     hours: 'trade',
   },
   {
-    slug: 'handyman', name: 'Handyman services', parent: 'home-services',
+    slug: 'handyman', name: 'Handyman services', self: 'handyman service', parent: 'home-services',
     description: 'The small jobs — shelves, doors, tiles, flat-pack, odd repairs — done in one visit.',
     imageQueries: ['handyman tools repair home', 'man repairing door', 'toolbox tools workbench'],
     services: ['Odd jobs', 'Door adjustments', 'Shelving', 'Flat-pack assembly', 'Tiling repairs', 'Picture hanging'],
@@ -319,7 +338,7 @@ export const TRADES: TradeProfile[] = [
     hours: 'trade',
   },
   {
-    slug: 'masonry', name: 'Masonry & bricklaying', parent: 'home-services',
+    slug: 'masonry', name: 'Masonry & bricklaying', self: 'bricklaying and masonry business', parent: 'home-services',
     description: 'Brick and bluestone work — repointing, rebuilding, retaining walls and chimney repair.',
     imageQueries: ['bricklayer laying bricks', 'brick wall mortar trowel', 'stone wall masonry'],
     services: ['Repointing', 'Brick repairs', 'Retaining walls', 'Chimney repairs', 'Bluestone work', 'Rendering'],
@@ -338,7 +357,7 @@ export const TRADES: TradeProfile[] = [
     hours: 'trade',
   },
   {
-    slug: 'fencing', name: 'Fencing', parent: 'home-services',
+    slug: 'fencing', name: 'Fencing', self: 'fencing business', parent: 'home-services',
     description: 'Timber, colorbond and picket fencing, gates and retaining, including boundary work with neighbours.',
     imageQueries: ['wooden fence installation garden', 'fence panels backyard', 'metal fence gate'],
     services: ['Timber fencing', 'Colorbond fencing', 'Picket fencing', 'Gates', 'Repairs', 'Boundary fences'],
@@ -360,7 +379,7 @@ export const TRADES: TradeProfile[] = [
 
 TRADES.push(
   {
-    slug: 'glass-glazing', name: 'Glass & glazing', parent: 'home-services',
+    slug: 'glass-glazing', name: 'Glass & glazing', self: 'glazier', parent: 'home-services',
     description: 'Broken windows, double glazing, shower screens, mirrors and shopfront glass.',
     imageQueries: ['glazier window glass installation', 'broken window glass repair', 'glass shower screen'],
     services: ['Emergency board-up', 'Window replacement', 'Double glazing', 'Shower screens', 'Mirrors', 'Shopfront glass'],
@@ -379,7 +398,7 @@ TRADES.push(
     hours: 'trade',
   },
   {
-    slug: 'appliance-repair', name: 'Appliance repair', parent: 'home-services',
+    slug: 'appliance-repair', name: 'Appliance repair', self: 'appliance repair business', parent: 'home-services',
     description: 'Washing machines, dishwashers, ovens, fridges and dryers repaired rather than replaced.',
     imageQueries: ['appliance repair technician washing machine', 'repairing oven kitchen', 'dishwasher repair'],
     services: ['Washing machines', 'Dishwashers', 'Ovens and cooktops', 'Fridges', 'Dryers', 'Warranty repairs'],
@@ -398,7 +417,7 @@ TRADES.push(
     hours: 'trade',
   },
   {
-    slug: 'renovations', name: 'Renovations', parent: 'home-services',
+    slug: 'renovations', name: 'Renovations', self: 'building and renovation business', parent: 'home-services',
     description: 'Kitchens, bathrooms and extensions, from design through to the final coat.',
     imageQueries: ['kitchen renovation construction', 'bathroom renovation tiles', 'home renovation interior'],
     services: ['Kitchens', 'Bathrooms', 'Extensions', 'Project management', 'Design and drafting', 'Permits'],
@@ -417,7 +436,7 @@ TRADES.push(
     hours: 'trade',
   },
   {
-    slug: 'landscaping', name: 'Landscaping & gardens', parent: 'home-services',
+    slug: 'landscaping', name: 'Landscaping & gardens', self: 'landscaping business', parent: 'home-services',
     description: 'Garden design, paving, decking, irrigation and regular maintenance.',
     imageQueries: ['landscaping garden design backyard', 'gardener planting garden', 'garden paving stones'],
     services: ['Garden design', 'Paving', 'Decking', 'Irrigation', 'Planting', 'Maintenance'],
@@ -436,7 +455,7 @@ TRADES.push(
     hours: 'trade',
   },
   {
-    slug: 'tree-services', name: 'Tree services', parent: 'home-services',
+    slug: 'tree-services', name: 'Tree services', self: 'arborist practice', parent: 'home-services',
     description: 'Qualified arborists for pruning, removal, stump grinding and council permit reports.',
     imageQueries: ['arborist tree pruning climbing', 'tree removal chainsaw', 'tree stump grinding'],
     services: ['Pruning', 'Tree removal', 'Stump grinding', 'Arborist reports', 'Storm damage', 'Mulching'],
@@ -455,7 +474,7 @@ TRADES.push(
     hours: 'trade',
   },
   {
-    slug: 'pest-control', name: 'Pest control', parent: 'home-services',
+    slug: 'pest-control', name: 'Pest control', self: 'pest control business', parent: 'home-services',
     description: 'Termites, rodents, ants, spiders and wasps — inspection, treatment and prevention.',
     imageQueries: ['pest control technician spraying', 'termite inspection wood', 'exterminator equipment'],
     services: ['Termite inspections', 'Termite treatment', 'Rodents', 'Ants and spiders', 'Wasps', 'Pre-purchase inspections'],
@@ -474,7 +493,7 @@ TRADES.push(
     hours: 'sixDay',
   },
   {
-    slug: 'pool-services', name: 'Pool services', parent: 'home-services',
+    slug: 'pool-services', name: 'Pool services', self: 'pool servicing business', parent: 'home-services',
     description: 'Pool and spa servicing, water testing, equipment repair and green-pool recovery.',
     imageQueries: ['swimming pool cleaning service', 'pool maintenance equipment', 'pool water testing'],
     services: ['Regular servicing', 'Water testing', 'Pump and filter repair', 'Green pool recovery', 'Chlorinators', 'Leak detection'],
@@ -493,7 +512,7 @@ TRADES.push(
     hours: 'sixDay',
   },
   {
-    slug: 'window-cleaning', name: 'Window cleaning', parent: 'home-services',
+    slug: 'window-cleaning', name: 'Window cleaning', self: 'window cleaning business', parent: 'home-services',
     description: 'Interior and exterior window cleaning for homes, shopfronts and apartment buildings.',
     imageQueries: ['window cleaner cleaning glass', 'window washing squeegee', 'cleaning windows building'],
     services: ['Homes', 'Shopfronts', 'High windows', 'Tracks and sills', 'Solar panels', 'Regular schedules'],
@@ -512,7 +531,7 @@ TRADES.push(
     hours: 'sixDay',
   },
   {
-    slug: 'house-cleaning', name: 'House cleaning', parent: 'home-services',
+    slug: 'house-cleaning', name: 'House cleaning', self: 'cleaning business', parent: 'home-services',
     description: 'Regular home cleaning, spring cleans and end-of-lease cleans with a bond-back guarantee.',
     imageQueries: ['house cleaning vacuum living room', 'cleaning kitchen surfaces', 'cleaning supplies bucket'],
     services: ['Regular cleaning', 'Spring cleans', 'End of lease', 'Oven cleaning', 'Carpet steam cleaning', 'Windows'],
@@ -531,7 +550,7 @@ TRADES.push(
     hours: 'sixDay',
   },
   {
-    slug: 'upholstery', name: 'Upholstery', parent: 'home-services',
+    slug: 'upholstery', name: 'Upholstery', self: 'upholstery workshop', siting: 'premises', parent: 'home-services',
     description: 'Reupholstery and repair for lounges, dining chairs, car seats and antiques.',
     imageQueries: ['upholstery furniture fabric chair', 'upholsterer workshop sofa', 'fabric sewing upholstery'],
     services: ['Lounge reupholstery', 'Dining chairs', 'Antique restoration', 'Foam replacement', 'Car and marine trim', 'Fabric supply'],
@@ -550,7 +569,7 @@ TRADES.push(
     hours: 'shop',
   },
   {
-    slug: 'home-security', name: 'Home security', parent: 'home-services',
+    slug: 'home-security', name: 'Home security', self: 'security installer', parent: 'home-services',
     description: 'Alarms, cameras, intercoms and monitoring for homes and small businesses.',
     imageQueries: ['security camera installation house', 'alarm system keypad', 'cctv camera building'],
     services: ['Alarm systems', 'Cameras', 'Intercoms', 'Monitoring', 'Access control', 'Servicing'],
@@ -572,7 +591,7 @@ TRADES.push(
 
 TRADES.push(
   {
-    slug: 'auto-repair', name: 'Auto repair', parent: 'auto-and-transport',
+    slug: 'auto-repair', name: 'Auto repair', self: 'mechanical workshop', siting: 'premises', parent: 'auto-and-transport',
     description: 'Logbook servicing, brakes, batteries, diagnostics and roadworthy certificates.',
     imageQueries: ['mechanic repairing car engine', 'car workshop garage repair', 'car brake disc repair'],
     services: ['Logbook servicing', 'Brakes', 'Batteries', 'Diagnostics', 'Roadworthy certificates', 'Tyres'],
@@ -591,7 +610,7 @@ TRADES.push(
     hours: 'trade',
   },
   {
-    slug: 'car-wash', name: 'Car wash & detailing', parent: 'auto-and-transport',
+    slug: 'car-wash', name: 'Car wash & detailing', self: 'car wash and detailing business', siting: 'premises', parent: 'auto-and-transport',
     description: 'Hand washing, interior detailing, paint correction and ceramic coating.',
     imageQueries: ['car wash washing vehicle', 'car detailing polishing', 'car interior cleaning vacuum'],
     services: ['Hand wash', 'Interior detailing', 'Paint correction', 'Ceramic coating', 'Headlight restoration', 'Pre-sale detail'],
@@ -610,7 +629,7 @@ TRADES.push(
     hours: 'sixDay',
   },
   {
-    slug: 'towing', name: 'Towing', parent: 'auto-and-transport',
+    slug: 'towing', name: 'Towing', self: 'towing and recovery business', parent: 'auto-and-transport',
     description: 'Breakdown recovery, accident towing, tilt-tray transport and machinery moves.',
     imageQueries: ['tow truck towing car', 'tow truck roadside', 'flatbed truck vehicle transport'],
     services: ['Breakdown recovery', 'Accident towing', 'Tilt tray', 'Machinery transport', 'Interstate transport', 'Roadside assistance'],
@@ -629,7 +648,7 @@ TRADES.push(
     hours: 'sixDay',
   },
   {
-    slug: 'removalists', name: 'Removalists', parent: 'auto-and-transport',
+    slug: 'removalists', name: 'Removalists', self: 'removals business', parent: 'auto-and-transport',
     description: 'House and office moves, packing, storage and single-item deliveries.',
     imageQueries: ['movers carrying furniture truck', 'moving boxes house', 'removal truck loading'],
     services: ['House moves', 'Office moves', 'Packing', 'Storage', 'Single items', 'Piano moves'],
@@ -648,7 +667,7 @@ TRADES.push(
     hours: 'sixDay',
   },
   {
-    slug: 'dentists', name: 'Dentists', parent: 'health-and-wellness',
+    slug: 'dentists', name: 'Dentists', self: 'dental practice', siting: 'premises', parent: 'health-and-wellness',
     description: 'General dentistry — check-ups, fillings, crowns, whitening and emergency appointments.',
     imageQueries: ['dentist examining patient clinic', 'dental chair clinic room', 'dental hygienist cleaning'],
     services: ['Check-ups and cleans', 'Fillings', 'Crowns', 'Whitening', 'Emergency appointments', 'Children’s dentistry'],
@@ -667,7 +686,7 @@ TRADES.push(
     hours: 'clinic',
   },
   {
-    slug: 'chiropractors', name: 'Chiropractors', parent: 'health-and-wellness',
+    slug: 'chiropractors', name: 'Chiropractors', self: 'chiropractic clinic', siting: 'premises', parent: 'health-and-wellness',
     description: 'Chiropractic care for back and neck pain, headaches and sports injuries.',
     imageQueries: ['chiropractor treating patient back', 'chiropractic adjustment table', 'physiotherapy spine treatment'],
     services: ['Back and neck pain', 'Headaches', 'Sports injuries', 'Posture assessment', 'Dry needling', 'Rehabilitation'],
@@ -686,7 +705,7 @@ TRADES.push(
     hours: 'clinic',
   },
   {
-    slug: 'optometrists', name: 'Optometrists', parent: 'health-and-wellness',
+    slug: 'optometrists', name: 'Optometrists', self: 'optometry practice', siting: 'premises', parent: 'health-and-wellness',
     description: 'Eye tests, glasses, contact lenses and retinal imaging, bulk billed where eligible.',
     imageQueries: ['optometrist eye examination patient', 'glasses optician shop frames', 'eye test equipment'],
     services: ['Eye tests', 'Glasses', 'Contact lenses', 'Retinal imaging', 'Children’s vision', 'Dry eye treatment'],
@@ -705,7 +724,7 @@ TRADES.push(
     hours: 'shop',
   },
   {
-    slug: 'gyms-fitness', name: 'Gyms & fitness', parent: 'health-and-wellness',
+    slug: 'gyms-fitness', name: 'Gyms & fitness', self: 'gym', siting: 'premises', parent: 'health-and-wellness',
     description: 'Gyms, personal training and small-group classes with month-to-month memberships.',
     imageQueries: ['gym weights training', 'fitness class group exercise', 'personal trainer gym'],
     services: ['Gym membership', 'Personal training', 'Small group classes', 'Strength programs', 'Beginner programs', 'Nutrition guidance'],
@@ -724,7 +743,7 @@ TRADES.push(
     hours: 'sixDay',
   },
   {
-    slug: 'day-spas', name: 'Day spas', parent: 'health-and-wellness',
+    slug: 'day-spas', name: 'Day spas', self: 'day spa', siting: 'premises', parent: 'health-and-wellness',
     description: 'Massage, facials and treatments, individually or as half-day packages.',
     imageQueries: ['spa massage treatment room', 'facial treatment spa', 'spa candles relaxation'],
     services: ['Massage', 'Facials', 'Body treatments', 'Couples packages', 'Gift vouchers', 'Waxing'],
@@ -743,7 +762,7 @@ TRADES.push(
     hours: 'shop',
   },
   {
-    slug: 'barbers', name: 'Barbers', parent: 'personal-care',
+    slug: 'barbers', name: 'Barbers', self: 'barbershop', siting: 'premises', parent: 'personal-care',
     description: 'Cuts, fades, beard trims and hot-towel shaves, walk-ins welcome.',
     imageQueries: ['barber cutting hair shop', 'barber beard trim', 'barbershop chair interior'],
     services: ['Haircuts', 'Skin fades', 'Beard trims', 'Hot towel shaves', 'Children’s cuts', 'Head shaves'],
@@ -762,7 +781,7 @@ TRADES.push(
     hours: 'shop',
   },
   {
-    slug: 'dry-cleaning', name: 'Dry cleaning & laundry', parent: 'personal-care',
+    slug: 'dry-cleaning', name: 'Dry cleaning & laundry', self: 'dry cleaner', siting: 'premises', parent: 'personal-care',
     description: 'Dry cleaning, laundry, alterations and specialist care for suits and wedding dresses.',
     imageQueries: ['dry cleaning clothes rack', 'laundry service ironing', 'clothes steaming garment'],
     services: ['Dry cleaning', 'Laundry', 'Alterations', 'Wedding dresses', 'Curtains and doonas', 'Same-day service'],
@@ -781,7 +800,7 @@ TRADES.push(
     hours: 'shop',
   },
   {
-    slug: 'bakeries', name: 'Bakeries', parent: 'food-and-drink',
+    slug: 'bakeries', name: 'Bakeries', self: 'bakery', siting: 'premises', parent: 'food-and-drink',
     description: 'Sourdough, pastries, pies and celebration cakes, baked on the premises.',
     imageQueries: ['bakery bread loaves display', 'croissant pastry bakery', 'baker kneading dough'],
     services: ['Sourdough', 'Pastries', 'Pies', 'Celebration cakes', 'Coffee', 'Wholesale'],
@@ -800,7 +819,7 @@ TRADES.push(
     hours: 'earlyTrade',
   },
   {
-    slug: 'catering', name: 'Catering', parent: 'food-and-drink',
+    slug: 'catering', name: 'Catering', self: 'catering business', parent: 'food-and-drink',
     description: 'Catering for offices, weddings and parties, with dietary requirements handled properly.',
     imageQueries: ['catering buffet food table', 'catering platter food', 'chef preparing catering food'],
     services: ['Office catering', 'Weddings', 'Parties', 'Grazing tables', 'Canapés', 'Staff and hire'],
@@ -819,7 +838,7 @@ TRADES.push(
     hours: 'sixDay',
   },
   {
-    slug: 'photographers', name: 'Photographers', parent: 'professional-services',
+    slug: 'photographers', name: 'Photographers', self: 'photography studio', siting: 'premises', parent: 'professional-services',
     description: 'Weddings, portraits, events and commercial photography.',
     imageQueries: ['photographer camera portrait session', 'wedding photographer couple', 'photography studio lighting'],
     services: ['Weddings', 'Portraits', 'Events', 'Commercial', 'Headshots', 'Prints and albums'],
@@ -838,7 +857,7 @@ TRADES.push(
     hours: 'shop',
   },
   {
-    slug: 'pet-grooming', name: 'Pet grooming', parent: 'pets-and-vets',
+    slug: 'pet-grooming', name: 'Pet grooming', self: 'grooming salon', siting: 'premises', parent: 'pets-and-vets',
     description: 'Dog and cat grooming — full grooms, baths, nail trims and hand-stripping.',
     imageQueries: ['dog grooming salon groomer', 'dog bath washing', 'cat grooming brush'],
     services: ['Full grooms', 'Baths', 'Nail trims', 'De-shedding', 'Hand stripping', 'Puppy introductions'],
@@ -857,7 +876,7 @@ TRADES.push(
     hours: 'sixDay',
   },
   {
-    slug: 'cafes', name: 'Cafes', parent: 'food-and-drink', count: 2,
+    slug: 'cafes', name: 'Cafes', self: 'café', siting: 'premises', parent: 'food-and-drink', count: 2,
     description: 'Coffee, breakfast and lunch, from espresso bars to all-day kitchens.',
     imageQueries: ['cafe interior coffee counter', 'barista coffee latte art', 'breakfast plate cafe'],
     services: ['Coffee', 'Breakfast', 'Lunch', 'Takeaway', 'Catering', 'Outdoor seating'],
@@ -876,7 +895,7 @@ TRADES.push(
     hours: 'earlyTrade',
   },
   {
-    slug: 'bars', name: 'Bars', parent: 'food-and-drink', count: 1,
+    slug: 'bars', name: 'Bars', self: 'bar', siting: 'premises', parent: 'food-and-drink', count: 1,
     description: 'Wine bars, cocktail bars and pubs across the inner suburbs.',
     imageQueries: ['cocktail bar interior counter', 'wine bar bottles glasses', 'bartender pouring drink'],
     services: ['Cocktails', 'Wine list', 'Bar snacks', 'Function room', 'Live music', 'Takeaway bottles'],
@@ -895,7 +914,7 @@ TRADES.push(
     hours: 'hospitality',
   },
   {
-    slug: 'restaurants', name: 'Restaurants', parent: 'food-and-drink', count: 2,
+    slug: 'restaurants', name: 'Restaurants', self: 'restaurant', siting: 'premises', parent: 'food-and-drink', count: 2,
     description: 'Dining rooms across Melbourne, from neighbourhood kitchens to the waterfront.',
     imageQueries: ['restaurant dining room tables', 'chef plating dish kitchen', 'restaurant food plate'],
     services: ['Dine-in', 'Takeaway', 'Functions', 'Set menu', 'Delivery', 'Bar'],
@@ -914,7 +933,7 @@ TRADES.push(
     hours: 'hospitality',
   },
   {
-    slug: 'independent-shops', name: 'Independent shops', parent: 'shopping', count: 2,
+    slug: 'independent-shops', name: 'Independent shops', self: 'independent shop', siting: 'premises', parent: 'shopping', count: 2,
     description: 'Booksellers, record shops, gift shops and the specialists worth crossing town for.',
     imageQueries: ['bookshop interior shelves books', 'record shop vinyl browsing', 'gift shop interior display'],
     services: ['Books', 'Vinyl records', 'Gifts', 'Special orders', 'Gift wrapping', 'Events'],

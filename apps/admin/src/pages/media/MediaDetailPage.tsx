@@ -13,7 +13,6 @@ import { brand } from '@/config/theme';
 interface Values {
   altText: string;
   credit: string;
-  rightsNote: string;
 }
 
 /** Bytes an administrator can read, rather than a number they have to divide. */
@@ -63,7 +62,7 @@ export function MediaDetailPage() {
   useDocumentTitle(asset?.sourceName ?? 'Image');
 
   useEffect(() => {
-    if (asset) form.setFieldsValue({ altText: asset.altText ?? '', credit: asset.credit ?? '', rightsNote: asset.rightsNote ?? '' });
+    if (asset) form.setFieldsValue({ altText: asset.altText ?? '', credit: asset.credit ?? '' });
   }, [asset, form]);
 
   const storedFocal = asset && asset.focalX !== null && asset.focalY !== null ? { x: asset.focalX, y: asset.focalY } : null;
@@ -76,7 +75,6 @@ export function MediaDetailPage() {
         expectedVersion: asset.version,
         altText: values.altText || null,
         credit: values.credit || null,
-        rightsNote: values.rightsNote || null,
         ...(focal ? { focalX: focal.x, focalY: focal.y } : {}),
       });
       message.success('Image details saved');
@@ -168,10 +166,6 @@ export function MediaDetailPage() {
       <Form.Item label="Credit" name="credit" extra="Shown with the image where the licence requires it.">
         <Input maxLength={255} placeholder="e.g. Photograph by Sam Lee" />
       </Form.Item>
-      <Form.Item label="Rights or source note" name="rightsNote" extra="Where it came from and what may be done with it. Never shown publicly.">
-        <Input.TextArea rows={3} maxLength={500} placeholder="e.g. Supplied by the business, may be used on their listing." />
-      </Form.Item>
-
       {preview && (
         <Form.Item
           label="Focal point"

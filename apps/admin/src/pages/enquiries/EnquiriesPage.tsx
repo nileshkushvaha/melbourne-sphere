@@ -10,6 +10,7 @@ import { useBusy } from '@/shared/useBusy';
 import { businessesApi } from '@/api/businesses';
 import { RevealContact } from '@/components/RevealContact';
 import { RemoteSelect } from '@/components/RemoteSelect';
+import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { useCapabilities } from '@/auth/access-control';
@@ -45,7 +46,7 @@ export function EnquiriesPage() {
   const deliveryStatus = (list.get('deliveryStatus') as DeliveryStatus | null) ?? undefined;
   const page = list.page;
   const businessId = list.get('businessId');
-  const [state, reload] = useAsync((signal) => api.list({ handlingStatus, deliveryStatus, businessId, page, pageSize: 20 }, signal), [handlingStatus, deliveryStatus, businessId, page]);
+  const [state, reload] = useAsync((signal) => api.list({ handlingStatus, deliveryStatus, businessId, page, pageSize: list.pageSize }, signal), [handlingStatus, deliveryStatus, businessId, page, list.pageSize]);
   const [retrying, setRetrying] = useState<AdminEnquiry | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
   // Confirming twice sent the decision twice; one at a time.
@@ -109,7 +110,7 @@ export function EnquiriesPage() {
         rowKey="id"
         loading={state.status === 'loading'}
         dataSource={state.status === 'ready' ? state.data.data : []}
-        pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) } : false}
+        pagination={state.status === 'ready' ? tablePagination(state.data.meta, list) : false}
         scroll={{ x: 1100 }}
         expandable={{
           expandIcon: expandToggle((enquiry) => `the enquiry from ${enquiry.name}`),

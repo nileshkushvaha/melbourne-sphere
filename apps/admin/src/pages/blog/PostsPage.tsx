@@ -5,6 +5,7 @@ import { POST_STATUSES, blogApi, type PostStatus, type PostSummary } from '@/api
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
 import { ErrorState, ListEmpty, PageHeader, Pill, StatusTag, TableCard } from '@/components/ui';
+import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { useCapabilities } from '@/auth/access-control';
@@ -28,8 +29,8 @@ export function PostsPage() {
   const tagId = list.get('tagId');
   const page = list.page;
   const [state, reload] = useAsync(
-    (signal) => api.listPosts({ status, q: q || undefined, authorId, categoryId, tagId, page, pageSize: 20 }, signal),
-    [status, q, authorId, categoryId, tagId, page],
+    (signal) => api.listPosts({ status, q: q || undefined, authorId, categoryId, tagId, page, pageSize: list.pageSize }, signal),
+    [status, q, authorId, categoryId, tagId, page, list.pageSize],
   );
   // The three sets an article is classified by. They are small and rarely
   // change, so they are read once and reused by all three pickers.
@@ -109,7 +110,7 @@ export function PostsPage() {
         rowKey="id"
         loading={state.status === 'loading'}
         dataSource={state.status === 'ready' ? state.data.data : []}
-        pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) } : false}
+        pagination={state.status === 'ready' ? tablePagination(state.data.meta, list) : false}
         scroll={{ x: 900 }}
         columns={[
           { title: 'Title', dataIndex: 'title', render: (v: string, post) => <Link to={`/posts/${encodeURIComponent(post.id)}`}>{v}</Link> },

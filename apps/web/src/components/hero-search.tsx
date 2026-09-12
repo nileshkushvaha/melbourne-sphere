@@ -2,8 +2,11 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPinIcon, SearchIcon } from 'lucide-react';
-import { MIN_SUGGESTION_LENGTH, SUGGESTION_DEBOUNCE_MS, flattenSuggestions, moveActiveIndex, suggestionHref, type FlatSuggestion, type SuggestionGroups } from '@/lib/suggestions';
+import { ArrowRightIcon, LoaderIcon, MapPinIcon, SearchIcon, StoreIcon, TagIcon, WrenchIcon } from 'lucide-react';
+import { MIN_SUGGESTION_LENGTH, SUGGESTION_DEBOUNCE_MS, flattenSuggestions, highlightParts, moveActiveIndex, suggestionHref, type FlatSuggestion, type SuggestionGroups } from '@/lib/suggestions';
+
+/** What each kind of suggestion is, at a glance. The label says it too. */
+const KIND_ICON = { business: StoreIcon, category: TagIcon, service: WrenchIcon } as const;
 
 interface CategoryOption {
   slug: string;
@@ -24,12 +27,22 @@ export function HeroSearch({ categories }: { categories: CategoryOption[] }) {
   const [result, setResult] = useState<{ term: string; groups: SuggestionGroups } | null>(null);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
+  // The last term a request finished for, however it finished. Loading is
+  // derived from it rather than stored: a stored flag has to be turned off in
+  // every path, and the one that was missed — the term shrinking below the
+  // minimum — left the spinner running forever.
+  const [settled, setSettled] = useState<string | null>(null);
   const requestSeq = useRef(0);
   const boxRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   const term = query.trim();
   // Only suggestions fetched for the current term are shown, so a shrinking
   // query never displays stale options while the next request is in flight.
   const options: FlatSuggestion[] = term.length >= MIN_SUGGESTION_LENGTH && result?.term === term ? flattenSuggestions(result.groups) : [];
+  const loading = term.length >= MIN_SUGGESTION_LENGTH && settled !== term;
+  // "Nothing matched" is only true once the answer for *this* term is in;
+  // while a request is in flight the previous term's emptiness means nothing.
+  const showNothingFound = settled === term && options.length === 0;
 
   useEffect(() => {
     if (term.length < MIN_SUGGESTION_LENGTH) return;
@@ -45,6 +58,8 @@ export function HeroSearch({ categories }: { categories: CategoryOption[] }) {
         setOpen(true);
       } catch {
         // Suggestions are progressive: the form still submits without them.
+      } finally {
+        if (seq === requestSeq.current) setSettled(term);
       }
     }, SUGGESTION_DEBOUNCE_MS);
     return () => {
@@ -52,6 +67,12 @@ export function HeroSearch({ categories }: { categories: CategoryOption[] }) {
       controller.abort();
     };
   }, [term]);
+
+  // A long list scrolls; the option the arrow keys moved to has to come with it.
+  useEffect(() => {
+    if (active < 0) return;
+    listRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [active]);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -79,6 +100,11 @@ export function HeroSearch({ categories }: { categories: CategoryOption[] }) {
       setActive((current) => moveActiveIndex(current, event.key === 'ArrowDown' ? 1 : -1, options.length));
       return;
     }
+    if (open && (event.key === 'Home' || event.key === 'End')) {
+      event.preventDefault();
+      setActive(event.key === 'Home' ? 0 : options.length - 1);
+      return;
+    }
     // Enter submits the form unless an option is explicitly active (never on focus alone, SRS HERO 006).
     if (event.key === 'Enter' && open && active >= 0) {
       event.preventDefault();
@@ -92,7 +118,9 @@ export function HeroSearch({ categories }: { categories: CategoryOption[] }) {
       method="get"
       role="search"
       aria-label="Search Melbourne businesses"
-      className="ms-glass-light mt-6 w-full max-w-5xl rounded-[1.75rem] p-2.5 text-panel-text"
+      // Above the banner's own controls and photo credit, which come later in
+      // the hero and were painting over the open suggestion list.
+      className="ms-glass-light relative z-30 mt-6 w-full max-w-5xl rounded-[1.75rem] p-2.5 text-panel-text"
     >
       <div className="flex flex-col gap-2 lg:flex-row lg:items-stretch lg:gap-0">
         {/* Location is fixed text, never an input: the city is not client supplied (SRS HERO 004). */}
@@ -130,29 +158,66 @@ export function HeroSearch({ categories }: { categories: CategoryOption[] }) {
               aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
               className="mt-0.5 w-full border-0 bg-transparent p-0 text-base text-panel-text outline-none placeholder:text-panel-text-muted"
             />
+            {loading && (
+              <LoaderIcon aria-hidden="true" className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-panel-text-muted motion-reduce:animate-none" />
+            )}
           </div>
-          {open && options.length > 0 && (
-            <ul id={listId} role="listbox" aria-label="Suggestions" className="absolute z-20 mt-1 max-h-80 w-full overflow-auto rounded-card border border-panel-border bg-panel py-1 shadow-lg">
-              {options.map((option, i) => (
-                <li key={`${option.kind}-${option.slug}`}>
-                  {(i === 0 || options[i - 1]!.groupLabel !== option.groupLabel) && (
-                    <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-panel-text-muted">{option.groupLabel}</p>
-                  )}
-                  <button
-                    type="button"
-                    id={`${listId}-${option.index}`}
-                    role="option"
-                    aria-selected={active === option.index}
-                    onMouseEnter={() => setActive(option.index)}
-                    onClick={() => choose(option)}
-                    className={`flex min-h-11 w-full items-center justify-between gap-3 px-3 text-left text-sm text-panel-text ${active === option.index ? 'bg-panel-muted' : ''}`}
-                  >
-                    <span>{option.label}</span>
-                    {option.hint && <span className="text-xs text-panel-text-muted">{option.hint}</span>}
-                  </button>
-                </li>
-              ))}
-            </ul>
+          {/* Announced rather than drawn: the list itself is visible, and a
+              count read out on every keystroke is what makes a combobox
+              exhausting to listen to. */}
+          <p className="sr-only" role="status">
+            {loading ? 'Searching' : options.length > 0 ? `${options.length} suggestion${options.length === 1 ? '' : 's'}` : showNothingFound ? 'No suggestions' : ''}
+          </p>
+          {open && (options.length > 0 || showNothingFound) && (
+            <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-card border border-panel-border bg-panel shadow-lg">
+              <ul ref={listRef} id={listId} role="listbox" aria-label="Suggestions" className="max-h-80 overflow-auto py-1">
+                {options.map((option, i) => {
+                  const Icon = KIND_ICON[option.kind];
+                  const [before, match, after] = highlightParts(option.label, term);
+                  return (
+                    <li key={`${option.kind}-${option.slug}`}>
+                      {/* The group name is not an option, so it is not in the
+                          listbox's set of them: a screen reader counting
+                          options should not count "Businesses" as one. */}
+                      {(i === 0 || options[i - 1]!.groupLabel !== option.groupLabel) && (
+                        <p role="presentation" className="px-3 pb-1 pt-2.5 text-[0.68rem] font-bold uppercase tracking-[0.14em] text-panel-text-muted">
+                          {option.groupLabel}
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        id={`${listId}-${option.index}`}
+                        data-index={option.index}
+                        role="option"
+                        aria-selected={active === option.index}
+                        onMouseEnter={() => setActive(option.index)}
+                        onClick={() => choose(option)}
+                        className={`flex min-h-12 w-full items-center gap-3 px-3 text-left text-sm text-panel-text transition-colors ${active === option.index ? 'bg-sky-50' : ''}`}
+                      >
+                        <Icon aria-hidden="true" className={`size-4 shrink-0 ${active === option.index ? 'text-sky-700' : 'text-panel-text-muted'}`} />
+                        <span className="min-w-0 flex-1 truncate">
+                          {before}
+                          <mark className="bg-transparent font-semibold text-panel-text">{match}</mark>
+                          {after}
+                        </span>
+                        {option.hint && <span className="shrink-0 text-xs text-panel-text-muted">{option.hint}</span>}
+                        <ArrowRightIcon aria-hidden="true" className={`size-4 shrink-0 ${active === option.index ? 'text-sky-700' : 'text-transparent'}`} />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {/* Always a way out of the dropdown: search the words as typed. */}
+              <p className="border-t border-panel-border px-3 py-2 text-xs text-panel-text-muted">
+                {showNothingFound ? (
+                  <>
+                    Nothing matches <span className="font-semibold text-panel-text">{term}</span>. Press Enter to search the directory for it anyway.
+                  </>
+                ) : (
+                  <>Press Enter to search for everything matching your words.</>
+                )}
+              </p>
+            </div>
           )}
         </div>
 

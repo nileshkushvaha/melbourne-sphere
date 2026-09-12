@@ -6,6 +6,7 @@ import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
 import { ErrorState, ListEmpty, PageHeader, Pill, StatusTag, TableCard } from '@/components/ui';
 import { RemoteSelect } from '@/components/RemoteSelect';
+import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { readableAction, readableTargetType } from '@/shared/activity';
@@ -61,7 +62,7 @@ export function AuditLogPage() {
       auditApi.list(
         {
           page,
-          pageSize: 25,
+          pageSize: list.pageSize,
           action: action || undefined,
           category: category || undefined,
           outcome: (outcome || undefined) as 'success' | 'failure' | undefined,
@@ -75,7 +76,7 @@ export function AuditLogPage() {
         },
         signal,
       ),
-    [page, action, category, outcome, requestId, actor, from, to],
+    [page, list.pageSize, action, category, outcome, requestId, actor, from, to],
   );
 
   const range: [Dayjs | null, Dayjs | null] = [from ? dayjs(from) : null, to ? dayjs(to) : null];
@@ -166,7 +167,7 @@ export function AuditLogPage() {
         }}
         pagination={
           state.status === 'ready'
-            ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) }
+            ? tablePagination(state.data.meta, list)
             : false
         }
         scroll={{ x: 1000 }}

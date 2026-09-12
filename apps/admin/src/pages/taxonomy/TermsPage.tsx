@@ -8,6 +8,7 @@ import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard } from '@/components/ui';
+import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
@@ -63,7 +64,7 @@ export function TermsPage({ config }: { config: TermsPageConfig }) {
   const status = (list.get('status') as 'active' | 'inactive' | null) ?? undefined;
   const sort = (list.get('sort') as TermListQuery['sort']) ?? 'name';
   const order = (list.get('order') as 'asc' | 'desc') ?? 'asc';
-  const [state, reload] = useAsync(() => api.list({ page, pageSize: 20, q: q || undefined, status, sort, order }), [config.kind, page, q, status, sort, order]);
+  const [state, reload] = useAsync(() => api.list({ page, pageSize: list.pageSize, q: q || undefined, status, sort, order }), [config.kind, page, list.pageSize, q, status, sort, order]);
 
   const listHref = `/${config.kind}`;
 
@@ -129,7 +130,7 @@ export function TermsPage({ config }: { config: TermsPageConfig }) {
           list.set('sort', field);
           list.set('order', next.order === 'descend' ? 'desc' : 'asc');
         }}
-        pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) } : false}
+        pagination={state.status === 'ready' ? tablePagination(state.data.meta, list) : false}
         scroll={{ x: 760 }}
         columns={[
           {

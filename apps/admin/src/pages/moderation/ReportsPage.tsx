@@ -9,6 +9,7 @@ import { errorMessage, useAsync } from '@/shared/useAsync';
 import { ErrorState, ListEmpty, PageHeader, Pill, StatusTag, TableCard, statusRowClass } from '@/components/ui';
 import { useBusy } from '@/shared/useBusy';
 import { RevealContact } from '@/components/RevealContact';
+import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { FormSelect } from '@/components/FormSelect';
@@ -42,7 +43,7 @@ export function ReportsPage() {
   const list = useListParams(FILTERS);
   const status = (list.get('status') as ReportStatus | null) ?? undefined;
   const page = list.page;
-  const [state, reload] = useAsync((signal) => api.listReports({ status, page, pageSize: 20 }, signal), [status, page]);
+  const [state, reload] = useAsync((signal) => api.listReports({ status, page, pageSize: list.pageSize }, signal), [status, page, list.pageSize]);
   const [resolving, setResolving] = useState<AdminReport | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
   // Confirming twice sent the decision twice; one at a time.
@@ -101,7 +102,7 @@ export function ReportsPage() {
         rowKey="id"
         loading={state.status === 'loading'}
         dataSource={state.status === 'ready' ? state.data.data : []}
-        pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) } : false}
+        pagination={state.status === 'ready' ? tablePagination(state.data.meta, list) : false}
         scroll={{ x: 1000 }}
         expandable={{
           expandIcon: expandToggle((report) => `the ${reasonLabel(report.reason).toLowerCase()} report about a ${report.targetType}`),

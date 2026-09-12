@@ -7,6 +7,7 @@ import { useCapabilities } from '@/auth/access-control';
 import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
+import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
@@ -30,7 +31,7 @@ export function PartnersPage() {
   const status = (list.get('status') ?? '') as '' | 'draft' | 'published';
 
   const q = list.get('q') ?? '';
-  const [state, reload] = useAsync(() => partnersApi.list({ page, pageSize: 20, status: status || undefined, q: q || undefined }), [page, status, q]);
+  const [state, reload] = useAsync(() => partnersApi.list({ page, pageSize: list.pageSize, status: status || undefined, q: q || undefined }), [page, list.pageSize, status, q]);
 
 
   const authorise = (record: PartnerOrganisation) => {
@@ -161,7 +162,7 @@ export function PartnersPage() {
         }}
         pagination={
           state.status === 'ready'
-            ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) }
+            ? tablePagination(state.data.meta, list)
             : false
         }
         scroll={{ x: 1000 }}

@@ -9,6 +9,7 @@ import { RedirectPreviewPanel } from './RedirectPreviewPanel';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useBusy } from '@/shared/useBusy';
+import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
@@ -31,8 +32,8 @@ export function RedirectsPage() {
   const activeOnly = active === undefined ? undefined : active === 'yes';
   const page = list.page;
   const [state, reload] = useAsync(
-    (signal) => api.list({ q: search || undefined, kind, isActive: activeOnly, page, pageSize: 25 }, signal),
-    [search, kind, active, page],
+    (signal) => api.list({ q: search || undefined, kind, isActive: activeOnly, page, pageSize: list.pageSize }, signal),
+    [search, kind, active, page, list.pageSize],
   );
   // Popconfirm shows a spinner and blocks a second click only while its
   // `onConfirm` promise is pending, so these must return the promise.
@@ -124,7 +125,7 @@ export function RedirectsPage() {
         dataSource={rows}
         scroll={{ x: 900 }}
         pagination={
-          state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, onChange: list.setPage, showSizeChanger: false } : false
+          state.status === 'ready' ? tablePagination(state.data.meta, list) : false
         }
         locale={{
           emptyText: state.status === 'ready' ? <EmptyState title="No redirects" description="Nothing has moved yet. Redirects appear here when a published address changes." /> : ' ',

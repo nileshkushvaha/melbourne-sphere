@@ -159,8 +159,8 @@ export const schedulesApi = {
   list(client: HttpClient = httpClient) {
     return client.request<{ data: ScheduledTask[] }>('/admin/system/schedules').then((r) => r.data.data);
   },
-  runs(code: string, page: number, client: HttpClient = httpClient) {
-    return client.request<Paged<ScheduledRun>>(`/admin/system/schedules/${encodeURIComponent(code)}/runs?page=${page}&pageSize=20`).then((r) => r.data);
+  runs(code: string, page: number, pageSize = 20, client: HttpClient = httpClient) {
+    return client.request<Paged<ScheduledRun>>(`/admin/system/schedules/${encodeURIComponent(code)}/runs?page=${page}&pageSize=${pageSize}`).then((r) => r.data);
   },
   run(code: string, client: HttpClient = httpClient) {
     return client.request<{ data: { dispatched: true } }>(`/admin/system/schedules/${encodeURIComponent(code)}/run`, { method: 'POST', body: {} }).then((r) => r.data.data);

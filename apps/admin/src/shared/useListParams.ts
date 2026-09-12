@@ -2,6 +2,13 @@ import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
 
 /**
+ * The page sizes every admin list offers. Fifty is the ceiling because that is
+ * what the API allows (`pageSize ≤ 50`); offering a hundred would produce a
+ * refusal rather than a longer page.
+ */
+export const PAGE_SIZES = [10, 20, 50];
+
+/**
  * The query, filters, sort and page of a list screen, kept in the address bar.
  *
  * Every list screen had written this by hand — read a parameter, write it back,
@@ -18,13 +25,21 @@ import { useSearchParams } from 'react-router';
  * result set — sort field and direction. They are readable and writable, but
  * "clear filters" leaves them alone and a sorted-but-unfiltered list is still
  * everything, so it gets the ordinary empty state.
+ *
+ * How many rows a page holds is here too, for the same reason the page number
+ * is: it is part of the view, so it belongs in the address bar and survives a
+ * reload, a link and the Back button. It is clamped to the offered sizes, so a
+ * hand-typed `?pageSize=5000` cannot ask the API for more than it allows.
  */
 export function useListParams<K extends string, E extends string = never>(
   keys: readonly K[],
+  { defaultPageSize = 20 }: { defaultPageSize?: number } = {},
 ) {
   const [params, setParams] = useSearchParams();
 
   const page = Math.max(1, Number(params.get('page') ?? '1') || 1);
+  const asked = Number(params.get('pageSize'));
+  const pageSize = PAGE_SIZES.includes(asked) ? asked : defaultPageSize;
 
   const get = useCallback((key: K | E) => params.get(key) ?? undefined, [params]);
 
@@ -42,6 +57,23 @@ export function useListParams<K extends string, E extends string = never>(
 
   const setPage = useCallback((next: number) => set('page', next > 1 ? String(next) : undefined), [set]);
 
+  /**
+   * Changes how many rows a page holds, and returns to the first page: row 300
+   * is on page 15 of twenty and page 6 of fifty, so keeping the page number
+   * would land the reader somewhere they did not ask to be.
+   */
+  const setPageSize = useCallback(
+    (next: number) => {
+      const chosen = PAGE_SIZES.includes(next) ? next : defaultPageSize;
+      const params2 = new URLSearchParams(params);
+      if (chosen === defaultPageSize) params2.delete('pageSize');
+      else params2.set('pageSize', String(chosen));
+      params2.delete('page');
+      setParams(params2, { replace: true });
+    },
+    [params, setParams, defaultPageSize],
+  );
+
   /** The filters currently in force, for chips and for "clear filters". */
   const active = useMemo(() => keys.filter((key) => Boolean(params.get(key))), [keys, params]);
 
@@ -52,5 +84,5 @@ export function useListParams<K extends string, E extends string = never>(
     setParams(next, { replace: true });
   }, [keys, params, setParams]);
 
-  return { page, get, set, setPage, active, filtered: active.length > 0, clear };
+  return { page, pageSize, get, set, setPage, setPageSize, active, filtered: active.length > 0, clear };
 }

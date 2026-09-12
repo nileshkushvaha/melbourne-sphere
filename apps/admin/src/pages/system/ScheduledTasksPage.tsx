@@ -8,6 +8,8 @@ import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { SCHEDULED_RUN_RETENTION_DAYS } from '@melbourne-sphere/domain';
 import { useBusy } from '@/shared/useBusy';
+import { tablePagination } from '@/shared/tablePagination';
+import { PAGE_SIZES } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
 
@@ -29,8 +31,9 @@ export function ScheduledTasksPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [history, setHistory] = useState<ScheduledTask | null>(null);
   const [historyPage, setHistoryPage] = useState(1);
+  const [historySize, setHistorySize] = useState(PAGE_SIZES[1]!);
   const [state, reload] = useAsync(() => schedulesApi.list(), [reloadKey]);
-  const [runs] = useAsync(() => (history ? schedulesApi.runs(history.code, historyPage) : Promise.resolve(null)), [history?.code, historyPage, reloadKey]);
+  const [runs] = useAsync(() => (history ? schedulesApi.runs(history.code, historyPage, historySize) : Promise.resolve(null)), [history?.code, historyPage, historySize, reloadKey]);
 
   const mayRun = can(PERMISSION.systemSchedulesRun);
   const mayManage = can(PERMISSION.systemSchedulesManage);
@@ -249,7 +252,11 @@ export function ScheduledTasksPage() {
           size="small"
           loading={runs.status === 'loading'}
           dataSource={runs.status === 'ready' && runs.data ? runs.data.data : []}
-          pagination={runs.status === 'ready' && runs.data ? { current: runs.data.meta.page, pageSize: runs.data.meta.pageSize, total: runs.data.meta.total, showSizeChanger: false, onChange: setHistoryPage } : false}
+          pagination={
+            runs.status === 'ready' && runs.data
+              ? tablePagination(runs.data.meta, { pageSize: historySize, setPage: setHistoryPage, setPageSize: (size) => { setHistorySize(size); setHistoryPage(1); } })
+              : false
+          }
           columns={[
             { title: 'Started', dataIndex: 'startedAt', width: 180, render: (value: string) => formatDateTime(value) },
             { title: 'Trigger', dataIndex: 'trigger', width: 100 },

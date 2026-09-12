@@ -46,17 +46,21 @@ const COMMONS_API = 'https://commons.wikimedia.org/w/api.php';
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Commons rate-limits anonymous downloads, and answers 429 when a handful of
- * originals are pulled in quick succession. Backing off and retrying is the
- * documented way to behave; failing the whole seed on the third file is not.
+ * Commons rate-limits anonymous downloads, and answers 429 once a few hundred
+ * files have been pulled in a sitting. Backing off properly is the documented
+ * way to behave, and the waits have to be long enough to be worth calling a
+ * back-off: 3, 6, 9 seconds was still asking every few seconds, which is what
+ * the limit exists to stop. This doubles instead, up to a minute, and honours
+ * a `Retry-After` header when the server sends one.
  */
-export async function fetchWithBackoff(url: string, attempts = 6): Promise<Response> {
+export async function fetchWithBackoff(url: string, attempts = 7): Promise<Response> {
   for (let attempt = 1; ; attempt += 1) {
     const response = await fetch(url, { headers: { 'User-Agent': COMMONS_AGENT } });
     if (response.ok) return response;
-    if (response.status !== 429 || attempt === attempts) return response;
-    const wait = 3000 * attempt;
-    console.log(`    rate limited; waiting ${wait / 1000}s`);
+    if ((response.status !== 429 && response.status < 500) || attempt === attempts) return response;
+    const askedFor = Number(response.headers.get('retry-after'));
+    const wait = Number.isFinite(askedFor) && askedFor > 0 ? Math.min(askedFor * 1000, 120_000) : Math.min(5000 * 2 ** (attempt - 1), 60_000);
+    console.log(`    ${response.status}; waiting ${Math.round(wait / 1000)}s`);
     await sleep(wait);
   }
 }

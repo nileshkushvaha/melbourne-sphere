@@ -9,6 +9,7 @@ import { errorMessage, useAsync } from '@/shared/useAsync';
 import { blogApi } from '@/api/blog';
 import { RevealContact } from '@/components/RevealContact';
 import { RemoteSelect } from '@/components/RemoteSelect';
+import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 import { useBusy } from '@/shared/useBusy';
 import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
@@ -56,7 +57,7 @@ export function CommentsPage() {
   const postId = list.get('postId');
   // Set when an abuse report links straight to the item it is about.
   const id = list.get('id');
-  const [state, reload] = useAsync((signal) => api.listComments({ id, status, reported: reported || undefined, postId, page, pageSize: 20 }, signal), [id, status, reported, postId, page]);
+  const [state, reload] = useAsync((signal) => api.listComments({ id, status, reported: reported || undefined, postId, page, pageSize: list.pageSize }, signal), [id, status, reported, postId, page, list.pageSize]);
   const [pending, setPending] = useState<{ comment: AdminComment; decision: ReviewDecision } | null>(null);
   const [redacting, setRedacting] = useState<AdminComment | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
@@ -131,7 +132,7 @@ export function CommentsPage() {
         rowKey="id"
         loading={state.status === 'loading'}
         dataSource={state.status === 'ready' ? state.data.data : []}
-        pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: list.setPage } : false}
+        pagination={state.status === 'ready' ? tablePagination(state.data.meta, list) : false}
         scroll={{ x: 1000 }}
         expandable={{
           expandIcon: expandToggle((comment) => `the comment by ${comment.displayName}`),

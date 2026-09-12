@@ -7,6 +7,7 @@ import { PageHeader, Pill, SectionCard, statusRowClass } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 
 const STATES: { value: QueueJobState; label: string }[] = [
@@ -57,8 +58,8 @@ export function QueueMonitorPage() {
   const [liveness] = useAsync(() => queuesApi.workers(), [reloadKey]);
   const queue: QueueSummary | null = overview.status === 'ready' ? (overview.data[0] ?? null) : null;
   const [jobs, reloadJobs] = useAsync(
-    () => (queue ? queuesApi.jobs(queue.name, { state, page, pageSize: 20 }) : Promise.resolve(null)),
-    [queue?.name, state, page, reloadKey],
+    () => (queue ? queuesApi.jobs(queue.name, { state, page, pageSize: list.pageSize }) : Promise.resolve(null)),
+    [queue?.name, state, page, list.pageSize, reloadKey],
   );
 
   const refresh = () => {
@@ -342,7 +343,7 @@ export function QueueMonitorPage() {
               }
               pagination={
                 jobs.status === 'ready' && jobs.data
-                  ? { current: jobs.data.meta.page, pageSize: jobs.data.meta.pageSize, total: jobs.data.meta.total, showSizeChanger: false, onChange: list.setPage }
+                  ? tablePagination(jobs.data.meta, list)
                   : false
               }
               scroll={{ x: 900 }}

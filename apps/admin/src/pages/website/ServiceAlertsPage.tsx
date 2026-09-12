@@ -8,6 +8,7 @@ import { ALERT_PRESENTATION, ALERT_SEVERITIES } from '@melbourne-sphere/domain/a
 import { ErrorState, ListEmpty, PageHeader, Pill, StatusTag, TableCard, type StatusTone } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
+import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
@@ -34,7 +35,7 @@ export function ServiceAlertsPage() {
   const navigate = useNavigate();
   const severity = list.get('severity') as AlertSeverity | undefined;
   const q = list.get('q') ?? '';
-  const [state, reload] = useAsync(() => serviceAlertsApi.list({ page, pageSize: 20, status: status || undefined, severity, q: q || undefined }), [page, status, severity, q]);
+  const [state, reload] = useAsync(() => serviceAlertsApi.list({ page, pageSize: list.pageSize, status: status || undefined, severity, q: q || undefined }), [page, list.pageSize, status, severity, q]);
 
 
   const setPublished = (record: ServiceAlert, published: boolean) => {
@@ -141,7 +142,7 @@ export function ServiceAlertsPage() {
         }}
         pagination={
           state.status === 'ready'
-            ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) }
+            ? tablePagination(state.data.meta, list)
             : false
         }
         scroll={{ x: 1000 }}

@@ -6,6 +6,7 @@ import { authorizationApi } from '@/api/authorization';
 import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
+import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
@@ -26,7 +27,7 @@ export function AdministratorsPage() {
   const sort = (list.get('sort') as 'createdAt' | 'displayName' | 'email' | 'lastLoginAt' | undefined) ?? 'createdAt';
   const order = (list.get('order') as 'asc' | 'desc' | undefined) ?? 'desc';
   const role = list.get('role');
-  const [state, reload] = useAsync(() => adminsApi.list({ page, pageSize: 20, q: q || undefined, status, role, sort, order }), [page, q, status, role, sort, order]);
+  const [state, reload] = useAsync(() => adminsApi.list({ page, pageSize: list.pageSize, q: q || undefined, status, role, sort, order }), [page, list.pageSize, q, status, role, sort, order]);
 
   /** Ant's own name for the direction, for the column currently sorted. */
   const sortColumn = (field: string) => (sort === field ? (order === 'desc' ? ('descend' as const) : ('ascend' as const)) : null);
@@ -79,7 +80,7 @@ export function AdministratorsPage() {
         className="ms-scroll-table"
         loading={state.status === 'loading'}
         dataSource={state.status === 'ready' ? state.data.data : []}
-        pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) } : false}
+        pagination={state.status === 'ready' ? tablePagination(state.data.meta, list) : false}
         scroll={{ x: 720 }}
         // Sorting writes to the address bar with the filters, so an ordered
         // view can be linked to.

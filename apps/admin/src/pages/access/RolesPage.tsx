@@ -8,6 +8,7 @@ import { isApiError } from '@/api/errors';
 import { useCapabilities } from '@/auth/access-control';
 import { PERMISSION } from '@/auth/permissions';
 import { errorMessage, useAsync } from '@/shared/useAsync';
+import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { formatDateTime } from '@/shared/format';
@@ -33,7 +34,7 @@ export function RolesPage() {
   const [q, setQ] = useState(search);
   const page = list.page;
 
-  const [state, reload] = useAsync((signal) => api.listRoles({ page, pageSize: 20, q: search || undefined }, signal), [page, search]);
+  const [state, reload] = useAsync((signal) => api.listRoles({ page, pageSize: list.pageSize, q: search || undefined }, signal), [page, list.pageSize, search]);
 
   const remove = async (role: RoleListItem) => {
     try {
@@ -91,7 +92,7 @@ export function RolesPage() {
             rowKey="id"
             dataSource={rows}
             loading={state.status === 'loading'}
-            pagination={{ current: page, pageSize: meta?.pageSize ?? 20, total: meta?.total ?? 0, onChange: list.setPage, showSizeChanger: false }}
+            pagination={tablePagination(meta ?? { page, pageSize: list.pageSize, total: 0 }, list)}
             className="ms-scroll-table"
             // A fixed floor rather than max-content: the columns then share the
             // card's width instead of the table dictating it, so nothing is

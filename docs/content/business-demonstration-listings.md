@@ -120,3 +120,27 @@ shown wherever the media library shows an image's rights.
 Because the pictures are stock rather than photographs of the (fictional)
 premises, they are illustrative: a bakery's gallery shows bread, ovens and
 pastries, not that bakery.
+
+## Service synonyms
+
+`apps/api/scripts/seed-service-synonyms.ts` gives every service its search
+synonyms, adding to whatever an editor has already written and never replacing
+it.
+
+```bash
+pnpm --filter api exec tsx --env-file=.env scripts/seed-service-synonyms.ts --dry-run
+pnpm --filter api exec tsx --env-file=.env scripts/seed-service-synonyms.ts
+```
+
+Search matches `name LIKE %term%` OR `synonym LIKE %term%`, so a synonym is
+only worth storing when it holds a word the name does not: "sparkie" for
+Electrical, "bond clean" for an end-of-lease clean, "aircon" for a split
+system. `service-synonyms.ts` is therefore in two halves — a written list for
+the trades where the customer's word differs from ours, and rules that derive
+the honest variants of any name (singular and plural, the head noun alone,
+hyphens as spaces, an apostrophe dropped, each half of "X and Y").
+
+Anything still under five synonyms is **reported, not padded**: a term nobody
+types makes search worse, so the dry run prints the list to be written by hand.
+That is how the eighty-three written entries at the end of the file were
+chosen.

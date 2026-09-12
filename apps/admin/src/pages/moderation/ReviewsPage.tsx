@@ -11,6 +11,7 @@ import { useBusy } from '@/shared/useBusy';
 import { businessesApi } from '@/api/businesses';
 import { RevealContact } from '@/components/RevealContact';
 import { RemoteSelect } from '@/components/RemoteSelect';
+import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { expandToggle } from '@/components/ui/expandToggle';
@@ -61,7 +62,7 @@ export function ReviewsPage() {
   const businessId = list.get('businessId');
   // Set when an abuse report links straight to the item it is about.
   const id = list.get('id');
-  const [state, reload] = useAsync((signal) => api.listReviews({ id, status, repeatFlagged: repeatFlagged || undefined, reported: reported || undefined, businessId, page, pageSize: 20 }, signal), [id, status, repeatFlagged, reported, businessId, page]);
+  const [state, reload] = useAsync((signal) => api.listReviews({ id, status, repeatFlagged: repeatFlagged || undefined, reported: reported || undefined, businessId, page, pageSize: list.pageSize }, signal), [id, status, repeatFlagged, reported, businessId, page, list.pageSize]);
   const [pending, setPending] = useState<{ review: AdminReview; decision: ReviewDecision } | null>(null);
   const [redacting, setRedacting] = useState<AdminReview | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
@@ -145,7 +146,7 @@ export function ReviewsPage() {
         rowKey="id"
         loading={state.status === 'loading'}
         dataSource={state.status === 'ready' ? state.data.data : []}
-        pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) } : false}
+        pagination={state.status === 'ready' ? tablePagination(state.data.meta, list) : false}
         scroll={{ x: 1100 }}
         expandable={{
           expandIcon: expandToggle((review) => `the review by ${review.displayName} of ${review.businessName}`),

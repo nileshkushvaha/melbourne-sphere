@@ -42,6 +42,21 @@ body {
 @supports (backdrop-filter: blur(18px)) {
   .ms-glass-light, .ms-glass-dark { backdrop-filter: blur(18px) saturate(135%); }
 }
+
+/*
+ * A light panel sitting inside a dark band takes the ordinary focus ring back.
+ *
+ * The band-level rule paints the ring amber so it can be seen against navy —
+ * but the hero's search panel is near-white, where amber is both wrong to look
+ * at and around 1.6:1, well under the 3:1 a focus indicator has to meet
+ * (SRS NFR 011, WCAG 1.4.11). The panel's own accent is the sky blue of its
+ * search button: 6.2:1 on the panel, and it reads as part of the design rather
+ * than as a warning.
+ */
+.ms-on-dark .ms-glass-light :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline-color: var(--ms-sky-700);
+  outline-width: 2px;
+}
 .ms-dot-grid {
   background-image: radial-gradient(color-mix(in srgb, var(--ms-sky-500) 18%, transparent) 1px, transparent 1px);
   background-size: 22px 22px;

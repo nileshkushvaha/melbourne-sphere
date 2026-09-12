@@ -22,7 +22,7 @@
  *   pnpm --filter api exec tsx --env-file=.env scripts/seed-trades.ts
  */
 import { databaseName, db, searchCommons, sleep, uploadImage, waitUntilReady } from './seed-commons.js';
-import { createBusiness, ensureServices, loadUsedTitles, slugify, usedTitles } from './seed-business-writer.js';
+import { attachMedia, createBusiness, ensureServices, loadUsedTitles, slugify, usedTitles } from './seed-business-writer.js';
 import { TRADES, TRADE_PARENTS, tradeBusinesses } from './trade-seed-content.js';
 
 /** Where the trade listings' phone numbers start, after the hand-written ones. */
@@ -35,6 +35,13 @@ const PHONE_BASE = 2000;
  * what there is.
  */
 async function imagePool(slug: string, queries: string[], target: number): Promise<{ id: string }[]> {
+  // `--no-images` creates the listings and leaves the photographs for later.
+  // Commons is a volunteer archive, and once it starts asking for two-minute
+  // waits the courteous thing — and the quick thing — is to stop asking and
+  // come back another day. A listing with no photograph shows the site's own
+  // branded panel, which is what a real listing without one shows; a later run
+  // fills the gaps, because everything here is matched on slug.
+  if (process.argv.includes('--no-images')) return [];
   const existing = await db.mediaAsset.findMany({ where: { sourceName: { startsWith: `trade-${slug}-` }, status: { in: ['ready', 'quarantined'] } }, select: { id: true }, orderBy: { sourceName: 'asc' } });
   if (existing.length >= target) return existing;
 
@@ -54,23 +61,108 @@ async function imagePool(slug: string, queries: string[], target: number): Promi
   const pool = [...existing];
   for (const [index, entry] of found.entries()) {
     if (pool.length >= target) break;
-    const id = await uploadImage({
-      file: entry.file,
-      sourceName: `trade-${slug}-${existing.length + index + 1}.jpg`,
-      alt: (entry.file.description || entry.file.title.replace(/^File:|\.\w+$/g, '')).slice(0, 240),
-      credit: entry.file.artist ? `${entry.file.artist} via Wikimedia Commons` : 'Wikimedia Commons',
-      rightsNote: `${entry.file.licence} — ${entry.file.pageUrl}`,
-    });
-    pool.push({ id });
-    await sleep(800);
+    try {
+      const id = await uploadImage({
+        file: entry.file,
+        sourceName: `trade-${slug}-${existing.length + index + 1}.jpg`,
+        alt: (entry.file.description || entry.file.title.replace(/^File:|\.\w+$/g, '')).slice(0, 240),
+        credit: entry.file.artist ? `${entry.file.artist} via Wikimedia Commons` : 'Wikimedia Commons',
+        rightsNote: `${entry.file.licence} — ${entry.file.pageUrl}`,
+      });
+      pool.push({ id });
+    } catch (error) {
+      // One file Commons would not hand over is one photograph fewer, not a
+      // failed run: the listing falls back to the site's branded panel, and a
+      // later run picks up where this one left off.
+      console.log(`    skipped a photograph: ${(error as Error).message.slice(0, 90)}`);
+    }
+    // Deliberately unhurried. Several hundred files in a sitting is what
+    // triggers the limit, and a seeder has nowhere to be.
+    await sleep(2000);
   }
   if (pool.length > 0) await waitUntilReady(pool.map((image) => image.id));
   return pool;
 }
 
+/**
+ * Rewrites the description of every trade listing to what the vocabulary
+ * produces now.
+ *
+ * Separate, and opt-in with `--refresh-copy`, because it overwrites text: for
+ * seeded copy that is the point, but it must never happen as a side effect of
+ * a run somebody started to add a category.
+ */
+async function refreshCopy(): Promise<number> {
+  let changed = 0;
+  for (const [index, trade] of TRADES.entries()) {
+    for (const seed of tradeBusinesses(trade, PHONE_BASE + index * 10)) {
+      const current = await db.business.findUnique({ where: { slug: seed.slug }, select: { id: true, description: true } });
+      if (!current || current.description === seed.description) continue;
+      await db.business.update({ where: { id: current.id }, data: { description: seed.description, version: { increment: 1 } } });
+      changed += 1;
+    }
+  }
+  return changed;
+}
+
+/**
+ * Finds a photograph for every trade listing and category that has none.
+ *
+ * Separate from the main run because it is the part that depends on someone
+ * else's server: listings can be created in seconds, while a few hundred
+ * photographs have to be asked for politely and slowly. Run it again after a
+ * rate limit and it continues from wherever it stopped.
+ */
+async function fillImages(): Promise<void> {
+  let added = 0;
+  for (const [index, trade] of TRADES.entries()) {
+    const category = await db.category.findUnique({ where: { slug: trade.slug }, select: { id: true, imageMediaId: true } });
+    if (!category) continue;
+    const slugs = tradeBusinesses(trade, PHONE_BASE + index * 10).map((seed) => seed.slug);
+    const rows = await db.business.findMany({ where: { slug: { in: slugs } }, select: { id: true, name: true, firstPublishedAt: true, _count: { select: { media: true } } } });
+    const needy = rows.filter((row) => row._count.media === 0);
+    const need = needy.length + (category.imageMediaId ? 0 : 1);
+    if (need === 0) continue;
+
+    console.log(`\n${trade.name} — ${need} photograph(s) wanted`);
+    const pool = await imagePool(trade.slug, trade.imageQueries, need);
+    let next = 0;
+    if (!category.imageMediaId && pool[next]) {
+      await db.category.update({ where: { id: category.id }, data: { imageMediaId: pool[next]!.id, version: { increment: 1 } } });
+      next += 1;
+    }
+    for (const row of needy) {
+      const image = pool[next];
+      if (!image) break;
+      await attachMedia(row.id, [image]);
+      // Now that it has a picture it belongs on the site.
+      await db.business.update({
+        where: { id: row.id },
+        data: { status: 'published', publishedAt: new Date(), firstPublishedAt: row.firstPublishedAt ?? new Date(), version: { increment: 1 } },
+      });
+      next += 1;
+      added += 1;
+      console.log(`  ${row.name}`);
+    }
+  }
+  const waiting = await db.business.count({ where: { status: 'draft' } });
+  console.log(`\nDone. ${added} listing(s) now have a photograph and are published; ${waiting} still waiting for one.`);
+}
+
 async function main(): Promise<void> {
   console.log(`Filling out the directory in ${databaseName}\n`);
   await loadUsedTitles();
+
+  if (process.argv.includes('--fill-images')) {
+    await fillImages();
+    return;
+  }
+
+  if (process.argv.includes('--refresh-copy')) {
+    const changed = await refreshCopy();
+    console.log(`Done. ${changed} description(s) rewritten.`);
+    return;
+  }
 
   for (const parent of TRADE_PARENTS) {
     const existing = await db.category.findUnique({ where: { slug: parent.slug }, select: { id: true, description: true } });
@@ -123,13 +215,16 @@ async function main(): Promise<void> {
       const taken = await db.business.findUnique({ where: { slug: seed.slug }, select: { id: true } });
       if (!taken) missing.push(seed);
     }
-    if (missing.length === 0 && category.imageMediaId) {
+    if (missing.length === 0 && (category.imageMediaId || process.argv.includes('--no-images'))) {
       console.log('  already filled');
       continue;
     }
 
-    // One for the category itself, two for each listing that is missing.
-    const pool = await imagePool(trade.slug, trade.imageQueries, 1 + missing.length * 2);
+    // One for the category itself and one for each listing that is missing.
+    // Two each would be nicer and is not worth it: Commons is a volunteer
+    // archive being asked for several hundred files by a seeder, and a cover
+    // photograph is what a card and a detail page actually need.
+    const pool = await imagePool(trade.slug, trade.imageQueries, 1 + missing.length);
     if (pool.length === 0) console.log('  no photographs found for this trade');
 
     if (!category.imageMediaId && pool[0]) {
@@ -138,8 +233,13 @@ async function main(): Promise<void> {
 
     const categories = new Map([[trade.slug, category.id]]);
     for (const [index, seed] of missing.entries()) {
-      const mine = pool.slice(1 + index * 2, 3 + index * 2);
+      const mine = pool.slice(1 + index, 2 + index);
       await createBusiness(seed, services, categories, areas, mine);
+      // A listing with no photograph does not go on the site. It is kept as a
+      // draft instead of being thrown away: the copy, hours, services and
+      // reviews are all written, and `--fill-images` publishes it the moment
+      // it has a picture.
+      if (mine.length === 0) await db.business.update({ where: { slug: seed.slug }, data: { status: 'draft', publishedAt: null } });
       created += 1;
     }
   }

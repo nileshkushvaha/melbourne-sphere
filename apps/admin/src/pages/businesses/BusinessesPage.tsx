@@ -9,6 +9,7 @@ import { taxonomyApi, type CategoryItem, type LocalAreaItem } from '@/api/taxono
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
 import { EmptyState, PageHeader, Pill, StatusTag, TableCard } from '@/components/ui';
+import { PAGE_SIZES } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { useCapabilities } from '@/auth/access-control';
 import { PERMISSION } from '@/auth/permissions';
@@ -61,6 +62,10 @@ export function BusinessesPage() {
   // while the request waits for a pause in typing. When the address changes from
   // elsewhere — a cleared filter, the Back button — the field follows it; that is
   // done during render rather than in an effect, so there is no extra pass.
+  // How many rows a page holds, from the address bar and clamped to the sizes
+  // offered, so a hand-typed value cannot ask the API for more than it allows.
+  const askedSize = Number(params.get('pageSize'));
+  const pageSize = PAGE_SIZES.includes(askedSize) ? askedSize : PAGE_SIZE;
   const [typed, setTyped] = useState(q);
   const [shownQuery, setShownQuery] = useState(q);
   if (shownQuery !== q) {
@@ -87,7 +92,7 @@ export function BusinessesPage() {
 
   const list = useList<BusinessListItem>({
     resource: 'businesses',
-    pagination: { currentPage: page, pageSize: PAGE_SIZE },
+    pagination: { currentPage: page, pageSize },
     sorters: [{ field: sort, order }],
     filters: [
       { field: 'q', operator: 'contains', value: q || undefined },
@@ -234,7 +239,21 @@ export function BusinessesPage() {
           className="ms-scroll-table"
           loading={loading}
           dataSource={rows}
-          pagination={total > PAGE_SIZE ? { current: page, pageSize: PAGE_SIZE, total, showSizeChanger: false, onChange: (next) => setParam('page', String(next)) } : false}
+          pagination={{
+            current: page,
+            pageSize,
+            total,
+            showSizeChanger: true,
+            pageSizeOptions: PAGE_SIZES,
+            showTotal: (count, [from, to]) => `${from}–${to} of ${count}`,
+            onChange: (next, size) => {
+              // A size change is not a page change: treating it as one would
+              // move the reader to a page they did not ask for.
+              // `setParam` already returns to page 1 for any key but the page.
+              if (size !== pageSize) setParam('pageSize', size === PAGE_SIZE ? undefined : String(size));
+              else setParam('page', String(next));
+            },
+          }}
           scroll={{ x: 900 }}
           columns={[
             {

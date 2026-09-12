@@ -7,6 +7,7 @@ import { useCapabilities } from '@/auth/access-control';
 import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
+import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
@@ -29,7 +30,7 @@ export function FaqsPage() {
 
   const navigate = useNavigate();
   const groupName = list.get('groupName');
-  const [state, reload] = useAsync(() => faqsApi.list({ page, pageSize: 20, status: status || undefined, q: q || undefined, groupName }), [page, status, q, groupName]);
+  const [state, reload] = useAsync(() => faqsApi.list({ page, pageSize: list.pageSize, status: status || undefined, q: q || undefined, groupName }), [page, list.pageSize, status, q, groupName]);
   // The groups that exist, taken from the page in hand: the API has no endpoint
   // for them, and inventing one for a handful of labels would be a round trip
   // to populate a dropdown.
@@ -133,7 +134,7 @@ export function FaqsPage() {
         }}
         pagination={
           state.status === 'ready'
-            ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) }
+            ? tablePagination(state.data.meta, list)
             : false
         }
         scroll={{ x: 900 }}
