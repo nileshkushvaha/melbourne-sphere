@@ -22,6 +22,8 @@ const PAGE: StaticPageContent = {
   seoDescription: 'How we expect people to behave in reviews and comments.',
   seoKeywords: null,
   ogImage: null,
+  ogImageCredit: null,
+  layout: 'rightSidebar',
   updatedAt: '2026-09-08T02:00:00.000Z',
 };
 
@@ -49,6 +51,20 @@ describe('Information page route', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Community guidelines' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Being useful' })).toBeInTheDocument();
     expect(fetchStaticPage).toHaveBeenCalledWith('community-guidelines');
+  });
+
+  it('puts the supporting column where the editor asked for it, and takes it away on a full-width page', async () => {
+    fetchStaticPage.mockResolvedValue({ ...PAGE, layout: 'leftSidebar' });
+    const { default: StaticPage } = await load();
+    const { container: left } = render(await StaticPage({ params: params('community-guidelines') } as never));
+    expect(left.querySelector('aside')).toBeInTheDocument();
+    expect(left.querySelector('.lg\\:grid-cols-\\[28rem_minmax\\(0\\,1fr\\)\\]')).toBeInTheDocument();
+
+    vi.resetModules();
+    fetchStaticPage.mockResolvedValue({ ...PAGE, layout: 'fullWidth' });
+    const { default: FullWidth } = await load();
+    const { container: full } = render(await FullWidth({ params: params('community-guidelines') } as never));
+    expect(full.querySelector('aside')).not.toBeInTheDocument();
   });
 
   it('404s for an address nobody has published', async () => {

@@ -4,7 +4,7 @@ import { Transform } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Length, MaxLength, Min } from 'class-validator';
 import { BODY_FORMATS } from '../../blog/dto/blog.dto.js';
 import type { BodyFormat } from '../../blog/sanitise.js';
-import { MAX_SLUG_LENGTH, SYSTEM_PAGE_SLUGS } from '../static-pages.js';
+import { MAX_SLUG_LENGTH, PAGE_LAYOUTS, SYSTEM_PAGE_SLUGS, type StaticPageLayout } from '../static-pages.js';
 
 const trim = () => Transform(({ value }) => (typeof value === 'string' ? value.trim() : value));
 const emptyToNull = () => Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? null : value));
@@ -21,6 +21,7 @@ export class StaticPageDto {
   @ApiProperty({ type: String, nullable: true }) ogImageMediaId!: string | null;
   @ApiProperty({ type: SettingsImageDto, nullable: true, description: 'Resolved share image, or null when the site image is used' }) ogImage!: SettingsImageDto | null;
   @ApiProperty({ enum: ['draft', 'published'] }) status!: 'draft' | 'published';
+  @ApiProperty({ enum: PAGE_LAYOUTS, description: 'Where the supporting column sits, or whether the page runs full width' }) layout!: StaticPageLayout;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) publishedAt!: string | null;
   @ApiProperty({ type: [String], description: 'Reasons this page cannot be published yet (SRS CFG 002)' }) publicationBlockers!: string[];
   @ApiProperty({ description: 'Editor-facing explanation of what the page is for' }) purpose!: string;
@@ -46,6 +47,7 @@ export class CreateStaticPageDto {
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 300 }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(300) seoDescription?: string | null;
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 255, description: 'Comma-separated; recorded, not read by search engines' }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(255) seoKeywords?: string | null;
   @ApiPropertyOptional({ type: String, nullable: true, description: 'Ready media asset used when the page is shared' }) @IsOptional() @emptyToNull() @IsString() @MaxLength(64) ogImageMediaId?: string | null;
+  @ApiPropertyOptional({ enum: PAGE_LAYOUTS, default: 'rightSidebar', description: 'Page layout: a sidebar on the right or left of the reading column, or the full width' }) @IsOptional() @IsIn(PAGE_LAYOUTS) layout?: StaticPageLayout;
 }
 
 export class UpdateStaticPageDto {
@@ -57,6 +59,7 @@ export class UpdateStaticPageDto {
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 300 }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(300) seoDescription?: string | null;
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 255, description: 'Comma-separated; recorded, not read by search engines' }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(255) seoKeywords?: string | null;
   @ApiPropertyOptional({ type: String, nullable: true, description: 'Ready media asset used when the page is shared' }) @IsOptional() @emptyToNull() @IsString() @MaxLength(64) ogImageMediaId?: string | null;
+  @ApiPropertyOptional({ enum: PAGE_LAYOUTS, default: 'rightSidebar', description: 'Page layout: a sidebar on the right or left of the reading column, or the full width' }) @IsOptional() @IsIn(PAGE_LAYOUTS) layout?: StaticPageLayout;
   @ApiPropertyOptional({ maxLength: 500, description: 'Stored with the revision of the previous published text' }) @IsOptional() @trim() @IsString() @MaxLength(500) revisionReason?: string;
 }
 
@@ -74,6 +77,8 @@ export class PublicStaticPageDto {
   @ApiProperty({ type: String, nullable: true }) seoKeywords!: string | null;
   @ApiProperty({ type: String, nullable: true }) ogImageMediaId!: string | null;
   @ApiProperty({ type: SettingsImageDto, nullable: true, description: 'Resolved share image, or null when the site image is used' }) ogImage!: SettingsImageDto | null;
+  @ApiProperty({ type: String, nullable: true, description: 'Photographer credit recorded with the page image. Several licences require it to be shown wherever the picture is.' }) ogImageCredit!: string | null;
+  @ApiProperty({ enum: PAGE_LAYOUTS, description: 'Layout the editor chose for this page' }) layout!: StaticPageLayout;
   @ApiProperty({ format: 'date-time' }) updatedAt!: string;
 }
 

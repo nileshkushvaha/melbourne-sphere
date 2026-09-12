@@ -266,6 +266,8 @@ export interface RedirectResolution {
 }
 
 
+export type PageLayout = 'rightSidebar' | 'leftSidebar' | 'fullWidth';
+
 export interface StaticPageContent {
   slug: string;
   title: string;
@@ -275,6 +277,10 @@ export interface StaticPageContent {
   seoKeywords: string | null;
   /** Set only when the page carries its own share image. */
   ogImage: { url: string; alt: string; width: number; height: number } | null;
+  /** Photographer credit for that image; several licences require it to be shown. */
+  ogImageCredit: string | null;
+  /** The layout an editor chose for this page in the admin. */
+  layout: PageLayout;
   updatedAt: string;
 }
 

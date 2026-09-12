@@ -69,8 +69,16 @@ describe('Testimonials and partners (integration)', () => {
     const publicList = await agent().get('/api/v1/testimonials').expect(200);
     expect(publicList.body.data).toHaveLength(1);
     expect(publicList.body.data[0]).toMatchObject({ displayName: 'Jo Nguyen', relationship: 'Owner, Carlton Corner Bakery' });
-    // No rating is offered: reviews are the product's ratings.
-    expect(publicList.body.data[0]).not.toHaveProperty('rating');
+    // A quote carries the rating the administrator recorded with it, and null
+    // when they recorded none — the home-page slider shows stars only for the
+    // ones that have it (client instruction, 13 Sep 2026). It is still not a
+    // review: nothing here counts towards a business's rating.
+    expect(publicList.body.data[0]).toMatchObject({ rating: null });
+
+    const rated = await createTestimonial({ displayName: 'Priya Shah', rating: 5 }).expect(201);
+    await agent().post(`/api/v1/admin/testimonials/${rated.body.data.id}/publish`).set('Origin', ORIGIN).set('Cookie', cookie).send({ expectedVersion: 1 }).expect(201);
+    const withRating = (await agent().get('/api/v1/testimonials').expect(200)).body.data as { displayName: string; rating: number | null }[];
+    expect(withRating.find((row) => row.displayName === 'Priya Shah')?.rating).toBe(5);
   });
 
   it('keeps a published quote published when its words are edited', async () => {

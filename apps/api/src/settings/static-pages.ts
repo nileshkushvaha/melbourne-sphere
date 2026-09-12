@@ -24,6 +24,26 @@
  */
 export type StaticPageTemplate = 'generic' | 'about';
 
+/**
+ * The layouts an editor can choose between, the way a CMS offers page
+ * templates. The choice is presentation only — it moves the supporting column
+ * or removes it, and never changes a word of what the page says.
+ */
+export const PAGE_LAYOUTS = ['rightSidebar', 'leftSidebar', 'fullWidth'] as const;
+export type StaticPageLayout = (typeof PAGE_LAYOUTS)[number];
+
+/**
+ * What a page starts as before anybody chooses. A policy wants the enquiry form
+ * and its contents beside it; About is a page of sections, and sections want
+ * the width. An editor can change either afterwards, and their choice is what
+ * is stored from then on.
+ */
+const STARTING_LAYOUT: Record<string, StaticPageLayout> = { about: 'fullWidth' };
+
+export function defaultPageLayout(slug: string): StaticPageLayout {
+  return STARTING_LAYOUT[slug] ?? 'rightSidebar';
+}
+
 export interface StaticPageDefinition {
   slug: string;
   defaultTitle: string;
@@ -38,8 +58,9 @@ export const SYSTEM_PAGES: StaticPageDefinition[] = [
   {
     slug: 'about',
     defaultTitle: 'About Melbourne Sphere',
-    purpose: 'Who publishes the directory, how listings are chosen and how editorial decisions are made. Written entirely in the admin: the page shows what an editor writes and nothing else.',
-    template: 'generic',
+    purpose:
+      'Who publishes the directory, how listings are chosen and how editorial decisions are made. Written entirely here: the public page lays out the sections, pictures and lists you write, and says nothing you have not written.',
+    template: 'about',
   },
   { slug: 'privacy', defaultTitle: 'Privacy Policy', purpose: 'What personal data the site collects, why, how long it is kept and how to request deletion.', template: 'generic' },
   { slug: 'terms', defaultTitle: 'Terms of Use', purpose: 'The terms visitors accept by using the site, including listing accuracy and liability.', template: 'generic' },

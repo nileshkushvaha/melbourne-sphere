@@ -3,6 +3,7 @@ import { staticPageMetadata } from '@/lib/route-seo';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { InformationPage } from '@/components/information-page';
+import { AboutPage } from '@/components/about-page';
 import { ContactForm } from '@/components/contact-form';
 import { fetchStaticPage, fetchStaticPages } from '@/lib/api';
 import { withHeadingAnchors } from '@/lib/headings';
@@ -43,6 +44,10 @@ export default async function StaticPage({ params }: PageProps<'/[slug]'>) {
   const page = await fetchStaticPage(slug);
   if (!page) notFound();
   const policy = POLICY_SLUGS.includes(page.slug);
+  // About is laid out from the shape of what the editor wrote — sections,
+  // pictures and a list of points — rather than read as one column of text.
+  // It is still only what they wrote: see `about-page.tsx`.
+  if (page.slug === 'about') return <AboutPage page={page} />;
   // Sanitised by the API with an allowlist before storage (SRS SEC 001); this
   // only anchors the headings that are already in it.
   const { html, headings } = withHeadingAnchors(page.body);
@@ -128,6 +133,8 @@ export default async function StaticPage({ params }: PageProps<'/[slug]'>) {
       title={page.title}
       eyebrow={policy ? 'Policies' : undefined}
       updatedAt={page.updatedAt}
+      // The editor's own choice, made per page in the admin (SRS CFG 002).
+      layout={page.layout}
       // The first paragraph of a policy is its summary; the class sets it in a
       // larger face so the page opens with something a reader can stop at.
       bodyClassName={policy ? 'ms-prose-lead' : ''}

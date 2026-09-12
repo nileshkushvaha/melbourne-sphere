@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { JsonLdScript } from '@/components/json-ld';
 import { breadcrumbJsonLd } from '@/lib/structured-data';
+import type { PageLayout } from '@/lib/api';
 
 interface Props {
   title: string;
@@ -11,8 +12,10 @@ interface Props {
   intro?: string;
   updatedAt?: string;
   children: ReactNode;
-  /** Optional column beside the body: contact details, related links. */
+  /** Optional column beside the body: contact details, related links. Ignored on a full-width page. */
   aside?: ReactNode;
+  /** Which side the supporting column sits, or whether the page runs full width. Chosen per page in the admin. */
+  layout?: PageLayout;
   /** Extra classes for the reading column — e.g. the lead-paragraph treatment the policies use. */
   bodyClassName?: string;
   /** Anything that follows the body across the full width: related pages, a closing band. */
@@ -27,7 +30,8 @@ const melbourneDate = (value: string) => new Intl.DateTimeFormat('en-AU', { date
  * surface with an optional aside. One layout means About, Contact, Privacy,
  * Terms and the review guidelines all look like the same publication.
  */
-export function InformationPage({ title, eyebrow, intro, updatedAt, children, aside, bodyClassName = '', footer }: Props) {
+export function InformationPage({ title, eyebrow, intro, updatedAt, children, aside, layout = 'rightSidebar', bodyClassName = '', footer }: Props) {
+  const column = layout === 'fullWidth' || !aside ? null : layout;
   const crumbs = [{ label: 'Home', href: '/' }, { label: title }];
   return (
     <article>
@@ -48,11 +52,17 @@ export function InformationPage({ title, eyebrow, intro, updatedAt, children, as
           )}
         </div>
       </div>
-      <div className="ms-container grid gap-12 py-12 sm:py-16 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-16">
-        <div className={`ms-prose ${bodyClassName}`.trim()}>{children}</div>
-        {/* Second in the source, so a phone and a screen reader get the page
-            itself before the panel beside it. */}
-        {aside && <aside className="lg:pt-1">{aside}</aside>}
+      <div
+        className={`ms-container grid gap-12 py-12 sm:py-16 lg:gap-14 ${
+          column === 'rightSidebar' ? 'lg:grid-cols-[minmax(0,1fr)_28rem]' : column === 'leftSidebar' ? 'lg:grid-cols-[28rem_minmax(0,1fr)]' : ''
+        }`}
+      >
+        {/* The body stays first in the source whichever side the column is on,
+            so a phone and a screen reader get the page itself before the panel
+            beside it; a left sidebar is placed by the grid, not by the order
+            things are read in. */}
+        <div className={`ms-prose ${column ? 'ms-prose-fill' : ''} ${column === 'leftSidebar' ? 'lg:col-start-2 lg:row-start-1' : ''} ${bodyClassName}`.trim()}>{children}</div>
+        {column && <aside className={`lg:pt-1 ${column === 'leftSidebar' ? 'lg:col-start-1 lg:row-start-1' : ''}`.trim()}>{aside}</aside>}
       </div>
       {footer}
     </article>

@@ -16829,6 +16829,15 @@
               "published"
             ]
           },
+          "layout": {
+            "type": "string",
+            "enum": [
+              "rightSidebar",
+              "leftSidebar",
+              "fullWidth"
+            ],
+            "description": "Where the supporting column sits, or whether the page runs full width"
+          },
           "publishedAt": {
             "type": "string",
             "format": "date-time",
@@ -16885,6 +16894,7 @@
           "ogImageMediaId",
           "ogImage",
           "status",
+          "layout",
           "publishedAt",
           "publicationBlockers",
           "purpose",
@@ -16942,6 +16952,16 @@
             "type": "string",
             "nullable": true,
             "description": "Ready media asset used when the page is shared"
+          },
+          "layout": {
+            "type": "string",
+            "enum": [
+              "rightSidebar",
+              "leftSidebar",
+              "fullWidth"
+            ],
+            "default": "rightSidebar",
+            "description": "Page layout: a sidebar on the right or left of the reading column, or the full width"
           }
         },
         "required": [
@@ -16995,6 +17015,16 @@
             "type": "string",
             "nullable": true,
             "description": "Ready media asset used when the page is shared"
+          },
+          "layout": {
+            "type": "string",
+            "enum": [
+              "rightSidebar",
+              "leftSidebar",
+              "fullWidth"
+            ],
+            "default": "rightSidebar",
+            "description": "Page layout: a sidebar on the right or left of the reading column, or the full width"
           },
           "revisionReason": {
             "type": "string",
@@ -17078,6 +17108,20 @@
               }
             ]
           },
+          "ogImageCredit": {
+            "type": "string",
+            "nullable": true,
+            "description": "Photographer credit recorded with the page image. Several licences require it to be shown wherever the picture is."
+          },
+          "layout": {
+            "type": "string",
+            "enum": [
+              "rightSidebar",
+              "leftSidebar",
+              "fullWidth"
+            ],
+            "description": "Layout the editor chose for this page"
+          },
           "updatedAt": {
             "type": "string",
             "format": "date-time"
@@ -17092,6 +17136,8 @@
           "seoKeywords",
           "ogImageMediaId",
           "ogImage",
+          "ogImageCredit",
+          "layout",
           "updatedAt"
         ]
       },

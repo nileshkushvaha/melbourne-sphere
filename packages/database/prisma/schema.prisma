@@ -1485,6 +1485,16 @@ enum StaticPageStatus {
 /// Editable information pages (SRS CFG 002). Slugs come from a fixed set so no
 /// one can publish an arbitrary top-level URL; content is sanitised rich text
 /// and every change keeps a revision.
+/// Where the page's supporting column sits, or whether it has one at all
+/// (SRS CFG 002). Chosen per page in the admin, the way a CMS page template is:
+/// a policy wants the enquiry form and its contents beside it, an About page
+/// wants the full width for its sections.
+enum StaticPageLayout {
+  rightSidebar
+  leftSidebar
+  fullWidth
+}
+
 model StaticPage {
   id               String           @id @default(cuid())
   /// One of: about, privacy, terms, review-guidelines (SRS 1.6 CFG 002).
@@ -1502,6 +1512,8 @@ model StaticPage {
   /// Used when the page is shared; falls back to the site-wide share image.
   ogImageMediaId   String?
   status           StaticPageStatus @default(draft)
+  /// Which public layout renders it; see StaticPageLayout.
+  layout           StaticPageLayout @default(rightSidebar)
   /// Contact routing address for the Contact page; validated before activation.
   contactEmail     String?          @db.VarChar(255)
   publishedAt      DateTime?        @db.DateTime(3)

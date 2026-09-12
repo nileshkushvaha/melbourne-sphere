@@ -11,6 +11,7 @@ import { CACHE_TAGS } from '@melbourne-sphere/domain';
 import {
   CUSTOM_PAGE_PURPOSE,
   SYSTEM_PAGES,
+  defaultPageLayout,
   isSystemPage,
   normalisePageSlug,
   pageSlugProblem,
@@ -106,6 +107,7 @@ export class StaticPagesService {
         seoKeywords: input.seoKeywords ?? null,
         ogImageMediaId: input.ogImageMediaId ?? null,
         seoDescription: input.seoDescription ?? null,
+        layout: input.layout ?? defaultPageLayout(slug),
         updatedByAdminId: actor.id,
       },
     });
@@ -160,7 +162,7 @@ export class StaticPagesService {
   /** Published page for the public site; drafts are invisible (404). */
   async publicPage(slug: string): Promise<PublicStaticPageDto> {
     const db = await this.database.client();
-    const row = await db.staticPage.findFirst({ where: { slug, status: 'published' } });
+    const row = await db.staticPage.findFirst({ where: { slug, status: 'published' }, include: { ogImage: { select: { credit: true } } } });
     if (!row) throw notFound();
     return {
       slug: row.slug,
@@ -170,7 +172,12 @@ export class StaticPagesService {
       seoKeywords: row.seoKeywords,
       ogImageMediaId: row.ogImageMediaId,
       ogImage: await this.media.publicImageRefOfKind(row.ogImageMediaId, 'hero'),
+      // Stored on the asset, so a picture credited once is credited everywhere
+      // it is used — the licences that ask for attribution ask for it wherever
+      // the photograph appears, not once in the media library.
+      ogImageCredit: row.ogImage?.credit ?? null,
       seoDescription: row.seoDescription,
+      layout: row.layout,
       updatedAt: row.updatedAt.toISOString(),
     };
   }
@@ -204,6 +211,9 @@ export class StaticPagesService {
       seoKeywords: input.seoKeywords ?? null,
       ogImageMediaId: input.ogImageMediaId ?? null,
       seoDescription: input.seoDescription ?? null,
+      // Left as it is when the editor's form did not send one, so a client that
+      // does not know about layouts cannot silently reset somebody's choice.
+      layout: input.layout ?? current?.layout ?? defaultPageLayout(slug),
       updatedByAdminId: actor.id,
     };
 
@@ -279,6 +289,7 @@ export class StaticPagesService {
         ogImage: null,
         seoDescription: null,
         status: 'draft',
+        layout: defaultPageLayout(slug),
         publishedAt: null,
         publicationBlockers: staticPageBlockers({ title: definition.defaultTitle, plainBody: '' }),
         purpose: definition.purpose,
@@ -302,6 +313,7 @@ export class StaticPagesService {
       ogImage: await this.media.publicImageRefOfKind(row.ogImageMediaId, 'hero'),
       seoDescription: row.seoDescription,
       status: row.status,
+      layout: row.layout,
       publishedAt: row.publishedAt?.toISOString() ?? null,
       publicationBlockers: this.blockersFor(row),
       purpose: definition.purpose,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_SLUG_LENGTH, MIN_BODY_CHARACTERS, RESERVED_SLUGS, SYSTEM_PAGE_SLUGS, isSystemPage, normalisePageSlug, pageSlugProblem, staticPageBlockers, systemPageDefinition } from './static-pages.js';
+import { MAX_SLUG_LENGTH, PAGE_LAYOUTS, defaultPageLayout, MIN_BODY_CHARACTERS, RESERVED_SLUGS, SYSTEM_PAGE_SLUGS, isSystemPage, normalisePageSlug, pageSlugProblem, staticPageBlockers, systemPageDefinition } from './static-pages.js';
 
 const realBody = 'Melbourne Sphere is an independent directory. '.repeat(6);
 
@@ -65,5 +65,16 @@ describe('staticPageBlockers', () => {
     expect(staticPageBlockers({ title: 'Privacy', plainBody: 'Too short' })).toContain(`Page content must be at least ${MIN_BODY_CHARACTERS} characters of real copy`);
     expect(staticPageBlockers({ title: 'Privacy', plainBody: `Lorem ipsum dolor sit amet. ${realBody}` })).toContain('Remove placeholder or sample wording before publishing');
     expect(staticPageBlockers({ title: 'X', plainBody: realBody })).toContain('Title must be at least 3 characters');
+  });
+});
+
+describe('page layouts', () => {
+  it('starts About full width and every other page with a sidebar', () => {
+    expect(defaultPageLayout('about')).toBe('fullWidth');
+    for (const slug of ['privacy', 'terms', 'review-guidelines', 'community-guidelines']) expect(defaultPageLayout(slug)).toBe('rightSidebar');
+  });
+
+  it('offers the three layouts the editor chooses between', () => {
+    expect(PAGE_LAYOUTS).toEqual(['rightSidebar', 'leftSidebar', 'fullWidth']);
   });
 });

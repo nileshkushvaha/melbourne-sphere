@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Alert, App, Button, Form, Input } from 'antd';
+import { Alert, App, Button, Form, Input, Select } from 'antd';
 import { useOnError } from '@refinedev/core';
 import { pagesApi, type StaticPage } from '@/api/settings';
 import { isApiError } from '@/api/errors';
@@ -17,6 +17,7 @@ import { PERMISSION } from '@/auth/permissions';
 export interface StaticPageFormValues {
   title: string;
   body: string;
+  layout?: StaticPage['layout'];
   seoTitle?: string | null;
   seoKeywords?: string | null;
   ogImageMediaId?: string | null;
@@ -67,6 +68,7 @@ export function StaticPageEditor({
       seoTitle: page.seoTitle,
       seoKeywords: page.seoKeywords,
       ogImageMediaId: page.ogImageMediaId,
+      layout: page.layout,
       seoDescription: page.seoDescription,
       revisionReason: '',
     });
@@ -123,6 +125,21 @@ export function StaticPageEditor({
       <SectionCard title={bodyLabel} description={bodyDescription} bodyPadding={0}>
         <Form.Item name="body" noStyle rules={[{ required: true, message: 'Content is required' }]}>
           <BodyField disabled={!canManage} />
+        </Form.Item>
+      </SectionCard>
+
+      {/* The page template, chosen per page. It moves the supporting column or
+          takes it away; it never changes a word of what the page says. */}
+      <SectionCard title="Layout" description="Where the supporting column sits, or whether the page runs full width.">
+        <Form.Item label="Page layout" name="layout" style={{ marginBottom: 0 }}>
+          <Select
+            disabled={!canManage}
+            options={[
+              { value: 'rightSidebar', label: 'Sidebar on the right', title: 'Reading column on the left, supporting column on the right' },
+              { value: 'leftSidebar', label: 'Sidebar on the left', title: 'Supporting column on the left, reading column on the right' },
+              { value: 'fullWidth', label: 'Full width (no sidebar)', title: 'The content uses the whole page' },
+            ]}
+          />
         </Form.Item>
       </SectionCard>
 

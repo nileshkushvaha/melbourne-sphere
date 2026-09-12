@@ -52,6 +52,7 @@ export interface CreateStaticPage {
   bodyFormat?: 'html' | 'markdown';
   seoTitle?: string | null;
   seoDescription?: string | null;
+  layout?: StaticPage['layout'];
 }
 
 export interface UpdateStaticPage {
@@ -61,6 +62,8 @@ export interface UpdateStaticPage {
   bodyFormat?: 'html' | 'markdown';
   seoTitle?: string | null;
   seoDescription?: string | null;
+  /** Omitted by a form that does not offer the choice; the API then keeps what the page has. */
+  layout?: StaticPage['layout'];
   revisionReason?: string;
 }
 

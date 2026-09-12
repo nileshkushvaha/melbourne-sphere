@@ -276,6 +276,13 @@ body {
   }
 }
 
+/* Beside a sidebar the reading column is already about a measure wide, so the
+   68ch cap only pushed the text away from the panel and left a channel of empty
+   page between them. The column bounds the line length instead. */
+.ms-prose-fill {
+  --ms-prose-measure: 100%;
+}
+
 /* The policy pages. They are read the way a document is — the opening
    paragraph as a summary, the headings as the shape of it — so the first
    paragraph is set larger and each section is separated by a rule rather than
@@ -285,7 +292,7 @@ body {
   font-size: 1.1875rem;
   line-height: 1.7;
   color: var(--ms-text);
-  max-width: 62ch;
+  max-width: var(--ms-prose-measure);
 }
 
 .ms-prose-lead > .ms-prose-html > h2 {

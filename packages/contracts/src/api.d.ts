@@ -5203,6 +5203,11 @@ export interface components {
             ogImage: components["schemas"]["SettingsImageDto"] | null;
             /** @enum {string} */
             status: "draft" | "published";
+            /**
+             * @description Where the supporting column sits, or whether the page runs full width
+             * @enum {string}
+             */
+            layout: "rightSidebar" | "leftSidebar" | "fullWidth";
             /** Format: date-time */
             publishedAt: string | null;
             /** @description Reasons this page cannot be published yet (SRS CFG 002) */
@@ -5242,6 +5247,12 @@ export interface components {
             seoKeywords?: string | null;
             /** @description Ready media asset used when the page is shared */
             ogImageMediaId?: string | null;
+            /**
+             * @description Page layout: a sidebar on the right or left of the reading column, or the full width
+             * @default rightSidebar
+             * @enum {string}
+             */
+            layout: "rightSidebar" | "leftSidebar" | "fullWidth";
         };
         UpdateStaticPageDto: {
             /** @description 0 for a page that has never been saved */
@@ -5259,6 +5270,12 @@ export interface components {
             seoKeywords?: string | null;
             /** @description Ready media asset used when the page is shared */
             ogImageMediaId?: string | null;
+            /**
+             * @description Page layout: a sidebar on the right or left of the reading column, or the full width
+             * @default rightSidebar
+             * @enum {string}
+             */
+            layout: "rightSidebar" | "leftSidebar" | "fullWidth";
             /** @description Stored with the revision of the previous published text */
             revisionReason?: string;
         };
@@ -5281,6 +5298,13 @@ export interface components {
             ogImageMediaId: string | null;
             /** @description Resolved share image, or null when the site image is used */
             ogImage: components["schemas"]["SettingsImageDto"] | null;
+            /** @description Photographer credit recorded with the page image. Several licences require it to be shown wherever the picture is. */
+            ogImageCredit: string | null;
+            /**
+             * @description Layout the editor chose for this page
+             * @enum {string}
+             */
+            layout: "rightSidebar" | "leftSidebar" | "fullWidth";
             /** Format: date-time */
             updatedAt: string;
         };
