@@ -65,7 +65,9 @@ export async function SiteFooter() {
                 </>
               )}
             </p>
-            <p className="mt-4 text-sm leading-relaxed text-band-muted">
+            {/* `whitespace-pre-line`, because the field is a textarea: an editor
+                who writes two lines gets two lines, not one run-on sentence. */}
+            <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-band-muted">
               {settings.footer.text ?? 'An independent directory and local blog for Melbourne, Victoria. Every listing is checked by our editors before it is published — one city, covered properly.'}
             </p>
             <div className="mt-5">
@@ -158,10 +160,11 @@ export async function SiteFooter() {
         </div>
 
         <div className="mt-12 flex flex-col gap-3 border-t border-band-border pt-6 text-xs text-band-muted sm:flex-row sm:items-center sm:justify-between">
-          <p>
-            {copyright}
-            {settings.organisationName && settings.organisationName !== settings.name ? ` · ${settings.organisationName}` : ''} · Melbourne, Victoria, Australia
-          </p>
+          {/* Exactly the line the editor wrote, with {year} and {name} filled
+              in. It used to have the organisation name and ", Melbourne,
+              Victoria, Australia" appended in code, so an editor who changed
+              the line still could not change the end of it. */}
+          <p>{copyright}</p>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 sm:justify-end">
             {/* The policies, in the place people look for them. Each appears
                 only once its page is published, so the bar never offers a link
