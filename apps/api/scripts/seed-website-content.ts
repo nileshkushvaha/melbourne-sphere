@@ -25,7 +25,7 @@ import { staticPageBlockers } from '../src/settings/static-pages.js';
 import { databaseName, db, uploadBytes, waitUntilReady } from './seed-commons.js';
 import { encryption, hash, termsVersion } from './seed-business-writer.js';
 import { SEED_COMMENTS, SEED_FAQS, SEED_PARTNERS, SEED_TESTIMONIALS } from './website-seed-content.js';
-import { SEED_POLICY_PAGES } from './policy-page-content.js';
+import { SEED_POLICY_PAGES } from '../src/settings/policy-seed-content.js';
 
 /**
  * Sharp lives in the worker, which is the application that processes images;

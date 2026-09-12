@@ -34,7 +34,9 @@ export async function SiteHeader() {
     { href: '/contact', label: 'Contact' },
   ];
   const channel = contactChannelFrom(settings);
-  const action = { href: channel.listingMailto ?? '/contact', label: 'Add a business' };
+  // The contact page rather than a mail client: the form is the route that
+  // works for everybody, and it is where the same words in the footer lead.
+  const action = { href: '/contact', label: 'Add a business' };
   const { phone } = settings.contact;
   const topBar = settings.headerTopBarEnabled && (phone !== null || channel.email !== null || settings.social.length > 0);
 

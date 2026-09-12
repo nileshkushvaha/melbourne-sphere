@@ -18,20 +18,21 @@
 import { renderSanitisedBody, toPlainText } from '../src/blog/sanitise.js';
 import { staticPageBlockers } from '../src/settings/static-pages.js';
 import { databaseName, db, searchCommons, sleep, uploadImage, waitUntilReady } from './seed-commons.js';
-import { ABOUT_BODY, ABOUT_IMAGES, ABOUT_TITLE } from './about-page-content.js';
+import { ABOUT_BODY, ABOUT_IMAGES, ABOUT_TITLE, aboutImageName, withPicture } from './about-page-content.js';
 
 const publicBaseUrl = (process.env.MEDIA_PUBLIC_BASE_URL ?? `${process.env.MEDIA_ENDPOINT ?? ''}/${process.env.MEDIA_PUBLIC_BUCKET ?? ''}`).replace(/\/+$/, '');
 
-/** Finds one usable photograph for each placeholder, uploading it if it is not already there. */
+/** Finds one usable photograph for each picture the page wants, uploading it if it is not already there. */
 async function findPictures(): Promise<Map<string, { id: string; alt: string; credit: string }>> {
   const found = new Map<string, { id: string; alt: string; credit: string }>();
   const used = new Set<string>();
   for (const image of ABOUT_IMAGES) {
-    const sourceName = `about-${image.name}.jpg`;
+    const name = aboutImageName(image);
+    const sourceName = `about-${name}.jpg`;
     const existing = await db.mediaAsset.findFirst({ where: { sourceName, status: { in: ['ready', 'quarantined'] } }, select: { id: true, altText: true, credit: true } });
     if (existing) {
-      found.set(image.name, { id: existing.id, alt: existing.altText ?? image.alt, credit: existing.credit ?? '' });
-      console.log(`  ${image.name}: already uploaded`);
+      found.set(name, { id: existing.id, alt: existing.altText ?? image.alt, credit: existing.credit ?? '' });
+      console.log(`  ${name}: already uploaded`);
       continue;
     }
     let file;
@@ -41,7 +42,7 @@ async function findPictures(): Promise<Map<string, { id: string; alt: string; cr
       await sleep(600);
     }
     if (!file) {
-      console.log(`  ${image.name}: nothing usable on Commons yet — the section will be written without a picture`);
+      console.log(`  ${name}: nothing usable on Commons yet — the section will be written without a picture`);
       continue;
     }
     used.add(file.title);
@@ -54,7 +55,7 @@ async function findPictures(): Promise<Map<string, { id: string; alt: string; cr
       credit: file.artist ? `${file.artist} via Wikimedia Commons` : 'Wikimedia Commons',
       rightsNote: `${file.licence} — ${file.pageUrl}`,
     });
-    found.set(image.name, { id, alt: image.alt, credit: file.artist ? `${file.artist} via Wikimedia Commons` : 'Wikimedia Commons' });
+    found.set(name, { id, alt: image.alt, credit: file.artist ? `${file.artist} via Wikimedia Commons` : 'Wikimedia Commons' });
     await sleep(800);
   }
   return found;
@@ -73,7 +74,9 @@ async function main(): Promise<void> {
   const refresh = process.argv.includes('--refresh');
 
   const existing = await db.staticPage.findUnique({ where: { slug: 'about' }, select: { id: true, version: true, sanitizedBody: true, status: true, bodySource: true } });
-  const untouched = !existing || existing.sanitizedBody.trim().length === 0 || existing.bodySource === ABOUT_BODY || existing.bodySource.includes('{{image:');
+  // "Untouched" means nobody has typed into it: empty, or still exactly the
+  // shipped copy with only the seeder's own figures added to it.
+  const untouched = !existing || existing.sanitizedBody.trim().length === 0 || existing.bodySource.replace(/<figure>[\s\S]*?<\/figure>\n*/g, '').trim() === ABOUT_BODY.trim();
   if (existing && !untouched && !refresh) {
     console.log('An editor has written this page; leaving it alone. Use --refresh to overwrite it.');
     return;
@@ -85,15 +88,17 @@ async function main(): Promise<void> {
 
   let body = ABOUT_BODY;
   for (const image of ABOUT_IMAGES) {
-    const picture = pictures.get(image.name);
+    if (image.hero) continue;
+    const picture = pictures.get(aboutImageName(image));
     const url = picture ? await pictureUrl(picture.id) : null;
-    // A placeholder with no picture behind it leaves the section as words
-    // alone, which the public template already handles.
+    // A section with nothing to show stays as words alone, which the public
+    // template already handles.
+    if (!picture || !url) continue;
     // The credit travels with the picture: CC BY asks for attribution wherever
     // the photograph is shown, so it is written into the page rather than left
     // in the media library where a reader never sees it.
-    const caption = picture?.credit ? `<figcaption>Photograph: ${picture.credit}</figcaption>` : '';
-    body = body.replace(`{{image:${image.name}}}`, url ? `<figure><img src="${url}" alt="${picture?.alt ?? image.alt}" />${caption}</figure>` : '');
+    const caption = picture.credit ? `<figcaption>Photograph: ${picture.credit}</figcaption>` : '';
+    body = withPicture(body, image.heading, `<figure><img src="${url}" alt="${picture.alt}" />${caption}</figure>`);
   }
   body = body.replace(/\n{3,}/g, '\n\n').trim();
 

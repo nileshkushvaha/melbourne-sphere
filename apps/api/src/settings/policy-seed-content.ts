@@ -1,10 +1,10 @@
 /**
  * Baseline wording for the three policy pages (SRS CFG 002).
  *
- * `apps/api/src/cli/seed-pages.ts` records that policy pages carry the
- * client's own approved wording and that no script may invent it. That rule
- * stands for wording a script would make up; this text is different in two
- * ways, and was written at the client's explicit request (13 September 2026):
+ * This is shipped product copy, written at the client's explicit request (13
+ * September 2026) and installed by `pnpm --filter api pages:seed` into a page
+ * that does not exist yet. The rule it sits beside — that no script may invent
+ * a policy — still holds: this text is different in two ways:
  *
  *  * it describes what this system actually does — what it stores, what it
  *    encrypts, how long it keeps things, how a review is moderated — all of
@@ -24,6 +24,7 @@ export interface SeedPolicyPage {
   /** Markdown, rendered through the same sanitiser an editor's copy goes through. */
   body: string;
 }
+
 
 export const SEED_POLICY_PAGES: SeedPolicyPage[] = [
   {
