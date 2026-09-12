@@ -745,3 +745,9 @@ p.ant-typography a,
     top: calc(var(--ms-topbar-height, 60px) + 16px);
   }
 }
+
+/* The hero preview shows a desktop and a phone frame side by side; on a narrow
+   admin window the two stack rather than squeezing the desktop frame. */
+@media (max-width: 991px) {
+  .ms-hero-preview { grid-template-columns: minmax(0, 1fr) !important; }
+}

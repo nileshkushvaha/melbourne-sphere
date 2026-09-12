@@ -1,4 +1,4 @@
-import { App, Form, Input, InputNumber, Typography } from 'antd';
+import { App, Form, Input, InputNumber, Skeleton, Typography } from 'antd';
 import { useNavigate } from 'react-router';
 import { businessesApi, featuredApi } from '@/api/businesses';
 import { melbourneLocalToUtc, utcToMelbourneLocal, melbourneOffsetLabel } from '@/api/blog';
@@ -7,6 +7,8 @@ import { useAsync } from '@/shared/useAsync';
 import { useRecordEditor } from '@/shared/useRecordEditor';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { FormSelect } from '@/components/FormSelect';
+import { formatDateTime } from '@/shared/format';
+import { FeaturedPlacementPreview } from './FeaturedPlacementPreview';
 
 interface Values {
   businessId: string;
@@ -39,6 +41,16 @@ export function FeaturedEditorPage() {
   const endsLocal = Form.useWatch('endsLocal', form) as string | undefined;
   const startOffset = melbourneOffsetLabel(melbourneLocalToUtc(startsLocal ?? '') ?? new Date());
   const endOffset = melbourneOffsetLabel(melbourneLocalToUtc(endsLocal ?? '') ?? melbourneLocalToUtc(startsLocal ?? '') ?? new Date());
+
+  // The card the placement will put on screen, read from the public route for
+  // the chosen listing. Only published listings are offered, so the public
+  // route answers for every choice.
+  const businessId = Form.useWatch('businessId', form) as string | undefined;
+  const chosenSlug = published.status === 'ready' ? published.data.data.find((business) => business.id === businessId)?.slug : undefined;
+  const [card] = useAsync((signal) => (chosenSlug ? listings.publicCard(chosenSlug, signal) : Promise.resolve(null)), [chosenSlug]);
+  const startsAt = melbourneLocalToUtc(startsLocal ?? '');
+  const endsAt = endsLocal ? melbourneLocalToUtc(endsLocal) : null;
+  const windowLabel = startsAt ? (endsAt ? `from ${formatDateTime(startsAt.toISOString())} until ${formatDateTime(endsAt.toISOString())}` : `from ${formatDateTime(startsAt.toISOString())} with no end date`) : 'once the dates are set';
 
   const save = () =>
     submit(async (values) => {
@@ -74,11 +86,32 @@ export function FeaturedEditorPage() {
       submitLabel="Create placement"
       onSubmit={save}
       aside={
-        <div style={{ border: '1px solid var(--ant-color-border)', borderRadius: 8, padding: 16 }}>
-          <Typography.Text strong>What this does not do</Typography.Text>
-          <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
-            It never changes ranking, bypasses a filter or shows an unpublished listing. There is no payment involved.
-          </Typography.Paragraph>
+        <div style={{ display: 'grid', gap: 16 }}>
+          <div style={{ border: '1px solid var(--ant-color-border)', borderRadius: 8, padding: 16 }}>
+            <Typography.Text strong>How it will appear</Typography.Text>
+            {!chosenSlug && (
+              <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
+                Choose a listing to see the card visitors will get.
+              </Typography.Paragraph>
+            )}
+            {chosenSlug && card.status === 'loading' && <Skeleton active paragraph={{ rows: 4 }} style={{ marginTop: 12 }} />}
+            {chosenSlug && card.status === 'error' && (
+              <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
+                The listing could not be read from the public site just now. The placement can still be created.
+              </Typography.Paragraph>
+            )}
+            {card.status === 'ready' && card.data && (
+              <div style={{ marginTop: 12 }}>
+                <FeaturedPlacementPreview business={card.data} window={windowLabel} />
+              </div>
+            )}
+          </div>
+          <div style={{ border: '1px solid var(--ant-color-border)', borderRadius: 8, padding: 16 }}>
+            <Typography.Text strong>What this does not do</Typography.Text>
+            <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
+              It never changes ranking, bypasses a filter or shows an unpublished listing. There is no payment involved.
+            </Typography.Paragraph>
+          </div>
         </div>
       }
     >

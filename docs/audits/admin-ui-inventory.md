@@ -36,7 +36,7 @@ the API enforces its own rule on every request whatever the screen shows.
 | `/businesses` | List | `listings.read` | done |
 | `/businesses/new`, `/businesses/:id` | Editor | `listings.read` (saving needs `listings.write`) | done — ten sections, publication blockers beside publish, private enquiry address kept apart, public-address change with its redirect, unsaved-changes guard |
 | `/businesses/featured` | List | `listings.read` | done |
-| `/businesses/featured/new` | Editor | `listings.publish` | **partial** — copy, Melbourne offset for the date entered, and the overlap rule done; a preview of the placed listing is not built |
+| `/businesses/featured/new` | Editor | `listings.publish` | done — copy, Melbourne offset for the date entered, the overlap rule, and a preview of the card the placement puts on screen, read from the public route for the chosen listing |
 | `/categories`, `/services`, `/areas` and their editors | List/Editor | `taxonomy.manage` | done |
 | `/media` | List | `media.manage` | done — drag-and-drop with a keyboard path, upload progress, a definite "processing has stopped" state |
 | `/media/:id` | Detail | `media.manage` | done — renditions, focal-point picker, every place the image is used |
@@ -45,7 +45,7 @@ the API enforces its own rule on every request whatever the screen shows.
 | `/enquiries` | Moderation | `enquiries.read` | done |
 | `/reviews`, `/comments`, `/reports` | Moderation | `reviews.moderate` / `comments.moderate` / `reports.manage` | done |
 | `/settings/general` | Settings | `settings.manage` | done |
-| `/settings` | Settings | `settings.manage` | **partial** — copy, layout and the banner focal-point picker done; a preview of the home-page hero is not built |
+| `/settings` | Settings | `settings.manage` | done — copy, layout, the banner focal-point picker, and a desktop-and-phone likeness of the hero drawn from the unsaved form |
 | `/redirects`, `/redirects/new` | List/Editor | `redirects.manage` | done — 301/302/410, on/off state, "Test an address" |
 | `/admins`, `/admins/new`, `/admins/:id` | List/Editor/Detail | `admins.manage` (changing access needs `admins.access.manage`) | done — each permission's source by role name, grants the actor lacks withheld, the change named before it is confirmed |
 | `/account` | Settings | session | done |
@@ -296,7 +296,9 @@ What the sweep found, and what was done:
    can picture 0.42, 0.31; the visual picker the media screen already had is now
    used here too.
 
-Still outstanding, and deliberately so: a preview of the home-page hero and a
-preview of the placed listing on a featured placement. Both are previews of
-public rendering inside an Ant Design admin, and both are named above rather
-than quietly marked done.
+The two previews that were left outstanding — the home-page hero and the placed
+listing on a featured placement — were built afterwards. Both are likenesses
+drawn inside the admin rather than the public components imported: the admin is
+Ant Design and the site is Tailwind. Each says on screen what it does not
+reproduce (typeface, rotation, live counts), is `aria-hidden` so the form is not
+read twice, and never animates inside the editor.

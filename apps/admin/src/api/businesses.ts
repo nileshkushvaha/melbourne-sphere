@@ -2,6 +2,8 @@ import type { components } from '@melbourne-sphere/contracts';
 import { httpClient, type HttpClient } from './http-client';
 
 export type BusinessRecord = components['schemas']['BusinessDto'];
+/** A listing as the public site shows it on a card: image, category, area, rating. */
+export type PublicBusinessCard = components['schemas']['PublicBusinessDetailDto'];
 export type BusinessListItem = components['schemas']['BusinessListItemDto'];
 export type BusinessStatus = BusinessRecord['status'];
 export type CreateBusinessInput = components['schemas']['CreateBusinessDto'];
@@ -60,6 +62,13 @@ export function businessesApi(client: HttpClient = httpClient) {
      */
     changeSlug: (id: string, body: { slug: string; expectedVersion: number; reason?: string }) =>
       client.request<{ data: BusinessRecord }>(path(id, '/slug'), { method: 'POST', body }).then((r) => r.data.data),
+    /**
+     * The listing as the public site will show it. Read from the public route
+     * rather than the admin record because that is the card a placement puts
+     * on screen: the admin record has no resolved category name, area or cover
+     * image, and the point of a preview is to show what visitors get.
+     */
+    publicCard: (slug: string, signal?: AbortSignal) => client.request<{ data: PublicBusinessCard }>(`/businesses/${encodeURIComponent(slug)}`, { signal }).then((r) => r.data.data),
     getHours: (id: string, signal?: AbortSignal) => client.request<{ data: HoursRecord }>(path(id, '/hours'), { signal }).then((r) => r.data.data),
     putHours: (id: string, body: PutHoursInput) => client.request<{ data: HoursRecord }>(path(id, '/hours'), { method: 'PUT', body }).then((r) => r.data.data),
   };

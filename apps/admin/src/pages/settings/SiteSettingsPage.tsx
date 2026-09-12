@@ -11,6 +11,7 @@ import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { MediaPicker } from '@/components/MediaPicker';
 import { PageLoader, PageHeader, SectionCard, StickyActions, PageLoadError } from '@/components/ui';
 import { FocalPointPicker } from '@/components/FocalPointPicker';
+import { HeroPreview } from './HeroPreview';
 import { useUnsavedChanges } from '@/shared/useUnsavedChanges';
 import { variantUrl, type MediaAsset } from '@/api/media';
 import { brand } from '@/config/theme';
@@ -49,6 +50,11 @@ export function SiteSettingsPage() {
   const [dirty, setDirty] = useState(false);
   useUnsavedChanges(dirty);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // What the preview draws: the form as it is being typed, not the saved record.
+  const watchedHeadline = (Form.useWatch('heroHeadline', form) as string | undefined) ?? '';
+  const watchedPhrases = ((Form.useWatch('heroPhrases', form) as string[] | undefined) ?? []).filter((phrase) => typeof phrase === 'string' && phrase.trim() !== '');
+  const watchedSlides = (Form.useWatch('heroSlides', form) as HeroSlideValue[] | undefined) ?? [];
+  const watchedCounters = (Form.useWatch('countersEnabled', form) as boolean | undefined) ?? false;
   // Previews for images chosen in this session; saved slides come from the record.
   const [addedPreviews, setAddedPreviews] = useState<Record<string, { url: string; alt: string }>>({});
   const record: HomeSettings | null = state.status === 'ready' ? state.data : null;
@@ -208,6 +214,15 @@ export function SiteSettingsPage() {
               </div>
             )}
           </Form.List>
+        </SectionCard>
+
+        <SectionCard title="How the hero will look" description="Drawn from what is on this screen right now, before it is saved.">
+          <HeroPreview
+            headline={watchedHeadline}
+            phrases={watchedPhrases}
+            slides={watchedSlides.filter((slide) => Boolean(previews[slide.mediaId]?.url)).map((slide) => ({ url: previews[slide.mediaId]!.url, alt: previews[slide.mediaId]!.alt, focalX: slide.focalX, focalY: slide.focalY }))}
+            countersEnabled={watchedCounters}
+          />
         </SectionCard>
 
         <SectionCard title="Counters" description="Optional totals under the hero.">
