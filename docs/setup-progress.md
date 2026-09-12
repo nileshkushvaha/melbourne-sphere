@@ -1422,14 +1422,37 @@ to moderation or editorial workflow.
   (SRS SEO 001). Both files were removed; only `/blog`, which never 404s, keeps
   its skeleton. The repository already knew this hazard — `/business` uses a
   route group for the same reason.
+* **The three editorial headers were reworked again at client instruction**
+  ("I do not like this hero section"). `.ms-editorial-band` (in
+  `apps/web/src/app/globals.css`) gives the blog index, the collection headers
+  and the article header one treatment: a single sky light source in the upper
+  right over a band that deepens downward, a fine dot texture masked to fade
+  before the content ends, and a lit hairline where the band meets the page.
+  All of it is decoration behind `-z-10`, so nothing can sit over text, and the
+  strongest layer still leaves white at about 9.5:1 and band-muted at about
+  5.9:1. The rhythm was tightened as well: the kind of page and its size now
+  share one line above the heading (`BLOG CATEGORY • 3 articles`,
+  `MELBOURNE SPHERE • 8 stories`) instead of being stacked blocks that made the
+  band twice as tall as its content needed, and the article's category badge is
+  a sky-outlined chip with the standfirst set a step larger.
+* **The category page's repeated name is gone.** An editor's landing content
+  reasonably opens by typing the category name, which the H1 has just said, so
+  the archive read "City guides / City guides / Our guides.".
+  `lib/landing-content.ts` drops an opening heading when its text matches the
+  title — a presentation decision only: the stored content is untouched, a
+  heading that says anything else is left where the editor put it, and the
+  helper only ever removes, so it cannot introduce markup.
+  **Note for the client:** the copy itself ("Our guides.") is admin-controlled
+  and still thin; a fuller category description is worth writing in the admin.
 * **Verified**: `pnpm --filter web test` (184 passed, 30 files), typecheck,
   lint, production `next build`; and the real pages driven in Chromium at
   375/430/768/1024/1280/1440 px against a stub API (this container has no
   MySQL, Redis or object storage), covering an article with a cover, without
-  one, with a cover that 404s, a long headline, and archives holding one, two,
-  three and seven articles: no horizontal overflow, one `h1` per page, no
-  heading-level skips, zero axe violations (WCAG 2.2 A/AA) and no unexpected
-  failed requests. Route statuses confirmed: unknown article and unknown
+  one, with a cover that 404s, a long headline, the business search results,
+  and archives holding one, two, three and seven articles: 54 page/width
+  combinations with no horizontal overflow, one `h1` per page, no heading-level
+  skips, zero axe violations (WCAG 2.2 A/AA) and no unexpected failed
+  requests. Route statuses confirmed: unknown article and unknown
   category 404, empty category 200.
 
 No SRS business-rule change was introduced.

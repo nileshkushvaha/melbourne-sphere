@@ -67,6 +67,57 @@ body {
   font-size: .72rem; font-weight: 800; letter-spacing: .08em;
 }
 
+/*
+ * The band behind an editorial page heading — the blog index, a category or tag
+ * archive, a business landing page and an article's header.
+ *
+ * Flat navy left these bands looking unfinished, because a heading only fills
+ * the left quarter of a 1520px composition and the rest was an empty rectangle.
+ * Three layers give that space something to be: a sky glow in the corner the
+ * heading does not reach, a fainter one under the opposite edge, and a fine dot
+ * texture that fades out before the content does. All of it is decoration
+ * behind `-z-10`, so nothing here can sit over text.
+ *
+ * Contrast is unaffected where it matters: the strongest layer is 18% sky in
+ * the top-right corner, which still leaves white at about 10:1 and band-muted
+ * at about 6:1 (`lib/palette.test.ts` guards the base tokens).
+ */
+.ms-editorial-band {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background-color: var(--ms-band);
+  /* One light source, upper right, over a band that deepens downward — so the
+     heading sits on the darkest part and the empty half of the composition is
+     where the light is. A diagonal base gradient fought the glow and left the
+     corner opposite the heading looking merely unfinished. */
+  background-image:
+    radial-gradient(120% 95% at 85% -15%, color-mix(in srgb, var(--ms-sky-500) 26%, transparent), transparent 58%),
+    radial-gradient(60% 55% at 4% 2%, color-mix(in srgb, var(--ms-sky-400) 8%, transparent), transparent 62%),
+    linear-gradient(180deg, #0e2a4d 0%, #071a30 100%);
+}
+
+.ms-editorial-band::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 28px 28px;
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent 65%);
+  mask-image: linear-gradient(to bottom, #000, transparent 65%);
+}
+
+/* A lit hairline where the band meets the page below it. */
+.ms-editorial-band::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ms-sky-400) 40%, transparent), transparent);
+}
+
 /* Card lift used by listing, category and article cards. One definition keeps
    the hover/focus treatment identical everywhere without a utility soup. */
 .ms-card-lift {

@@ -39,16 +39,31 @@ export default async function BlogIndexPage({ searchParams }: PageProps<'/blog'>
 
   return (
     <>
-      <section aria-labelledby="blog-heading" className="ms-on-dark bg-band text-band-text">
-        <div className="ms-container py-11 sm:py-14">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-400">Melbourne Sphere</p>
-          <h1 id="blog-heading" className="font-display mt-3 max-w-3xl text-[clamp(2.25rem,5vw,3.5rem)] leading-[1.06] tracking-tight">
+      <section aria-labelledby="blog-heading" className="ms-on-dark ms-editorial-band text-band-text">
+        <div className="ms-container py-11 sm:py-16">
+          {/* The publisher and the size of the archive on one line: both are
+              labels for the heading under them, and stacking them separately
+              left the band twice as tall as its content needed. */}
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            <span className="font-semibold uppercase tracking-[0.18em] text-sky-400">Melbourne Sphere</span>
+            {posts.meta.total > 0 && (
+              <>
+                <span aria-hidden="true" className="text-band-border">
+                  •
+                </span>
+                <span className="text-sm text-band-muted">
+                  {posts.meta.total} {posts.meta.total === 1 ? 'story' : 'stories'}
+                </span>
+              </>
+            )}
+          </p>
+          <h1 id="blog-heading" className="font-display mt-3.5 max-w-3xl text-balance text-[clamp(2.25rem,5vw,3.5rem)] leading-[1.04] tracking-tight">
             Stories from around the city
           </h1>
           <p className="mt-4 max-w-2xl text-lg leading-relaxed text-band-muted">
             Guides, interviews and news about the businesses and neighbourhoods we list — written by our editors, not by the businesses.
           </p>
-          <div className="mt-7">
+          <div className="mt-8">
             <BlogCategoryNav categories={stocked} active="all" />
           </div>
         </div>

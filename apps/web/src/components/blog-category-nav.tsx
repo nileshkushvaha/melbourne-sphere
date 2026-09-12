@@ -26,7 +26,9 @@ interface Props {
 export function BlogCategoryNav({ categories, active, tone = 'dark' }: Props) {
   if (categories.length === 0) return null;
 
-  const base = 'inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors';
+  // `whitespace-nowrap` so a two-word term stays on one line and the row
+  // scrolls, instead of that one chip growing taller than its neighbours.
+  const base = 'inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors';
   const styles =
     tone === 'dark'
       ? { idle: 'border-band-border bg-white/[0.06] text-white hover:border-sky-400 hover:bg-white/12', current: 'border-white bg-white text-navy-900', count: 'text-band-muted', currentCount: 'text-navy-700' }

@@ -61,22 +61,24 @@ export default async function ArticlePage({ params }: PageProps<'/blog/[slug]'>)
         title, the standfirst and the first paragraph of the body all begin on
         the same line; the picture below is allowed to be wider than them.
       */}
-      <header className="ms-on-dark bg-band text-band-text">
-        <div className="ms-container-read py-9 sm:py-12">
+      <header className="ms-on-dark ms-editorial-band text-band-text">
+        <div className="ms-container-read py-9 sm:py-14">
           <Breadcrumbs items={crumbs} tone="dark" />
           <Link
             href={`/blog/category/${post.category.slug}`}
-            className="mt-6 inline-flex min-h-9 items-center rounded-full bg-white/10 px-3.5 text-xs font-semibold uppercase tracking-[0.12em] text-white transition-colors hover:bg-white/20"
+            className="mt-7 inline-flex min-h-9 items-center rounded-full border border-sky-400/30 bg-sky-400/10 px-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-sky-400 transition-colors hover:border-sky-400/60 hover:bg-sky-400/20 hover:text-white"
           >
             {post.category.name}
           </Link>
           {/* `text-balance` keeps a long headline from leaving one word alone on
               the last line; `break-words` keeps an unbroken one inside the column. */}
-          <h1 className="font-display mt-5 text-balance break-words text-[clamp(2rem,1.5rem+2.6vw,3.15rem)] leading-[1.08] tracking-tight">{post.title}</h1>
-          <p className="mt-5 text-[1.0625rem] leading-relaxed text-band-muted sm:text-lg">{post.excerpt}</p>
+          <h1 className="font-display mt-5 text-balance break-words text-[clamp(2rem,1.5rem+2.6vw,3.15rem)] leading-[1.06] tracking-tight">{post.title}</h1>
+          {/* The standfirst is the one piece of body copy in the band, so it is
+              set a step larger than the page's reading size. */}
+          <p className="mt-5 text-lg leading-relaxed text-band-muted sm:text-xl sm:leading-relaxed">{post.excerpt}</p>
           {/* The byline leads and the share row follows it, rather than sitting
               level with the title and competing with it. */}
-          <div className="mt-8 flex flex-col gap-5 border-t border-band-border pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-9 flex flex-col gap-5 border-t border-band-border pt-6 sm:flex-row sm:items-center sm:justify-between">
             <AuthorByline author={post.author} publishedAt={post.publishedAt} updatedAt={post.updatedAt} readingMinutes={readingMinutes} tone="dark" />
             <ShareLinks url={absoluteUrl(`/blog/${post.slug}`)} title={post.title} tone="dark" />
           </div>
@@ -92,7 +94,9 @@ export default async function ArticlePage({ params }: PageProps<'/blog/[slug]'>)
         page does not reserve a picture-shaped hole and fill it with a panel.
       */}
       {post.cover.length > 0 && (
-        <figure className="ms-container-tight -mt-20 sm:-mt-24">
+        // `relative` is load-bearing: the header above is positioned, so a
+        // static sibling pulled up into it would be painted underneath it.
+        <figure className="ms-container-tight relative z-10 -mt-20 sm:-mt-24">
           <ArticleMedia
             cover={post.cover}
             coverAlt={post.coverAlt}

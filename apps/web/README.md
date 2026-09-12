@@ -27,6 +27,8 @@ The site is **light-first with designed dark bands** — warm off-white page, wh
 
 Three content widths, all in `packages/ui/src/styles.css`: `.ms-container` (1520 px) for a wide composition, `.ms-container-tight` (1120 px) for a section and for article media, and `.ms-container-read` (a 46 rem content box) for a long-form reading column. An article sets its words in the reading column and its hero picture in the tight one, so the picture is wider than the text it belongs to; `.ms-prose-article` carries the long-form type scale.
 
+Editorial page headings — the blog index, every collection header and an article's header — sit on `.ms-editorial-band` (`src/app/globals.css`): one sky light source in the upper right over a band that deepens downward, a dot texture masked to fade before the content ends, and a lit hairline at the bottom edge. Every layer is decoration behind `-z-10`, so nothing there can cover text. An editor's landing content has its opening heading dropped when it only repeats the page title (`src/lib/landing-content.ts`) — presentation only; the stored content is never edited.
+
 Typography pairs Manrope for interface and reading text with Sora for display headings, both self-hosted through `next/font`. Premium glass surfaces use the shared `.ms-glass-light` and `.ms-glass-dark` primitives only for overlays and information panels; both retain opaque, contrast-safe fallbacks.
 
 Hero photography: `src/lib/hero-assets.ts` holds the licensed default slides in `public/hero/`; anything an administrator configures in site settings replaces them. Sources and licences are recorded in `docs/content/hero-photography.md`.
