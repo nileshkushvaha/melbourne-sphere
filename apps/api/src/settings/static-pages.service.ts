@@ -12,6 +12,7 @@ import {
   CUSTOM_PAGE_PURPOSE,
   SYSTEM_PAGES,
   defaultPageLayout,
+  isProductRoute,
   isSystemPage,
   normalisePageSlug,
   pageSlugProblem,
@@ -56,7 +57,7 @@ export class StaticPagesService {
     const bySlug = new Map(rows.map((row) => [row.slug, row]));
     const pages = [
       ...(await Promise.all(SYSTEM_PAGES.map((definition) => this.toDto(definition.slug, bySlug.get(definition.slug))))),
-      ...(await Promise.all(rows.filter((row) => !isSystemPage(row.slug)).map((row) => this.toDto(row.slug, row)))),
+      ...(await Promise.all(rows.filter((row) => !isSystemPage(row.slug) && !isProductRoute(row.slug)).map((row) => this.toDto(row.slug, row)))),
     ];
     // Filtered here, not in the query: a system page that has never been edited
     // has no row to match, and it is the one most likely to be searched for.
@@ -73,7 +74,7 @@ export class StaticPagesService {
     const row = await db.staticPage.findUnique({ where: { slug } });
     // A system page exists as soon as the registry names it; a custom page
     // exists only once someone created it.
-    if (!row && !isSystemPage(slug)) throw notFound();
+    if (isProductRoute(slug) || (!row && !isSystemPage(slug))) throw notFound();
     return this.toDto(slug, row ?? undefined);
   }
 
@@ -162,6 +163,7 @@ export class StaticPagesService {
   /** Published page for the public site; drafts are invisible (404). */
   async publicPage(slug: string): Promise<PublicStaticPageDto> {
     const db = await this.database.client();
+    if (isProductRoute(slug)) throw notFound();
     const row = await db.staticPage.findFirst({ where: { slug, status: 'published' }, include: { ogImage: { select: { credit: true } } } });
     if (!row) throw notFound();
     return {
@@ -185,7 +187,7 @@ export class StaticPagesService {
   /** Published pages only, for the footer; nothing that would link to a 404. */
   async publicList(): Promise<PublicStaticPageSummaryDto[]> {
     const db = await this.database.client();
-    const rows = await db.staticPage.findMany({ where: { status: 'published' }, select: { slug: true, title: true }, orderBy: { title: 'asc' } });
+    const rows = (await db.staticPage.findMany({ where: { status: 'published' }, select: { slug: true, title: true }, orderBy: { title: 'asc' } })).filter((row) => !isProductRoute(row.slug));
     // System pages in registry order first, then the administrator's own pages
     // alphabetically, so the footer has a stable shape as pages are added.
     const order = SYSTEM_PAGES.map((page) => page.slug);
@@ -197,7 +199,7 @@ export class StaticPagesService {
     const current = await db.staticPage.findUnique({ where: { slug } });
     // Writing a system page for the first time creates it; writing an address
     // nobody created is a 404 rather than a second way to create a page.
-    if (!current && !isSystemPage(slug)) throw notFound();
+    if (isProductRoute(slug) || (!current && !isSystemPage(slug))) throw notFound();
     if ((current?.version ?? 0) !== input.expectedVersion) throw stale();
 
     const bodyFormat = input.bodyFormat ?? current?.bodyFormat ?? 'html';
@@ -240,7 +242,7 @@ export class StaticPagesService {
 
   async setStatus(slug: string, status: 'published' | 'draft', input: StaticPageStateDto, actor: AdminPrincipal, ctx: RequestContext): Promise<StaticPageDto> {
     const db = await this.database.client();
-    const current = await db.staticPage.findUnique({ where: { slug } });
+    const current = isProductRoute(slug) ? null : await db.staticPage.findUnique({ where: { slug } });
     if (!current) throw notFound();
     if (current.version !== input.expectedVersion) throw stale();
     if (status === 'published') {

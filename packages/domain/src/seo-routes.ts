@@ -28,6 +28,7 @@ export const SEO_ROUTES: readonly SeoRoute[] = Object.freeze([
   { key: 'directory', path: '/business', label: 'Businesses', description: 'The directory index and its search results.' },
   { key: 'blog', path: '/blog', label: 'Blog', description: 'The article index.' },
   { key: 'faqs', path: '/faqs', label: 'Frequently asked questions', description: 'The published FAQ page.' },
+  { key: 'about', path: '/about', label: 'About', description: 'The About page.' },
   { key: 'contact', path: '/contact', label: 'Contact', description: 'The contact and listing-request page.' },
 ]);
 

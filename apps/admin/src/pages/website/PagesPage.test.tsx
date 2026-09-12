@@ -16,9 +16,9 @@ import { PageEditorPage } from '@/pages/website/PageEditorPage';
 import { renderWithProviders, providerWithPermissions } from '@/test/render';
 import { jsonResponse } from '@/test/fetch-fakes';
 
-const about = {
-  slug: 'about',
-  title: 'About Melbourne Sphere',
+const terms = {
+  slug: 'terms',
+  title: 'Terms of Use',
   sanitizedBody: '<p>An independent directory.</p>',
   bodySource: '<p>An independent directory.</p>',
   bodyFormat: 'html',
@@ -27,7 +27,7 @@ const about = {
   status: 'published',
   publishedAt: '2026-09-08T00:00:00.000Z',
   publicationBlockers: [],
-  purpose: 'Who publishes the directory.',
+  purpose: 'The terms visitors accept by using the site.',
   template: 'generic',
   isSystem: true,
   canDelete: false,
@@ -37,7 +37,7 @@ const about = {
 };
 
 const privacy = {
-  ...about,
+  ...terms,
   slug: 'privacy',
   title: 'Privacy Policy',
   status: 'draft',
@@ -52,7 +52,7 @@ const privacy = {
 
 /** A page an administrator created: deletable, and only while unpublished. */
 const custom = {
-  ...about,
+  ...terms,
   slug: 'community-guidelines',
   title: 'Community guidelines',
   status: 'draft',
@@ -76,35 +76,35 @@ describe('Website pages', () => {
   });
 
   it('lists the pages with their address, template and readiness', async () => {
-    globalThis.fetch = (async () => jsonResponse(200, { data: [about, privacy] })) as typeof fetch;
+    globalThis.fetch = (async () => jsonResponse(200, { data: [terms, privacy] })) as typeof fetch;
     renderWithProviders(<PagesPage />, { initialEntries: ['/admin/website/pages'], authProvider: providerWithPermissions(['settings.manage']) });
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Pages' })).toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: 'About Melbourne Sphere' })).toHaveAttribute('href', '/admin/website/pages/about');
+    expect(await screen.findByRole('link', { name: 'Terms of Use' })).toHaveAttribute('href', '/admin/website/pages/terms');
     expect(screen.getByText('/privacy')).toBeInTheDocument();
     // The reason a page is not publishable is visible before opening it.
     expect(screen.getByText('1 to fix')).toBeInTheDocument();
   });
 
   it('offers no way in without settings.manage', async () => {
-    globalThis.fetch = (async () => jsonResponse(200, { data: [about] })) as typeof fetch;
+    globalThis.fetch = (async () => jsonResponse(200, { data: [terms] })) as typeof fetch;
     renderWithProviders(<PagesPage />, { initialEntries: ['/admin/website/pages'], authProvider: providerWithPermissions(['audit.read']) });
 
-    expect(await screen.findByText('About Melbourne Sphere')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'About Melbourne Sphere' })).not.toBeInTheDocument();
+    expect(await screen.findByText('Terms of Use')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Terms of Use' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^edit$/i })).not.toBeInTheDocument();
   });
 
   it('edits a page on its own route', async () => {
-    globalThis.fetch = (async () => jsonResponse(200, { data: about })) as typeof fetch;
+    globalThis.fetch = (async () => jsonResponse(200, { data: terms })) as typeof fetch;
     renderWithProviders(<PageEditorPage />, {
-      initialEntries: ['/admin/website/pages/about'],
+      initialEntries: ['/admin/website/pages/terms'],
       routePath: '/website/pages/:slug',
       authProvider: providerWithPermissions(['settings.manage']),
     });
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'About Melbourne Sphere' })).toBeInTheDocument();
-    expect(screen.getByText('Public address: /about')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Terms of Use' })).toBeInTheDocument();
+    expect(screen.getByText('Public address: /terms')).toBeInTheDocument();
     // Published, so the action offered is the reverse one.
     expect(await screen.findByRole('button', { name: /^unpublish$/i })).toBeInTheDocument();
   });
@@ -127,11 +127,11 @@ describe('Website pages', () => {
     globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       calls.push({ url, method: init?.method ?? 'GET', body: init?.body ? JSON.parse(String(init.body)) : undefined });
-      return jsonResponse(200, { data: about });
+      return jsonResponse(200, { data: terms });
     }) as typeof fetch;
 
     renderWithProviders(<PageEditorPage />, {
-      initialEntries: ['/admin/website/pages/about'],
+      initialEntries: ['/admin/website/pages/terms'],
       routePath: '/website/pages/:slug',
       authProvider: providerWithPermissions(['settings.manage']),
     });
@@ -139,12 +139,12 @@ describe('Website pages', () => {
     await userEvent.click(await screen.findByRole('button', { name: /save page/i }));
     await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true));
     const put = calls.find((call) => call.method === 'PUT')!;
-    expect(put.url).toContain('/admin/pages/about');
-    expect(put.body).toMatchObject({ expectedVersion: 3, title: 'About Melbourne Sphere' });
+    expect(put.url).toContain('/admin/pages/terms');
+    expect(put.body).toMatchObject({ expectedVersion: 3, title: 'Terms of Use' });
   });
 
   it('offers a new page, and shows which rows belong to the product', async () => {
-    globalThis.fetch = (async () => jsonResponse(200, { data: [about, privacy, custom] })) as typeof fetch;
+    globalThis.fetch = (async () => jsonResponse(200, { data: [terms, privacy, custom] })) as typeof fetch;
     renderWithProviders(<PagesPage />, { initialEntries: ['/admin/website/pages'], authProvider: providerWithPermissions(['settings.manage']) });
 
     expect(await screen.findByRole('link', { name: /new page/i })).toHaveAttribute('href', '/admin/website/pages/new');

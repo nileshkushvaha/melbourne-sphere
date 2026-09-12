@@ -8,15 +8,15 @@ import { BrandMark } from './brand-mark';
 import { SocialLinks } from './social-links';
 
 /**
- * The Information column, in the order asked for. `About Melbourne Sphere` is
- * not here: it is a page an editor can rename, so it comes from the API with
- * the title they gave it, and appears only once it is published.
+ * The Information column, in the order asked for. About is a product route
+ * like Contact, so it is always linked; the pages an editor publishes follow.
  *
  * "Add your business" points at the contact page rather than the home page's
  * own call-to-action band: somebody who clicks it from the foot of an article
  * wants the form, not to be sent to the top of a different page.
  */
 const INFORMATION_LINKS = [
+  { href: '/about', label: 'About us' },
   { href: '/business', label: 'Businesses' },
   { href: '/blog', label: 'Latest articles' },
 ];

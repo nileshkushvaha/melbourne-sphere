@@ -1,6 +1,6 @@
 /**
- * Idempotent baseline content for the four pages the product ships with (SRS
- * CFG 002): About, and the privacy, terms and review-guidelines policies.
+ * Idempotent baseline content for the pages the product ships with (SRS
+ * CFG 002): the privacy, terms and review-guidelines policies.
  *
  * Safe to run against any environment, including production, because it only
  * ever *adds*:

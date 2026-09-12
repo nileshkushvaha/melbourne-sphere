@@ -5186,7 +5186,7 @@ export interface components {
             values: Record<string, never>;
         };
         StaticPageDto: {
-            /** @description Public address. The system pages are about, privacy, terms, review-guidelines; anything else is a page an administrator created. */
+            /** @description Public address. The system pages are privacy, terms, review-guidelines; anything else is a page an administrator created. */
             slug: string;
             title: string;
             /** @description Sanitised HTML actually rendered (SRS SEC 001) */
@@ -5218,7 +5218,7 @@ export interface components {
              * @description Which public template renders this page
              * @enum {string}
              */
-            template: "generic" | "about";
+            template: "generic";
             /** @description True for a page the product refers to by address: not creatable, renameable or deletable */
             isSystem: boolean;
             /** @description True only for a custom page that is not currently published */

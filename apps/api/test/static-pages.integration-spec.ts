@@ -31,13 +31,14 @@ describe('Static pages (integration)', () => {
 
   it('lists the fixed page set, including pages that have never been edited', async () => {
     const res = await agent().get('/api/v1/admin/pages').set('Cookie', cookie).expect(200);
-    expect(res.body.data.map((page: { slug: string }) => page.slug)).toEqual(['about', 'privacy', 'terms', 'review-guidelines']);
+    expect(res.body.data.map((page: { slug: string }) => page.slug)).toEqual(['privacy', 'terms', 'review-guidelines']);
     for (const page of res.body.data) expect(page.isSystem).toBe(true);
-    // The template decides which public page renders the record, and therefore
-    // which editor opens it (SRS 1.6 CFG 002).
-    expect(res.body.data.map((page: { template: string }) => page.template)).toEqual(['about', 'generic', 'generic', 'generic']);
-    // There is no editable contact page: `/contact` routes from the settings.
+    expect(res.body.data.map((page: { template: string }) => page.template)).toEqual(['generic', 'generic', 'generic']);
+    // No editable contact or about page: both are product routes (CFG 001;
+    // About at client instruction, 13 Sep 2026).
     await agent().get('/api/v1/admin/pages/contact').set('Cookie', cookie).expect(404);
+    await agent().get('/api/v1/admin/pages/about').set('Cookie', cookie).expect(404);
+    await agent().get('/api/v1/pages/about').expect(404);
     expect(res.body.data[0]).toMatchObject({ status: 'draft', version: 0 });
     expect(res.body.data[0].publicationBlockers.length).toBeGreaterThan(0);
     await agent().get('/api/v1/admin/pages/not-a-page').set('Cookie', cookie).expect(404);
@@ -117,7 +118,7 @@ describe('Static pages (integration)', () => {
 
       // And it appears in the admin list after the system pages.
       const list = await agent().get('/api/v1/admin/pages').set('Cookie', cookie).expect(200);
-      expect(list.body.data.map((page: { slug: string }) => page.slug)).toEqual(['about', 'privacy', 'terms', 'review-guidelines', 'community-guidelines']);
+      expect(list.body.data.map((page: { slug: string }) => page.slug)).toEqual(['privacy', 'terms', 'review-guidelines', 'community-guidelines']);
     });
 
     it('refuses an address the site itself serves, or one already taken', async () => {

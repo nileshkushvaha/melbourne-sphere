@@ -25,7 +25,7 @@ export class StaticPageDto {
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) publishedAt!: string | null;
   @ApiProperty({ type: [String], description: 'Reasons this page cannot be published yet (SRS CFG 002)' }) publicationBlockers!: string[];
   @ApiProperty({ description: 'Editor-facing explanation of what the page is for' }) purpose!: string;
-  @ApiProperty({ enum: ['generic', 'about'], description: 'Which public template renders this page' }) template!: 'generic' | 'about';
+  @ApiProperty({ enum: ['generic'], description: 'Which public template renders this page' }) template!: 'generic';
   @ApiProperty({ description: 'True for a page the product refers to by address: not creatable, renameable or deletable' }) isSystem!: boolean;
   @ApiProperty({ description: 'True only for a custom page that is not currently published' }) canDelete!: boolean;
   @ApiProperty() version!: number;

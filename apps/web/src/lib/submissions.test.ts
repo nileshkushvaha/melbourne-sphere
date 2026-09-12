@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { submissionFailureMessage, validateCommentForm, validateContactForm, validateReviewForm, type CommentFormValues, type ContactFormValues, type ReviewFormValues } from './submissions';
+import { contactFailureMessage, contactFieldErrors, CONTACT_TIMEOUT_STATUS, submissionFailureMessage, validateCommentForm, validateContactForm, validateReviewForm, type CommentFormValues, type ContactFormValues, type ReviewFormValues } from './submissions';
 
 const valid: ReviewFormValues = {
   rating: 5,
@@ -38,7 +38,7 @@ describe('validateContactForm', () => {
   });
 
   it('rejects a topic that is not one of the offered options, so the queue subject is always known', () => {
-    expect(validateContactForm({ ...valid, topic: 'anything I like' }).subject).toEqual(['Choose what your message is about']);
+    expect(validateContactForm({ ...valid, topic: 'anything I like' }).subject).toEqual(['Choose what your message is about.']);
   });
 
   it.each([
@@ -104,5 +104,40 @@ describe('submissionFailureMessage (SRS API 002)', () => {
     for (const status of [0, 400, 401, 403, 404, 409, 413, 422, 429, 500, 502, 503]) {
       expect(submissionFailureMessage(status).length).toBeGreaterThan(10);
     }
+  });
+});
+
+describe('contact form copy (SRS ENQ 001, API 002)', () => {
+  const valid: ContactFormValues = { name: 'Sam Taylor', email: 'sam@example.com', topic: 'Something else', message: 'A question about how listings are checked.', acknowledged: true };
+
+  it('says what is missing before it says what is wrong', () => {
+    const empty = validateContactForm({ name: '', email: '', topic: '', message: '', acknowledged: false });
+    expect(empty).toEqual({
+      name: ['Enter your name.'],
+      email: ['Enter your email address.'],
+      subject: ['Choose what your message is about.'],
+      message: ['Enter your message.'],
+      acknowledged: ['Please confirm that we can use these details to respond.'],
+    });
+    expect(validateContactForm({ ...valid, name: 'S' }).name).toEqual(['Name must be 2–80 characters.']);
+    expect(validateContactForm({ ...valid, message: 'x'.repeat(5001) }).message).toEqual(['Message must be 5000 characters or fewer.']);
+  });
+
+  it('rewrites developer-facing API field text and drops fields the form does not have', () => {
+    expect(contactFieldErrors({ subject: ['subject must be longer than or equal to 3 characters'], captchaToken: ['Verification failed'], name: ['Name must be 2–80 characters'], recipient: ['property recipient should not exist'] })).toEqual({
+      subject: ['Choose what your message is about.'],
+      captchaToken: ['The security check didn’t pass. Please complete it again.'],
+      name: ['Name must be 2–80 characters'],
+    });
+    expect(contactFieldErrors(undefined)).toEqual({});
+  });
+
+  it('keeps the visitor informed that the message is still on the page when the failure is not theirs', () => {
+    expect(contactFailureMessage(429, 'RATE_LIMITED')).toMatch(/too many messages/i);
+    expect(contactFailureMessage(400, 'CAPTCHA_FAILED')).toMatch(/security check/i);
+    expect(contactFailureMessage(409, 'NO_ENQUIRY_ROUTE')).toMatch(/email us instead/i);
+    expect(contactFailureMessage(409, 'IDEMPOTENCY_KEY_REUSED')).toMatch(/already received/i);
+    expect(contactFailureMessage(422)).toMatch(/highlighted fields/i);
+    for (const status of [0, CONTACT_TIMEOUT_STATUS, 500, 503, 418]) expect(contactFailureMessage(status)).toMatch(/still on this page/i);
   });
 });

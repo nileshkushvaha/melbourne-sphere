@@ -5,11 +5,10 @@
  * address:
  *
  *  - **System pages** are declared here. They exist because something in the
- *    product refers to them — the review form links to the review guidelines,
- *    the privacy policy is named in the forms' collection notice, and About has
- *    its own template and navigation item. They cannot be created, renamed or
- *    deleted from the interface, because the code that points at them would
- *    then point at nothing.
+ *    product refers to them — the review form links to the review guidelines
+ *    and the privacy policy is named in the forms' collection notice. They
+ *    cannot be created, renamed or deleted from the interface, because the code
+ *    that points at them would then point at nothing.
  *  - **Custom pages** are created by an administrator with any address that
  *    passes `pageSlugProblem`. Until SRS 1.7 the slug set was closed, which
  *    guaranteed that no one could publish an arbitrary top-level URL; that
@@ -18,11 +17,13 @@
  *    able to shadow a product route or take an address the framework already
  *    serves.
  *
- * There is deliberately no `contact` page of either kind: `/contact` is a
- * product route whose routing address comes from the site settings (CFG 001),
- * so an editor cannot redirect enquiries by typing an address into a document.
+ * There is deliberately no `contact` or `about` page of either kind. `/contact`
+ * is a product route whose routing address comes from the site settings
+ * (CFG 001), so an editor cannot redirect enquiries by typing an address into a
+ * document; `/about` became a product route on the same template at client
+ * instruction on 13 Sep 2026 (recorded as a discrepancy with SRS ABT 001).
  */
-export type StaticPageTemplate = 'generic' | 'about';
+export type StaticPageTemplate = 'generic';
 
 /**
  * The layouts an editor can choose between, the way a CMS offers page
@@ -33,15 +34,12 @@ export const PAGE_LAYOUTS = ['rightSidebar', 'leftSidebar', 'fullWidth'] as cons
 export type StaticPageLayout = (typeof PAGE_LAYOUTS)[number];
 
 /**
- * What a page starts as before anybody chooses. A policy wants the enquiry form
- * and its contents beside it; About is a page of sections, and sections want
- * the width. An editor can change either afterwards, and their choice is what
- * is stored from then on.
+ * What a page starts as before anybody chooses: the reading column with its
+ * supporting column beside it. An editor can change it afterwards, and their
+ * choice is what is stored from then on.
  */
-const STARTING_LAYOUT: Record<string, StaticPageLayout> = { about: 'fullWidth' };
-
-export function defaultPageLayout(slug: string): StaticPageLayout {
-  return STARTING_LAYOUT[slug] ?? 'rightSidebar';
+export function defaultPageLayout(_slug: string): StaticPageLayout {
+  return 'rightSidebar';
 }
 
 export interface StaticPageDefinition {
@@ -55,13 +53,6 @@ export interface StaticPageDefinition {
 
 /** Pages the product itself refers to. Not creatable, renameable or deletable. */
 export const SYSTEM_PAGES: StaticPageDefinition[] = [
-  {
-    slug: 'about',
-    defaultTitle: 'About Melbourne Sphere',
-    purpose:
-      'Who publishes the directory, how listings are chosen and how editorial decisions are made. Written entirely here: the public page lays out the sections, pictures and lists you write, and says nothing you have not written.',
-    template: 'about',
-  },
   { slug: 'privacy', defaultTitle: 'Privacy Policy', purpose: 'What personal data the site collects, why, how long it is kept and how to request deletion.', template: 'generic' },
   { slug: 'terms', defaultTitle: 'Terms of Use', purpose: 'The terms visitors accept by using the site, including listing accuracy and liability.', template: 'generic' },
   { slug: 'review-guidelines', defaultTitle: 'Review Guidelines', purpose: 'The rules reviewers agree to; linked from the review and comment forms.', template: 'generic' },
@@ -75,6 +66,16 @@ export function systemPageDefinition(slug: string): StaticPageDefinition | undef
 
 export function isSystemPage(slug: string): boolean {
   return SYSTEM_PAGE_SLUGS.includes(slug);
+}
+
+/**
+ * A reserved public address that is not a system page: a route the web app
+ * renders itself, such as `/contact` and `/about`. A row stored under such an
+ * address before it became a product route is kept — nothing is deleted — but
+ * is never listed, edited, published or served, so it cannot shadow the route.
+ */
+export function isProductRoute(slug: string): boolean {
+  return !isSystemPage(slug) && (RESERVED_SLUGS as readonly string[]).includes(slug);
 }
 
 /** Editor-facing description of a page an administrator created. */

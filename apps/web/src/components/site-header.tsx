@@ -2,7 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { MailIcon, PhoneIcon } from 'lucide-react';
 import { contactChannelFrom } from '@/lib/site';
-import { fetchSiteSettings, fetchStaticPages } from '@/lib/api';
+import { fetchSiteSettings } from '@/lib/api';
 import { BrandMark } from './brand-mark';
 import { SocialLinks } from './social-links';
 import { HeaderNav, type NavLink } from './header-nav';
@@ -21,16 +21,15 @@ import { HeaderNav, type NavLink } from './header-nav';
  * scroll listener is involved, so there is nothing to jank on a slow device.
  */
 export async function SiteHeader() {
-  const [settings, pages] = await Promise.all([fetchSiteSettings(), fetchStaticPages()]);
-  const published = new Set(pages.map((page) => page.slug));
-  // About appears only once it is published, so no nav item points at a 404;
-  // /contact always resolves, because it explains how to reach the editors even
-  // before the approved page exists (SRS UX 002/003).
+  const settings = await fetchSiteSettings();
+  // About and Contact are product routes that always resolve (About became one
+  // at client instruction, 13 Sep 2026), so neither depends on what has been
+  // published (SRS UX 002/003).
   const links: NavLink[] = [
     { href: '/', label: 'Home' },
     { href: '/business', label: 'Businesses' },
     { href: '/blog', label: 'Blog' },
-    ...(published.has('about') ? [{ href: '/about', label: 'About' }] : []),
+    { href: '/about', label: 'About' },
     { href: '/contact', label: 'Contact' },
   ];
   const channel = contactChannelFrom(settings);

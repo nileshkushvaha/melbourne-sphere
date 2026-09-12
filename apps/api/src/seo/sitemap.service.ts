@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
+import { isProductRoute } from '../settings/static-pages.js';
 import type { SitemapEntryDto } from './dto/sitemap.dto.js';
 
 /** Sitemap sections (SRS SEO 002); the web tier turns the paths into absolute URLs. */
@@ -47,11 +48,13 @@ export class SitemapService {
     // Every published page, whether the product declared it or an editor
     // created it: what makes a page listable is that it answers 200 to an
     // anonymous visitor, which publication is exactly the record of.
-    const rows = await db.staticPage.findMany({ where: { status: 'published' }, select: { slug: true, updatedAt: true }, orderBy: { slug: 'asc' } });
+    // A row kept under a product route's address is not a page any more.
+    const rows = (await db.staticPage.findMany({ where: { status: 'published' }, select: { slug: true, updatedAt: true }, orderBy: { slug: 'asc' } })).filter((row) => !isProductRoute(row.slug));
     const entries = rows.map((row) => ({ path: `/${row.slug}`, lastModified: row.updatedAt.toISOString() }));
-    // `/contact` is a product route rather than editable content, so its
-    // last-modified time is the newest page change we know of.
-    entries.push({ path: '/contact', lastModified: latest(...rows.map((row) => row.updatedAt)).toISOString() });
+    // `/about` and `/contact` are product routes rather than editable content,
+    // so their last-modified time is the newest page change we know of.
+    const newest = latest(...rows.map((row) => row.updatedAt)).toISOString();
+    entries.push({ path: '/about', lastModified: newest }, { path: '/contact', lastModified: newest });
     return entries;
   }
 

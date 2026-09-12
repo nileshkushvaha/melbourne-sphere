@@ -1,20 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_SLUG_LENGTH, PAGE_LAYOUTS, defaultPageLayout, MIN_BODY_CHARACTERS, RESERVED_SLUGS, SYSTEM_PAGE_SLUGS, isSystemPage, normalisePageSlug, pageSlugProblem, staticPageBlockers, systemPageDefinition } from './static-pages.js';
+import { MAX_SLUG_LENGTH, PAGE_LAYOUTS, defaultPageLayout, MIN_BODY_CHARACTERS, RESERVED_SLUGS, SYSTEM_PAGE_SLUGS, isProductRoute, isSystemPage, normalisePageSlug, pageSlugProblem, staticPageBlockers, systemPageDefinition } from './static-pages.js';
 
 const realBody = 'Melbourne Sphere is an independent directory. '.repeat(6);
 
 describe('system pages', () => {
   it('declares the pages the product refers to by address, and no contact page', () => {
-    expect(SYSTEM_PAGE_SLUGS).toEqual(['about', 'privacy', 'terms', 'review-guidelines']);
+    expect(SYSTEM_PAGE_SLUGS).toEqual(['privacy', 'terms', 'review-guidelines']);
     // `/contact` routes enquiries from the site settings, so there is no
     // editable page whose copy could redirect them (CFG 001/002).
     expect(systemPageDefinition('contact')).toBeUndefined();
     expect(isSystemPage('community-guidelines')).toBe(false);
   });
 
-  it('keeps About on its own template and the policy pages on the shared one', () => {
-    expect(systemPageDefinition('about')?.template).toBe('about');
-    for (const slug of ['privacy', 'terms', 'review-guidelines']) expect(systemPageDefinition(slug)?.template).toBe('generic');
+  it('keeps every system page on the shared template', () => {
+    for (const slug of SYSTEM_PAGE_SLUGS) expect(systemPageDefinition(slug)?.template).toBe('generic');
+  });
+
+  it('treats About and Contact as product routes, which no stored page may shadow', () => {
+    expect(systemPageDefinition('about')).toBeUndefined();
+    for (const slug of ['about', 'contact', 'blog']) expect(isProductRoute(slug), slug).toBe(true);
+    // A system page is reserved too, but it is a page, not a product route.
+    for (const slug of ['privacy', 'community-guidelines']) expect(isProductRoute(slug), slug).toBe(false);
   });
 });
 
@@ -69,8 +75,7 @@ describe('staticPageBlockers', () => {
 });
 
 describe('page layouts', () => {
-  it('starts About full width and every other page with a sidebar', () => {
-    expect(defaultPageLayout('about')).toBe('fullWidth');
+  it('starts every page with a sidebar', () => {
     for (const slug of ['privacy', 'terms', 'review-guidelines', 'community-guidelines']) expect(defaultPageLayout(slug)).toBe('rightSidebar');
   });
 

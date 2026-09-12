@@ -24,14 +24,8 @@ requirement is satisfied.
 
 ## Where else these images are used
 
-The About page (`/about`) uses the same two files directly, because it has no
-media picker of its own: Degraves Street as its hero, Flinders Street beside the
-introduction, each with the credit its licence requires. They are a documented
-stand-in — the About page is expected to carry the client's own commissioned
-Melbourne photography, and replacing them means editing
-`apps/web/src/app/about/page.tsx` (`HERO_IMAGE` and the aside image) or, better,
-moving both to media-library assets once approved photography exists. That
-replacement is outstanding client content, listed with the other open items.
+Nowhere else. The About page carries its own photographs, recorded in
+`about-photography.md`.
 
 ## When the client supplies its own photography
 

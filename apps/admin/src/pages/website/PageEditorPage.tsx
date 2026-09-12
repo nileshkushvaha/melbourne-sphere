@@ -44,9 +44,6 @@ export function PageEditorPage() {
           </Space>
         }
       />
-      {/* Every page is now written entirely here: the About page used to be
-          assembled around the editor's words by a template, so most of what it
-          said could not be changed from the admin. */}
       <StaticPageEditor page={page} onSaved={reload} />
     </div>
   );

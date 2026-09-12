@@ -3,7 +3,6 @@ import { staticPageMetadata } from '@/lib/route-seo';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { InformationPage } from '@/components/information-page';
-import { AboutPage } from '@/components/about-page';
 import { ContactForm } from '@/components/contact-form';
 import { fetchStaticPage, fetchStaticPages } from '@/lib/api';
 import { withHeadingAnchors } from '@/lib/headings';
@@ -16,12 +15,9 @@ import { turnstileSiteKey } from '@/lib/site';
  * list would have to be edited every time an editor added a page, and would be
  * wrong until it was.
  *
- * An address nobody has published is a genuine 404. `/about` is one of these
- * pages: it used to have a route of its own that assembled a hero, live counts
- * and four fixed sections around the editor's words, which meant most of what
- * it said could not be changed from the admin. `/contact` is still a product
- * route driven by the site settings, and is refused as a page address by the
- * API, so a created page can never shadow it.
+ * An address nobody has published is a genuine 404. `/about` and `/contact` are
+ * product routes with their own static segments, and the API refuses both as
+ * page addresses, so a created page can never shadow them.
  */
 export async function generateMetadata({ params }: PageProps<'/[slug]'>): Promise<Metadata> {
   const { slug } = await params;
@@ -44,10 +40,6 @@ export default async function StaticPage({ params }: PageProps<'/[slug]'>) {
   const page = await fetchStaticPage(slug);
   if (!page) notFound();
   const policy = POLICY_SLUGS.includes(page.slug);
-  // About is laid out from the shape of what the editor wrote — sections,
-  // pictures and a list of points — rather than read as one column of text.
-  // It is still only what they wrote: see `about-page.tsx`.
-  if (page.slug === 'about') return <AboutPage page={page} />;
   // Sanitised by the API with an allowlist before storage (SRS SEC 001); this
   // only anchors the headings that are already in it.
   const { html, headings } = withHeadingAnchors(page.body);

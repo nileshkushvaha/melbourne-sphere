@@ -79,9 +79,14 @@ export class EnquiriesService {
       throw new ConflictException({ code: 'NO_ENQUIRY_ROUTE', message: 'General enquiries are not available right now.' });
     }
     if (!input.acknowledged) {
-      throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Please confirm your details may be shared with the business to respond', fields: { acknowledged: ['Acceptance is required'] } }, HttpStatus.BAD_REQUEST);
+      const message = business ? 'Please confirm your details may be shared with the business to respond' : 'Please confirm your details may be used to respond to this enquiry';
+      throw new HttpException({ code: 'VALIDATION_ERROR', message, fields: { acknowledged: ['Acceptance is required'] } }, HttpStatus.BAD_REQUEST);
     }
-    await this.reviews.guardPublicWrite({ honeypot: input.website, captchaToken: input.captchaToken, action: 'enquiry', limits: ENQUIRY_LIMITS }, ctx);
+    // The Turnstile action is part of what the token proves (SRS SEC 002): the
+    // listing form renders its widget as `enquiry` and the site contact form as
+    // `contact`, so each route checks the token against its own form. Checking
+    // both against `enquiry` rejected every genuine contact-form token.
+    await this.reviews.guardPublicWrite({ honeypot: input.website, captchaToken: input.captchaToken, action: business ? 'enquiry' : 'contact', limits: ENQUIRY_LIMITS }, ctx);
 
     // The enquiry and its outbound event commit together (SRS ENQ 003, EVT 001).
     const enquiry = await db.$transaction(async (tx) => {
@@ -116,7 +121,11 @@ export class EnquiriesService {
     // label would put personal data in a metrics store (MON 001).
     enquiryEvents.inc({ event: 'accepted' });
     await this.audit.record({ action: 'enquiry.accepted', targetType: 'enquiry', targetId: enquiry.id, metadata: { businessId: business?.id ?? null }, requestId: ctx.requestId, ipAddress: ctx.ip });
-    return { receiptId: enquiry.id.slice(-12), status: 'accepted', message: 'Your message has been accepted and is on its way to the business.' };
+    return {
+      receiptId: enquiry.id.slice(-12),
+      status: 'accepted',
+      message: business ? 'Your message has been accepted and is on its way to the business.' : 'Your message has been accepted and is on its way to the editors.',
+    };
   }
 
   // ---- admin ---------------------------------------------------------------

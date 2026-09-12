@@ -16776,7 +16776,7 @@
         "properties": {
           "slug": {
             "type": "string",
-            "description": "Public address. The system pages are about, privacy, terms, review-guidelines; anything else is a page an administrator created."
+            "description": "Public address. The system pages are privacy, terms, review-guidelines; anything else is a page an administrator created."
           },
           "title": {
             "type": "string"
@@ -16857,8 +16857,7 @@
           "template": {
             "type": "string",
             "enum": [
-              "generic",
-              "about"
+              "generic"
             ],
             "description": "Which public template renders this page"
           },

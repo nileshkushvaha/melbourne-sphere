@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
-import { routeMetadata } from '@/lib/route-seo';
-import Link from 'next/link';
-import { MailIcon, PenLineIcon, PhoneIcon, ShieldCheckIcon, StoreIcon } from 'lucide-react';
-import { InformationPage } from '@/components/information-page';
-import { fetchSiteSettings } from '@/lib/api';
-import { contactChannelFrom, turnstileSiteKey } from '@/lib/site';
+import { ClockIcon, Link2Icon, ListChecksIcon, LockKeyholeIcon, MailIcon, MapPinIcon, MessageSquareTextIcon, PenLineIcon, PhoneIcon, RefreshCwIcon, ShieldCheckIcon, StoreIcon } from 'lucide-react';
 import { ContactForm } from '@/components/contact-form';
+import { InformationHero } from '@/components/information-page';
+import { AsideCard, ContentSection, IconPoints, IconTile, LinkList, ProductPageLayout, type IconPoint } from '@/components/product-page';
+import { fetchFaqs, fetchSiteSettings, privacyNoticeHref } from '@/lib/api';
+import { routeMetadata } from '@/lib/route-seo';
+import { contactChannelFrom, turnstileSiteKey } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,121 +16,119 @@ export const dynamic = 'force-dynamic';
  * cannot redirect enquiries by typing a different address into page copy. The
  * contact details themselves come from settings and change without a release.
  */
-export function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata(): Promise<Metadata> {
+  const { name } = await fetchSiteSettings();
   return routeMetadata('contact', {
-    title: 'Contact us',
-    description: 'How to reach the Melbourne Sphere editors about a listing, a correction or a review.',
+    title: `Contact ${name}`,
+    description: `Contact ${name} for business listing requests, corrections, editorial enquiries and other questions.`,
     alternates: { canonical: '/contact' },
   });
 }
 
-const ROUTES = [
-  {
-    icon: StoreIcon,
-    title: 'Add or update a business',
-    body: 'There are no business accounts on Melbourne Sphere. Send us the name, address, contact details and what the business does, and an editor checks it against the Melbourne boundary before publishing. There is no charge.',
-  },
-  {
-    icon: PenLineIcon,
-    title: 'Correct a listing',
-    body: 'Tell us which listing and what is wrong — hours, phone number, website or address. Every listing page also has a correction link beside its opening hours.',
-  },
-  {
-    icon: ShieldCheckIcon,
-    title: 'Report a review or comment',
-    body: 'Each published review and comment carries a report action. Reports go to the moderation queue and are read by an editor; nothing is removed automatically.',
-  },
+/** What a message can be about. Each is a route that exists today; none promises self-service publication. */
+const HELP_TOPICS: IconPoint[] = [
+  { icon: StoreIcon, title: 'Add or update a business', text: 'Name, address, contact details and what it does.' },
+  { icon: PenLineIcon, title: 'Correct a listing', text: 'Which listing, and what needs changing.' },
+  { icon: ShieldCheckIcon, title: 'Report a review or comment', text: 'Use its report button where you can.' },
+  { icon: MessageSquareTextIcon, title: 'General enquiry', text: 'Anything else about the site or our articles.' },
 ];
 
+const GOOD_TO_KNOW: IconPoint[] = [
+  { icon: ClockIcon, title: 'Read during Melbourne business hours' },
+  { icon: ListChecksIcon, title: 'New listings take a few days to check' },
+  { icon: RefreshCwIcon, title: 'Corrections are prioritised' },
+  { icon: Link2Icon, title: 'Include the page name or link' },
+  { icon: LockKeyholeIcon, title: 'Never send passwords or payment details' },
+];
+
+const linkClass = 'break-words text-link underline-offset-4 hover:underline [overflow-wrap:anywhere]';
+
 export default async function ContactPage() {
-  const settings = await fetchSiteSettings();
+  const [settings, faqs, privacyHref] = await Promise.all([fetchSiteSettings(), fetchFaqs(), privacyNoticeHref()]);
   // One source for the address: the site-wide support address (SRS CFG 001).
-  const channel = contactChannelFrom(settings);
-  const email = channel.email;
-  const phone = settings.contact.phone;
+  const { email } = contactChannelFrom(settings);
+  const { phone, address } = settings.contact;
 
-  const aside = (
-    <div className="rounded-card-lg border border-border bg-surface-raised p-6 shadow-sm">
-      <h2 className="text-base font-semibold tracking-tight">Email the editors</h2>
-      {email ? (
-        <>
-          <a href={`mailto:${email}`} className="mt-3 inline-flex min-h-11 items-center gap-2 text-link underline-offset-4 hover:underline">
-            <MailIcon aria-hidden="true" className="size-4 shrink-0" />
-            {email}
-          </a>
-          <p className="mt-3 text-sm leading-relaxed text-text-muted">One mailbox for listings, corrections and editorial questions. We read everything; we reply to what needs a reply.</p>
-          {phone && (
-            <p className="mt-3 text-sm">
-              <a href={phone.telHref} className="inline-flex min-h-11 items-center gap-2 text-link underline-offset-4 hover:underline">
-                <PhoneIcon aria-hidden="true" className="size-4 shrink-0" />
-                {phone.display}
-              </a>
-            </p>
-          )}
-        </>
-      ) : (
-        <p className="mt-3 text-sm leading-relaxed text-text-muted">
-          Our published contact address is being finalised and will appear here once it is confirmed. Until then, please use the report and correction actions on the listing, review or article itself.
-        </p>
-      )}
-      <hr className="my-6 border-border" />
-      <h2 className="text-base font-semibold tracking-tight">Where else to look</h2>
-      <ul className="mt-3 flex flex-col gap-1.5 text-sm">
-        <li>
-          <Link href="/business" className="inline-flex min-h-9 items-center text-link underline-offset-4 hover:underline">
-            Browse businesses
-          </Link>
-        </li>
-        <li>
-          <Link href="/blog" className="inline-flex min-h-9 items-center text-link underline-offset-4 hover:underline">
-            Read the blog
-          </Link>
-        </li>
-      </ul>
-      {settings.contact.address && <address className="mt-6 whitespace-pre-line text-sm not-italic leading-relaxed text-text-muted">{settings.contact.address}</address>}
-      <p className="mt-6 text-sm leading-relaxed text-text-muted">{settings.name} covers Melbourne, Victoria, Australia only. We do not add businesses outside the city.</p>
-    </div>
-  );
-
-  const form = (
-    <section aria-labelledby="contact-form-heading" className="mt-10">
-      <h2 id="contact-form-heading" className="font-display text-2xl">
-        Send us a message
-      </h2>
-      <p className="mt-2 max-w-prose leading-relaxed text-text-muted">
-        Messages go straight to the editors’ queue. We store your name, email address and message so we can reply — nothing else, and nothing is published.
-      </p>
-      <div className="mt-6">
-        <ContactForm turnstileSiteKey={turnstileSiteKey()} />
-      </div>
-    </section>
-  );
+  // Only routes that answer today: FAQs and the privacy policy are linked once
+  // they are published, on the same rule as the footer.
+  const links = [
+    { href: '/business', label: 'Browse businesses' },
+    { href: '/about', label: `About ${settings.name}` },
+    ...(faqs.length > 0 ? [{ href: '/faqs', label: 'Frequently asked questions' }] : []),
+    ...(privacyHref ? [{ href: privacyHref, label: 'How we handle your information' }] : []),
+  ];
 
   return (
-    <InformationPage
-      title="Contact us"
-      intro="Melbourne Sphere is run by a small editorial team. Here is what we handle, and how to reach us."
-      aside={aside}
-    >
-      <p>
-        Everything on this site is published by editors: businesses do not create accounts, and nothing goes live without being checked. That means most of what you might want to do here starts with a message to us.
-      </p>
-      {ROUTES.map((route) => (
-        <section key={route.title}>
-          <h2 className="flex items-center gap-2.5">
-            <span aria-hidden="true" className="inline-flex size-9 shrink-0 items-center justify-center rounded-card bg-sky-50 text-sky-700">
-              <route.icon className="size-4.5" strokeWidth={1.8} />
-            </span>
-            {route.title}
-          </h2>
-          <p>{route.body}</p>
-        </section>
-      ))}
-      <h2>Response times</h2>
-      <p>
-        We are a small team and read messages during Melbourne business hours. Listing requests are checked before publication, so a new listing usually takes a few days rather than minutes. Corrections to a published listing are prioritised.
-      </p>
-      {form}
-    </InformationPage>
+    <article>
+      <InformationHero
+        title={`Contact ${settings.name}`}
+        eyebrow="Get in touch"
+        intro={`Questions about a listing, a correction or ${settings.name} itself? Our editorial team is here to help.`}
+        className="ms-editorial-band"
+      />
+
+      <ProductPageLayout
+        lead={
+          <section aria-labelledby="contact-details-heading" className="flex flex-col gap-6">
+            <div>
+              <h2 id="contact-details-heading" className="font-display text-2xl tracking-tight sm:text-3xl">
+                How to reach us
+              </h2>
+              <p className="mt-2 max-w-2xl leading-relaxed text-text-muted">No account needed — every request is read and checked by an editor.</p>
+            </div>
+            <ul className="flex flex-col divide-y divide-border rounded-card-lg border border-border bg-surface-raised shadow-sm">
+              <li className="flex items-center gap-4 p-5">
+                <IconTile icon={MailIcon} />
+                <div className="min-w-0">
+                  <p className="text-sm text-text-muted">Email</p>
+                  {email ? (
+                    <a href={`mailto:${email}`} className={`text-base font-semibold ${linkClass}`}>
+                      {email}
+                    </a>
+                  ) : (
+                    <p className="text-sm">Use the form while our published address is being finalised.</p>
+                  )}
+                </div>
+              </li>
+              {phone && (
+                <li className="flex items-center gap-4 p-5">
+                  <IconTile icon={PhoneIcon} />
+                  <div className="min-w-0">
+                    <p className="text-sm text-text-muted">Phone</p>
+                    <a href={phone.telHref} className={`text-base font-semibold ${linkClass}`}>
+                      {phone.display}
+                    </a>
+                  </div>
+                </li>
+              )}
+              <li className="flex items-center gap-4 p-5">
+                <IconTile icon={MapPinIcon} />
+                <div className="min-w-0">
+                  <p className="text-sm text-text-muted">Coverage</p>
+                  {address ? (
+                    <address className="whitespace-pre-line break-words text-base font-semibold not-italic">{address}</address>
+                  ) : (
+                    <p className="text-base font-semibold">Melbourne, Victoria only</p>
+                  )}
+                </div>
+              </li>
+            </ul>
+          </section>
+        }
+        aside={
+          <AsideCard anchorId="contact-form" id="contact-form-heading" icon={MailIcon} title="Send us a message" description="Tell us what you need and an editor will reply by email.">
+            <ContactForm turnstileSiteKey={turnstileSiteKey()} privacyHref={privacyHref} />
+          </AsideCard>
+        }
+      >
+        <ContentSection id="help-heading" title="What can we help with?" intro="Pick the closest topic in the form.">
+          <IconPoints items={HELP_TOPICS} />
+        </ContentSection>
+        <ContentSection id="good-to-know-heading" title="Good to know">
+          <IconPoints items={GOOD_TO_KNOW} />
+        </ContentSection>
+        <LinkList id="useful-links-heading" title="Useful links" links={links} />
+      </ProductPageLayout>
+    </article>
   );
 }

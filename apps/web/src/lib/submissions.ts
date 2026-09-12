@@ -108,6 +108,20 @@ export const CONTACT_TOPICS = [
 
 export type ContactTopic = (typeof CONTACT_TOPICS)[number];
 
+/**
+ * What the visitor reads in the topic list. The stored values above stay as
+ * they are — they are the subjects already in the editors' queue — and only
+ * the wording offered to the visitor is shortened.
+ */
+export const CONTACT_TOPIC_LABELS: Record<ContactTopic, string> = {
+  'Add or update a business listing': 'Add or update a business',
+  'Correct a published listing': 'Correct listing information',
+  'Report a review or comment': 'Report a review or comment',
+  'Editorial or media enquiry': 'Editorial or media enquiry',
+  'Something else': 'General enquiry',
+};
+
+/** Mirrors `SubmitEnquiryDto` in the API (SRS ENQ 001); the API remains the authority. */
 export const CONTACT_LIMITS = {
   name: { min: 2, max: 80 },
   message: { min: 20, max: 5000 },
@@ -122,17 +136,67 @@ export interface ContactFormValues {
   acknowledged: boolean;
 }
 
+export const CONTACT_FIELD_MESSAGES = {
+  subject: 'Choose what your message is about.',
+  acknowledged: 'Please confirm that we can use these details to respond.',
+  captchaToken: 'Complete the security check.',
+  captchaRejected: 'The security check didn’t pass. Please complete it again.',
+} as const;
+
 /** Client-side pre-check mirroring the API's rules; the API remains the authority. */
 export function validateContactForm(values: ContactFormValues): FieldErrors {
   const errors: FieldErrors = {};
   const name = values.name.trim();
-  if (name.length < CONTACT_LIMITS.name.min || name.length > CONTACT_LIMITS.name.max) errors.name = [`Name must be ${CONTACT_LIMITS.name.min}–${CONTACT_LIMITS.name.max} characters`];
+  if (name.length === 0) errors.name = ['Enter your name.'];
+  else if (name.length < CONTACT_LIMITS.name.min || name.length > CONTACT_LIMITS.name.max) errors.name = [`Name must be ${CONTACT_LIMITS.name.min}–${CONTACT_LIMITS.name.max} characters.`];
   const email = values.email.trim();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > CONTACT_LIMITS.email.max) errors.email = ['Enter a valid email address'];
-  if (!(CONTACT_TOPICS as readonly string[]).includes(values.topic)) errors.subject = ['Choose what your message is about'];
+  if (email.length === 0) errors.email = ['Enter your email address.'];
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > CONTACT_LIMITS.email.max) errors.email = ['Enter a valid email address.'];
+  if (!(CONTACT_TOPICS as readonly string[]).includes(values.topic)) errors.subject = [CONTACT_FIELD_MESSAGES.subject];
   const message = values.message.trim();
-  if (message.length < CONTACT_LIMITS.message.min || message.length > CONTACT_LIMITS.message.max)
-    errors.message = [`Message must be ${CONTACT_LIMITS.message.min}–${CONTACT_LIMITS.message.max} characters`];
-  if (!values.acknowledged) errors.acknowledged = ['Please confirm we may use your details to reply'];
+  if (message.length === 0) errors.message = ['Enter your message.'];
+  else if (message.length < CONTACT_LIMITS.message.min) errors.message = [`Message must be at least ${CONTACT_LIMITS.message.min} characters.`];
+  else if (message.length > CONTACT_LIMITS.message.max) errors.message = [`Message must be ${CONTACT_LIMITS.message.max} characters or fewer.`];
+  if (!values.acknowledged) errors.acknowledged = [CONTACT_FIELD_MESSAGES.acknowledged];
   return errors;
+}
+
+/**
+ * The API's field errors for the contact form, in reader's words where the
+ * API's own text is written for a developer (a class-validator length message
+ * on `subject`, the bare "Verification failed" on the token).
+ */
+export function contactFieldErrors(fields: FieldErrors | undefined): FieldErrors {
+  const out: FieldErrors = {};
+  for (const [key, messages] of Object.entries(fields ?? {})) {
+    if (!Array.isArray(messages) || messages.length === 0) continue;
+    if (key === 'subject') out.subject = [CONTACT_FIELD_MESSAGES.subject];
+    else if (key === 'acknowledged') out.acknowledged = [CONTACT_FIELD_MESSAGES.acknowledged];
+    else if (key === 'captchaToken') out.captchaToken = [CONTACT_FIELD_MESSAGES.captchaRejected];
+    else if (['name', 'email', 'message'].includes(key)) out[key] = messages.map(String);
+  }
+  return out;
+}
+
+/** Status `-1` stands for a request the browser abandoned after its timeout. */
+export const CONTACT_TIMEOUT_STATUS = -1;
+
+/**
+ * Form-level copy for a failed contact submission. As with
+ * `submissionFailureMessage`, the API's message is never shown; every failure
+ * except invalid fields also says the message is still on the page, because
+ * the form keeps what was typed.
+ */
+export function contactFailureMessage(status: number, code?: string): string {
+  if (status === CONTACT_TIMEOUT_STATUS) return 'This is taking longer than it should. Your message is still on this page, so you can try again.';
+  if (status === 0) return 'We couldn’t reach the server. Check your connection — your message is still on this page, so you can try again.';
+  // The key is only remembered after a success, so a reuse means an earlier
+  // attempt — typically one whose response never arrived — was received.
+  if (code === 'IDEMPOTENCY_KEY_REUSED') return 'We’ve already received this message, so there’s no need to send it again.';
+  if (code === 'CAPTCHA_FAILED') return 'The security check didn’t pass. Please complete it again and resend your message.';
+  if (status === 429 || code === 'RATE_LIMITED') return 'Too many messages have been sent from this connection. Please wait a little and try again.';
+  if (code === 'NO_ENQUIRY_ROUTE') return 'The contact form isn’t accepting messages right now. Please email us instead.';
+  if (status === 400 || status === 422) return 'We couldn’t send your message. Check the highlighted fields below.';
+  if (status === 503) return 'We can’t accept messages right now. Your message is still on this page, so please try again shortly.';
+  return 'We couldn’t send your message right now. Your message is still on this page, so you can try again.';
 }

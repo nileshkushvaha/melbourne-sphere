@@ -35,15 +35,7 @@ describe('Navigation to the About page', () => {
     fetchStaticPages.mockResolvedValue([]);
   });
 
-  it('omits About from the header while the page is unpublished', async () => {
-    const SiteHeader = await loadHeader();
-    render(await SiteHeader());
-    expect(screen.queryByRole('link', { name: 'About' })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'Contact' }).length).toBeGreaterThan(0);
-  }, MODULE_LOAD_TIMEOUT_MS);
-
-  it('shows About in the header once it is published, exactly once per navigation region', async () => {
-    fetchStaticPages.mockResolvedValue([{ slug: 'about', title: 'About Melbourne Sphere' }]);
+  it('always links About from the header, because it is a product route like Contact', async () => {
     const SiteHeader = await loadHeader();
     render(await SiteHeader());
     // The header renders a desktop and a mobile navigation; each carries one
@@ -51,11 +43,11 @@ describe('Navigation to the About page', () => {
     const links = screen.getAllByRole('link', { name: 'About' });
     expect(links.length).toBeGreaterThan(0);
     for (const link of links) expect(link).toHaveAttribute('href', '/about');
+    expect(screen.getAllByRole('link', { name: 'Contact' }).length).toBeGreaterThan(0);
   }, MODULE_LOAD_TIMEOUT_MS);
 
-  it('lists published pages in the footer, including ones an administrator added, and nothing that is still a draft', async () => {
+  it('links About in the footer, then the published pages, and nothing that is still a draft', async () => {
     fetchStaticPages.mockResolvedValue([
-      { slug: 'about', title: 'About Melbourne Sphere' },
       { slug: 'privacy', title: 'Privacy Policy' },
       // A page created after this code was written needs no change here to
       // appear (SRS 1.7).
@@ -64,7 +56,7 @@ describe('Navigation to the About page', () => {
     const SiteFooter = await loadFooter();
     const { container } = render(await SiteFooter());
     const footer = within(container);
-    expect(footer.getByRole('link', { name: 'About Melbourne Sphere' })).toHaveAttribute('href', '/about');
+    expect(footer.getByRole('link', { name: 'About us' })).toHaveAttribute('href', '/about');
     expect(footer.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy');
     expect(footer.getByRole('link', { name: 'Community guidelines' })).toHaveAttribute('href', '/community-guidelines');
     expect(footer.queryByRole('link', { name: /terms/i })).not.toBeInTheDocument();

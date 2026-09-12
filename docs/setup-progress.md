@@ -1456,3 +1456,126 @@ to moderation or editorial workflow.
   category 404, empty category 200.
 
 No SRS business-rule change was introduced.
+
+## 13 September 2026 — Contact page: layout, form states and the Turnstile action defect
+
+Client request: the Contact page worked but read as plain and vertically spread,
+with the form disconnected from the contact information. Audited against SRS
+ENQ 001–003, SEC 002/003, CFG 001/002 and UX 003 before changing anything.
+
+* **Defect found in the audit and fixed.** The contact form rendered its
+  Turnstile widget with action `contact`, but `EnquiriesService.submit`
+  verified every enquiry against `enquiry`, and `TurnstileVerifier` rejects a
+  token whose action does not match. With real keys every genuine contact
+  message would have been refused `CAPTCHA_FAILED`. The integration suite could
+  not see it because its captcha double ignores the action. The service now
+  checks `contact` for site messages and `enquiry` for listings; the
+  acknowledgement error and receipt message no longer mention "the business" for
+  a site message. Proven by `enquiries.service.spec.ts`.
+* **Second defect.** Turnstile tokens are single use, but the implicit
+  `.cf-turnstile` widget was never reset, so a retry after any failed attempt
+  resent a spent token. New `components/turnstile-widget.tsx` renders the widget
+  explicitly (compact below 300 px), reports loading, verified, expired, error
+  and "script never loaded" states in a live region with retry/reload actions,
+  and exposes `reset()`; the contact form renews the token after every attempt
+  that reached the API. Server verification is unchanged and authoritative.
+* **Layout.** `InformationHero` was extracted from `information-page.tsx` (the
+  policy pages render exactly as before) and reused with `.ms-editorial-band`.
+  Two columns from `lg` (`minmax(0,1fr)` + 28/32 rem): contact details (email
+  and phone from general settings, address only when configured, Melbourne-only
+  coverage), four help topics, "When will we reply?", what to include, and
+  useful links (FAQs and the privacy policy only when published). The form card
+  spans both rows so its sticky position has room and ends with the section. It
+  is sticky only where the card fits under the pinned navigation
+  (`min-height` 58 rem at `lg`, 54 rem at `xl`) and becomes static once it holds
+  an alert, because validation messages make it taller than the viewport. Source
+  order details → form → guidance puts the form early on a phone.
+* **Form.** Labels "Name", "Email address", "What can we help with?",
+  "Message"; placeholders; Name/Email side by side only when the card is at
+  least 28 rem wide (container query). Topic labels are shortened for display
+  (`CONTACT_TOPIC_LABELS`); the stored subjects are unchanged. Client messages
+  now distinguish missing from invalid and match the API limits (name 2–80,
+  email ≤ 254, message 20–5000). A form-level alert plus focus on the first
+  invalid field; API field text is rewritten where it is developer-facing
+  (`contactFieldErrors`) and form-level copy never shows the API's message
+  (`contactFailureMessage`, incl. 429, 503, `NO_ENQUIRY_ROUTE`, timeout after
+  20 s, network, and `IDEMPOTENCY_KEY_REUSED` → "already received"). A ref
+  refuses a second submit before the disabled state renders. The success state
+  says "Message received" rather than "sent" (ENQ 003: a 202 is not a delivery
+  claim), shows the reference and clears the form.
+* **Verified**: focused tests only, as requested — web
+  `contact-form.test.tsx` + `submissions.test.ts` 34 passed; API
+  `enquiries.service.spec.ts` + `turnstile.verifier.spec.ts` 11 passed; web
+  `tsc --noEmit` and eslint on changed files, API `tsc` and oxlint clean; web
+  production `next build` passed. Runtime against the local stack at 1440×900
+  (card 732 px, sticky, fits), 1280×800 (static: would not fit), 1024×1000
+  (sticky), 768 (stacked, details → form → help → links) and 390 (no overflow,
+  full-width button, 316 px widget); one `h1`; validation state checked in the
+  browser. The Turnstile challenge itself was not completed in automation, so
+  an end-to-end submission with real keys remains to be done by a person.
+
+No SRS business-rule change was introduced.
+
+## 13 September 2026 — About becomes a product route on the Contact template
+
+Client instruction: remove About from Website → Pages, give it a template like
+Contact's, keep its current photographs, no map, gradient accents, icon-led
+points and less copy; make Contact match and clean up the code.
+
+* **SRS discrepancy (not resolved by editing the SRS).** ABT 001 makes the About
+  title, body, SEO fields and publication the administrator's, held in the
+  information-page record; ABT 005 links About only while published; CFG 002
+  lists About as a system page. After this change About is a code-owned route
+  like `/contact`: its copy is shipped product copy and an administrator can
+  override only its route SEO (`about` key in `SEO_ROUTES`). ABT 002–004 and 006
+  are still met — the copy describes the product as it works with no invented
+  history, endorsements or verification claims; figures come from
+  `/site/metrics` and are omitted when null or zero in a `<dl>`; photographs are
+  project files with printed credits; one `h1`, a semantic ordered list for the
+  listing process, `AboutPage` and breadcrumb JSON-LD, canonical URL and sitemap
+  entry. The SRS owner should amend ABT 001/005 and CFG 002 or reverse the
+  instruction.
+* **Data.** Nothing deleted. The `static_pages` row for `about` and its media
+  usages are kept; `isProductRoute()` (a reserved address that is not a system
+  page) now hides such a row from the admin list, admin get/update/publish, the
+  public page read, the footer list and the sitemap. Whether to drop the row is
+  a separate, reviewed decision.
+* **Shared parts, one template.** `components/product-page.tsx` holds what both
+  pages use: `ProductPageLayout` (the two-row grid whose sidebar column spans
+  both rows), `AsideCard` (sticky only where it fits, static once it holds an
+  alert), a gradient `IconTile`, `IconPoints` (optionally an ordered list with
+  step badges), `ContentSection` and `LinkList`. Contact's help section, reply
+  expectations and tips collapsed into two icon-point lists; About is hero →
+  skyline banner and "Who we are" → sticky mission card (laneway photo, live
+  counts) → what we offer → how a listing gets here → why, beside the market
+  photo → a gradient "Be part of" panel with three onward links.
+* **Removed.** `components/about-page.tsx`, `lib/headings.ts#pageSections`
+  (only About used it), the `about` template type and API enum (contracts
+  regenerated), `ABOUT_SEED` and the dev seeder `scripts/seed-about-page.ts` +
+  `about-page-content.ts`, and the About special case in `(pages)/[slug]`. The
+  header no longer fetches pages; About is always in the header and footer.
+* **Photographs.** The three current media-library renditions were copied from
+  local object storage into `apps/web/public/about/`: skyline (Jorge Láscar,
+  CC BY 2.0), Degraves Street (-wuppertaler, CC BY 4.0), Queen Victoria Market
+  (S3074865, public domain). Sources in `docs/content/about-photography.md`.
+* **Verified**: web `tsc` + eslint, API `tsc` + oxlint, admin `tsc` clean;
+  `pnpm contracts:generate`; focused unit tests — web 40 (site header/footer,
+  contact form, submissions, headings), API `static-pages.spec.ts` 12, admin
+  `PagesPage.test.tsx` 10 — passed; web `next build` passed. Runtime: `/about`,
+  `/contact`, `/privacy`, `/terms`, `/blog` 200; `/api/v1/pages/about` 404 with
+  the row retained; sitemap pages section lists `/about` and `/contact`; About
+  at 1440×900 sticky card 736 px, three photos loaded, four live counts; no
+  horizontal overflow on either page at 390 px. The API integration specs that
+  were updated (`static-pages`, `seo`) were not run.
+
+* **Follow-up (client request): more copy, fuller sidebar.** "Who we are" is
+  three paragraphs, every section has a one-line introduction, and a new "Our
+  editorial standards" section lists only rules the product enforces (REV
+  001–003, REP 001). The sidebar is now a stack — mission card, "Explore by
+  area" (up to twelve published areas, omitted if the list cannot be read) and
+  "Talk to our editors" (configured email and phone, and a link to the form) —
+  and only the last card is sticky. `AsideCard` gained `sticky="always"` for a
+  short card that fits any desktop viewport; the height-conditional rule stays
+  for tall cards such as the contact form.
+No SRS business rule was changed in the SRS; the About ownership rules above are
+superseded by client instruction and recorded here.

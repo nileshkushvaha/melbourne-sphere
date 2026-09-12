@@ -17,8 +17,8 @@ const FILTERS = ['q', 'status'] as const;
 /**
  * Website pages (SRS CFG 002, amended in SRS 1.6 and 1.7).
  *
- * Two kinds of row. The pages the product refers to by address — About and the
- * three policies — are always listed, whether or not anyone has written them,
+ * Two kinds of row. The pages the product refers to by address — the three
+ * policies — are always listed, whether or not anyone has written them,
  * and cannot be deleted or renamed. Everything below them is a page an
  * administrator created and may delete. Each opens on its own route, and the
  * list says plainly which are not publishable yet and why.
@@ -61,7 +61,7 @@ export function PagesPage() {
       <PageHeader
         crumbs={[{ label: 'Website' }, { label: 'Pages' }]}
         title="Pages"
-        description="About and the policies are always here; pages you add appear below. Only published pages are public."
+        description="The policies are always here; pages you add appear below. Only published pages are public."
         actions={
           canManage ? (
             <Link to="/website/pages/new">

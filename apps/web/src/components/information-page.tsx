@@ -25,18 +25,17 @@ interface Props {
 const melbourneDate = (value: string) => new Intl.DateTimeFormat('en-AU', { dateStyle: 'long', timeZone: 'Australia/Melbourne' }).format(new Date(value));
 
 /**
- * Shared shell for the information pages (SRS CFG 002): a dark title band that
- * continues the site's light/dark rhythm, then the reading column on the light
- * surface with an optional aside. One layout means About, Contact, Privacy,
- * Terms and the review guidelines all look like the same publication.
+ * The dark title band of an information page, with its breadcrumb trail and
+ * the matching BreadcrumbList. Exported for the product routes that share the
+ * look but not the reading-column body (Contact builds its own two columns).
+ * `className` replaces the band background, e.g. the editorial glow.
  */
-export function InformationPage({ title, eyebrow, intro, updatedAt, children, aside, layout = 'rightSidebar', bodyClassName = '', footer }: Props) {
-  const column = layout === 'fullWidth' || !aside ? null : layout;
+export function InformationHero({ title, eyebrow, intro, updatedAt, className = 'bg-band' }: Pick<Props, 'title' | 'eyebrow' | 'intro' | 'updatedAt'> & { className?: string }) {
   const crumbs = [{ label: 'Home', href: '/' }, { label: title }];
   return (
-    <article>
+    <>
       <JsonLdScript data={breadcrumbJsonLd(crumbs)} />
-      <div className="ms-on-dark bg-band text-band-text">
+      <div className={`ms-on-dark text-band-text ${className}`}>
         <div className="ms-container py-10 sm:py-14">
           <Breadcrumbs items={crumbs} tone="dark" />
           {eyebrow && <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-sky-400">{eyebrow}</p>}
@@ -52,6 +51,21 @@ export function InformationPage({ title, eyebrow, intro, updatedAt, children, as
           )}
         </div>
       </div>
+    </>
+  );
+}
+
+/**
+ * Shared shell for the information pages (SRS CFG 002): a dark title band that
+ * continues the site's light/dark rhythm, then the reading column on the light
+ * surface with an optional aside. One layout means About, Contact, Privacy,
+ * Terms and the review guidelines all look like the same publication.
+ */
+export function InformationPage({ title, eyebrow, intro, updatedAt, children, aside, layout = 'rightSidebar', bodyClassName = '', footer }: Props) {
+  const column = layout === 'fullWidth' || !aside ? null : layout;
+  return (
+    <article>
+      <InformationHero title={title} eyebrow={eyebrow} intro={intro} updatedAt={updatedAt} />
       <div
         className={`ms-container grid gap-12 py-12 sm:py-16 lg:gap-14 ${
           column === 'rightSidebar' ? 'lg:grid-cols-[minmax(0,1fr)_28rem]' : column === 'leftSidebar' ? 'lg:grid-cols-[28rem_minmax(0,1fr)]' : ''
