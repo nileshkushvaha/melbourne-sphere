@@ -691,7 +691,18 @@ TRADES.push(
     // Deliberately several, and not physiotherapy: the physio trade takes those
     // files first, and a photograph is never used twice, which left this trade
     // with nothing at all on the first run.
-    imageQueries: ['chiropractor patient treatment', 'massage table therapist back', 'osteopath manual therapy', 'spine anatomy model', 'back treatment clinic'],
+    imageQueries: [
+      'chiropractor patient treatment',
+      'massage table therapist back',
+      'osteopath manual therapy',
+      'spine anatomy model',
+      'back treatment clinic',
+      'manual therapy shoulder',
+      'treatment room couch clinic',
+      'vertebral column model',
+      'therapist treating patient neck',
+      'rehabilitation exercise band',
+    ],
     services: ['Back and neck pain', 'Headaches', 'Sports injuries', 'Posture assessment', 'Dry needling', 'Rehabilitation'],
     nouns: ['Chiropractic', 'Chiropractic Clinic', 'Spine & Health', 'Chiropractors'],
     angles: [
