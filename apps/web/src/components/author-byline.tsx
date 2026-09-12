@@ -11,7 +11,14 @@ interface Props {
   tone?: 'light' | 'dark';
 }
 
-/** Byline with the author's photo, role and dates (SRS BLOG 004). */
+/**
+ * Byline with the author's photo, role and dates (SRS BLOG 004).
+ *
+ * "Updated" appears only when the revision is at least a day after publication.
+ * A published article's `updatedAt` moves on every save, so showing it
+ * unconditionally labelled almost every article as updated on the day it came
+ * out, which told a reader nothing.
+ */
 export function AuthorByline({ author, publishedAt, updatedAt, readingMinutes, tone = 'light' }: Props) {
   const muted = tone === 'dark' ? 'text-band-muted' : 'text-text-muted';
   const strong = tone === 'dark' ? 'text-white' : 'text-text';
@@ -20,20 +27,37 @@ export function AuthorByline({ author, publishedAt, updatedAt, readingMinutes, t
   return (
     <div className="flex items-center gap-3">
       {author.image ? (
-        <Image src={author.image.url} alt="" width={44} height={44} className="size-11 rounded-full object-cover" />
+        <Image src={author.image.url} alt="" width={44} height={44} className="size-11 shrink-0 rounded-full object-cover" />
       ) : (
-        <span aria-hidden="true" className={`grid size-11 place-items-center rounded-full text-sm font-semibold ${fallback}`}>
+        <span aria-hidden="true" className={`grid size-11 shrink-0 place-items-center rounded-full text-sm font-semibold ${fallback}`}>
           {author.displayName.slice(0, 1)}
         </span>
       )}
-      <p className={`text-sm ${muted}`}>
-        <span className={`font-semibold ${strong}`}>{author.displayName}</span>
-        {author.role && <span> · {author.role}</span>}
-        <br />
-        <time dateTime={publishedAt}>{formatArticleDate(publishedAt)}</time>
-        {showUpdated && <span> · updated {formatArticleDate(updatedAt!)}</span>}
-        {readingMinutes ? <span> · {readingMinutes} min read</span> : null}
-      </p>
+      <div className="min-w-0 text-sm">
+        <p className={muted}>
+          <span className={`font-semibold ${strong}`}>{author.displayName}</span>
+          {author.role && <span> · {author.role}</span>}
+        </p>
+        {/* One dot-separated line, so the dates and the reading estimate read as
+            one piece of provenance rather than three stacked labels. */}
+        <p className={`mt-0.5 flex flex-wrap items-center gap-x-1.5 ${muted}`}>
+          <time dateTime={publishedAt}>{formatArticleDate(publishedAt)}</time>
+          {showUpdated && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>
+                Updated <time dateTime={updatedAt}>{formatArticleDate(updatedAt!)}</time>
+              </span>
+            </>
+          )}
+          {readingMinutes ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>{readingMinutes} min read</span>
+            </>
+          ) : null}
+        </p>
+      </div>
     </div>
   );
 }

@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { ArticleCollection, BlogEmptyState } from '@/components/article-collection';
 import { CollectionHeader } from '@/components/collection-header';
-import { gridColumns } from '@/components/page-shell';
-import { PostCard } from '@/components/post-card';
 import { Pagination } from '@/components/pagination';
 import { fetchBlogTerms, fetchPosts } from '@/lib/api';
 
@@ -13,7 +12,7 @@ async function findTag(slug: string) {
 export async function generateMetadata({ params }: PageProps<'/blog/tag/[slug]'>): Promise<Metadata> {
   const { slug } = await params;
   const tag = await findTag(slug);
-  if (!tag) return { title: 'Tag not found' };
+  if (!tag) return { title: 'Tag not found', robots: { index: false } };
   return {
     title: `${tag.name}`,
     description: `Articles tagged ${tag.name.toLowerCase()} from the Melbourne Sphere blog.`,
@@ -42,19 +41,20 @@ export default async function BlogTagPage({ params, searchParams }: PageProps<'/
       />
       <div className="ms-container py-12 sm:py-16">
         {posts.data.length === 0 ? (
-          <p className="rounded-card-lg border border-dashed border-border-strong p-10 text-center text-text-muted">No articles with this tag yet.</p>
+          page > 1 ? (
+            <BlogEmptyState message="There are no more articles with this tag." action={{ href: `/blog/tag/${tag.slug}`, label: `Back to ${tag.name}` }} />
+          ) : (
+            <BlogEmptyState message="No stories carry this tag yet." action={{ href: '/blog', label: 'Browse all stories' }} />
+          )
         ) : (
-          <ul className={`grid gap-6 ${gridColumns(posts.data.length)}`}>
-            {posts.data.map((post) => (
-              <li key={post.id}>
-                <PostCard post={post} />
-              </li>
-            ))}
-          </ul>
+          // A tag crosses categories, so each card still names the one it belongs to.
+          <ArticleCollection posts={posts.data} label={`Articles tagged ${tag.name}`} leadIsAboveFold />
         )}
-        <div className="mt-10">
-          <Pagination page={posts.meta.page} pageCount={posts.meta.pageCount} hrefFor={(p) => (p === 1 ? `/blog/tag/${tag.slug}` : `/blog/tag/${tag.slug}?page=${p}`)} />
-        </div>
+        {posts.meta.pageCount > 1 && (
+          <div className="mt-12">
+            <Pagination page={posts.meta.page} pageCount={posts.meta.pageCount} hrefFor={(p) => (p === 1 ? `/blog/tag/${tag.slug}` : `/blog/tag/${tag.slug}?page=${p}`)} />
+          </div>
+        )}
       </div>
     </>
   );

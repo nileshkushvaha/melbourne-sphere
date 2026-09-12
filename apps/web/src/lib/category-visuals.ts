@@ -57,6 +57,21 @@ export function categoryGradient(slug: string): string {
   return GRADIENTS[categoryVisual(slug)];
 }
 
+const GRADIENT_KEYS = Object.keys(GRADIENTS) as CategoryVisualKey[];
+
+/**
+ * Gradient for an *editorial* category ("city-guides", "interviews"), whose
+ * slugs describe subjects rather than trades and so would all fall to the one
+ * `general` panel above. A stable hash spreads them over the same brand
+ * gradients instead, so a blog grid varies while a given category always looks
+ * the same wherever it appears.
+ */
+export function editorialGradient(slug: string): string {
+  let hash = 0;
+  for (const character of slug.toLowerCase()) hash = (hash * 31 + character.charCodeAt(0)) % 100_000;
+  return GRADIENTS[GRADIENT_KEYS[hash % GRADIENT_KEYS.length]!];
+}
+
 /** Up to two initials for the fallback panel; never more, so it stays a mark rather than text. */
 export function initials(name: string): string {
   const words = name.trim().split(/\s+/).filter((word) => /[a-z0-9]/i.test(word));

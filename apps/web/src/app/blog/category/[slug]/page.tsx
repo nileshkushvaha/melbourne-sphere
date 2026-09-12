@@ -1,19 +1,19 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { ArticleCollection, BlogEmptyState } from '@/components/article-collection';
+import { BlogCategoryNav } from '@/components/blog-category-nav';
 import { CollectionHeader } from '@/components/collection-header';
-import { gridColumns } from '@/components/page-shell';
-import { PostCard } from '@/components/post-card';
 import { Pagination } from '@/components/pagination';
-import { fetchBlogTerms, fetchPosts } from '@/lib/api';
+import { fetchBlogTerms, fetchPosts, type BlogTerm } from '@/lib/api';
 
-async function findCategory(slug: string) {
-  return (await fetchBlogTerms('blog-categories')).find((c) => c.slug === slug) ?? null;
+async function categories(): Promise<BlogTerm[]> {
+  return fetchBlogTerms('blog-categories');
 }
 
 export async function generateMetadata({ params }: PageProps<'/blog/category/[slug]'>): Promise<Metadata> {
   const { slug } = await params;
-  const category = await findCategory(slug);
-  if (!category) return { title: 'Category not found' };
+  const category = (await categories()).find((c) => c.slug === slug) ?? null;
+  if (!category) return { title: 'Category not found', robots: { index: false } };
   return {
     title: `${category.name} articles`,
     description: `Articles about ${category.name.toLowerCase()} from the Melbourne Sphere blog.`,
@@ -25,36 +25,46 @@ export async function generateMetadata({ params }: PageProps<'/blog/category/[sl
 
 export default async function BlogCategoryPage({ params, searchParams }: PageProps<'/blog/category/[slug]'>) {
   const { slug } = await params;
-  const category = await findCategory(slug);
+  const terms = await categories();
+  const category = terms.find((c) => c.slug === slug) ?? null;
+  // An address that is not a published category is a 404, not a category with
+  // nothing in it (SRS SEO 001: correct status).
   if (!category) notFound();
+
   const query = await searchParams;
   const pageParam = Number(Array.isArray(query.page) ? query.page[0] : query.page);
   const page = Number.isInteger(pageParam) && pageParam >= 1 ? pageParam : 1;
   const posts = await fetchPosts({ page, category: category.slug });
+  const stocked = terms.filter((term) => term.postCount > 0 || term.slug === category.slug);
+
   return (
     <>
       <CollectionHeader
         eyebrow="Blog category"
         title={category.name}
         crumbs={[{ label: 'Home', href: '/' }, { label: 'Blog', href: '/blog' }, { label: category.name }]}
+        // The editor's own description for this category; nothing is invented
+        // when they have not written one (SRS CFG 003, BLOG 005).
         bodyHtml={category.landingContent}
         meta={posts.meta.total > 0 ? `${posts.meta.total} article${posts.meta.total === 1 ? '' : 's'}` : undefined}
+        footer={<BlogCategoryNav categories={stocked} active={category.slug} />}
       />
       <div className="ms-container py-12 sm:py-16">
         {posts.data.length === 0 ? (
-          <p className="rounded-card-lg border border-dashed border-border-strong p-10 text-center text-text-muted">No articles in this category yet.</p>
+          page > 1 ? (
+            <BlogEmptyState message="There are no more articles in this category." action={{ href: `/blog/category/${category.slug}`, label: `Back to ${category.name}` }} />
+          ) : (
+            <BlogEmptyState message="No stories have been published in this category yet." action={{ href: '/blog', label: 'Browse all stories' }} />
+          )
         ) : (
-          <ul className={`grid gap-6 ${gridColumns(posts.data.length)}`}>
-            {posts.data.map((post) => (
-              <li key={post.id}>
-                <PostCard post={post} />
-              </li>
-            ))}
-          </ul>
+          // The category is the page heading, so the cards do not repeat it.
+          <ArticleCollection posts={posts.data} label={`Articles in ${category.name}`} showCategory={false} leadIsAboveFold />
         )}
-        <div className="mt-10">
-          <Pagination page={posts.meta.page} pageCount={posts.meta.pageCount} hrefFor={(p) => (p === 1 ? `/blog/category/${category.slug}` : `/blog/category/${category.slug}?page=${p}`)} />
-        </div>
+        {posts.meta.pageCount > 1 && (
+          <div className="mt-12">
+            <Pagination page={posts.meta.page} pageCount={posts.meta.pageCount} hrefFor={(p) => (p === 1 ? `/blog/category/${category.slug}` : `/blog/category/${category.slug}?page=${p}`)} />
+          </div>
+        )}
       </div>
     </>
   );

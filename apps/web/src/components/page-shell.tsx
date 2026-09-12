@@ -80,3 +80,18 @@ export function gridColumns(count: number): string {
   if (count === 3) return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
   return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
 }
+
+/**
+ * The four-column card grid used by the blog index, the blog category and tag
+ * archives and the business search results.
+ *
+ * Unlike `gridColumns` this does not narrow to fit the number of cards: the row
+ * is the same shape whether the page has one card or forty, so a collection
+ * never changes layout as content is published. Holding the column count also
+ * caps the card width, which is what keeps a missing cover from becoming a tall
+ * empty panel — a card that spanned the 1520px content width gave a 16:9 frame
+ * around 850px tall.
+ *
+ * Written out in full so Tailwind can see every class.
+ */
+export const cardGridColumns = 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';

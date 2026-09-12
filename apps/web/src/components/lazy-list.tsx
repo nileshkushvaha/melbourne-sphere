@@ -6,7 +6,7 @@ import type { BusinessCard as BusinessCardData, PostCard as PostCardData } from 
 import { loadBusinessPage, loadPostPage } from '@/lib/lazy-actions';
 import { BusinessCard } from './business-card';
 import { PostCard } from './post-card';
-import { gridColumns } from './page-shell';
+import { cardGridColumns } from './page-shell';
 
 /**
  * How many further pages arrive on their own as the visitor scrolls before the
@@ -104,7 +104,7 @@ function LazyGrid<T>({ initial, initialPage, pageCount, load, render, keyOf, nou
 
   return (
     <div className="flex flex-col gap-8">
-      <ul className={`grid gap-6 ${gridColumns(items.length)}`}>
+      <ul className={`grid gap-6 ${cardGridColumns}`}>
         {items.map((item) => (
           <li key={keyOf(item)}>{render(item)}</li>
         ))}
@@ -167,6 +167,7 @@ export function LazyPostGrid({
   pageCount,
   category,
   tag,
+  showCategory = true,
   fallback,
 }: {
   initial: PostCardData[];
@@ -174,6 +175,8 @@ export function LazyPostGrid({
   pageCount: number;
   category?: string;
   tag?: string;
+  /** Off on an archive, where the term is already the page heading. */
+  showCategory?: boolean;
   fallback?: ReactNode;
 }) {
   return (
@@ -182,7 +185,7 @@ export function LazyPostGrid({
       initialPage={page}
       pageCount={pageCount}
       load={(next) => loadPostPage({ page: next, category, tag })}
-      render={(post) => <PostCard post={post} />}
+      render={(post) => <PostCard post={post} showCategory={showCategory} />}
       keyOf={(post) => post.id}
       noun="articles"
       fallback={fallback}

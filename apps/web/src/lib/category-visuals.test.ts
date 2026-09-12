@@ -1,4 +1,4 @@
-import { categoryGradient, categoryVisual, initials } from './category-visuals';
+import { categoryGradient, categoryVisual, editorialGradient, initials } from './category-visuals';
 
 /**
  * The listing grid falls back to these visuals whenever a business has no
@@ -42,5 +42,24 @@ describe('initials', () => {
     ['—', '?'],
   ])('reduces %s to %s', (name, expected) => {
     expect(initials(name)).toBe(expected);
+  });
+});
+
+describe('editorialGradient', () => {
+  it('is stable for a slug, so a category looks the same wherever it appears', () => {
+    expect(editorialGradient('city-guides')).toBe(editorialGradient('city-guides'));
+  });
+
+  it('separates editorial slugs that the directory keywords would all fold into one panel', () => {
+    // None of these match the trade keywords, so `categoryVisual` calls them all
+    // `general`; the editorial hash has to spread them instead.
+    const subjects = ['city-guides', 'interviews', 'neighbourhoods', 'opinion', 'people'];
+    expect(subjects.map(categoryVisual)).toEqual(subjects.map(() => 'general'));
+    expect(new Set(subjects.map(editorialGradient)).size).toBeGreaterThan(1);
+  });
+
+  it('only ever returns a gradient from the brand set', () => {
+    const brand = new Set(['food', 'drink', 'shopping', 'health', 'home', 'professional', 'beauty', 'auto', 'education', 'general'].map(categoryGradient));
+    for (const slug of ['city-guides', 'interviews', 'x', '']) expect(brand.has(editorialGradient(slug))).toBe(true);
   });
 });

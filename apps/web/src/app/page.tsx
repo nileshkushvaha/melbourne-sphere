@@ -9,9 +9,8 @@ import { BusinessCard } from '@/components/business-card';
 import { TestimonialCarousel } from '@/components/testimonial-carousel';
 import { PartnerStrip } from '@/components/partner-strip';
 import { CategoryIcon } from '@/components/category-icon';
-import { PostCard } from '@/components/post-card';
-import { FeaturedPostCard } from '@/components/featured-post-card';
-import { Band, SectionHeading, gridColumns } from '@/components/page-shell';
+import { FeaturedPostCard, PostCard } from '@/components/post-card';
+import { Band, SectionHeading, cardGridColumns, gridColumns } from '@/components/page-shell';
 import { fetchAreas, fetchCategories, fetchHome, fetchPosts, fetchSiteSettings, flattenCategories, searchBusinesses, type BusinessCard as BusinessCardData, type PublicArea, type PublicCategory, type PostCard as PostCardData, type SearchMeta, fetchTestimonials, fetchPartners } from '@/lib/api';
 import { HeroHeadline } from '@/components/hero-headline';
 import { HeroSearch } from '@/components/hero-search';
@@ -322,9 +321,10 @@ export default async function HomePage() {
           <SectionEmpty>The first articles are being written. They will appear here as soon as they are published.</SectionEmpty>
         ) : (
           <div className="mt-10 flex flex-col gap-6">
-            <FeaturedPostCard post={leadPost} headingLevel={3} />
+            {/* Far below the hero, so its picture does not compete with the page's real LCP image. */}
+            <FeaturedPostCard post={leadPost} headingLevel={3} priority={false} />
             {supportingPosts.length > 0 && (
-              <ul className={`grid gap-6 ${gridColumns(supportingPosts.length)}`}>
+              <ul className={`grid gap-6 ${cardGridColumns}`}>
                 {supportingPosts.map((post) => (
                   <li key={post.id}>
                     <PostCard post={post} />

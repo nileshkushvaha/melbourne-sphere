@@ -1,22 +1,72 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import { LinkIcon } from 'lucide-react';
 import { shareTargets } from '@/lib/share';
 import { BrandIcon } from './brand-icon';
 
-/** Plain links only (SRS BLOG 004): no third-party widgets, no tracking scripts. */
+/**
+ * Share controls (SRS BLOG 004): ordinary share URLs and a copy-link button —
+ * no third-party social widgets and no tracking scripts, so nothing here loads
+ * code from another origin or reports that the article was read.
+ *
+ * The destinations come from `shareTargets`, which is the one place that decides
+ * which networks the product shares to; this component adds none of its own.
+ */
 export function ShareLinks({ url, title, tone = 'light' }: { url: string; title: string; tone?: 'light' | 'dark' }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+
   const chip =
     tone === 'dark'
       ? 'border-band-border bg-white/[0.06] text-white hover:border-sky-400 hover:bg-white/12'
-      : 'border-border hover:bg-sky-50';
+      : 'border-border bg-surface-raised text-text-muted hover:border-border-strong hover:bg-sky-50 hover:text-link';
+  const muted = tone === 'dark' ? 'text-band-muted' : 'text-text-muted';
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // Clipboard access can be refused (an insecure origin, a denied
+      // permission). The address is in the address bar either way, so the
+      // control simply does not claim to have copied it.
+      setCopied(false);
+    }
+  };
+
   return (
-    <nav aria-label="Share this article" className="flex flex-wrap items-center gap-2 text-sm">
-      <span className={tone === 'dark' ? 'text-band-muted' : 'text-text-muted'}>Share:</span>
-      {shareTargets(url, title).map((target) => (
-        <a key={target.label} href={target.href} target="_blank" rel="noopener noreferrer nofollow" title={target.label} className={`inline-flex size-11 items-center justify-center rounded-full border transition-colors ${chip}`}>
-          <BrandIcon kind={target.kind} size={16} />
-          {/* The mark is decorative; the full instruction stays the accessible name. */}
-          <span className="sr-only">{target.label}</span>
-        </a>
-      ))}
-    </nav>
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span className={muted}>Share:</span>
+      <nav aria-label="Share this article">
+        <ul className="flex flex-wrap items-center gap-2">
+          {shareTargets(url, title).map((target) => (
+            <li key={target.label}>
+              <a href={target.href} target="_blank" rel="noopener noreferrer nofollow" title={target.label} className={`inline-flex size-11 items-center justify-center rounded-full border transition-colors ${chip}`}>
+                <BrandIcon kind={target.kind} size={16} />
+                {/* The mark is decorative; the full instruction stays the accessible name. */}
+                <span className="sr-only">{target.label}</span>
+              </a>
+            </li>
+          ))}
+          <li>
+            <button type="button" onClick={() => void copy()} title="Copy link" className={`inline-flex size-11 items-center justify-center rounded-full border transition-colors ${chip}`}>
+              <LinkIcon aria-hidden="true" className="size-4" />
+              <span className="sr-only">Copy link to this article</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
+      {/* Announced as well as shown, so the confirmation is not visual only. */}
+      <p role="status" aria-live="polite" className={`text-xs ${muted}`}>
+        {copied ? 'Link copied' : ''}
+      </p>
+    </div>
   );
 }

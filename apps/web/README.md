@@ -23,7 +23,11 @@ Public tokens live in `packages/ui/src/styles.css`: colours, content widths (`--
 
 The site is **light-first with designed dark bands** — warm off-white page, white cards, a cool neutral band, and deep navy for the header, hero, locality feature, call to action and footer. There is deliberately **no `prefers-color-scheme` dark variant**: the light/dark rhythm is part of the composition, and an OS-driven dark mode flattened every band into the same navy. `src/lib/palette.test.ts` enforces both that decision and WCAG AA contrast on every surface.
 
-`main` carries no width. Sections are full-bleed and bound their own content: `src/components/page-shell.tsx` provides `Band` (`page` / `plain` / `soft` / `dark` / `deep` tones), `SectionHeading`, `gridColumns` (column count follows how many cards exist) and `PageShell` for inner pages. Dark surfaces carry `.ms-on-dark`, which switches the focus ring to a light colour.
+`main` carries no width. Sections are full-bleed and bound their own content: `src/components/page-shell.tsx` provides `Band` (`page` / `plain` / `soft` / `dark` / `deep` tones), `SectionHeading`, `gridColumns` (column count follows how many cards exist), `cardGridColumns` (the fixed four-column row used by the blog index, the blog archives and the business search results — it does not narrow to the card count, so a collection keeps its shape as it fills up) and `PageShell` for inner pages. Dark surfaces carry `.ms-on-dark`, which switches the focus ring to a light colour.
+
+Three content widths, all in `packages/ui/src/styles.css`: `.ms-container` (1520 px) for a wide composition, `.ms-container-tight` (1120 px) for a section and for article media, and `.ms-container-read` (a 46 rem content box) for a long-form reading column. An article sets its words in the reading column and its hero picture in the tight one, so the picture is wider than the text it belongs to; `.ms-prose-article` carries the long-form type scale.
+
+Editorial page headings — the blog index, every collection header and an article's header — sit on `.ms-editorial-band` (`src/app/globals.css`): one sky light source in the upper right over a band that deepens downward, a dot texture masked to fade before the content ends, and a lit hairline at the bottom edge. Every layer is decoration behind `-z-10`, so nothing there can cover text. An editor's landing content has its opening heading dropped when it only repeats the page title (`src/lib/landing-content.ts`) — presentation only; the stored content is never edited.
 
 Typography pairs Manrope for interface and reading text with Sora for display headings, both self-hosted through `next/font`. Premium glass surfaces use the shared `.ms-glass-light` and `.ms-glass-dark` primitives only for overlays and information panels; both retain opaque, contrast-safe fallbacks.
 
@@ -31,11 +35,14 @@ Hero photography: `src/lib/hero-assets.ts` holds the licensed default slides in 
 
 Listings without a photograph get a branded panel derived from their category (`src/lib/category-visuals.ts`, `src/components/category-icon.tsx`) rather than a shared placeholder — the fallback never implies a photograph exists.
 
+Article pictures all go through `src/components/article-media.tsx`: it reserves the frame before the picture loads, asks for the `card` (800 px) or `hero` (1600 px) rendition according to the layout it sits in, loads lazily unless the caller says this is the page's LCP image, and shows one restrained brand panel (`editorialGradient`) for **both** ways a cover can be absent — an article that has none, and a rendition that will not load. A cover publishes no renditions until the worker has processed it, so "no renditions" is the ordinary case for a fresh upload as well. A load failure also writes the failing URL to the browser console, so a broken media origin stays diagnosable while a reader never sees a broken-image glyph or an error message.
+
 ## Structure
 
 ```
 src/app/            layout (shell, skip link, landmarks), pages, not-found, error boundaries
 src/components/     site header/footer, business card, filters, chips, pagination, results, hours table, breadcrumbs
+                    blog: article-media, post-card (standard + featured), article-collection, blog-category-nav, author-byline/card, share-links, comment-form/list
 src/lib/api.ts      server-only API client: envelopes, ApiRequestError, per-resource revalidate + cache tags
 src/lib/site.ts     SITE_ORIGIN and contactChannel() (a development address is treated as unset)
 src/lib/hours.ts    wall-clock hours formatting for Australia/Melbourne

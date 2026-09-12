@@ -81,6 +81,10 @@
   /* Layout rhythm: wide section composition, readable text measure. */
   --ms-content: 1520px;
   --ms-content-tight: 1120px;
+  /* The reading column of a long editorial body. An article's words are set in
+     this measure while its media may use the tighter *section* width above, so
+     the picture is wider than the text it belongs to. */
+  --ms-content-read: 46rem;
   --ms-content-prose: 68ch;
   --ms-gutter: clamp(1rem, 4vw, 3.5rem);
   --ms-section-space: clamp(3.25rem, 6vw, 6rem);
@@ -163,6 +167,17 @@
 .ms-container-tight {
   width: 100%;
   max-width: var(--ms-content-tight);
+  margin-inline: auto;
+  padding-inline: var(--ms-gutter);
+}
+
+/* The reading column: narrower than a section, so a paragraph never runs the
+   width of a desktop screen (SRS NFR 006 readability). */
+.ms-container-read {
+  width: 100%;
+  /* The *content box* is the reading measure, so the gutter is added on top of
+     it rather than eaten out of it. */
+  max-width: calc(var(--ms-content-read) + 2 * var(--ms-gutter));
   margin-inline: auto;
   padding-inline: var(--ms-gutter);
 }

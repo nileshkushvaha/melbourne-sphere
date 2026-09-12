@@ -67,6 +67,57 @@ body {
   font-size: .72rem; font-weight: 800; letter-spacing: .08em;
 }
 
+/*
+ * The band behind an editorial page heading — the blog index, a category or tag
+ * archive, a business landing page and an article's header.
+ *
+ * Flat navy left these bands looking unfinished, because a heading only fills
+ * the left quarter of a 1520px composition and the rest was an empty rectangle.
+ * Three layers give that space something to be: a sky glow in the corner the
+ * heading does not reach, a fainter one under the opposite edge, and a fine dot
+ * texture that fades out before the content does. All of it is decoration
+ * behind `-z-10`, so nothing here can sit over text.
+ *
+ * Contrast is unaffected where it matters: the strongest layer is 18% sky in
+ * the top-right corner, which still leaves white at about 10:1 and band-muted
+ * at about 6:1 (`lib/palette.test.ts` guards the base tokens).
+ */
+.ms-editorial-band {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background-color: var(--ms-band);
+  /* One light source, upper right, over a band that deepens downward — so the
+     heading sits on the darkest part and the empty half of the composition is
+     where the light is. A diagonal base gradient fought the glow and left the
+     corner opposite the heading looking merely unfinished. */
+  background-image:
+    radial-gradient(120% 95% at 85% -15%, color-mix(in srgb, var(--ms-sky-500) 26%, transparent), transparent 58%),
+    radial-gradient(60% 55% at 4% 2%, color-mix(in srgb, var(--ms-sky-400) 8%, transparent), transparent 62%),
+    linear-gradient(180deg, #0e2a4d 0%, #071a30 100%);
+}
+
+.ms-editorial-band::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 28px 28px;
+  -webkit-mask-image: linear-gradient(to bottom, #000, transparent 65%);
+  mask-image: linear-gradient(to bottom, #000, transparent 65%);
+}
+
+/* A lit hairline where the band meets the page below it. */
+.ms-editorial-band::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ms-sky-400) 40%, transparent), transparent);
+}
+
 /* Card lift used by listing, category and article cards. One definition keeps
    the hover/focus treatment identical everywhere without a utility soup. */
 .ms-card-lift {
@@ -281,6 +332,92 @@ body {
    page between them. The column bounds the line length instead. */
 .ms-prose-fill {
   --ms-prose-measure: 100%;
+}
+
+/*
+ * A long-form article body (`.ms-container-read` bounds the column, so the
+ * per-element 68ch cap is switched off — with it on, paragraphs stopped at one
+ * measure while the headings, pictures and tables beside them ran to the full
+ * column, and the left edge of the text no longer lined up with anything).
+ *
+ * The scale is one step up from the shared reading style: 17px on a phone to
+ * 18px on a desktop, 1.75 line height, and headings sized so a section break is
+ * unmistakable at a glance while the article title above still leads.
+ */
+.ms-prose-article {
+  --ms-prose-measure: 100%;
+  font-size: clamp(1.0625rem, 0.98rem + 0.3vw, 1.125rem);
+  line-height: 1.78;
+}
+
+.ms-prose-article > .ms-prose-html > * + *,
+.ms-prose-article > * + * {
+  margin-top: 1.35em;
+}
+
+.ms-prose-article :is(h2, h3) {
+  font-family: var(--font-display), var(--font-body), sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.ms-prose-article h2 {
+  margin-top: 2.5em;
+  font-size: clamp(1.6rem, 1.25rem + 1.1vw, 2.05rem);
+  line-height: 1.2;
+}
+
+.ms-prose-article h3 {
+  margin-top: 2em;
+  font-size: clamp(1.3rem, 1.1rem + 0.6vw, 1.5rem);
+  line-height: 1.3;
+}
+
+/* The first heading of a body should not push a two-line gap under the hero. */
+.ms-prose-article > .ms-prose-html > :is(h2, h3):first-child {
+  margin-top: 0;
+}
+
+/* An article link has to be recognisable as a link without relying on colour
+   alone (WCAG 1.4.1): it is underlined at rest, and the underline thickens and
+   the colour deepens on hover and focus. */
+.ms-prose-article a {
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--ms-link) 45%, transparent);
+  transition: text-decoration-color var(--ms-motion-fast) ease, color var(--ms-motion-fast) ease;
+}
+
+.ms-prose-article a:hover,
+.ms-prose-article a:focus-visible {
+  color: var(--ms-sky-700);
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 2px;
+}
+
+/* A blockquote in a long article is a pull quote, not an aside. */
+.ms-prose-article blockquote {
+  margin-block: 2em;
+  border-inline-start-width: 3px;
+  padding: 0.1em 0 0.1em 1.25em;
+  font-size: 1.15em;
+  font-style: normal;
+  line-height: 1.55;
+  color: var(--ms-text);
+}
+
+/* Media inside a body: full column width, its own space, and a caption the
+   editor wrote rather than raw metadata. */
+.ms-prose-article :is(img, figure, table, pre) {
+  margin-block: 2em;
+}
+
+.ms-prose-article figure img {
+  width: 100%;
+}
+
+/* Long addresses pasted into a body must not push the column sideways. */
+.ms-prose-article :is(p, li, td, th) {
+  overflow-wrap: break-word;
 }
 
 /* The policy pages. They are read the way a document is — the opening
