@@ -1,11 +1,10 @@
-import { App, Button, Input, Select, Space, Table, Tooltip, Typography } from 'antd';
+import { App, Button, Select, Space, Table } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router';
 import { testimonialsApi, type Testimonial } from '@/api/website';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
 import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard } from '@/components/ui';
-import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -14,11 +13,17 @@ import { useDocumentTitle } from '@/shared/useDocumentTitle';
 const FILTERS = ['status'] as const;
 
 /**
- * Testimonials (SRS 1.2 TSTM 005). Approval is the point of this screen:
- * publication is refused until an administrator records who confirmed the quote
- * may be used, and editing the words clears that approval, because consent was
- * given for particular words.
+ * Testimonials (SRS 1.2 TSTM 005).
+ *
+ * A testimonial is entered by an administrator who holds the permission to
+ * enter one, and whether it appears on the site is decided by its status alone.
+ * The screen says "active" and "inactive" rather than the stored "draft" and
+ * "published", because for a quote on the home page that is what the two states
+ * mean; the four sibling content types keep the publishing words.
  */
+
+/** How the stored status reads on this screen. */
+const STATUS_LABELS: Record<string, string> = { draft: 'Inactive', published: 'Active' };
 export function TestimonialsPage() {
   useDocumentTitle('Testimonials');
   const { can } = useCapabilities();
@@ -31,38 +36,16 @@ export function TestimonialsPage() {
   const [state, reload] = useAsync(() => testimonialsApi.list({ page, pageSize: 20, status: status || undefined }), [page, status]);
 
 
-  const approve = (record: Testimonial) => {
-    let note = '';
-    modal.confirm({
-      title: 'Record the approval',
-      content: (
-        <div>
-          <p>Confirm that {record.displayName} agreed to this quote being published. Your name and the time are recorded.</p>
-          <Input placeholder="How consent was given, e.g. Email 3 Sep 2026" maxLength={300} onChange={(event) => (note = event.target.value)} aria-label="How consent was given" />
-        </div>
-      ),
-      okText: 'Record approval',
-      onOk: async () => {
-        try {
-          await testimonialsApi.approve(record.id, record.version, note.trim() || null);
-          message.success('Approval recorded');
-          reload();
-        } catch (error) {
-          message.error(errorMessage(error));
-        }
-      },
-    });
-  };
 
   const setPublished = (record: Testimonial, published: boolean) => {
     modal.confirm({
-      title: published ? 'Publish this testimonial?' : 'Unpublish this testimonial?',
+      title: published ? 'Show this testimonial?' : 'Hide this testimonial?',
       content: published ? 'It appears on the public home page immediately.' : 'It disappears from the public home page immediately. Nothing is deleted.',
-      okText: published ? 'Publish' : 'Unpublish',
+      okText: published ? 'Make it active' : 'Make it inactive',
       onOk: async () => {
         try {
           await testimonialsApi.setPublished(record.id, published, record.version);
-          message.success(published ? 'Published' : 'Unpublished');
+          message.success(published ? 'Testimonial is active.' : 'Testimonial is inactive.');
           reload();
         } catch (error) {
           message.error(errorMessage(error));
@@ -74,8 +57,8 @@ export function TestimonialsPage() {
   const remove = (record: Testimonial) => {
     modal.confirm({
       title: 'Delete this testimonial?',
-      content: 'This cannot be undone, including the record of who approved it. If you only want it off the site, unpublish it instead.',
-      okText: 'Delete',
+      content: 'This cannot be undone. If you only want it off the site, make it inactive instead.',
+      okText: 'Delete testimonial',
       okButtonProps: { danger: true },
       onOk: async () => {
         try {
@@ -94,7 +77,7 @@ export function TestimonialsPage() {
       <PageHeader
         crumbs={[{ label: 'Website' }, { label: 'Testimonials' }]}
         title="Testimonials"
-        description="Quotes on the public home page. A recorded approval is your evidence if someone objects."
+        description="Quotes shown on the public home page, in this order."
         actions={
           can(PERMISSION.websiteTestimonialsCreate) ? (
             <Link to="/website/testimonials/new">
@@ -117,8 +100,8 @@ export function TestimonialsPage() {
               style={{ width: 160 }}
               onChange={(value?: string) => list.set('status', value)}
               options={[
-                { value: 'draft', label: 'Draft' },
-                { value: 'published', label: 'Published' },
+                { value: 'published', label: 'Active' },
+                { value: 'draft', label: 'Inactive' },
               ]}
             />
           </>
@@ -147,19 +130,9 @@ export function TestimonialsPage() {
           { title: 'Order', dataIndex: 'displayOrder', width: 80 },
           { title: 'Name', dataIndex: 'displayName', width: 180 },
           { title: 'Quote', dataIndex: 'quote', render: (value: string) => <span>{value.length > 90 ? `${value.slice(0, 90)}…` : value}</span> },
-          {
-            title: 'Consent recorded',
-            width: 200,
-            render: (_: unknown, record) =>
-              record.approvedAt ? (
-                <Tooltip title={record.approvalNote ?? 'No note recorded'}>
-                  <Typography.Text>{formatDateTime(record.approvedAt)}</Typography.Text>
-                </Tooltip>
-              ) : (
-                <Typography.Text type="secondary">—</Typography.Text>
-              ),
-          },
-          { title: 'Status', dataIndex: 'status', width: 110, render: (value: string) => <StatusTag status={value} /> },
+          // The stored words are the shared publishing vocabulary; on this
+          // screen they read as what they mean for a quote on the home page.
+          { title: 'Status', dataIndex: 'status', width: 110, render: (value: string) => <StatusTag status={value} label={STATUS_LABELS[value]} /> },
           {
             title: 'Actions',
             width: 300,
@@ -170,14 +143,9 @@ export function TestimonialsPage() {
                     Edit
                   </Button>
                 )}
-                {can(PERMISSION.websiteTestimonialsApprove) && !record.approvedAt && (
-                  <Button size="small" onClick={() => approve(record)}>
-                    Record consent
-                  </Button>
-                )}
                 {can(PERMISSION.websiteTestimonialsPublish) && (
                   <Button size="small" onClick={() => setPublished(record, record.status !== 'published')}>
-                    {record.status === 'published' ? 'Unpublish' : 'Publish'}
+                    {record.status === 'published' ? 'Make inactive' : 'Make active'}
                   </Button>
                 )}
                 {can(PERMISSION.websiteTestimonialsDelete) && (

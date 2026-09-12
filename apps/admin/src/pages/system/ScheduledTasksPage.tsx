@@ -6,6 +6,8 @@ import { useCapabilities } from '@/auth/access-control';
 import { PageHeader, StatusTag } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
+import { SCHEDULED_RUN_RETENTION_DAYS } from '@melbourne-sphere/domain';
+import { useBusy } from '@/shared/useBusy';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
 
@@ -23,12 +25,12 @@ const duration = (ms: number | null) => (ms === null ? '—' : ms < 1_000 ? `${m
 export function ScheduledTasksPage() {
   useDocumentTitle('Scheduled tasks');
   const { can } = useCapabilities();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [reloadKey, setReloadKey] = useState(0);
   const [history, setHistory] = useState<ScheduledTask | null>(null);
   const [historyPage, setHistoryPage] = useState(1);
   const [state, reload] = useAsync(() => schedulesApi.list(), [reloadKey]);
-  const [runs] = useAsync(() => (history ? schedulesApi.runs(history.code, historyPage) : Promise.resolve(null)), [history?.code, historyPage]);
+  const [runs] = useAsync(() => (history ? schedulesApi.runs(history.code, historyPage) : Promise.resolve(null)), [history?.code, historyPage, reloadKey]);
 
   const mayRun = can(PERMISSION.systemSchedulesRun);
   const mayManage = can(PERMISSION.systemSchedulesManage);
@@ -36,6 +38,9 @@ export function ScheduledTasksPage() {
   const [pending, setPending] = useState<ScheduledTask | null>(null);
   const [typed, setTyped] = useState('');
   const [running, setRunning] = useState(false);
+  // One switch at a time, so a row cannot be toggled twice while the first
+  // request is still in flight.
+  const [busy, run] = useBusy();
 
   const openRun = (task: ScheduledTask) => {
     setTyped('');
@@ -49,6 +54,9 @@ export function ScheduledTasksPage() {
    */
   const confirmRun = async () => {
     if (!pending) return;
+    // Enter in the confirmation field submits, so without this a second press
+    // before the first request resolves runs the task twice.
+    if (running) return;
     if (pending.highImpact && typed.trim() !== pending.code) {
       message.error('Type the task code to confirm.');
       return;
@@ -66,14 +74,30 @@ export function ScheduledTasksPage() {
     }
   };
 
-  const setEnabled = async (task: ScheduledTask, enabled: boolean) => {
-    try {
-      await schedulesApi.setEnabled(task.code, enabled);
-      message.success(enabled ? 'Task enabled' : 'Task disabled');
-      setReloadKey((key) => key + 1);
-    } catch (error) {
-      message.error(errorMessage(error));
-    }
+  /**
+   * Switching a task off stops recurring work indefinitely and nothing on the
+   * screen would say so afterwards beyond one grey switch, so it is confirmed
+   * and names the task. Switching one back on is ordinary and is not.
+   */
+  const setEnabled = (task: ScheduledTask, enabled: boolean) => {
+    const apply = () =>
+      run(async () => {
+        try {
+          await schedulesApi.setEnabled(task.code, enabled);
+          message.success(enabled ? `${task.label} is on again.` : `${task.label} is off. It will not run until it is switched back on.`);
+          setReloadKey((key) => key + 1);
+        } catch (error) {
+          message.error(errorMessage(error));
+        }
+      });
+    if (enabled) return void apply();
+    modal.confirm({
+      title: `Stop running ${task.label}?`,
+      content: `It will not run on its schedule again until someone switches it back on. ${task.description}`,
+      okText: 'Switch it off',
+      okButtonProps: { danger: true },
+      onOk: apply,
+    });
   };
 
   return (
@@ -158,9 +182,10 @@ export function ScheduledTasksPage() {
               ) : (
                 <Switch
                   checked={task.enabled}
-                  disabled={!mayManage}
+                  disabled={!mayManage || busy}
+                  loading={busy}
                   aria-label={`Switch ${task.label} ${task.enabled ? 'off' : 'on'}`}
-                  onChange={(checked) => void setEnabled(task, checked)}
+                  onChange={(checked) => setEnabled(task, checked)}
                 />
               ),
           },
@@ -217,7 +242,7 @@ export function ScheduledTasksPage() {
         destroyOnHidden
       >
         <Typography.Paragraph type="secondary">
-          Outcomes and durations, kept for 30 days. Changes are counted, not recorded.
+          Outcomes and durations, kept for {SCHEDULED_RUN_RETENTION_DAYS} days. Changes are counted, not recorded.
         </Typography.Paragraph>
         <Table<ScheduledRun>
           rowKey="id"

@@ -11,7 +11,7 @@ import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
 /** The parameters that narrow this list; everything else is sort or page. */
-const FILTERS = ['q', 'status'] as const;
+const FILTERS = ['q', 'status', 'groupName'] as const;
 
 /**
  * Frequently asked questions (SRS 1.2 FAQ 002). Publication is an explicit
@@ -28,7 +28,12 @@ export function FaqsPage() {
   const q = list.get('q') ?? '';
 
   const navigate = useNavigate();
-  const [state, reload] = useAsync(() => faqsApi.list({ page, pageSize: 20, status: status || undefined, q: q || undefined }), [page, status, q]);
+  const groupName = list.get('groupName');
+  const [state, reload] = useAsync(() => faqsApi.list({ page, pageSize: 20, status: status || undefined, q: q || undefined, groupName }), [page, status, q, groupName]);
+  // The groups that exist, taken from the page in hand: the API has no endpoint
+  // for them, and inventing one for a handful of labels would be a round trip
+  // to populate a dropdown.
+  const groups = state.status === 'ready' ? [...new Set(state.data.data.map((faq) => faq.groupName).filter((name): name is string => Boolean(name)))].sort() : [];
 
 
   const setPublished = (record: Faq, published: boolean) => {
@@ -99,6 +104,17 @@ export function FaqsPage() {
               ]}
             />
             <Input.Search aria-label="Search questions" placeholder="Search questions" allowClear defaultValue={q} style={{ width: 280 }} onSearch={(value) => list.set('q', value.trim() || undefined)} />
+            {(groups.length > 0 || groupName) && (
+              <Select
+                aria-label="Filter by group"
+                placeholder="Any group"
+                allowClear
+                value={groupName}
+                style={{ width: 190 }}
+                onChange={(value?: string) => list.set('groupName', value)}
+                options={groups.map((name) => ({ value: name, label: name }))}
+              />
+            )}
           </>
         }
       >

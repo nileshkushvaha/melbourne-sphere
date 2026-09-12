@@ -1,6 +1,7 @@
 export { escapeHtml, renderEmail, type EmailAction, type EmailContent, type RenderedEmail } from './email-layout.js';
 export { MEDIA_SETTING_REFERENCES, MEDIA_USAGE_RELATIONS, unusedMediaRelations, type MediaSettingReference, type MediaUsageRelation } from './media-usage.js';
 export { validateAlertLink, validatePublicUrl, type ValidatedLink } from './urls.js';
+export { redactFailureSummary } from './redact.js';
 export { ROBOTS_DIRECTIVES, SEO_ROUTES, SEO_ROUTE_KEYS, seoRoute, type RobotsDirective, type SeoRoute } from './seo-routes.js';
 export {
   ALERT_PRESENTATION,

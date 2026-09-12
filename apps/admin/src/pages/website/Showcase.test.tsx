@@ -41,10 +41,15 @@ const partner = {
 const meta = { page: 1, pageSize: 20, total: 1, pageCount: 1 };
 
 /**
- * Both screens exist to stop something being published without recorded
- * permission (SRS 1.2 TSTM 002, PTNR 003). The server refuses either way; these
- * prove the interface does not offer the action that will be refused, and says
- * what is missing.
+ * Partners still may not be published without a logo (SRS 1.2 PTNR 003), and
+ * the server refuses either way; that test proves the interface does not offer
+ * an action that will be refused, and says what is missing.
+ *
+ * Testimonials no longer carry an approval at all: they are entered by
+ * administrators who hold the permission to enter them, and status alone
+ * decides whether a quote is on the site (TSTM 002, amended at the client's
+ * instruction). What is tested here is that the screen says so in the words the
+ * client uses — active and inactive — and offers nothing about consent.
  */
 describe('Testimonials and partners screens', () => {
   const originalFetch = globalThis.fetch;
@@ -52,29 +57,29 @@ describe('Testimonials and partners screens', () => {
     globalThis.fetch = originalFetch;
   });
 
-  it('lets an administrator publish a testimonial without recording consent first', async () => {
-    globalThis.fetch = (async () => jsonResponse(200, { data: [testimonial], meta })) as typeof fetch;
-    renderWithProviders(<TestimonialsPage />, {
-      initialEntries: ['/admin/website/testimonials'],
-      authProvider: providerWithPermissions(['website.testimonials.view', 'website.testimonials.publish', 'website.testimonials.approve']),
-    });
-
-    expect(await screen.findByRole('heading', { level: 1, name: 'Testimonials' })).toBeInTheDocument();
-    // Recording consent is offered, but publication is the administrator's own
-    // decision (client instruction, 8 Sep 2026).
-    expect(await screen.findByRole('button', { name: /^publish$/i })).toBeEnabled();
-    expect(screen.getByRole('button', { name: /record consent/i })).toBeEnabled();
-  });
-
-  it('hides the consent action from an administrator who may not record it', async () => {
+  it('offers nothing about consent, and calls the two states active and inactive', async () => {
     globalThis.fetch = (async () => jsonResponse(200, { data: [testimonial], meta })) as typeof fetch;
     renderWithProviders(<TestimonialsPage />, {
       initialEntries: ['/admin/website/testimonials'],
       authProvider: providerWithPermissions(['website.testimonials.view', 'website.testimonials.publish']),
     });
 
-    expect(await screen.findByRole('button', { name: /^publish$/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /record consent/i })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Testimonials' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Make active' })).toBeEnabled();
+    expect(screen.getByText('Inactive')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /consent|approv/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/consent|approv/i)).not.toBeInTheDocument();
+  });
+
+  it('shows no publishing controls without the permission', async () => {
+    globalThis.fetch = (async () => jsonResponse(200, { data: [testimonial], meta })) as typeof fetch;
+    renderWithProviders(<TestimonialsPage />, {
+      initialEntries: ['/admin/website/testimonials'],
+      authProvider: providerWithPermissions(['website.testimonials.view']),
+    });
+
+    await screen.findByRole('heading', { level: 1, name: 'Testimonials' });
+    expect(screen.queryByRole('button', { name: /Make (in)?active/ })).not.toBeInTheDocument();
   });
 
   it('will not offer to publish a partner without a logo, and says why', async () => {

@@ -7,15 +7,21 @@ import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
+import { useBusy } from '@/shared/useBusy';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { expandToggle } from '@/components/ui/expandToggle';
 import { brand } from '@/config/theme';
 
-const DECISION_LABELS: Record<ReviewDecision, { title: string; hint: string; danger?: boolean; reasonRequired: boolean }> = {
-  approve: { title: 'Publish this review?', hint: 'It becomes visible on the business page and counts towards the rating.', reasonRequired: false },
-  reject: { title: 'Reject this review?', hint: 'It stays out of public view and the rating. The original text is kept for the record.', danger: true, reasonRequired: true },
-  spam: { title: 'Mark this review as spam?', hint: 'Same as rejecting, but recorded as spam for abuse signals.', danger: true, reasonRequired: true },
+/**
+ * One entry per decision, so the dialog's title, its button and the message
+ * afterwards always describe the same action — the reviews queue said only
+ * "Confirm", which is the one word that cannot be wrong and cannot help.
+ */
+const DECISION_LABELS: Record<ReviewDecision, { title: string; hint: string; confirm: string; done: string; danger?: boolean; reasonRequired: boolean }> = {
+  approve: { title: 'Publish this review?', hint: 'It becomes visible on the business page and counts towards the rating.', confirm: 'Publish review', done: 'Review published.', reasonRequired: false },
+  reject: { title: 'Reject this review?', hint: 'It stays out of public view and the rating. The original text is kept for the record.', confirm: 'Reject review', done: 'Review rejected.', danger: true, reasonRequired: true },
+  spam: { title: 'Mark this review as spam?', hint: 'Same as rejecting, but recorded as spam for abuse signals.', confirm: 'Mark as spam', done: 'Review marked as spam.', danger: true, reasonRequired: true },
 };
 
 /** The parameters that narrow this list; everything else is sort or page. */
@@ -39,6 +45,8 @@ export function ReviewsPage() {
   const [pending, setPending] = useState<{ review: AdminReview; decision: ReviewDecision } | null>(null);
   const [redacting, setRedacting] = useState<AdminReview | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
+  // Confirming twice sent the decision twice; one at a time.
+  const [busy, run] = useBusy();
   const [decisionForm] = Form.useForm<{ reason?: string }>();
   const [redactForm] = Form.useForm<{ publicText: string; reason: string }>();
 
@@ -56,37 +64,39 @@ export function ReviewsPage() {
     setDialogError(Object.values(errors).flat()[0] ?? errorMessage(error) ?? fallback);
   };
 
-  const submitDecision = async () => {
-    if (!pending) return;
-    setDialogError(null);
-    const values = await decisionForm.validateFields().catch(() => null);
-    if (!values) return;
-    try {
-      await api.decide(pending.review.id, pending.decision, { expectedVersion: pending.review.version, reason: values.reason || undefined });
-      message.success(`Review ${pending.decision === 'approve' ? 'published' : pending.decision === 'reject' ? 'rejected' : 'marked as spam'}`);
-      setPending(null);
-      decisionForm.resetFields();
-      reload();
-    } catch (error) {
-      handleError(error, 'The decision could not be saved.');
-    }
-  };
+  const submitDecision = () =>
+    run(async () => {
+      if (!pending) return;
+      setDialogError(null);
+      const values = await decisionForm.validateFields().catch(() => null);
+      if (!values) return;
+      try {
+        await api.decide(pending.review.id, pending.decision, { expectedVersion: pending.review.version, reason: values.reason || undefined });
+        message.success(DECISION_LABELS[pending.decision].done);
+        setPending(null);
+        decisionForm.resetFields();
+        reload();
+      } catch (error) {
+        handleError(error, 'The decision could not be saved.');
+      }
+    });
 
-  const submitRedaction = async () => {
-    if (!redacting) return;
-    setDialogError(null);
-    const values = await redactForm.validateFields().catch(() => null);
-    if (!values) return;
-    try {
-      await api.redact(redacting.id, { expectedVersion: redacting.version, publicText: values.publicText?.trim() ? values.publicText : null, reason: values.reason });
-      message.success('Published text updated');
-      setRedacting(null);
-      redactForm.resetFields();
-      reload();
-    } catch (error) {
-      handleError(error, 'The redaction could not be saved.');
-    }
-  };
+  const submitRedaction = () =>
+    run(async () => {
+      if (!redacting) return;
+      setDialogError(null);
+      const values = await redactForm.validateFields().catch(() => null);
+      if (!values) return;
+      try {
+        await api.redact(redacting.id, { expectedVersion: redacting.version, publicText: values.publicText?.trim() ? values.publicText : null, reason: values.reason });
+        message.success('Published text updated.');
+        setRedacting(null);
+        redactForm.resetFields();
+        reload();
+      } catch (error) {
+        handleError(error, 'The redaction could not be saved.');
+      }
+    });
 
   return (
     <div>
@@ -167,7 +177,7 @@ export function ReviewsPage() {
         }}
       />
       </TableCard>
-      <Modal open={pending !== null} title={pending ? DECISION_LABELS[pending.decision].title : ''} okText="Confirm" okButtonProps={{ danger: pending ? DECISION_LABELS[pending.decision].danger : false }} onOk={() => void submitDecision()} onCancel={() => setPending(null)} destroyOnHidden>
+      <Modal open={pending !== null} title={pending ? DECISION_LABELS[pending.decision].title : ''} okText={pending ? DECISION_LABELS[pending.decision].confirm : 'Confirm'} okButtonProps={{ danger: pending ? DECISION_LABELS[pending.decision].danger : false }} confirmLoading={busy} onOk={() => void submitDecision()} onCancel={() => setPending(null)} destroyOnHidden>
         {pending && <Typography.Paragraph>{DECISION_LABELS[pending.decision].hint}</Typography.Paragraph>}
         {dialogError && <Alert type="error" showIcon role="alert" message={dialogError} style={{ marginBottom: 12 }} />}
         <Form form={decisionForm} layout="vertical" requiredMark={false}>
@@ -176,7 +186,7 @@ export function ReviewsPage() {
           </Form.Item>
         </Form>
       </Modal>
-      <Modal open={redacting !== null} title="Edit the published text" okText="Save" onOk={() => void submitRedaction()} onCancel={() => setRedacting(null)} destroyOnHidden>
+      <Modal open={redacting !== null} title="Edit the published text" okText="Save published text" confirmLoading={busy} onOk={() => void submitRedaction()} onCancel={() => setRedacting(null)} destroyOnHidden>
         <Typography.Paragraph>The original submission is always kept. Clear the field to publish the original again. The rating cannot be changed.</Typography.Paragraph>
         {dialogError && <Alert type="error" showIcon role="alert" message={dialogError} style={{ marginBottom: 12 }} />}
         <Form form={redactForm} layout="vertical" requiredMark={false}>

@@ -64,6 +64,10 @@ describe('EmailLogsPage', () => {
     });
 
     await user.click(await screen.findByRole('button', { name: /reveal/i }));
+    // Revealing an address is recorded, and the reader is told so before it is.
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/recorded in the activity log/i)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Show the address' }));
     expect(await screen.findByText('owner@example.com')).toBeInTheDocument();
   });
 

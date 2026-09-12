@@ -1,3 +1,4 @@
+import { redactFailureSummary } from '@melbourne-sphere/domain';
 import { ForbiddenException, HttpException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { EmailDelivery, EmailDeliveryStatus, Prisma } from '@melbourne-sphere/database';
 import { PermanentMailError } from '@melbourne-sphere/mail';
@@ -112,12 +113,17 @@ export class EmailDeliveryService {
     emailDeliveries.inc({ provider: 'api', outcome: 'sent' });
   }
 
-  /** The attempt failed. `summary` is already redacted by the transport (MAIL 006). */
+  /**
+   * The attempt failed. The summary is redacted here rather than by the caller:
+   * every transport had been passing the driver's raw message, which carries
+   * the recipient's address, the SMTP host and port, and sometimes credentials
+   * — and it is shown on the email log screen (MAIL 006, MON 001).
+   */
   async markFailed(id: string, code: EmailFailureCode, summary: string): Promise<void> {
     const db = await this.database.client();
     await db.emailDelivery.update({
       where: { id },
-      data: { status: 'failed', failedAt: new Date(), attempts: { increment: 1 }, failureCode: code, failureSummary: summary.slice(0, 300) },
+      data: { status: 'failed', failedAt: new Date(), attempts: { increment: 1 }, failureCode: code, failureSummary: redactFailureSummary(summary) },
     });
     // The failure code is itself a closed vocabulary, so it is a safe label and
     // says whether the failure was permanent without a second metric.

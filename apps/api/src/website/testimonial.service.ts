@@ -10,7 +10,7 @@ import type { RequestContext } from '../auth/auth.service.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import { assertVersion, publicVisibilityChanged, recordContentActivity } from './content-support.js';
 
-export const TESTIMONIAL_LIMITS = { displayName: 120, relationship: 160, quote: 1000, approvalNote: 300 } as const;
+export const TESTIMONIAL_LIMITS = { displayName: 120, relationship: 160, quote: 1000 } as const;
 
 export interface TestimonialInput {
   displayName: string;
@@ -96,12 +96,10 @@ export class TestimonialService {
 
   // ---- admin ---------------------------------------------------------------
 
-  async list(query: { page: number; pageSize: number; status?: 'draft' | 'published'; approved?: boolean }) {
+  async list(query: { page: number; pageSize: number; status?: 'draft' | 'published' }) {
     const db = await this.database.client();
     const where: Prisma.TestimonialWhereInput = {
       ...(query.status ? { status: query.status } : {}),
-      ...(query.approved === true ? { approvedAt: { not: null } } : {}),
-      ...(query.approved === false ? { approvedAt: null } : {}),
     };
     const [rows, total] = await Promise.all([
       db.testimonial.findMany({ where, orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }], skip: (query.page - 1) * query.pageSize, take: query.pageSize }),
@@ -152,7 +150,6 @@ export class TestimonialService {
           ...value,
           version: { increment: 1 },
           updatedByAdminId: actor.id,
-          ...(quoteChanged ? { approvedAt: null, approvedByAdminId: null, approvalNote: null } : {}),
         },
       });
       await recordContentActivity(tx, this.audit, {
@@ -161,7 +158,7 @@ export class TestimonialService {
         targetId: id,
         actor,
         ctx,
-        metadata: { displayName: row.displayName, quoteChanged, approvalCleared: quoteChanged },
+        metadata: { displayName: row.displayName, quoteChanged },
       });
       if (publicVisibilityChanged(current, row) || quoteChanged) await this.purge(tx, ctx, id);
       return row;
@@ -171,32 +168,6 @@ export class TestimonialService {
   }
 
   /** Records consent (TSTM 002). Distinct from publication, and from the permission to publish. */
-  async approve(id: string, note: string | null, expectedVersion: number, actor: AdminPrincipal, ctx: RequestContext): Promise<Testimonial> {
-    const current = await this.get(id);
-    assertVersion(current.version, expectedVersion);
-    if (current.approvedAt) throw new HttpException({ code: 'INVALID_STATE', message: 'This testimonial is already approved' }, HttpStatus.CONFLICT);
-    const trimmed = note?.trim() || null;
-    if (trimmed && trimmed.length > TESTIMONIAL_LIMITS.approvalNote) {
-      throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Some fields are invalid', fields: { note: [`At most ${TESTIMONIAL_LIMITS.approvalNote} characters`] } }, HttpStatus.BAD_REQUEST);
-    }
-
-    const db = await this.database.client();
-    return db.$transaction(async (tx) => {
-      const row = await tx.testimonial.update({
-        where: { id },
-        data: { approvedAt: new Date(), approvedByAdminId: actor.id, approvalNote: trimmed, version: { increment: 1 }, updatedByAdminId: actor.id },
-      });
-      await recordContentActivity(tx, this.audit, {
-        action: 'website.testimonial.approve',
-        targetType: 'testimonial',
-        targetId: id,
-        actor,
-        ctx,
-        metadata: { displayName: row.displayName, hasNote: trimmed !== null },
-      });
-      return row;
-    });
-  }
 
   async setPublished(id: string, published: boolean, expectedVersion: number, actor: AdminPrincipal, ctx: RequestContext): Promise<Testimonial> {
     const current = await this.get(id);

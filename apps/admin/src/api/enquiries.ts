@@ -1,5 +1,6 @@
 import type { components } from '@melbourne-sphere/contracts';
-import { httpClient, type HttpClient, type QueryValue } from './http-client';
+import { httpClient, type HttpClient } from './http-client';
+import { queryParams } from './query';
 import type { CollectionMeta } from './admins';
 
 export type AdminEnquiry = components['schemas']['AdminEnquiryDto'];
@@ -17,12 +18,10 @@ export interface EnquiryListQuery {
   pageSize?: number;
 }
 
-const asQuery = (q: object): Record<string, QueryValue> => Object.fromEntries(Object.entries(q).filter(([, v]) => v !== undefined && v !== ''));
-
 /** Enquiry handling (SRS ENQ 007); the API enforces `enquiries.read` and `enquiries.manage`. */
 export function enquiriesApi(client: HttpClient = httpClient) {
   return {
-    list: (query: EnquiryListQuery = {}, signal?: AbortSignal) => client.request<{ data: AdminEnquiry[]; meta: CollectionMeta }>('/admin/enquiries', { query: asQuery(query), signal }).then((r) => r.data),
+    list: (query: EnquiryListQuery = {}, signal?: AbortSignal) => client.request<{ data: AdminEnquiry[]; meta: CollectionMeta }>('/admin/enquiries', { query: queryParams(query), signal }).then((r) => r.data),
     setHandling: (id: string, body: { expectedVersion: number; handlingStatus: HandlingStatus }) =>
       client.request<{ data: AdminEnquiry }>(`/admin/enquiries/${encodeURIComponent(id)}`, { method: 'PATCH', body }).then((r) => r.data.data),
     retry: (id: string, body: { expectedVersion: number; reason: string }) =>

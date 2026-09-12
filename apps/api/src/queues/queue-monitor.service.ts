@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable, Logger, NotFoundException, type OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Queue, type Job } from 'bullmq';
-import { QUEUE_NAME, redisConnectionFromUrl } from '@melbourne-sphere/domain';
+import { QUEUE_NAME, redisConnectionFromUrl, redactFailureSummary } from '@melbourne-sphere/domain';
 import { AuditService } from '../audit/audit.service.js';
 import type { RequestContext } from '../auth/auth.service.js';
 import type { EnvironmentVariables } from '../config/env.validation.js';
@@ -204,9 +204,11 @@ export class QueueMonitorService implements OnModuleDestroy {
       createdAt: new Date(job.timestamp).toISOString(),
       processedAt: job.processedOn ? new Date(job.processedOn).toISOString() : null,
       finishedAt: job.finishedOn ? new Date(job.finishedOn).toISOString() : null,
-      // First line only: a stack trace can carry file paths, configuration and
-      // occasionally payload fragments (QMON 002).
-      failedReason: job.failedReason ? job.failedReason.split('\n')[0]!.slice(0, 300) : null,
+      // Redacted, not merely truncated: the first line of a transport or driver
+      // error still carries the recipient's address, a host and port, or a path
+      // on the server, and the monitor tells the reader it shows none of those
+      // (QMON 002, MON 001).
+      failedReason: job.failedReason ? redactFailureSummary(job.failedReason) : null,
       progress: typeof job.progress === 'number' ? Math.max(0, Math.min(100, Math.round(job.progress))) : null,
       data: redactJobData(descriptor, job.name, job.data),
       canRetry: RETRYABLE_STATES.includes(state),
@@ -263,7 +265,7 @@ export class QueueMonitorService implements OnModuleDestroy {
         await apply(job);
         outcome.succeeded.push(id);
       } catch (error) {
-        outcome.failed.push({ id, reason: (error as Error).message.split('\n')[0]!.slice(0, 200) });
+        outcome.failed.push({ id, reason: redactFailureSummary((error as Error).message, 200) });
       }
     }
 

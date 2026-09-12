@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { App, Button, Input, Popconfirm, Select, Space, Table, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
@@ -9,7 +8,12 @@ import { EmptyState, ErrorState, PageHeader, StatusTag, TableCard } from '@/comp
 import { RedirectPreviewPanel } from './RedirectPreviewPanel';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
+import { useBusy } from '@/shared/useBusy';
+import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+
+/** The parameters that narrow this list; everything else is sort or page. */
+const FILTERS = ['q', 'kind', 'active'] as const;
 
 /**
  * Redirect rules (SRS SEO 004). Slug changes create these automatically; this
@@ -20,36 +24,43 @@ export function RedirectsPage() {
   const api = seoApi();
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
-  const [search, setSearch] = useState('');
-  const [kind, setKind] = useState<RedirectKind | undefined>(undefined);
-  const [activeOnly, setActiveOnly] = useState<boolean | undefined>(undefined);
-  const [page, setPage] = useState(1);
+  const list = useListParams(FILTERS);
+  const search = list.get('q') ?? '';
+  const kind = list.get('kind') as RedirectKind | undefined;
+  const active = list.get('active');
+  const activeOnly = active === undefined ? undefined : active === 'yes';
+  const page = list.page;
   const [state, reload] = useAsync(
     (signal) => api.list({ q: search || undefined, kind, isActive: activeOnly, page, pageSize: 25 }, signal),
-    [search, kind, activeOnly, page],
+    [search, kind, active, page],
   );
+  // Popconfirm shows a spinner and blocks a second click only while its
+  // `onConfirm` promise is pending, so these must return the promise.
+  const [busy, run] = useBusy();
 
-  const setActive = async (row: Redirect, active: boolean) => {
-    try {
-      await api.setActive(row.id, active);
-      message.success(active ? 'Redirect switched on. It reaches visitors within about ten seconds.' : 'Redirect switched off. It stops reaching visitors within about ten seconds.');
-      reload();
-    } catch (error) {
-      if (isApiError(error) && error.kind === 'unauthorized') onAuthError(error);
-      else message.error(errorMessage(error));
-    }
-  };
+  const setActive = (row: Redirect, active: boolean) =>
+    run(async () => {
+      try {
+        await api.setActive(row.id, active);
+        message.success(active ? 'Redirect switched on. It reaches visitors within about ten seconds.' : 'Redirect switched off. It stops reaching visitors within about ten seconds.');
+        reload();
+      } catch (error) {
+        if (isApiError(error) && error.kind === 'unauthorized') onAuthError(error);
+        else message.error(errorMessage(error));
+      }
+    });
 
-  const remove = async (row: Redirect) => {
-    try {
-      await api.remove(row.id);
-      message.success('Redirect deleted');
-      reload();
-    } catch (error) {
-      if (isApiError(error) && error.kind === 'unauthorized') onAuthError(error);
-      else message.error(errorMessage(error));
-    }
-  };
+  const remove = (row: Redirect) =>
+    run(async () => {
+      try {
+        await api.remove(row.id);
+        message.success('Redirect deleted.');
+        reload();
+      } catch (error) {
+        if (isApiError(error) && error.kind === 'unauthorized') onAuthError(error);
+        else message.error(errorMessage(error));
+      }
+    });
 
   const rows = state.status === 'ready' ? state.data.data : [];
 
@@ -78,10 +89,7 @@ export function RedirectsPage() {
               allowClear
               placeholder="Search a path"
               defaultValue={search}
-              onSearch={(value) => {
-                setPage(1);
-                setSearch(value.trim());
-              }}
+              onSearch={(value) => list.set('q', value.trim() || undefined)}
               style={{ width: 280 }}
               aria-label="Search redirects"
             />
@@ -90,10 +98,7 @@ export function RedirectsPage() {
               aria-label="Filter by type"
               placeholder="Any type"
               value={kind}
-              onChange={(value) => {
-                setPage(1);
-                setKind(value);
-              }}
+              onChange={(value) => list.set('kind', value)}
               style={{ width: 210 }}
               options={(Object.keys(REDIRECT_KIND_LABELS) as RedirectKind[]).map((value) => ({ value, label: REDIRECT_KIND_LABELS[value] }))}
             />
@@ -101,15 +106,12 @@ export function RedirectsPage() {
               allowClear
               aria-label="Filter by state"
               placeholder="On and off"
-              value={activeOnly}
-              onChange={(value) => {
-                setPage(1);
-                setActiveOnly(value);
-              }}
+              value={active}
+              onChange={(value) => list.set('active', value)}
               style={{ width: 150 }}
               options={[
-                { value: true, label: 'On' },
-                { value: false, label: 'Switched off' },
+                { value: 'yes', label: 'On' },
+                { value: 'no', label: 'Switched off' },
               ]}
             />
           </>
@@ -122,7 +124,7 @@ export function RedirectsPage() {
         dataSource={rows}
         scroll={{ x: 900 }}
         pagination={
-          state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, onChange: setPage, showSizeChanger: false } : false
+          state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, onChange: list.setPage, showSizeChanger: false } : false
         }
         locale={{
           emptyText: state.status === 'ready' ? <EmptyState title="No redirects" description="Nothing has moved yet. Redirects appear here when a published address changes." /> : ' ',
@@ -154,14 +156,15 @@ export function RedirectsPage() {
                     }
                     okText="Switch off"
                     cancelText="Leave it on"
-                    onConfirm={() => void setActive(row, false)}
+                    onConfirm={() => setActive(row, false)}
+                    okButtonProps={{ loading: busy }}
                   >
                     <Button type="link" aria-label={`Switch off the redirect from ${row.sourcePath}`}>
                       Switch off
                     </Button>
                   </Popconfirm>
                 ) : (
-                  <Button type="link" aria-label={`Switch on the redirect from ${row.sourcePath}`} onClick={() => void setActive(row, true)}>
+                  <Button type="link" aria-label={`Switch on the redirect from ${row.sourcePath}`} onClick={() => void setActive(row, true)} disabled={busy}>
                     Switch on
                   </Button>
                 )}
@@ -170,8 +173,8 @@ export function RedirectsPage() {
                   description="The rule and its history are removed. To stop it temporarily, switch it off instead."
                   okText="Delete redirect"
                   cancelText="Keep it"
-                  okButtonProps={{ danger: true }}
-                  onConfirm={() => void remove(row)}
+                  okButtonProps={{ danger: true, loading: busy }}
+                  onConfirm={() => remove(row)}
                 >
                   <Button type="link" danger aria-label={`Delete redirect from ${row.sourcePath}`}>
                     Delete

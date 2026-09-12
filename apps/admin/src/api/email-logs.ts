@@ -1,4 +1,5 @@
 import { httpClient, type HttpClient } from './http-client';
+import { queryParams } from './query';
 import type { CollectionMeta } from './admins';
 
 export type EmailDeliveryStatus = 'queued' | 'sent' | 'delivered' | 'delayed' | 'failed' | 'bounced' | 'complained' | 'suppressed';
@@ -48,12 +49,10 @@ export interface EmailLogQuery {
   search?: string;
 }
 
-const asQuery = (query: EmailLogQuery): Record<string, string> =>
-  Object.fromEntries(Object.entries(query).filter(([, value]) => value !== undefined && value !== '').map(([key, value]) => [key, String(value)]));
 
 export const emailLogsApi = {
   list(query: EmailLogQuery = {}, client: HttpClient = httpClient) {
-    return client.request<{ data: EmailDelivery[]; meta: CollectionMeta }>('/admin/email-logs', { query: asQuery(query) }).then((r) => r.data);
+    return client.request<{ data: EmailDelivery[]; meta: CollectionMeta }>('/admin/email-logs', { query: queryParams(query) }).then((r) => r.data);
   },
   detail(id: string, client: HttpClient = httpClient) {
     return client.request<{ data: EmailDeliveryDetail }>(`/admin/email-logs/${id}`).then((r) => r.data.data);

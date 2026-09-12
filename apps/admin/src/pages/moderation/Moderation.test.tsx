@@ -58,12 +58,12 @@ describe('moderation pages', () => {
 
     await ue.click(within(row).getByRole('button', { name: 'Reject' }));
     const dialog = await screen.findByRole('dialog');
-    await ue.click(within(dialog).getByRole('button', { name: /confirm/i }));
+    await ue.click(within(dialog).getByRole('button', { name: /Reject review/ }));
     expect(await within(dialog).findByText('A reason is required')).toBeInTheDocument();
     await ue.type(within(dialog).getByLabelText(/reason/i), 'Contains personal information');
-    await ue.click(within(dialog).getByRole('button', { name: /confirm/i }));
+    await ue.click(within(dialog).getByRole('button', { name: /Reject review/ }));
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(/changed by someone else/i);
-    await ue.click(within(dialog).getByRole('button', { name: /confirm/i }));
+    await ue.click(within(dialog).getByRole('button', { name: /Reject review/ }));
     const posts = calls.filter((c) => c.url === '/api/v1/admin/reviews/r1/reject');
     expect(posts).toHaveLength(2);
     expect(JSON.parse(posts[1]!.body!)).toEqual({ expectedVersion: 1, reason: 'Contains personal information' });
@@ -78,7 +78,7 @@ describe('moderation pages', () => {
     await ue.clear(within(dialog).getByLabelText(/published text/i));
     await ue.type(within(dialog).getByLabelText(/published text/i), 'Excellent coffee.');
     await ue.type(within(dialog).getByLabelText(/^reason/i), 'Removed a staff name');
-    await ue.click(within(dialog).getByRole('button', { name: /^save$/i }));
+    await ue.click(within(dialog).getByRole('button', { name: /Save published text/ }));
     const patch = calls.find((c) => c.method === 'PATCH')!;
     expect(JSON.parse(patch.body!)).toEqual({ expectedVersion: 1, publicText: 'Excellent coffee.', reason: 'Removed a staff name' });
   });
@@ -92,7 +92,7 @@ describe('moderation pages', () => {
     await ue.click(within(row).getByRole('button', { name: /resolve/i }));
     const dialog = await screen.findByRole('dialog');
     await ue.type(within(dialog).getByLabelText(/note/i), 'No personal information found');
-    await ue.click(within(dialog).getByRole('button', { name: /^resolve$/i }));
+    await ue.click(within(dialog).getByRole('button', { name: /Resolve report/ }));
     const post = calls.find((c) => c.url === '/api/v1/admin/reports/rep1/resolve')!;
     expect(JSON.parse(post.body!)).toEqual({ expectedVersion: 1, outcome: 'retain', note: 'No personal information found' });
   });

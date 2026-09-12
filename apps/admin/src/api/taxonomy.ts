@@ -1,5 +1,6 @@
 import type { components } from '@melbourne-sphere/contracts';
-import { httpClient, type HttpClient, type QueryValue } from './http-client';
+import { httpClient, type HttpClient } from './http-client';
+import { queryParams } from './query';
 import type { CollectionMeta } from './admins';
 
 export type CategoryItem = components['schemas']['CategoryDto'];
@@ -25,13 +26,11 @@ export interface TermListQuery {
   order?: 'asc' | 'desc';
 }
 
-const asQuery = (q: object): Record<string, QueryValue> => Object.fromEntries(Object.entries(q).filter(([, v]) => v !== undefined && v !== ''));
-
 /** Typed access to the three taxonomy resources (same list contract for each). */
 export function taxonomyApi<T extends TermItem>(kind: TermKind, client: HttpClient = httpClient) {
   const base = `/admin/${kind}`;
   return {
-    list: (query: TermListQuery = {}) => client.request<{ data: TermListItem[]; meta: CollectionMeta }>(base, { query: asQuery(query) }).then((r) => r.data),
+    list: (query: TermListQuery = {}) => client.request<{ data: TermListItem[]; meta: CollectionMeta }>(base, { query: queryParams(query) }).then((r) => r.data),
     get: (id: string) => client.request<{ data: T }>(`${base}/${encodeURIComponent(id)}`).then((r) => r.data.data),
     create: (body: Record<string, unknown>) => client.request<{ data: T }>(base, { method: 'POST', body }).then((r) => r.data.data),
     update: (id: string, body: Record<string, unknown> & { expectedVersion: number }) => client.request<{ data: T }>(`${base}/${encodeURIComponent(id)}`, { method: 'PATCH', body }).then((r) => r.data.data),

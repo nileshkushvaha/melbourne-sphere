@@ -20,10 +20,6 @@ export class TestimonialDto {
   @ApiProperty() quote!: string;
   @ApiPropertyOptional({ nullable: true }) businessId!: string | null;
   @ApiPropertyOptional({ nullable: true }) mediaId!: string | null;
-  @ApiPropertyOptional({ nullable: true, description: 'When consent to use the quote was recorded. Publication is refused while it is null.' })
-  approvedAt!: string | null;
-  @ApiPropertyOptional({ nullable: true }) approvedByAdminId!: string | null;
-  @ApiPropertyOptional({ nullable: true }) approvalNote!: string | null;
   @ApiProperty() displayOrder!: number;
   @ApiProperty({ enum: ['draft', 'published'] }) status!: string;
   @ApiPropertyOptional({ nullable: true }) publishedAt!: string | null;
@@ -59,7 +55,6 @@ export class VersionOnlyDto {
 
 export class ListTestimonialsQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: ['draft', 'published'] }) @IsOptional() @IsIn(['draft', 'published']) status?: 'draft' | 'published';
-  @ApiPropertyOptional({ description: 'true for approved only, false for those still awaiting consent.' }) @IsOptional() @IsBoolean() approved?: boolean;
 }
 
 const testimonialDto = (row: {
@@ -69,9 +64,6 @@ const testimonialDto = (row: {
   quote: string;
   businessId: string | null;
   mediaId: string | null;
-  approvedAt: Date | null;
-  approvedByAdminId: string | null;
-  approvalNote: string | null;
   displayOrder: number;
   status: string;
   publishedAt: Date | null;
@@ -84,9 +76,6 @@ const testimonialDto = (row: {
   quote: row.quote,
   businessId: row.businessId,
   mediaId: row.mediaId,
-  approvedAt: row.approvedAt?.toISOString() ?? null,
-  approvedByAdminId: row.approvedByAdminId,
-  approvalNote: row.approvalNote,
   displayOrder: row.displayOrder,
   status: row.status,
   publishedAt: row.publishedAt?.toISOString() ?? null,
@@ -120,7 +109,7 @@ export class TestimonialAdminController {
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: [TestimonialDto] })
   async list(@Query() query: ListTestimonialsQueryDto) {
-    const { rows, total } = await this.testimonials.list({ page: query.page, pageSize: query.pageSize, status: query.status, approved: query.approved });
+    const { rows, total } = await this.testimonials.list({ page: query.page, pageSize: query.pageSize, status: query.status });
     return { data: rows.map(testimonialDto), meta: collectionMeta(query.page, query.pageSize, total) };
   }
 
@@ -143,20 +132,11 @@ export class TestimonialAdminController {
   @RequirePermissions('website.testimonials.update')
   @Put(':id')
   @Header('Cache-Control', 'no-store')
-  @ApiOperation({ summary: 'Editing the quote clears the recorded approval: consent was given for particular words.' })
   @ApiOkResponse({ type: TestimonialDto })
   async update(@Param('id') id: string, @Body() body: UpdateTestimonialDto, @CurrentAdmin() admin: AdminPrincipal, @Req() req: AuthenticatedRequest) {
     return { data: testimonialDto(await this.testimonials.update(id, body, admin, ctxOf(req))) };
   }
 
-  @RequirePermissions('website.testimonials.approve')
-  @Post(':id/approve')
-  @Header('Cache-Control', 'no-store')
-  @ApiOperation({ summary: 'Record who confirmed the quote may be used, and when. Publication is refused without it.' })
-  @ApiOkResponse({ type: TestimonialDto })
-  async approve(@Param('id') id: string, @Body() body: ApproveDto, @CurrentAdmin() admin: AdminPrincipal, @Req() req: AuthenticatedRequest) {
-    return { data: testimonialDto(await this.testimonials.approve(id, body.note ?? null, body.expectedVersion, admin, ctxOf(req))) };
-  }
 
   @RequirePermissions('website.testimonials.publish')
   @Post(':id/publish')

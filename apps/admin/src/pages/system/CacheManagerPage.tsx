@@ -2,7 +2,7 @@ import { Alert, App, Button, Space, Table, Typography } from 'antd';
 import { cacheApi, type CacheNamespaceStatus, type CacheTagStatus } from '@/api/system';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
-import { ErrorState, PageHeader, StatusTag, TableCard } from '@/components/ui';
+import { ErrorState, PageHeader, PageLoader, StatusTag, TableCard } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -62,6 +62,10 @@ export function CacheManagerPage() {
       />
 
       {state.status === 'error' && <ErrorState message={state.message} reference={state.reference} onRetry={reload} />}
+
+      {/* The page rendered only its heading while loading, so it read as a
+          screen with nothing on it rather than one still arriving. */}
+      {state.status === 'loading' && <PageLoader label="Reading the cache…" />}
 
       {state.status === 'ready' && (
         <>

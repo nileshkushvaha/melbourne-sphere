@@ -1,5 +1,6 @@
 import type { components } from '@melbourne-sphere/contracts';
-import { httpClient, type HttpClient, type QueryValue } from './http-client';
+import { httpClient, type HttpClient } from './http-client';
+import { queryParams } from './query';
 
 export type AdminListItem = components['schemas']['AdminListItemDto'];
 export type SessionListItem = components['schemas']['SessionListItemDto'];
@@ -51,11 +52,9 @@ export interface AuditQuery {
   order?: 'asc' | 'desc';
 }
 
-const asQuery = (q: object): Record<string, QueryValue> => Object.fromEntries(Object.entries(q).filter(([, v]) => v !== undefined && v !== ''));
-
 export const adminsApi = {
   list(query: AdminListQuery = {}, client: HttpClient = httpClient) {
-    return client.request<{ data: AdminListItem[]; meta: CollectionMeta }>('/admin/admins', { query: asQuery(query) }).then((r) => r.data);
+    return client.request<{ data: AdminListItem[]; meta: CollectionMeta }>('/admin/admins', { query: queryParams(query) }).then((r) => r.data);
   },
   get(id: string, client: HttpClient = httpClient) {
     return client.request<{ data: AdminListItem }>(`/admin/admins/${encodeURIComponent(id)}`).then((r) => r.data.data);
@@ -88,7 +87,7 @@ export const adminsApi = {
 
 export const auditApi = {
   list(query: AuditQuery = {}, client: HttpClient = httpClient) {
-    return client.request<{ data: AuditEntry[]; meta: CollectionMeta }>('/admin/activity', { query: asQuery(query) }).then((r) => r.data);
+    return client.request<{ data: AuditEntry[]; meta: CollectionMeta }>('/admin/activity', { query: queryParams(query) }).then((r) => r.data);
   },
 };
 

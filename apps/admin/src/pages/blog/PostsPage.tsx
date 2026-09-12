@@ -12,7 +12,7 @@ import { PERMISSION } from '@/auth/permissions';
 
 
 /** The parameters that narrow this list; everything else is sort or page. */
-const FILTERS = ['q', 'status'] as const;
+const FILTERS = ['q', 'status', 'authorId', 'categoryId', 'tagId'] as const;
 
 /** Article index (SRS BLOG 001–002). Filters live in the URL so a shared link reproduces the view. */
 export function PostsPage() {
@@ -23,9 +23,23 @@ export function PostsPage() {
   const canWrite = can(PERMISSION.postsWrite);
   const status = (list.get('status') as PostStatus | null) ?? undefined;
   const q = list.get('q') ?? '';
+  const authorId = list.get('authorId');
+  const categoryId = list.get('categoryId');
+  const tagId = list.get('tagId');
   const page = list.page;
-  const [state, reload] = useAsync((signal) => api.listPosts({ status, q: q || undefined, page, pageSize: 20 }, signal), [status, q, page]);
+  const [state, reload] = useAsync(
+    (signal) => api.listPosts({ status, q: q || undefined, authorId, categoryId, tagId, page, pageSize: 20 }, signal),
+    [status, q, authorId, categoryId, tagId, page],
+  );
+  // The three sets an article is classified by. They are small and rarely
+  // change, so they are read once and reused by all three pickers.
   const [authors] = useAsync((signal) => api.listAuthors(signal), []);
+  const [categories] = useAsync((signal) => api.listTerms('blog-categories', signal), []);
+  const [tags] = useAsync((signal) => api.listTerms('blog-tags', signal), []);
+
+  /** Options for a picker, with the record's own name as the label. */
+  const options = <T extends { id: string; name?: string; displayName?: string }>(rows: T[]) =>
+    rows.map((row) => ({ value: row.id, label: row.displayName ?? row.name ?? row.id }));
 
 
   return (
@@ -51,6 +65,42 @@ export function PostsPage() {
           <>
             <Input.Search aria-label="Search articles" placeholder="Search by title" allowClear defaultValue={q} onSearch={(v) => list.set('q', v.trim() || undefined)} style={{ width: 260 }} />
             <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => list.set('status', v)} style={{ width: 160 }} options={POST_STATUSES.map((s) => ({ value: s, label: s }))} />
+            <Select
+              aria-label="Filter by author"
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="Any author"
+              value={authorId}
+              onChange={(v) => list.set('authorId', v)}
+              style={{ width: 180 }}
+              loading={authors.status === 'loading'}
+              options={authors.status === 'ready' ? options(authors.data) : []}
+            />
+            <Select
+              aria-label="Filter by category"
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="Any category"
+              value={categoryId}
+              onChange={(v) => list.set('categoryId', v)}
+              style={{ width: 180 }}
+              loading={categories.status === 'loading'}
+              options={categories.status === 'ready' ? options(categories.data) : []}
+            />
+            <Select
+              aria-label="Filter by tag"
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="Any tag"
+              value={tagId}
+              onChange={(v) => list.set('tagId', v)}
+              style={{ width: 160 }}
+              loading={tags.status === 'loading'}
+              options={tags.status === 'ready' ? options(tags.data) : []}
+            />
           </>
         }
       >

@@ -2601,27 +2601,9 @@ export interface paths {
             cookie?: never;
         };
         get: operations["TestimonialAdminController_get"];
-        /** Editing the quote clears the recorded approval: consent was given for particular words. */
         put: operations["TestimonialAdminController_update"];
         post?: never;
         delete: operations["TestimonialAdminController_remove"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/testimonials/{id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Record who confirmed the quote may be used, and when. Publication is refused without it. */
-        post: operations["TestimonialAdminController_approve"];
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -5324,10 +5306,6 @@ export interface components {
             quote: string;
             businessId?: Record<string, never> | null;
             mediaId?: Record<string, never> | null;
-            /** @description When consent to use the quote was recorded. Publication is refused while it is null. */
-            approvedAt?: Record<string, never> | null;
-            approvedByAdminId?: Record<string, never> | null;
-            approvalNote?: Record<string, never> | null;
             displayOrder: number;
             /** @enum {string} */
             status: "draft" | "published";
@@ -5351,11 +5329,6 @@ export interface components {
             mediaId?: Record<string, never> | null;
             displayOrder?: number;
             expectedVersion: number;
-        };
-        ApproveDto: {
-            expectedVersion: number;
-            /** @description How the consent or authorisation was obtained, for the record. */
-            note?: Record<string, never> | null;
         };
         VersionOnlyDto: {
             expectedVersion: number;
@@ -5396,6 +5369,11 @@ export interface components {
             websiteUrl?: Record<string, never> | null;
             displayOrder?: number;
             expectedVersion: number;
+        };
+        ApproveDto: {
+            expectedVersion: number;
+            /** @description How the consent or authorisation was obtained, for the record. */
+            note?: Record<string, never> | null;
         };
         WorkerLivenessDto: {
             /** @description True only when a worker has checked in recently and the required schedule is running. */
@@ -10085,8 +10063,6 @@ export interface operations {
                 pageSize?: components["schemas"]["Object"];
                 order?: "asc" | "desc";
                 status?: "draft" | "published";
-                /** @description true for approved only, false for those still awaiting consent. */
-                approved?: boolean;
             };
             header?: never;
             path?: never;
@@ -10189,31 +10165,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    TestimonialAdminController_approve: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ApproveDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TestimonialDto"];
-                };
             };
         };
     };

@@ -105,7 +105,6 @@ export const PERMISSIONS = {
   'website.testimonials.view': { label: 'View testimonials', description: 'View testimonials and their approval state', module: 'Website' },
   'website.testimonials.create': { label: 'Create testimonials', description: 'Create testimonials', module: 'Website' },
   'website.testimonials.update': { label: 'Edit testimonials', description: 'Edit testimonials and their display order', module: 'Website' },
-  'website.testimonials.approve': { label: 'Approve testimonials', description: 'Record that a testimonial is consented and approved for use; publication is refused without it', module: 'Website' },
   'website.testimonials.publish': { label: 'Publish testimonials', description: 'Publish and unpublish approved testimonials', module: 'Website' },
   'website.testimonials.delete': { label: 'Delete testimonials', description: 'Delete testimonials', module: 'Website' },
   'website.clients.view': { label: 'View client and partner logos', description: 'View the client and partner organisations displayed on the website', module: 'Website' },

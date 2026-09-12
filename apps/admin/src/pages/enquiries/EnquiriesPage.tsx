@@ -6,6 +6,7 @@ import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
+import { useBusy } from '@/shared/useBusy';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { useCapabilities } from '@/auth/access-control';
@@ -43,6 +44,8 @@ export function EnquiriesPage() {
   const [state, reload] = useAsync((signal) => api.list({ handlingStatus, deliveryStatus, page, pageSize: 20 }, signal), [handlingStatus, deliveryStatus, page]);
   const [retrying, setRetrying] = useState<AdminEnquiry | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
+  // Confirming twice sent the decision twice; one at a time.
+  const [busy, run] = useBusy();
   const [form] = Form.useForm<{ reason: string }>();
 
 
@@ -57,22 +60,23 @@ export function EnquiriesPage() {
     }
   };
 
-  const submitRetry = async () => {
-    if (!retrying) return;
-    setDialogError(null);
-    const values = await form.validateFields().catch(() => null);
-    if (!values) return;
-    try {
-      await api.retry(retrying.id, { expectedVersion: retrying.version, reason: values.reason });
-      message.success('Delivery re-queued');
-      setRetrying(null);
-      form.resetFields();
-      reload();
-    } catch (error) {
-      if (isApiError(error) && error.kind === 'unauthorized') onAuthError(error);
-      else setDialogError(errorMessage(error));
-    }
-  };
+  const submitRetry = () =>
+    run(async () => {
+      if (!retrying) return;
+      setDialogError(null);
+      const values = await form.validateFields().catch(() => null);
+      if (!values) return;
+      try {
+        await api.retry(retrying.id, { expectedVersion: retrying.version, reason: values.reason });
+        message.success('Delivery re-queued');
+        setRetrying(null);
+        form.resetFields();
+        reload();
+      } catch (error) {
+        if (isApiError(error) && error.kind === 'unauthorized') onAuthError(error);
+        else setDialogError(errorMessage(error));
+      }
+    });
 
   return (
     <div>
@@ -156,7 +160,7 @@ export function EnquiriesPage() {
         }}
       />
       </TableCard>
-      <Modal open={retrying !== null} title="Re-queue this delivery" okText="Retry delivery" onOk={() => void submitRetry()} onCancel={() => setRetrying(null)} destroyOnHidden>
+      <Modal open={retrying !== null} title="Re-queue this delivery" okText="Retry delivery" confirmLoading={busy} onOk={() => void submitRetry()} onCancel={() => setRetrying(null)} destroyOnHidden>
         <Typography.Paragraph>It is queued again. A timeout can mean the first one arrived, so check before retrying again.</Typography.Paragraph>
         {dialogError && <Alert type="error" showIcon role="alert" message={dialogError} style={{ marginBottom: 12 }} />}
         <Form form={form} layout="vertical" requiredMark={false}>

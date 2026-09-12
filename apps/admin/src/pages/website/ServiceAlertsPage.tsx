@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router';
 import { serviceAlertsApi, type AlertSeverity, type ServiceAlert } from '@/api/website';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
-import { ALERT_PRESENTATION } from '@melbourne-sphere/domain/alerts';
+import { ALERT_PRESENTATION, ALERT_SEVERITIES } from '@melbourne-sphere/domain/alerts';
 import { ErrorState, ListEmpty, PageHeader, Pill, StatusTag, TableCard, type StatusTone } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
@@ -15,7 +15,7 @@ import { useDocumentTitle } from '@/shared/useDocumentTitle';
 const SEVERITY_TONE: Record<AlertSeverity, StatusTone> = { informational: 'progress', warning: 'attention', emergency: 'critical' };
 
 /** The parameters that narrow this list; everything else is sort or page. */
-const FILTERS = ['status'] as const;
+const FILTERS = ['status', 'severity'] as const;
 
 /**
  * Service alerts (SRS 1.2 ALRT 007). An alert renders above the header on every
@@ -32,7 +32,8 @@ export function ServiceAlertsPage() {
   const status = (list.get('status') ?? '') as '' | 'draft' | 'published';
 
   const navigate = useNavigate();
-  const [state, reload] = useAsync(() => serviceAlertsApi.list({ page, pageSize: 20, status: status || undefined }), [page, status]);
+  const severity = list.get('severity') as AlertSeverity | undefined;
+  const [state, reload] = useAsync(() => serviceAlertsApi.list({ page, pageSize: 20, status: status || undefined, severity }), [page, status, severity]);
 
 
   const setPublished = (record: ServiceAlert, published: boolean) => {
@@ -103,6 +104,15 @@ export function ServiceAlertsPage() {
                 { value: 'draft', label: 'Draft' },
                 { value: 'published', label: 'Published' },
               ]}
+            />
+            <Select
+              aria-label="Filter by severity"
+              placeholder="Any severity"
+              allowClear
+              value={severity}
+              style={{ width: 180 }}
+              onChange={(value?: AlertSeverity) => list.set('severity', value)}
+              options={ALERT_SEVERITIES.map((value) => ({ value, label: ALERT_PRESENTATION[value].label }))}
             />
           </>
         }

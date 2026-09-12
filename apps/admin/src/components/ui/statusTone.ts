@@ -34,6 +34,12 @@ const TONES: Record<string, { tone: Tone; label?: string }> = {
   skipped: { tone: 'neutral' },
   optional: { tone: 'neutral' },
   scheduled: { tone: 'progress' },
+  // Featured placements (SRS DIR 007). The server's own words, not aliases:
+  // "not published" means the listing behind the placement is not public, which
+  // is a different problem from the placement having ended.
+  live: { tone: 'positive', label: 'live now' },
+  ended: { tone: 'neutral' },
+  'not-published': { tone: 'attention', label: 'listing not published' },
   new: { tone: 'progress' },
   running: { tone: 'progress' },
   'on schedule': { tone: 'positive' },

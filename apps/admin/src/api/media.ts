@@ -1,5 +1,6 @@
 import type { components } from '@melbourne-sphere/contracts';
-import { httpClient, type HttpClient, type QueryValue } from './http-client';
+import { httpClient, type HttpClient } from './http-client';
+import { enabledFilters } from './query';
 import type { CollectionMeta } from './admins';
 
 export type MediaAsset = components['schemas']['MediaAssetDto'];
@@ -20,8 +21,6 @@ export interface MediaListQuery {
   pageSize?: number;
 }
 
-const asQuery = (q: object): Record<string, QueryValue> => Object.fromEntries(Object.entries(q).filter(([, v]) => v !== undefined && v !== '' && v !== false));
-
 /** Checks the file before any request, so an obviously invalid file never leaves the browser. */
 export function localFileProblem(file: File): string | null {
   if (!(ALLOWED_TYPES as readonly string[]).includes(file.type)) return 'Only JPEG, PNG and WebP images are accepted';
@@ -39,7 +38,7 @@ export async function fileChecksum(file: File): Promise<string> {
 /** Media library and gallery usage (SRS MED 001–004); the API enforces `media.manage`. */
 export function mediaApi(client: HttpClient = httpClient) {
   return {
-    list: (query: MediaListQuery = {}, signal?: AbortSignal) => client.request<{ data: MediaAsset[]; meta: CollectionMeta }>('/admin/media', { query: asQuery(query), signal }).then((r) => r.data),
+    list: (query: MediaListQuery = {}, signal?: AbortSignal) => client.request<{ data: MediaAsset[]; meta: CollectionMeta }>('/admin/media', { query: enabledFilters(query), signal }).then((r) => r.data),
     get: (id: string, signal?: AbortSignal) => client.request<{ data: MediaAsset }>(`/admin/media/${encodeURIComponent(id)}`, { signal }).then((r) => r.data.data),
     requestUpload: (body: { fileName: string; contentType: string; bytes: number }) =>
       client.request<{ data: { assetId: string; uploadUrl: string; headers: Record<string, string>; expiresInSeconds: number } }>('/admin/media/uploads', { method: 'POST', body }).then((r) => r.data.data),

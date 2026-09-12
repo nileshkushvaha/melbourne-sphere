@@ -5,8 +5,9 @@ import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
 import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
-import { useAsync } from '@/shared/useAsync';
+import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useListParams } from '@/shared/useListParams';
+import { useBusy } from '@/shared/useBusy';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { WorkerStoppedAlert } from '@/components/WorkerStoppedAlert';
 
@@ -39,6 +40,8 @@ export function EmailLogsPage() {
   useDocumentTitle('Email logs');
   const { can } = useCapabilities();
   const { message, modal } = App.useApp();
+  // Resending twice sends the message twice; one attempt at a time.
+  const [, run] = useBusy();
   const list = useListParams(FILTERS);
   const [openId, setOpenId] = useState<string | null>(null);
   const [revealed, setRevealed] = useState<Record<string, string>>({});
@@ -55,12 +58,20 @@ export function EmailLogsPage() {
   const [detail] = useAsync<EmailDeliveryDetail | null>(() => (openId ? emailLogsApi.detail(openId) : Promise.resolve(null)), [openId]);
 
 
-  const reveal = async (id: string) => {
+  const reveal = (id: string) =>
+    modal.confirm({
+      title: 'Show the recipient’s address?',
+      content: 'Addresses are hidden by default because a log is not a mailing list. Revealing one is recorded in the activity log against your account.',
+      okText: 'Show the address',
+      onOk: () => revealNow(id),
+    });
+
+  const revealNow = async (id: string) => {
     try {
       const recipient = await emailLogsApi.revealRecipient(id);
       setRevealed((current) => ({ ...current, [id]: recipient }));
     } catch (error) {
-      message.error(error instanceof Error ? error.message : 'The address could not be revealed');
+      message.error(errorMessage(error));
     }
   };
 
@@ -69,16 +80,17 @@ export function EmailLogsPage() {
       title: 'Resend this message?',
       // The consequence is stated before the action, not after it.
       content: `A new attempt will be created and linked to this one. The recipient may receive the message twice if the original was in fact delivered.`,
-      okText: 'Resend',
-      onOk: async () => {
+      okText: 'Resend message',
+      onOk: () =>
+        run(async () => {
         try {
           await emailLogsApi.resend(record.id);
-          message.success('A new attempt has been queued');
+          message.success('A new attempt has been queued.');
           reload();
         } catch (error) {
-          message.error(error instanceof Error ? error.message : 'The message could not be resent');
+          message.error(errorMessage(error));
         }
-      },
+      }),
     });
   };
 

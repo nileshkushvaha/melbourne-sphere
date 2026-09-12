@@ -7734,15 +7734,6 @@
                 "published"
               ]
             }
-          },
-          {
-            "name": "approved",
-            "required": false,
-            "in": "query",
-            "description": "true for approved only, false for those still awaiting consent.",
-            "schema": {
-              "type": "boolean"
-            }
           }
         ],
         "responses": {
@@ -7857,7 +7848,6 @@
             }
           }
         },
-        "summary": "Editing the quote clears the recorded approval: consent was given for particular words.",
         "tags": [
           "admin-website"
         ]
@@ -7879,47 +7869,6 @@
             "description": ""
           }
         },
-        "tags": [
-          "admin-website"
-        ]
-      }
-    },
-    "/api/v1/admin/testimonials/{id}/approve": {
-      "post": {
-        "operationId": "TestimonialAdminController_approve",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ApproveDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TestimonialDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Record who confirmed the quote may be used, and when. Publication is refused without it.",
         "tags": [
           "admin-website"
         ]
@@ -17048,19 +16997,6 @@
             "type": "object",
             "nullable": true
           },
-          "approvedAt": {
-            "type": "object",
-            "nullable": true,
-            "description": "When consent to use the quote was recorded. Publication is refused while it is null."
-          },
-          "approvedByAdminId": {
-            "type": "object",
-            "nullable": true
-          },
-          "approvalNote": {
-            "type": "object",
-            "nullable": true
-          },
           "displayOrder": {
             "type": "number"
           },
@@ -17159,22 +17095,6 @@
         "required": [
           "displayName",
           "quote",
-          "expectedVersion"
-        ]
-      },
-      "ApproveDto": {
-        "type": "object",
-        "properties": {
-          "expectedVersion": {
-            "type": "number"
-          },
-          "note": {
-            "type": "object",
-            "nullable": true,
-            "description": "How the consent or authorisation was obtained, for the record."
-          }
-        },
-        "required": [
           "expectedVersion"
         ]
       },
@@ -17328,6 +17248,22 @@
         },
         "required": [
           "name",
+          "expectedVersion"
+        ]
+      },
+      "ApproveDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          },
+          "note": {
+            "type": "object",
+            "nullable": true,
+            "description": "How the consent or authorisation was obtained, for the record."
+          }
+        },
+        "required": [
           "expectedVersion"
         ]
       },

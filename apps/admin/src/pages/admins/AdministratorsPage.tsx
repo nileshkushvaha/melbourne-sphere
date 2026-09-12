@@ -19,11 +19,16 @@ const FILTERS = ['q', 'status'] as const;
  */
 export function AdministratorsPage() {
   useDocumentTitle('Administrators');
-  const list = useListParams(FILTERS);
+  const list = useListParams<(typeof FILTERS)[number], 'sort' | 'order'>(FILTERS);
   const page = list.page;
   const q = list.get('q') ?? '';
   const status = (list.get('status') as AdminListItem['status'] | null) ?? undefined;
-  const [state, reload] = useAsync(() => adminsApi.list({ page, pageSize: 20, q: q || undefined, status, sort: 'createdAt', order: 'desc' }), [page, q, status]);
+  const sort = (list.get('sort') as 'createdAt' | 'displayName' | 'email' | 'lastLoginAt' | undefined) ?? 'createdAt';
+  const order = (list.get('order') as 'asc' | 'desc' | undefined) ?? 'desc';
+  const [state, reload] = useAsync(() => adminsApi.list({ page, pageSize: 20, q: q || undefined, status, sort, order }), [page, q, status, sort, order]);
+
+  /** Ant's own name for the direction, for the column currently sorted. */
+  const sortColumn = (field: string) => (sort === field ? (order === 'desc' ? ('descend' as const) : ('ascend' as const)) : null);
   // Roles arrive on an account as keys; a reader recognises the name they chose,
   // so the list is fetched once to translate them. A key that no longer resolves
   // is shown as it is rather than hidden.
@@ -61,13 +66,22 @@ export function AdministratorsPage() {
         dataSource={state.status === 'ready' ? state.data.data : []}
         pagination={state.status === 'ready' ? { current: state.data.meta.page, pageSize: state.data.meta.pageSize, total: state.data.meta.total, showSizeChanger: false, onChange: (p) => list.setPage(p) } : false}
         scroll={{ x: 720 }}
+        // Sorting writes to the address bar with the filters, so an ordered
+        // view can be linked to.
+        onChange={(_pagination, _filters, sorter) => {
+          const next = Array.isArray(sorter) ? sorter[0] : sorter;
+          const field = typeof next?.field === 'string' ? next.field : undefined;
+          if (!field || !next?.order) return list.set('sort', undefined);
+          list.set('sort', field);
+          list.set('order', next.order === 'descend' ? 'desc' : 'asc');
+        }}
         columns={[
-          { title: 'Name', dataIndex: 'displayName', render: (v: string, r) => <Link to={`/admins/${r.id}`}>{v}</Link> },
-          { title: 'Email', dataIndex: 'email' },
+          { title: 'Name', dataIndex: 'displayName', sorter: true, sortOrder: sortColumn('displayName'), render: (v: string, r) => <Link to={`/admins/${r.id}`}>{v}</Link> },
+          { title: 'Email', dataIndex: 'email', sorter: true, sortOrder: sortColumn('email') },
           { title: 'Status', dataIndex: 'status', width: 120, render: (v: AdminListItem['status']) => <StatusTag status={v} /> },
           { title: 'Roles', dataIndex: 'roles', render: (v: string[]) => (v.length > 0 ? v.map(roleName).join(', ') : 'None') },
           { title: 'Two-step sign-in', dataIndex: 'totpEnabled', width: 150, render: (v: boolean) => (v ? 'On' : 'Off') },
-          { title: 'Last signed in', dataIndex: 'lastLoginAt', width: 190, render: (v: string | null) => (v ? formatDateTime(v) : 'Never') },
+          { title: 'Last signed in', dataIndex: 'lastLoginAt', width: 190, sorter: true, sortOrder: sortColumn('lastLoginAt'), render: (v: string | null) => (v ? formatDateTime(v) : 'Never') },
         ]}
         locale={{
           emptyText: (

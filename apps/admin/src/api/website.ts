@@ -1,4 +1,5 @@
 import { httpClient, type HttpClient } from './http-client';
+import { queryParams } from './query';
 import type { CollectionMeta } from './admins';
 
 /**
@@ -39,12 +40,10 @@ export interface FaqListQuery {
   q?: string;
 }
 
-const asQuery = (query: Record<string, unknown>): Record<string, string> =>
-  Object.fromEntries(Object.entries(query).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]));
 
 export const faqsApi = {
   list(query: FaqListQuery = {}, client: HttpClient = httpClient) {
-    return client.request<{ data: Faq[]; meta: CollectionMeta }>('/admin/faqs', { query: asQuery({ ...query }) }).then((r) => r.data);
+    return client.request<{ data: Faq[]; meta: CollectionMeta }>('/admin/faqs', { query: queryParams({ ...query }) }).then((r) => r.data);
   },
   create(input: FaqInput, client: HttpClient = httpClient) {
     return client.request<{ data: Faq }>('/admin/faqs', { method: 'POST', body: input }).then((r) => r.data.data);
@@ -100,7 +99,7 @@ export interface ServiceAlertInput {
 
 export const serviceAlertsApi = {
   list(query: { page?: number; pageSize?: number; status?: WebsiteContentStatus; severity?: AlertSeverity } = {}, client: HttpClient = httpClient) {
-    return client.request<{ data: ServiceAlert[]; meta: CollectionMeta }>('/admin/service-alerts', { query: asQuery({ ...query }) }).then((r) => r.data);
+    return client.request<{ data: ServiceAlert[]; meta: CollectionMeta }>('/admin/service-alerts', { query: queryParams({ ...query }) }).then((r) => r.data);
   },
   create(input: ServiceAlertInput, client: HttpClient = httpClient) {
     return client.request<{ data: ServiceAlert }>('/admin/service-alerts', { method: 'POST', body: input }).then((r) => r.data.data);
@@ -124,9 +123,6 @@ export interface Testimonial {
   businessId: string | null;
   mediaId: string | null;
   /** Recorded consent. Publication is refused while this is null. */
-  approvedAt: string | null;
-  approvedByAdminId: string | null;
-  approvalNote: string | null;
   displayOrder: number;
   status: WebsiteContentStatus;
   publishedAt: string | null;
@@ -171,17 +167,14 @@ export interface PartnerInput {
 }
 
 export const testimonialsApi = {
-  list(query: { page?: number; pageSize?: number; status?: WebsiteContentStatus; approved?: boolean } = {}, client: HttpClient = httpClient) {
-    return client.request<{ data: Testimonial[]; meta: CollectionMeta }>('/admin/testimonials', { query: asQuery({ ...query }) }).then((r) => r.data);
+  list(query: { page?: number; pageSize?: number; status?: WebsiteContentStatus } = {}, client: HttpClient = httpClient) {
+    return client.request<{ data: Testimonial[]; meta: CollectionMeta }>('/admin/testimonials', { query: queryParams({ ...query }) }).then((r) => r.data);
   },
   create(input: TestimonialInput, client: HttpClient = httpClient) {
     return client.request<{ data: Testimonial }>('/admin/testimonials', { method: 'POST', body: input }).then((r) => r.data.data);
   },
   update(id: string, input: TestimonialInput & { expectedVersion: number }, client: HttpClient = httpClient) {
     return client.request<{ data: Testimonial }>(`/admin/testimonials/${id}`, { method: 'PUT', body: input }).then((r) => r.data.data);
-  },
-  approve(id: string, expectedVersion: number, note: string | null, client: HttpClient = httpClient) {
-    return client.request<{ data: Testimonial }>(`/admin/testimonials/${id}/approve`, { method: 'POST', body: { expectedVersion, note } }).then((r) => r.data.data);
   },
   setPublished(id: string, published: boolean, expectedVersion: number, client: HttpClient = httpClient) {
     return client.request<{ data: Testimonial }>(`/admin/testimonials/${id}/${published ? 'publish' : 'unpublish'}`, { method: 'POST', body: { expectedVersion } }).then((r) => r.data.data);
@@ -193,7 +186,7 @@ export const testimonialsApi = {
 
 export const partnersApi = {
   list(query: { page?: number; pageSize?: number; status?: WebsiteContentStatus } = {}, client: HttpClient = httpClient) {
-    return client.request<{ data: PartnerOrganisation[]; meta: CollectionMeta }>('/admin/partners', { query: asQuery({ ...query }) }).then((r) => r.data);
+    return client.request<{ data: PartnerOrganisation[]; meta: CollectionMeta }>('/admin/partners', { query: queryParams({ ...query }) }).then((r) => r.data);
   },
   create(input: PartnerInput, client: HttpClient = httpClient) {
     return client.request<{ data: PartnerOrganisation }>('/admin/partners', { method: 'POST', body: input }).then((r) => r.data.data);

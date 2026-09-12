@@ -70,7 +70,6 @@ export const PERMISSION = {
   websiteTestimonialsView: 'website.testimonials.view',
   websiteTestimonialsCreate: 'website.testimonials.create',
   websiteTestimonialsUpdate: 'website.testimonials.update',
-  websiteTestimonialsApprove: 'website.testimonials.approve',
   websiteTestimonialsPublish: 'website.testimonials.publish',
   websiteTestimonialsDelete: 'website.testimonials.delete',
   websiteClientsView: 'website.clients.view',

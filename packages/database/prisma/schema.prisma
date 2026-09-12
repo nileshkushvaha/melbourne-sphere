@@ -87,7 +87,6 @@ model AdminUser {
   faqsUpdated        Faq[]                 @relation("FaqUpdatedBy")
   alertsCreated      ServiceAlert[]        @relation("ServiceAlertCreatedBy")
   alertsUpdated      ServiceAlert[]        @relation("ServiceAlertUpdatedBy")
-  testimonialsApproved Testimonial[]       @relation("TestimonialApprovedBy")
   testimonialsCreated  Testimonial[]       @relation("TestimonialCreatedBy")
   testimonialsUpdated  Testimonial[]       @relation("TestimonialUpdatedBy")
   partnersAuthorised   PartnerOrganisation[] @relation("PartnerAuthorisedBy")
@@ -1378,11 +1377,6 @@ model Testimonial {
   businessId        String?
   /// Optional portrait; an approved asset from the media pipeline (MED 001-004).
   mediaId           String?
-  /// Recorded consent/approval. Publication is refused while these are null.
-  approvedByAdminId String?
-  approvedAt        DateTime?            @db.DateTime(3)
-  /// How the consent was obtained, for the record, e.g. "Email 3 Sep 2026".
-  approvalNote      String?              @db.VarChar(300)
   displayOrder      Int                  @default(0)
   status            WebsiteContentStatus @default(draft)
   publishedAt       DateTime?            @db.DateTime(3)
@@ -1394,7 +1388,6 @@ model Testimonial {
 
   business   Business?   @relation(fields: [businessId], references: [id], onDelete: SetNull)
   media      MediaAsset? @relation("TestimonialMedia", fields: [mediaId], references: [id], onDelete: SetNull)
-  approvedBy AdminUser?  @relation("TestimonialApprovedBy", fields: [approvedByAdminId], references: [id], onDelete: SetNull)
   createdBy  AdminUser?  @relation("TestimonialCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
   updatedBy  AdminUser?  @relation("TestimonialUpdatedBy", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
 

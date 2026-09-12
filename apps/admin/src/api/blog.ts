@@ -1,5 +1,6 @@
 import type { components } from '@melbourne-sphere/contracts';
-import { httpClient, type HttpClient, type QueryValue } from './http-client';
+import { httpClient, type HttpClient } from './http-client';
+import { queryParams } from './query';
 import type { CollectionMeta } from './admins';
 
 export type Author = components['schemas']['AuthorDto'];
@@ -24,12 +25,10 @@ export interface PostListQuery {
   pageSize?: number;
 }
 
-const asQuery = (q: object): Record<string, QueryValue> => Object.fromEntries(Object.entries(q).filter(([, v]) => v !== undefined && v !== ''));
-
 /** Editorial API (SRS BLOG 001–003); the API enforces `posts.write` and `posts.publish`. */
 export function blogApi(client: HttpClient = httpClient) {
   return {
-    listPosts: (query: PostListQuery = {}, signal?: AbortSignal) => client.request<{ data: PostSummary[]; meta: CollectionMeta }>('/admin/posts', { query: asQuery(query), signal }).then((r) => r.data),
+    listPosts: (query: PostListQuery = {}, signal?: AbortSignal) => client.request<{ data: PostSummary[]; meta: CollectionMeta }>('/admin/posts', { query: queryParams(query), signal }).then((r) => r.data),
     getPost: (id: string, signal?: AbortSignal) => client.request<{ data: Post }>(`/admin/posts/${encodeURIComponent(id)}`, { signal }).then((r) => r.data.data),
     /**
      * The server's own rendering of the saved draft, including the author and

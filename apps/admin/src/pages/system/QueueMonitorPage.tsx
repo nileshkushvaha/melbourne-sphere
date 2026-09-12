@@ -42,8 +42,12 @@ export function QueueMonitorPage() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
+  // When the figures on screen were read. The page does not poll — nothing here
+  // updates itself — so without this the counts, the running jobs and the
+  // worker's age all go stale silently and look current.
+  const [readAt, setReadAt] = useState(() => new Date());
 
-  const [overview, reloadOverview] = useAsync(() => queuesApi.overview(), [reloadKey]);
+  const [overview, reloadOverview] = useAsync(() => queuesApi.overview().then((result) => { setReadAt(new Date()); return result; }), [reloadKey]);
   const [liveness] = useAsync(() => queuesApi.workers(), [reloadKey]);
   const queue: QueueSummary | null = overview.status === 'ready' ? (overview.data[0] ?? null) : null;
   const [jobs, reloadJobs] = useAsync(
@@ -164,9 +168,12 @@ export function QueueMonitorPage() {
       <PageHeader
         crumbs={[{ label: 'System' }, { label: 'Queue monitor' }]}
         title="Queue monitor"
-        description="Background work waiting, running or failed. No visitor messages, addresses or tokens are shown."
+        description="Background work waiting, running or failed. The figures are read when you refresh."
         actions={
           <Space wrap>
+            <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+              Read {formatDateTime(readAt.toISOString())}
+            </Typography.Text>
             <Button onClick={refresh}>Refresh</Button>
             {queue?.pausable && can(PERMISSION.systemQueuesPause) && (
               <Button danger={!queue.paused} onClick={() => setPaused(!queue.paused)} disabled={!queue.available}>
@@ -190,6 +197,16 @@ export function QueueMonitorPage() {
             message={!queue.available ? 'Queue unreachable' : queue.paused ? 'Queue paused' : queue.workers.count === 0 ? 'No worker connected' : 'Processing normally'}
             description={!queue.available ? queue.detail : queue.paused ? queue.pauseConsequence : queue.workers.detail}
           />
+
+          {liveness.status === 'error' && (
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message="Worker health could not be read"
+              description={`${liveness.message} The queue figures above are still accurate.`}
+            />
+          )}
 
           {liveness.status === 'ready' && (
             <SectionCard

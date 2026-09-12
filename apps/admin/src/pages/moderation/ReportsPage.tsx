@@ -7,6 +7,7 @@ import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
+import { useBusy } from '@/shared/useBusy';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { FormSelect } from '@/components/FormSelect';
@@ -40,6 +41,8 @@ export function ReportsPage() {
   const [state, reload] = useAsync((signal) => api.listReports({ status, page, pageSize: 20 }, signal), [status, page]);
   const [resolving, setResolving] = useState<AdminReport | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
+  // Confirming twice sent the decision twice; one at a time.
+  const [busy, run] = useBusy();
   const [form] = Form.useForm<{ outcome: ReportOutcome; note?: string }>();
 
 
@@ -60,21 +63,22 @@ export function ReportsPage() {
     }
   };
 
-  const submitResolution = async () => {
-    if (!resolving) return;
-    setDialogError(null);
-    const values = await form.validateFields().catch(() => null);
-    if (!values) return;
-    try {
-      await api.resolve(resolving.id, { expectedVersion: resolving.version, outcome: values.outcome, note: values.note || undefined });
-      message.success('Report resolved');
-      setResolving(null);
-      form.resetFields();
-      reload();
-    } catch (error) {
-      handleError(error);
-    }
-  };
+  const submitResolution = () =>
+    run(async () => {
+      if (!resolving) return;
+      setDialogError(null);
+      const values = await form.validateFields().catch(() => null);
+      if (!values) return;
+      try {
+        await api.resolve(resolving.id, { expectedVersion: resolving.version, outcome: values.outcome, note: values.note || undefined });
+        message.success('Report resolved');
+        setResolving(null);
+        form.resetFields();
+        reload();
+      } catch (error) {
+        handleError(error);
+      }
+    });
 
   return (
     <div>
@@ -140,7 +144,7 @@ export function ReportsPage() {
         }}
       />
       </TableCard>
-      <Modal open={resolving !== null} title="Resolve this report" okText="Resolve" onOk={() => void submitResolution()} onCancel={() => setResolving(null)} destroyOnHidden>
+      <Modal open={resolving !== null} title="Resolve this report" okText="Resolve report" confirmLoading={busy} onOk={() => void submitResolution()} onCancel={() => setResolving(null)} destroyOnHidden>
         {dialogError && <Alert type="error" showIcon role="alert" message={dialogError} style={{ marginBottom: 12 }} />}
         <Form form={form} layout="vertical" requiredMark={false} initialValues={{ outcome: 'retain' }}>
           <Form.Item label="Outcome" name="outcome" rules={[{ required: true, message: 'Choose an outcome' }]}>

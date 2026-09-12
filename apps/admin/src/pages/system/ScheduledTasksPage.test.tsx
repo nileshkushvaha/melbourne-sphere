@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ScheduledTasksPage } from '@/pages/system/ScheduledTasksPage';
 import { renderWithProviders, providerWithPermissions } from '@/test/render';
@@ -111,6 +111,10 @@ describe('ScheduledTasksPage', () => {
     });
 
     await userEvent.click(await screen.findByRole('switch', { name: /switch tidy finished job records off/i }));
+    // Switching a task off stops recurring work, so it is confirmed first.
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/will not run on its schedule again/i)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Switch it off' }));
     await waitFor(() => expect(posted).toHaveLength(1));
     expect(posted[0]!.url).toContain('/admin/system/schedules/queue.clean-metadata/enabled');
     expect(posted[0]!.body).toEqual({ enabled: false });
