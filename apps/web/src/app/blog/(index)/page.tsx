@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { routeMetadata } from '@/lib/route-seo';
 import Link from 'next/link';
 import { LazyPostGrid } from '@/components/lazy-list';
+import { NextPageLink } from '@/components/next-page-link';
 import { FeaturedPostCard } from '@/components/featured-post-card';
-import { Pagination } from '@/components/pagination';
 import { fetchBlogTerms, fetchPosts } from '@/lib/api';
 
 /** The page's own metadata, with any administrator overrides applied (SEO 001). */
@@ -57,14 +57,18 @@ export default async function BlogIndexPage({ searchParams }: PageProps<'/blog'>
             {/* The newest article leads page one; later pages are a plain grid. */}
             {lead && <FeaturedPostCard post={lead} />}
             {/* Page one is server rendered; later pages are appended as the
-                index is scrolled, with the numbered pages kept below for
-                anyone without JavaScript and for crawlers. */}
-            {rest.length > 0 && <LazyPostGrid initial={rest} page={posts.meta.page} pageCount={posts.meta.pageCount} />}
+                index is scrolled. Without JavaScript a plain "More articles"
+                link takes its place, so the archive is still walkable. */}
+            {rest.length > 0 && (
+              <LazyPostGrid
+                initial={rest}
+                page={posts.meta.page}
+                pageCount={posts.meta.pageCount}
+                fallback={posts.meta.page < posts.meta.pageCount ? <NextPageLink href={`/blog?page=${posts.meta.page + 1}`} label="More articles" /> : null}
+              />
+            )}
           </div>
         )}
-        <div className="mt-10">
-          <Pagination page={posts.meta.page} pageCount={posts.meta.pageCount} hrefFor={(p) => (p === 1 ? '/blog' : `/blog?page=${p}`)} />
-        </div>
       </div>
     </>
   );

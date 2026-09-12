@@ -4,9 +4,9 @@ import { fetchAreas, fetchCategories, flattenCategories, searchBusinesses } from
 import { buildChips, pageHref, toQueryString, type SearchState } from '@/lib/search-params';
 import { BusinessCard } from './business-card';
 import { LazyBusinessGrid } from './lazy-list';
+import { NextPageLink } from './next-page-link';
 import { BusinessFilters } from './business-filters';
 import { FilterChips } from './filter-chips';
-import { Pagination } from './pagination';
 import { gridColumns } from './page-shell';
 
 interface Props {
@@ -42,7 +42,9 @@ export async function BusinessResults({ basePath, state, fixed = {} }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
         <p role="status" className="text-sm">
           <span className="font-semibold">{meta.total === 0 ? 'No businesses match' : `${meta.total} business${meta.total === 1 ? '' : 'es'}`}</span>
-          {meta.total > 0 && meta.pageCount > 1 ? <span className="text-text-muted"> · page {state.page} of {meta.pageCount}</span> : null}
+          {/* No page number: the list grows as it is scrolled, so "page 3 of 9"
+              would describe something the visitor no longer sees. How many are
+              on screen is announced by the list itself. */}
         </p>
         <FilterChips chips={chips} resetHref={basePath} />
       </div>
@@ -64,10 +66,19 @@ export async function BusinessResults({ basePath, state, fixed = {} }: Props) {
         </section>
       )}
       {data.length > 0 ? (
-        /* The first page is rendered here, so crawlers and visitors without
-           JavaScript get a complete, paginated list; the rest is fetched and
-           appended as the page is scrolled. */
-        <LazyBusinessGrid initial={data} page={state.page} pageCount={meta.pageCount} query={toQueryString(state).replace(/^\?/, '')} category={fixed.category} area={fixed.area} />
+        /* The first page is rendered here, so the results exist without
+           JavaScript; the rest is fetched and appended as the page is
+           scrolled, and a plain "More businesses" link stands in when it
+           cannot be. */
+        <LazyBusinessGrid
+          initial={data}
+          page={state.page}
+          pageCount={meta.pageCount}
+          query={toQueryString(state).replace(/^\?/, '')}
+          category={fixed.category}
+          area={fixed.area}
+          fallback={state.page < meta.pageCount ? <NextPageLink href={pageHref(state, basePath, state.page + 1)} label="More businesses" /> : null}
+        />
       ) : beyond ? (
         <div className="rounded-card-lg border border-border bg-surface-raised p-10 text-center shadow-sm">
           <p className="text-lg font-semibold">This page is past the end of the results.</p>
@@ -87,7 +98,6 @@ export async function BusinessResults({ basePath, state, fixed = {} }: Props) {
           )}
         </div>
       )}
-      <Pagination page={state.page} pageCount={meta.pageCount} hrefFor={(p) => pageHref(state, basePath, p)} />
     </div>
   );
 }

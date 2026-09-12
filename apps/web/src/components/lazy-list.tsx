@@ -36,7 +36,7 @@ interface GridProps<T> {
   keyOf: (item: T) => string;
   /** Plural noun for the button and the live region ("businesses", "articles"). */
   noun: string;
-  /** Numbered pages, rendered by the server. Kept below the button so the list still works without JavaScript and stays jumpable with it. */
+  /** A plain link to the next page, rendered by the server and shown only until the component hydrates, so the list is still walkable without JavaScript and by crawlers. */
   fallback?: ReactNode;
 }
 
@@ -122,7 +122,7 @@ function LazyGrid<T>({ initial, initialPage, pageCount, load, render, keyOf, nou
           </Button>
         </div>
       )}
-      {fallback}
+      {!hydrated && !done && fallback}
     </div>
   );
 }
