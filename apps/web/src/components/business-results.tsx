@@ -3,6 +3,7 @@ import { Button } from '@melbourne-sphere/ui';
 import { fetchAreas, fetchCategories, flattenCategories, searchBusinesses } from '@/lib/api';
 import { buildChips, pageHref, toQueryString, type SearchState } from '@/lib/search-params';
 import { BusinessCard } from './business-card';
+import { LazyBusinessGrid } from './lazy-list';
 import { BusinessFilters } from './business-filters';
 import { FilterChips } from './filter-chips';
 import { Pagination } from './pagination';
@@ -63,13 +64,10 @@ export async function BusinessResults({ basePath, state, fixed = {} }: Props) {
         </section>
       )}
       {data.length > 0 ? (
-        <ul className={`grid gap-6 ${gridColumns(data.length)}`}>
-          {data.map((b) => (
-            <li key={b.id}>
-              <BusinessCard business={b} />
-            </li>
-          ))}
-        </ul>
+        /* The first page is rendered here, so crawlers and visitors without
+           JavaScript get a complete, paginated list; the rest is fetched and
+           appended as the page is scrolled. */
+        <LazyBusinessGrid initial={data} page={state.page} pageCount={meta.pageCount} query={toQueryString(state).replace(/^\?/, '')} category={fixed.category} area={fixed.area} />
       ) : beyond ? (
         <div className="rounded-card-lg border border-border bg-surface-raised p-10 text-center shadow-sm">
           <p className="text-lg font-semibold">This page is past the end of the results.</p>

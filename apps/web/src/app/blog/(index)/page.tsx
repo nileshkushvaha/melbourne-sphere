@@ -1,10 +1,9 @@
 import type { Metadata } from 'next';
 import { routeMetadata } from '@/lib/route-seo';
 import Link from 'next/link';
-import { PostCard } from '@/components/post-card';
+import { LazyPostGrid } from '@/components/lazy-list';
 import { FeaturedPostCard } from '@/components/featured-post-card';
 import { Pagination } from '@/components/pagination';
-import { gridColumns } from '@/components/page-shell';
 import { fetchBlogTerms, fetchPosts } from '@/lib/api';
 
 /** The page's own metadata, with any administrator overrides applied (SEO 001). */
@@ -57,15 +56,10 @@ export default async function BlogIndexPage({ searchParams }: PageProps<'/blog'>
           <div className="flex flex-col gap-8">
             {/* The newest article leads page one; later pages are a plain grid. */}
             {lead && <FeaturedPostCard post={lead} />}
-            {rest.length > 0 && (
-              <ul className={`grid gap-6 ${gridColumns(rest.length)}`}>
-                {rest.map((post) => (
-                  <li key={post.id}>
-                    <PostCard post={post} />
-                  </li>
-                ))}
-              </ul>
-            )}
+            {/* Page one is server rendered; later pages are appended as the
+                index is scrolled, with the numbered pages kept below for
+                anyone without JavaScript and for crawlers. */}
+            {rest.length > 0 && <LazyPostGrid initial={rest} page={posts.meta.page} pageCount={posts.meta.pageCount} />}
           </div>
         )}
         <div className="mt-10">
