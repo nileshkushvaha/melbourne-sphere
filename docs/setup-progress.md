@@ -1381,6 +1381,15 @@ to moderation or editorial workflow.
   `featured` layouts (`featured-post-card.tsx` is gone), with `showCategory`
   off on an archive, where the term is already the page heading. The fallback
   panel carries no words for the same reason.
+* **One fixed four-column grid,** at client instruction: `cardGridColumns`
+  (1 / sm 2 / lg 3 / xl 4) is used by the blog index, the blog category and tag
+  archives and the business search results, and does **not** narrow to the
+  number of cards. A collection therefore keeps its shape as it fills up, and a
+  lone card is a quarter of the row rather than the full section width — which
+  is the other half of the fix above, since a full-width card is what turned a
+  missing cover into an 850px-tall panel. The count-dependent `gridColumns` is
+  unchanged and still used by the home-page bands and the related-articles row,
+  where the section is narrower and a row of three is the maximum that fits.
 * **Reading width.** New `--ms-content-read` (46 rem) and `.ms-container-read`;
   the article's breadcrumb, title, standfirst, byline, body, author and
   comments all share one 736 px column while the hero runs wider at 1008 px.

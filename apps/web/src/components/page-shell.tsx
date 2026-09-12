@@ -82,17 +82,16 @@ export function gridColumns(count: number): string {
 }
 
 /**
- * Columns for a row of *article* cards. Three is the editorial maximum — a
- * four-up row makes the headlines too short to say anything — so a long archive
- * is three across and wraps.
+ * The four-column card grid used by the blog index, the blog category and tag
+ * archives and the business search results.
  *
- * Unlike `gridColumns` a row never collapses to one full-width column, which is
- * the defect behind the archive screenshots: one card spanning the 1520px
- * content width gives a 16:9 picture frame around 850px tall, and whatever
- * stands in for a missing cover fills all of it. A lone card is held to half the
- * row instead.
+ * Unlike `gridColumns` this does not narrow to fit the number of cards: the row
+ * is the same shape whether the page has one card or forty, so a collection
+ * never changes layout as content is published. Holding the column count also
+ * caps the card width, which is what keeps a missing cover from becoming a tall
+ * empty panel — a card that spanned the 1520px content width gave a 16:9 frame
+ * around 850px tall.
+ *
+ * Written out in full so Tailwind can see every class.
  */
-export function articleColumns(count: number): string {
-  if (count <= 2) return 'sm:grid-cols-2';
-  return 'sm:grid-cols-2 lg:grid-cols-3';
-}
+export const cardGridColumns = 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';

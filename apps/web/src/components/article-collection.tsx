@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { PostCard as PostCardData } from '@/lib/api';
-import { articleColumns } from './page-shell';
+import { cardGridColumns } from './page-shell';
 import { PostCard } from './post-card';
 
 interface Props {
@@ -18,29 +18,22 @@ interface Props {
 }
 
 /**
- * A collection of articles, laid out for the number of articles there actually
- * are (SRS BLOG 005).
+ * A collection of articles (SRS BLOG 005), always in the four-column card grid.
  *
- * A single article is given the lead layout — picture beside the words — rather
- * than a grid card stretched across the section. Stretching it was the defect
- * behind the archive screenshots: one `grid-cols-1` card filled the 1520px
- * content width, and a 16:9 frame at that width is an 850px-tall block of
- * whatever is behind the picture. Two articles sit side by side; three or more
- * take the three-column grid.
+ * The row keeps its shape whatever the article count is, so an archive does not
+ * change layout as it fills up. Holding the columns is also what keeps a card
+ * narrow: a single `grid-cols-1` card used to fill the 1520px content width,
+ * where a 16:9 frame is an 850px-tall block of whatever stands in for a missing
+ * cover — the defect behind the archive screenshots.
  */
 export function ArticleCollection({ posts, label, showCategory = true, headingLevel = 2, leadIsAboveFold = false }: Props) {
   if (posts.length === 0) return null;
 
-  if (posts.length === 1) {
-    return (
-      <PostCard post={posts[0]!} variant="featured" headingLevel={headingLevel} showCategory={showCategory} priority={leadIsAboveFold} />
-    );
-  }
-
   return (
-    <ul aria-label={label} className={`grid grid-cols-1 gap-6 ${articleColumns(posts.length)}`}>
+    <ul aria-label={label} className={`grid gap-6 ${cardGridColumns}`}>
       {posts.map((post, index) => (
         <li key={post.id}>
+          {/* Only the first card can be above the fold, so only it may load its picture eagerly. */}
           <PostCard post={post} headingLevel={headingLevel} showCategory={showCategory} priority={leadIsAboveFold && index === 0} />
         </li>
       ))}

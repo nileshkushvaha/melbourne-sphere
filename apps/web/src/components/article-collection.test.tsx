@@ -3,43 +3,38 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { PostCard as PostCardData } from '@/lib/api';
 import { ArticleCollection, BlogEmptyState } from './article-collection';
-import { articleColumns } from './page-shell';
+import { cardGridColumns } from './page-shell';
 import { post } from '@/test/post-fixture';
 
 const many = (count: number): PostCardData[] => Array.from({ length: count }, (_, index) => post({ id: `p${index}`, slug: `article-${index}`, title: `Article ${index}` }));
 
-describe('articleColumns', () => {
-  it('never collapses a row to one full-width column', () => {
-    // A single card spanning the 1520px content width is what turned a missing
-    // cover into an 850px-tall block on the archive pages.
-    for (const count of [1, 2, 3, 12]) expect(articleColumns(count)).not.toContain('grid-cols-1 ');
-    expect(articleColumns(1)).toBe('sm:grid-cols-2');
-  });
-
-  it('stops at three columns, so a headline still has room to say something', () => {
-    expect(articleColumns(3)).toContain('lg:grid-cols-3');
-    expect(articleColumns(24)).toBe(articleColumns(3));
-    expect(articleColumns(24)).not.toContain('grid-cols-4');
+describe('cardGridColumns', () => {
+  it('reaches four columns on a wide screen and steps down to one on a phone', () => {
+    expect(cardGridColumns).toContain('xl:grid-cols-4');
+    expect(cardGridColumns).toContain('lg:grid-cols-3');
+    expect(cardGridColumns).toContain('sm:grid-cols-2');
+    expect(cardGridColumns).toContain('grid-cols-1');
   });
 });
 
 describe('ArticleCollection', () => {
-  it('gives a lone article the lead layout rather than a stretched grid card', () => {
-    const { container } = render(<ArticleCollection posts={many(1)} label="Articles" />);
-    // No list wrapper: one article is not a collection to walk through.
-    expect(container.querySelector('ul')).toBeNull();
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Article 0');
-    expect(container.querySelector('.lg\\:grid-cols-\\[minmax\\(0\\,1\\.05fr\\)_minmax\\(0\\,1fr\\)\\]')).toBeInTheDocument();
+  it('uses the same four-column grid whatever the article count is', () => {
+    // The row must not change shape as an archive fills up, and a lone card
+    // must not widen to fill the section — a full-width card is what turned a
+    // missing cover into an 850px-tall block.
+    for (const count of [1, 2, 3, 7]) {
+      const { unmount } = render(<ArticleCollection posts={many(count)} label="Articles" />);
+      const list = screen.getByRole('list', { name: 'Articles' });
+      expect(list.className).toContain(cardGridColumns);
+      expect(list.querySelectorAll('li')).toHaveLength(count);
+      unmount();
+    }
   });
 
-  it('lists several articles as a named grid at two and three columns', () => {
-    const two = render(<ArticleCollection posts={many(2)} label="Articles in City guides" />);
-    expect(screen.getByRole('list', { name: 'Articles in City guides' }).className).toContain('sm:grid-cols-2');
-    expect(two.container.querySelectorAll('li')).toHaveLength(2);
-    two.unmount();
-
-    render(<ArticleCollection posts={many(5)} label="Articles" />);
-    expect(screen.getByRole('list', { name: 'Articles' }).className).toContain('lg:grid-cols-3');
+  it('keeps a single article in the grid, with its heading at the level the page asked for', () => {
+    render(<ArticleCollection posts={many(1)} label="Articles" headingLevel={2} />);
+    expect(screen.getByRole('list', { name: 'Articles' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Article 0');
   });
 
   it('passes the archive`s "do not repeat the category" rule through to every card', () => {

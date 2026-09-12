@@ -10,7 +10,7 @@ import { blogPostingJsonLd, breadcrumbJsonLd } from '@/lib/structured-data';
 import { CommentForm } from '@/components/comment-form';
 import { CommentList } from '@/components/comment-list';
 import { PostCard } from '@/components/post-card';
-import { articleColumns } from '@/components/page-shell';
+import { gridColumns } from '@/components/page-shell';
 import { ShareLinks } from '@/components/share-links';
 import { fetchComments, fetchPost, privacyNoticeHref, reviewGuidelinesHref } from '@/lib/api';
 import { absoluteUrl, turnstileSiteKey } from '@/lib/site';
@@ -148,7 +148,7 @@ export default async function ArticlePage({ params }: PageProps<'/blog/[slug]'>)
             <h2 id="related-heading" className="font-display text-2xl tracking-tight sm:text-3xl">
               More from Melbourne Sphere
             </h2>
-            <ul className={`mt-8 grid grid-cols-1 gap-6 ${articleColumns(related.length)}`}>
+            <ul className={`mt-8 grid gap-6 ${gridColumns(related.length)}`}>
               {related.map((item) => (
                 <li key={item.id}>
                   <PostCard post={item} headingLevel={3} />

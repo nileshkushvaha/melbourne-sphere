@@ -10,7 +10,7 @@ import { TestimonialCarousel } from '@/components/testimonial-carousel';
 import { PartnerStrip } from '@/components/partner-strip';
 import { CategoryIcon } from '@/components/category-icon';
 import { FeaturedPostCard, PostCard } from '@/components/post-card';
-import { Band, SectionHeading, articleColumns, gridColumns } from '@/components/page-shell';
+import { Band, SectionHeading, cardGridColumns, gridColumns } from '@/components/page-shell';
 import { fetchAreas, fetchCategories, fetchHome, fetchPosts, fetchSiteSettings, flattenCategories, searchBusinesses, type BusinessCard as BusinessCardData, type PublicArea, type PublicCategory, type PostCard as PostCardData, type SearchMeta, fetchTestimonials, fetchPartners } from '@/lib/api';
 import { HeroHeadline } from '@/components/hero-headline';
 import { HeroSearch } from '@/components/hero-search';
@@ -324,7 +324,7 @@ export default async function HomePage() {
             {/* Far below the hero, so its picture does not compete with the page's real LCP image. */}
             <FeaturedPostCard post={leadPost} headingLevel={3} priority={false} />
             {supportingPosts.length > 0 && (
-              <ul className={`grid grid-cols-1 gap-6 ${articleColumns(supportingPosts.length)}`}>
+              <ul className={`grid gap-6 ${cardGridColumns}`}>
                 {supportingPosts.map((post) => (
                   <li key={post.id}>
                     <PostCard post={post} />
