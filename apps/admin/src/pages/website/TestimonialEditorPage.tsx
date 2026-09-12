@@ -106,7 +106,7 @@ export function TestimonialEditorPage() {
       >
         <Input.TextArea rows={7} maxLength={1000} showCount placeholder="What they said, in their own words." />
       </Form.Item>
-      <Form.Item label="Rating" name="rating" extra="Stars the person gave, 1 to 5. Leave it empty if they did not give one — the page then shows no stars rather than a score they never gave.">
+      <Form.Item label="Rating" name="rating" extra="Stars the person gave, 1 to 5. Empty shows no stars at all.">
         <InputNumber min={1} max={5} precision={0} style={{ width: 120 }} placeholder="e.g. 5" />
       </Form.Item>
       <Form.Item label="Linked listing" name="businessId" extra="The listing's reference, so the quote links to it. Copy it from the listing address.">

@@ -34,12 +34,27 @@ const require = createRequire(`${process.cwd()}/apps/worker/`);
 type Sharp = (input: Buffer) => { png: () => { toBuffer: () => Promise<Buffer> } };
 const sharp = require('sharp') as Sharp;
 
-const LOGO_WIDTH = 640;
-const LOGO_HEIGHT = 240;
+const MARK_SIZE = 400;
 const AVATAR_SIZE = 400;
 
-/** Colours the initials discs cycle through; each is 4.5:1 or better with white. */
+/** Colours the generated marks cycle through; each is 4.5:1 or better with white. */
 const AVATAR_COLOURS = ['#0B1F3A', '#0369A1', '#155E75', '#065F46', '#7C2D12', '#9D174D', '#4C1D95', '#3F6212'];
+
+/**
+ * A partner's mark: initials in a rounded square, and nothing else.
+ *
+ * The name is deliberately *not* drawn into the image. The strip renders logos
+ * forty pixels tall, so a name baked into the bitmap came out six pixels high
+ * and clipped at the canvas edge — and text in an image cannot reflow, scale,
+ * be selected or be translated. The page puts the name beside the mark as
+ * ordinary text instead, which is what a logo strip should do anyway.
+ */
+function markSvg(initials: string, colour: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${MARK_SIZE}" height="${MARK_SIZE}" viewBox="0 0 ${MARK_SIZE} ${MARK_SIZE}">
+    <rect width="${MARK_SIZE}" height="${MARK_SIZE}" rx="88" fill="${colour}"/>
+    <text x="50%" y="50%" dy="0.35em" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="170" font-weight="700" fill="#FFFFFF">${initials}</text>
+  </svg>`;
+}
 
 /**
  * A portrait for somebody who does not exist.
@@ -59,24 +74,6 @@ function avatarSvg(name: string, colour: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${AVATAR_SIZE}" height="${AVATAR_SIZE}" viewBox="0 0 ${AVATAR_SIZE} ${AVATAR_SIZE}">
     <rect width="${AVATAR_SIZE}" height="${AVATAR_SIZE}" fill="${colour}"/>
     <text x="50%" y="50%" dy="0.35em" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="168" font-weight="600" fill="#FFFFFF">${initials}</text>
-  </svg>`;
-}
-
-/** A plain wordmark: the initials in a rounded square, the name beside them. */
-function logoSvg(name: string, initials: string, colour: string): string {
-  const escaped = name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  // Two lines where the name is long, so it never runs off the mark.
-  const words = escaped.split(' ');
-  const half = Math.ceil(words.length / 2);
-  const lines = escaped.length > 22 ? [words.slice(0, half).join(' '), words.slice(half).join(' ')] : [escaped];
-  const text = lines
-    .map((line, index) => `<text x="232" y="${LOGO_HEIGHT / 2 + (lines.length === 1 ? 12 : index * 44 - 10)}" font-family="Helvetica, Arial, sans-serif" font-size="34" font-weight="600" fill="#0F172A">${line}</text>`)
-    .join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${LOGO_WIDTH}" height="${LOGO_HEIGHT}" viewBox="0 0 ${LOGO_WIDTH} ${LOGO_HEIGHT}">
-    <rect width="${LOGO_WIDTH}" height="${LOGO_HEIGHT}" fill="#FFFFFF"/>
-    <rect x="48" y="60" width="120" height="120" rx="28" fill="${colour}"/>
-    <text x="108" y="140" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="52" font-weight="700" fill="#FFFFFF">${initials}</text>
-    ${text}
   </svg>`;
 }
 
@@ -148,12 +145,12 @@ async function seedPartners(): Promise<void> {
     const existing = await db.partnerOrganisation.findFirst({ where: { name: partner.name }, select: { id: true } });
     if (existing) continue;
 
-    const png = await sharp(Buffer.from(logoSvg(partner.name, partner.initials, partner.colour))).png().toBuffer();
+    const png = await sharp(Buffer.from(markSvg(partner.initials, partner.colour))).png().toBuffer();
     const mediaId = await uploadBytes({
       bytes: png,
       mimeType: 'image/png',
       extension: 'png',
-      sourceName: `partner-${partner.initials.toLowerCase()}-logo.png`,
+      sourceName: `partner-${partner.initials.toLowerCase()}-mark.png`,
       // The mark names the organisation, which is what the strip needs read out.
       alt: `${partner.name} logo`,
       credit: partner.name,

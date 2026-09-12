@@ -7,6 +7,7 @@ import { JsonLdScript } from '@/components/json-ld';
 import { organizationJsonLd, webSiteJsonLd } from '@/lib/structured-data';
 import { BusinessCard } from '@/components/business-card';
 import { TestimonialCarousel } from '@/components/testimonial-carousel';
+import { PartnerStrip } from '@/components/partner-strip';
 import { CategoryIcon } from '@/components/category-icon';
 import { PostCard } from '@/components/post-card';
 import { FeaturedPostCard } from '@/components/featured-post-card';
@@ -351,21 +352,7 @@ export default async function HomePage() {
       {partners.length > 0 && (
         <Band tone="plain" aria-labelledby="partners-heading">
           <SectionHeading id="partners-heading" eyebrow="Working with" title="Clients and partners" />
-          <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-10 gap-y-8">
-            {partners.map((partner) => (
-              <li key={partner.id} className="flex items-center">
-                {partner.websiteUrl ? (
-                  <a href={partner.websiteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-lg px-1">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- height-constrained logo from our own media pipeline */}
-                    <img src={partner.logo.url} alt={partner.logoAlt} width={partner.logo.width} height={partner.logo.height} className="h-10 w-auto object-contain opacity-80 transition-opacity hover:opacity-100" />
-                  </a>
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element -- as above
-                  <img src={partner.logo.url} alt={partner.logoAlt} width={partner.logo.width} height={partner.logo.height} className="h-10 w-auto object-contain opacity-80" />
-                )}
-              </li>
-            ))}
-          </ul>
+          <PartnerStrip partners={partners} />
         </Band>
       )}
 
