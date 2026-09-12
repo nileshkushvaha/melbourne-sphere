@@ -13645,6 +13645,11 @@
                 "$ref": "#/components/schemas/PublicImageVariantDto"
               }
             ]
+          },
+          "coverCredit": {
+            "type": "string",
+            "nullable": true,
+            "description": "Photographer credit recorded with the cover image. Several licences require it to be shown."
           }
         },
         "required": [
@@ -13658,7 +13663,8 @@
           "publishedAt",
           "coverAlt",
           "cover",
-          "shareImage"
+          "shareImage",
+          "coverCredit"
         ]
       },
       "PublicBlogTermDto": {
@@ -13826,6 +13832,11 @@
               }
             ]
           },
+          "coverCredit": {
+            "type": "string",
+            "nullable": true,
+            "description": "Photographer credit recorded with the cover image. Several licences require it to be shown."
+          },
           "body": {
             "type": "string",
             "description": "Allowlist-sanitised HTML"
@@ -13873,6 +13884,7 @@
           "coverAlt",
           "cover",
           "shareImage",
+          "coverCredit",
           "body",
           "seoTitle",
           "seoDescription",

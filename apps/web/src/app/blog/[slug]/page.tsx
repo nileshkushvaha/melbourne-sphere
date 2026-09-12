@@ -79,7 +79,16 @@ export default async function ArticlePage({ params }: PageProps<'/blog/[slug]'>)
           <div className="relative aspect-[16/9] w-full overflow-hidden rounded-card-lg bg-navy-900 shadow-lg">
             <Image src={hero.url} alt={post.coverAlt ?? ''} fill priority sizes="(min-width: 1120px) 1120px, 100vw" className="object-cover" />
           </div>
-          {post.coverAlt && <p className="mt-3 text-sm text-text-muted">{post.coverAlt}</p>}
+          {/* The caption and the credit are separate obligations: the caption
+              describes the picture, while the credit is what a Creative Commons
+              Attribution licence requires to be shown alongside it. */}
+          {(post.coverAlt || post.coverCredit) && (
+            <p className="mt-3 text-sm text-text-muted">
+              {post.coverAlt}
+              {post.coverAlt && post.coverCredit ? ' · ' : ''}
+              {post.coverCredit && <span>Photograph: {post.coverCredit}</span>}
+            </p>
+          )}
         </div>
       )}
 

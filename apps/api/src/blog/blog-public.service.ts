@@ -130,6 +130,10 @@ export class BlogPublicService {
       publishedAt: (row.publishedAt ?? row.createdAt).toISOString(),
       coverAlt: row.coverAlt ?? row.cover?.altText ?? null,
       cover: this.renditions(row.cover),
+      // Published because a Creative Commons Attribution licence requires the
+      // credit to appear wherever the image does. It is stored on the asset, so
+      // one image credited once is credited everywhere it is used.
+      coverCredit: row.cover?.credit ?? null,
       // The image used when the article is shared. An article that sets one
       // publishes that; otherwise the cover stands in, which is what readers
       // expect and what the editor is told on the screen.

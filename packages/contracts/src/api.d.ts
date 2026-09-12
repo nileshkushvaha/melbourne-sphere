@@ -4378,6 +4378,8 @@ export interface components {
             cover: components["schemas"]["PublicImageVariantDto"][];
             /** @description Image used when the article is shared; null means the cover is used */
             shareImage: components["schemas"]["PublicImageVariantDto"] | null;
+            /** @description Photographer credit recorded with the cover image. Several licences require it to be shown. */
+            coverCredit: string | null;
         };
         PublicBlogTermDto: {
             name: string;
@@ -4425,6 +4427,8 @@ export interface components {
             cover: components["schemas"]["PublicImageVariantDto"][];
             /** @description Image used when the article is shared; null means the cover is used */
             shareImage: components["schemas"]["PublicImageVariantDto"] | null;
+            /** @description Photographer credit recorded with the cover image. Several licences require it to be shown. */
+            coverCredit: string | null;
             /** @description Allowlist-sanitised HTML */
             body: string;
             seoTitle: string | null;
