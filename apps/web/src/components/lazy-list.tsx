@@ -6,7 +6,7 @@ import type { BusinessCard as BusinessCardData, PostCard as PostCardData } from 
 import { loadBusinessPage, loadPostPage } from '@/lib/lazy-actions';
 import { BusinessCard } from './business-card';
 import { PostCard } from './post-card';
-import { gridColumns } from './page-shell';
+import { articleColumns, gridColumns } from './page-shell';
 
 /**
  * How many further pages arrive on their own as the visitor scrolls before the
@@ -36,6 +36,8 @@ interface GridProps<T> {
   keyOf: (item: T) => string;
   /** Plural noun for the button and the live region ("businesses", "articles"). */
   noun: string;
+  /** How the row divides. Defaults to the directory's four-up grid. */
+  columnsFor?: (count: number) => string;
   /** A plain link to the next page, rendered by the server and shown only until the component hydrates, so the list is still walkable without JavaScript and by crawlers. */
   fallback?: ReactNode;
 }
@@ -48,7 +50,7 @@ interface GridProps<T> {
  *
  * A failed load is not fatal: the button says so and can be pressed again.
  */
-function LazyGrid<T>({ initial, initialPage, pageCount, load, render, keyOf, noun, fallback }: GridProps<T>) {
+function LazyGrid<T>({ initial, initialPage, pageCount, load, render, keyOf, noun, fallback, columnsFor = gridColumns }: GridProps<T>) {
   const hydrated = useHydrated();
   const [items, setItems] = useState<T[]>(initial);
   const [page, setPage] = useState(initialPage);
@@ -104,7 +106,7 @@ function LazyGrid<T>({ initial, initialPage, pageCount, load, render, keyOf, nou
 
   return (
     <div className="flex flex-col gap-8">
-      <ul className={`grid gap-6 ${gridColumns(items.length)}`}>
+      <ul className={`grid grid-cols-1 gap-6 ${columnsFor(items.length)}`}>
         {items.map((item) => (
           <li key={keyOf(item)}>{render(item)}</li>
         ))}
@@ -167,6 +169,7 @@ export function LazyPostGrid({
   pageCount,
   category,
   tag,
+  showCategory = true,
   fallback,
 }: {
   initial: PostCardData[];
@@ -174,6 +177,8 @@ export function LazyPostGrid({
   pageCount: number;
   category?: string;
   tag?: string;
+  /** Off on an archive, where the term is already the page heading. */
+  showCategory?: boolean;
   fallback?: ReactNode;
 }) {
   return (
@@ -182,9 +187,10 @@ export function LazyPostGrid({
       initialPage={page}
       pageCount={pageCount}
       load={(next) => loadPostPage({ page: next, category, tag })}
-      render={(post) => <PostCard post={post} />}
+      render={(post) => <PostCard post={post} showCategory={showCategory} />}
       keyOf={(post) => post.id}
       noun="articles"
+      columnsFor={articleColumns}
       fallback={fallback}
     />
   );

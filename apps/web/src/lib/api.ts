@@ -304,6 +304,16 @@ export async function reviewGuidelinesHref(): Promise<string | null> {
   return pages.some((page) => page.slug === 'review-guidelines') ? '/review-guidelines' : null;
 }
 
+/**
+ * The privacy notice's address, on the same terms as the guidelines above: the
+ * acknowledgement on a public form names it either way, and links to it only
+ * once an editor has published it, so no form ever points at a 404.
+ */
+export async function privacyNoticeHref(): Promise<string | null> {
+  const pages = await fetchStaticPages();
+  return pages.some((page) => page.slug === 'privacy') ? '/privacy' : null;
+}
+
 export interface SiteMetrics {
   businesses: number | null;
   categories: number | null;

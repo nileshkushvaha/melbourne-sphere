@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import type { ReactNode } from 'react';
 import { Breadcrumbs } from './breadcrumbs';
 
 interface Props {
@@ -13,6 +14,8 @@ interface Props {
   meta?: string;
   /** The collection's own picture, beside the words on wide screens and above them on a phone. */
   image?: { url: string; alt: string } | null;
+  /** Navigation belonging to the band, such as the blog's category row, placed under the words. */
+  footer?: ReactNode;
 }
 
 /**
@@ -20,7 +23,7 @@ interface Props {
  * category or local area). One component keeps every landing page in the same
  * light/dark rhythm as the home page instead of a bare heading on white.
  */
-export function CollectionHeader({ eyebrow, title, crumbs, description, bodyHtml, meta, image }: Props) {
+export function CollectionHeader({ eyebrow, title, crumbs, description, bodyHtml, meta, image, footer }: Props) {
   return (
     <div className="ms-on-dark bg-band text-band-text">
       <div className={`ms-container py-10 sm:py-14 ${image ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center lg:gap-12' : ''}`}>
@@ -31,6 +34,7 @@ export function CollectionHeader({ eyebrow, title, crumbs, description, bodyHtml
           {description && <p className="mt-4 max-w-2xl text-lg leading-relaxed text-band-muted">{description}</p>}
           {bodyHtml && <div className="ms-prose mt-5 max-w-2xl text-band-muted [&_a]:text-band-link [&_strong]:text-white" dangerouslySetInnerHTML={{ __html: bodyHtml }} />}
           {meta && <p className="mt-6 text-sm text-band-muted">{meta}</p>}
+          {footer && <div className="mt-7">{footer}</div>}
         </div>
         {image && (
           <div className="relative mt-8 aspect-[4/3] overflow-hidden rounded-[2rem] bg-navy-950 shadow-lg ring-1 ring-white/10 lg:mt-0">

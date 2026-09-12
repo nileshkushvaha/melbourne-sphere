@@ -33,6 +33,65 @@ export function newIdempotencyKey(): string {
   return `ms-${Date.now().toString(36)}-${crypto.randomUUID()}`;
 }
 
+/** Mirrors `SubmitCommentDto` in the API; the API remains the authority (SRS COM 001). */
+export const COMMENT_LIMITS = {
+  name: { min: 2, max: 80 },
+  text: { min: 2, max: 2000 },
+  email: { max: 254 },
+} as const;
+
+export interface CommentFormValues {
+  displayName: string;
+  email: string;
+  text: string;
+  acknowledged: boolean;
+}
+
+/**
+ * Client-side pre-check for a comment. The wording tells the visitor what to do
+ * rather than restating a constraint, and an empty field is distinguished from
+ * one that is merely too short — "Enter your name" and "Your name is too short"
+ * are different problems.
+ */
+export function validateCommentForm(values: CommentFormValues): FieldErrors {
+  const errors: FieldErrors = {};
+  const name = values.displayName.trim();
+  if (name.length === 0) errors.displayName = ['Enter your name.'];
+  else if (name.length < COMMENT_LIMITS.name.min) errors.displayName = [`Your name must be at least ${COMMENT_LIMITS.name.min} characters.`];
+  else if (name.length > COMMENT_LIMITS.name.max) errors.displayName = [`Your name must be ${COMMENT_LIMITS.name.max} characters or fewer.`];
+
+  const email = values.email.trim();
+  if (email.length === 0) errors.email = ['Enter your email address.'];
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > COMMENT_LIMITS.email.max) errors.email = ['Enter a valid email address.'];
+
+  const text = values.text.trim();
+  if (text.length === 0) errors.text = ['Write a comment before submitting.'];
+  else if (text.length < COMMENT_LIMITS.text.min) errors.text = ['Your comment is too short.'];
+  else if (text.length > COMMENT_LIMITS.text.max) errors.text = [`Your comment must be ${COMMENT_LIMITS.text.max} characters or fewer.`];
+
+  if (!values.acknowledged) errors.acknowledged = ['Please confirm you have read the comment guidelines and privacy notice.'];
+  return errors;
+}
+
+/**
+ * What to tell a visitor when a public submission fails, chosen from the HTTP
+ * status and the API's own error code (SRS API 002 envelope).
+ *
+ * The API's message is deliberately not shown. It is written for the caller, can
+ * name internal constraints, and on an unexpected failure is the filter's
+ * generic text anyway — so every case gets copy written for a reader, and an
+ * unrecognised one gets a safe sentence rather than a raw payload.
+ */
+export function submissionFailureMessage(status: number, code?: string): string {
+  if (status === 0 || code === 'NETWORK') return 'We could not reach the server. Check your connection and try again.';
+  if (status === 429 || code === 'RATE_LIMITED') return 'You’re submitting comments too quickly. Please wait a moment and try again.';
+  if (status === 503) return 'Comments are temporarily unavailable. Please try again shortly.';
+  if (status === 404) return 'This article is no longer available, so the comment was not submitted.';
+  if (status === 400 || status === 422) return 'Please check the highlighted fields and try again.';
+  if (status >= 500) return 'Something went wrong at our end and your comment was not saved. Please try again.';
+  return 'Your comment could not be submitted. Please try again.';
+}
+
 /**
  * Site contact form (SRS ENQ 002: the general enquiry goes through the same
  * durable pipeline as a business enquiry, with `POST /api/v1/contact`). The

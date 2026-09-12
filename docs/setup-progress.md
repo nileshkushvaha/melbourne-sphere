@@ -1347,3 +1347,80 @@ Client requests in this session, in order. No commit, no push.
 * **SRS conflict surfaced and resolved:** a request to rename local areas to
   "Cities" was declined by the client once the Melbourne-only scope rule
   (SCP 001–005, UX 003) was pointed out; local areas keep their name.
+
+
+## 12 September 2026 — Public blog: editorial presentation and media handling
+
+Client request: the blog index, category archive and article page read as
+functional but sparse, with very large navy blocks where article pictures
+should be. Frontend only — no schema change, no business-rule change, no change
+to moderation or editorial workflow.
+
+* **The oversized navy blocks had three causes, all now closed.** (1) A cover
+  reaches the public API only once the worker has processed it —
+  `BlogPublicService.renditions()` publishes nothing for an asset that is not
+  `ready` — so with no worker running every cover arrives as an empty array and
+  every card takes its no-picture branch. (2) `gridColumns(1)` returned
+  `grid-cols-1`, so a single article's card spanned the whole 1520 px content
+  width and its 16:10 frame became an ~880 px-tall panel; `articleColumns()`
+  now never collapses a row below half width, and a one-article collection is
+  given the lead layout instead of a stretched grid card. (3) `next/image` had
+  no failure path, so a rendition that 404s left the frame's `bg-navy-900`
+  showing with nothing on it — indistinguishable from having no cover, and
+  undiagnosable. Measured after the change: the tallest media block on a
+  one-article archive is 352 px at 1440 px, and an article hero 567 px.
+* **`components/article-media.tsx`** is the one place an article picture is
+  drawn: reserved aspect ratio before load, `card` (800 px) or `hero` (1600 px)
+  rendition chosen by the layout it sits in, lazy by default and eager only for
+  a genuine LCP image, and one restrained fallback — the brand mark on a
+  category-derived gradient (`editorialGradient`) — for both ways a picture can
+  be absent. A load failure swaps in that fallback *and* writes the failing URL
+  to the console, so a broken media origin stays diagnosable while a reader
+  never sees a broken-image glyph or an error.
+* **One canonical card.** `post-card.tsx` now carries both the `standard` and
+  `featured` layouts (`featured-post-card.tsx` is gone), with `showCategory`
+  off on an archive, where the term is already the page heading. The fallback
+  panel carries no words for the same reason.
+* **Reading width.** New `--ms-content-read` (46 rem) and `.ms-container-read`;
+  the article's breadcrumb, title, standfirst, byline, body, author and
+  comments all share one 736 px column while the hero runs wider at 1008 px.
+  `.ms-prose-article` sets the long-form scale (17–18 px, 1.78, H2 clamped to
+  1.6–2.05 rem) and switches off the per-element 68ch cap, which had left
+  paragraphs at one measure while the headings beside them ran to the full
+  column.
+* **Article flow** is now body → tags → author → related → comments; related
+  articles previously sat below the comments. **The hero caption prints the
+  photographer credit only.** It previously printed `coverAlt` as visible body
+  copy, which put an editor's own name under the photograph as if it were a
+  caption; alternative text is the description announced in place of a picture,
+  the data model has no caption field, and none was invented.
+* **Category navigation** (`blog-category-nav.tsx`) on the index and the
+  category archives: "All stories" plus the stocked categories from the API,
+  `aria-current` on the active chip so the state is not colour alone, and a
+  row that scrolls sideways on a phone rather than wrapping into four lines.
+* **Comments** gained the states the brief asks for: field messages that say
+  what to do, errors tied to their controls and focused on failure, distinct
+  copy for rate limiting, a closed service, a validation failure, a server
+  fault and an unreachable network (`submissionFailureMessage`), "Posting…"
+  with repeat submission refused, guidelines and privacy notice linked
+  separately once each is published, and a success message that says the
+  comment is awaiting review. The API's own message is no longer shown.
+  Nothing about validation, the honeypot, the captcha, the acknowledgement or
+  moderation changed.
+* **Defect found and fixed during verification:** a `loading.tsx` added to the
+  category and tag archives made those routes stream, so `notFound()` could no
+  longer set the status and an unknown category answered **200** instead of 404
+  (SRS SEO 001). Both files were removed; only `/blog`, which never 404s, keeps
+  its skeleton. The repository already knew this hazard — `/business` uses a
+  route group for the same reason.
+* **Verified**: `pnpm --filter web test` (184 passed, 30 files), typecheck,
+  lint, production `next build`; and the real pages driven in Chromium at
+  375/430/768/1024/1280/1440 px against a stub API (this container has no
+  MySQL, Redis or object storage), covering an article with a cover, without
+  one, with a cover that 404s, a long headline, and archives holding one, two,
+  three and seven articles: no horizontal overflow, one `h1` per page, no
+  heading-level skips, zero axe violations (WCAG 2.2 A/AA) and no unexpected
+  failed requests. Route statuses confirmed: unknown article and unknown
+  category 404, empty category 200.
+
+No SRS business-rule change was introduced.

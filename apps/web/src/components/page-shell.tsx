@@ -80,3 +80,19 @@ export function gridColumns(count: number): string {
   if (count === 3) return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
   return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
 }
+
+/**
+ * Columns for a row of *article* cards. Three is the editorial maximum — a
+ * four-up row makes the headlines too short to say anything — so a long archive
+ * is three across and wraps.
+ *
+ * Unlike `gridColumns` a row never collapses to one full-width column, which is
+ * the defect behind the archive screenshots: one card spanning the 1520px
+ * content width gives a 16:9 picture frame around 850px tall, and whatever
+ * stands in for a missing cover fills all of it. A lone card is held to half the
+ * row instead.
+ */
+export function articleColumns(count: number): string {
+  if (count <= 2) return 'sm:grid-cols-2';
+  return 'sm:grid-cols-2 lg:grid-cols-3';
+}
