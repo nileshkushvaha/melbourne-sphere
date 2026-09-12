@@ -153,6 +153,18 @@ describe('task implementations', () => {
     expect(await TASK_IMPLEMENTATIONS['media.retention']!({ db: fakeDb(), now: NOW, queue: {} as Queue })).toMatch(/not configured/i);
   });
 
+  it('keeps an upload that is only waiting for processing, and clears one that never arrived', async () => {
+    const findMany = vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    const db = fakeDb({ mediaAsset: { findMany, delete: vi.fn(async () => ({})) } });
+    await TASK_IMPLEMENTATIONS['media.retention']!({ db, now: NOW, queue: {} as Queue, storage: { delete: vi.fn(async () => undefined) } });
+
+    const abandoned = (findMany.mock.calls[0]![0] as { where: { OR: Record<string, unknown>[] } }).where;
+    // A completed upload has a checksum and is merely queued: deleting it threw
+    // away real images whenever the worker was behind for a day, while the
+    // library promised nothing needed uploading twice.
+    expect(abandoned.OR).toEqual([{ status: 'rejected' }, { status: 'quarantined', checksum: null }]);
+  });
+
   it('never treats an image a testimonial, a partner or the site settings use as unused', async () => {
     const findMany = vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([]);
     const db = fakeDb({

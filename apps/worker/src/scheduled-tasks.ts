@@ -111,8 +111,20 @@ export const TASK_IMPLEMENTATIONS: Record<string, (ctx: TaskContext) => Promise<
    */
   'media.retention': async ({ db, now, storage }) => {
     if (!storage) return 'Object storage is not configured; nothing was removed';
+    // An upload that was never completed has no checksum: the browser asked for
+    // a ticket and then failed, or the person changed their mind. Those are the
+    // abandoned ones, and they are what this task exists to clear.
+    //
+    // A *completed* upload is quarantined only because the worker has not
+    // reached it yet. Deleting those destroyed real uploads whenever processing
+    // was behind for a day — while the library told the administrator their
+    // images were safe and nothing needed uploading twice. They are kept, and
+    // the library says plainly that they are waiting.
     const abandoned = await db.mediaAsset.findMany({
-      where: { status: { in: ['quarantined', 'rejected'] }, createdAt: { lt: new Date(now.getTime() - QUARANTINE_MAX_AGE_HOURS * 3_600_000) } },
+      where: {
+        createdAt: { lt: new Date(now.getTime() - QUARANTINE_MAX_AGE_HOURS * 3_600_000) },
+        OR: [{ status: 'rejected' }, { status: 'quarantined', checksum: null }],
+      },
       select: { id: true, objectKey: true },
       take: 100,
     });

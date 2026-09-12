@@ -30,6 +30,7 @@ const USAGE_LABELS: Record<string, { what: string; href: (id: string) => string 
   author: { what: 'Author profile', href: (id) => `/authors/${encodeURIComponent(id)}` },
   testimonial: { what: 'Testimonial', href: (id) => `/website/testimonials/${encodeURIComponent(id)}` },
   partner: { what: 'Partner logo', href: (id) => `/website/partners/${encodeURIComponent(id)}` },
+  page: { what: 'Website page', href: (id) => `/website/pages/${encodeURIComponent(id)}` },
   // A settings document, identified as `group.key`; the two that hold images
   // each have their own screen.
   setting: { what: 'Site settings', href: (id) => (id === 'website.home' ? '/settings' : '/settings/general') },
@@ -137,7 +138,7 @@ export function MediaDetailPage() {
             <SectionCard title="Where it is used" description="An image cannot be deleted while something still shows it.">
               {usages.length === 0 ? (
                 <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-                  Nothing uses this image yet, so it can be deleted from the library.
+                  Nothing was using this image when the page was opened. It can be deleted from the library.
                 </Typography.Paragraph>
               ) : (
                 <ul style={{ margin: 0, paddingInlineStart: 18 }}>

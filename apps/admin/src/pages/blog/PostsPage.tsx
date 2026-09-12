@@ -33,7 +33,7 @@ export function PostsPage() {
   );
   // The three sets an article is classified by. They are small and rarely
   // change, so they are read once and reused by all three pickers.
-  const [authors] = useAsync((signal) => api.listAuthors(signal), []);
+  const [authors] = useAsync((signal) => api.listAuthors({}, signal), []);
   const [categories] = useAsync((signal) => api.listTerms('blog-categories', {}, signal), []);
   const [tags] = useAsync((signal) => api.listTerms('blog-tags', {}, signal), []);
 

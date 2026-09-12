@@ -128,7 +128,7 @@ describe('media library', () => {
     // can only say an upload has waited a long time, which the next case covers.
     renderWithProviders(<MediaLibraryPage />, { initialEntries: ['/admin/media'], authProvider: providerWithPermissions(['media.manage', 'system.queues.view']) });
     expect(await screen.findByText('Background processing is not running')).toBeInTheDocument();
-    expect(screen.getByText(/prepared automatically once it is running again/i)).toBeInTheDocument();
+    expect(screen.getByText(/will be prepared once it is running again/i)).toBeInTheDocument();
   });
 
   it('hides the library without media.manage', async () => {

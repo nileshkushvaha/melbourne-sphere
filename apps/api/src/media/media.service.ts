@@ -28,7 +28,7 @@ const USAGE_INCLUDE = {
   businesses: { include: { business: { select: { name: true } } } },
   coverOf: { select: { id: true, title: true } },
   shareImageOf: { select: { id: true, title: true } },
-  pageShareImageOf: { select: { id: true, title: true } },
+  pageShareImageOf: { select: { slug: true, title: true } },
   authorOf: { select: { id: true, displayName: true } },
   testimonials: { select: { id: true, displayName: true } },
   partners: { select: { id: true, name: true } },
@@ -43,7 +43,9 @@ function relationUsages(row: UsageRow): MediaAssetDto['usages'] {
     // A share image is a separate use: removing the cover must not make an
     // image look unused while an article still shares it.
     ...row.shareImageOf.map((p) => ({ kind: 'post' as const, id: p.id, label: `${p.title} (share image)` })),
-    ...row.pageShareImageOf.map((p) => ({ kind: 'page' as const, id: p.id, label: `${p.title} (share image)` })),
+    // A page is addressed by its slug, not its id: that is what its editor
+    // route takes, so this is what a link to it needs.
+    ...row.pageShareImageOf.map((p) => ({ kind: 'page' as const, id: p.slug, label: `${p.title} (share image)` })),
     ...row.authorOf.map((a) => ({ kind: 'author' as const, id: a.id, label: a.displayName })),
     ...row.testimonials.map((t) => ({ kind: 'testimonial' as const, id: t.id, label: t.displayName })),
     ...row.partners.map((p) => ({ kind: 'partner' as const, id: p.id, label: p.name })),

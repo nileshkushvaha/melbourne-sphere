@@ -1,14 +1,17 @@
-import { Alert, App, Avatar, Button, Input, Space, Switch, Table, Tag, Typography } from 'antd';
+import { App, Avatar, Button, Input, Select, Space, Switch, Table, Tag, Typography } from 'antd';
 import { PlusOutlined, UserOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
-import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { blogApi, type Author } from '@/api/blog';
 import { isApiError } from '@/api/errors';
-import { EmptyState, PageHeader, StatusTag } from '@/components/ui';
+import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
+import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+
+/** The parameters that narrow this list; everything else is sort or page. */
+const FILTERS = ['q', 'status'] as const;
 
 /**
  * Author directory (SRS BLOG 001/004). An author is public attribution only:
@@ -20,12 +23,11 @@ export function AuthorsPage() {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
-  const [search, setSearch] = useState('');
-  const [state, reload] = useAsync((signal) => api.listAuthors(signal), []);
-
-  const authors = (state.status === 'ready' ? state.data : []).filter((author) =>
-    search.trim() === '' ? true : `${author.displayName} ${author.role ?? ''} ${author.slug}`.toLowerCase().includes(search.trim().toLowerCase()),
-  );
+  const list = useListParams(FILTERS);
+  const q = list.get('q') ?? '';
+  const status = list.get('status') as 'active' | 'inactive' | undefined;
+  const [state, reload] = useAsync((signal) => api.listAuthors({ q: q || undefined, status }, signal), [q, status]);
+  const authors = state.status === 'ready' ? state.data : [];
 
   const toggleActive = async (row: Author) => {
     try {
@@ -50,10 +52,33 @@ export function AuthorsPage() {
           </Button>
         }
       />
-      {state.status === 'error' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} />}
-      <Space style={{ marginBottom: 12 }} wrap>
-        <Input.Search allowClear placeholder="Search by name or role" value={search} onChange={(event) => setSearch(event.target.value)} style={{ width: 300 }} aria-label="Search authors" />
-      </Space>
+      {state.status === 'error' && <ErrorState message={state.message} reference={state.reference} onRetry={reload} />}
+      <TableCard
+        toolbar={
+          <>
+            <Input.Search
+              allowClear
+              placeholder="Search by name or role"
+              defaultValue={q}
+              onSearch={(value) => list.set('q', value.trim() || undefined)}
+              style={{ width: 300 }}
+              aria-label="Search authors"
+            />
+            <Select
+              aria-label="Filter by status"
+              allowClear
+              placeholder="Any status"
+              value={status}
+              onChange={(value) => list.set('status', value)}
+              style={{ width: 150 }}
+              options={[
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' },
+              ]}
+            />
+          </>
+        }
+      >
       <Table<Author>
         rowKey="id"
         loading={state.status === 'loading'}
@@ -61,12 +86,19 @@ export function AuthorsPage() {
         pagination={false}
         scroll={{ x: 900 }}
         locale={{
-          emptyText:
-            state.status === 'ready' ? (
-              <EmptyState title="No authors yet" description="Create an author before writing an article: every article needs a byline." action={{ label: 'New author', onClick: () => navigate('/authors/new') }} />
-            ) : (
-              ' '
-            ),
+          emptyText: (
+            <ListEmpty
+              state={state}
+              filtered={list.filtered}
+              noun="authors"
+              onClear={list.clear}
+              empty={{
+                title: 'No authors yet',
+                description: 'Create an author before writing an article: every article needs a byline.',
+                action: { label: 'New author', onClick: () => navigate('/authors/new') },
+              }}
+            />
+          ),
         }}
         columns={[
           {
@@ -99,6 +131,7 @@ export function AuthorsPage() {
           },
         ]}
       />
+      </TableCard>
     </div>
   );
 }

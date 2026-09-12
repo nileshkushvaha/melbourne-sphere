@@ -3,10 +3,10 @@ import { Alert, App, Button, Form, Input, Progress, Select, Space, Typography } 
 import { DeleteOutlined, UploadOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
 import { Link } from 'react-router';
-import { MEDIA_STATUSES, localFileProblem, mediaApi, uploadImage, variantUrl, type MediaAsset, type MediaStatus } from '@/api/media';
+import { ALLOWED_TYPES, MEDIA_STATUSES, UPLOAD_RULES, localFileProblem, mediaApi, uploadImage, variantUrl, type MediaAsset, type MediaStatus } from '@/api/media';
 import { isApiError } from '@/api/errors';
 import { errorMessage, useAsync } from '@/shared/useAsync';
-import { EmptyState, ErrorState, PageHeader, SectionCard, StatusTag, TableCard } from '@/components/ui';
+import { ErrorState, ListEmpty, PageHeader, PageLoader, SectionCard, StatusTag, TableCard } from '@/components/ui';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { brand } from '@/config/theme';
@@ -138,7 +138,7 @@ export function MediaLibraryPage() {
   return (
     <div>
       <PageHeader crumbs={[{ label: 'Editorial' }, { label: 'Media library' }]} title="Media library" description="Images used on listings and articles. Every image needs alt text before it can be used on a page." />
-      <SectionCard title="Add an image" description="JPEG, PNG or WebP, up to 10 MB. Location data is removed and the site makes its own sizes.">
+      <SectionCard title="Add an image" description={`${UPLOAD_RULES} Location data is removed and the site makes its own sizes.`}>
         {/* Drop target and file picker are the same control: dropping is a
             convenience, and the button is what makes it reachable from the
             keyboard (WCAG 2.1.1). */}
@@ -174,7 +174,7 @@ export function MediaLibraryPage() {
             id="media-file"
             ref={fileInput}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept={ALLOWED_TYPES.join(',')}
             className="sr-only"
             tabIndex={-1}
             aria-label="Image to upload"
@@ -230,7 +230,7 @@ export function MediaLibraryPage() {
           nothing is consuming the queue that wait never ends, so the screen says
           so; otherwise, a slow wait still gets a softer hint. */}
       <WorkerStoppedAlert
-        consequence="New images are stored safely and will be prepared automatically once it is running again. Nothing needs uploading twice."
+        consequence="Images already uploaded are kept and will be prepared once it is running again; they cannot be used on a page until then."
         otherwise={
           waiting.length > 0 && (
             <Alert
@@ -276,8 +276,20 @@ export function MediaLibraryPage() {
       >
         <div style={{ padding: 16 }}>
           {state.status === 'error' && <ErrorState message={state.message} reference={state.reference} onRetry={reload} />}
+          {/* The library is a grid rather than a table, so it says this itself
+              rather than through a table's empty slot — but it must still tell
+              "nothing here yet" apart from "nothing matches what you asked
+              for", which it did not: a search with no hits claimed the library
+              was empty. */}
+          {state.status === 'loading' && <PageLoader label="Loading images…" />}
           {state.status === 'ready' && assets.length === 0 && (
-            <EmptyState title="No images yet" description="Images you add appear here, ready to use on listings and articles." />
+            <ListEmpty
+              state={state}
+              filtered={list.filtered}
+              noun="images"
+              onClear={list.clear}
+              empty={{ title: 'No images yet', description: 'Images you add appear here, ready to use on listings and articles.' }}
+            />
           )}
           <ul style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', listStyle: 'none', margin: 0, padding: 0 }}>
             {assets.map((asset) => {

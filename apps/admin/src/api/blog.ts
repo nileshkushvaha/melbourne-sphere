@@ -53,7 +53,8 @@ export function blogApi(client: HttpClient = httpClient) {
     changePostSlug: (id: string, body: { slug: string; expectedVersion: number; reason?: string }) =>
       client.request<{ data: Post }>(`/admin/posts/${encodeURIComponent(id)}/slug`, { method: 'POST', body }).then((r) => r.data.data),
     getAuthor: (id: string, signal?: AbortSignal) => client.request<{ data: Author }>(`/admin/authors/${encodeURIComponent(id)}`, { signal }).then((r) => r.data.data),
-    listAuthors: (signal?: AbortSignal) => client.request<{ data: Author[] }>('/admin/authors', { signal }).then((r) => r.data.data),
+    listAuthors: (query: BlogTermListQuery = {}, signal?: AbortSignal) =>
+      client.request<{ data: Author[] }>('/admin/authors', { query: queryParams(query), signal }).then((r) => r.data.data),
     createAuthor: (body: Record<string, unknown>) => client.request<{ data: Author }>('/admin/authors', { method: 'POST', body }).then((r) => r.data.data),
     updateAuthor: (id: string, body: Record<string, unknown> & { expectedVersion: number }) => client.request<{ data: Author }>(`/admin/authors/${encodeURIComponent(id)}`, { method: 'PATCH', body }).then((r) => r.data.data),
     setAuthorActive: (id: string, active: boolean, expectedVersion: number) =>

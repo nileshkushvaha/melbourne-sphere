@@ -3887,7 +3887,30 @@
     "/api/v1/admin/authors": {
       "get": {
         "operationId": "AuthorsAdminController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Matches display name and role",
+            "schema": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",

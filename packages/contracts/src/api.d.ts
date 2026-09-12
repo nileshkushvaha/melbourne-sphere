@@ -7733,7 +7733,11 @@ export interface operations {
     };
     AuthorsAdminController_list: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Matches display name and role */
+                q?: string;
+                status?: "active" | "inactive";
+            };
             header?: never;
             path?: never;
             cookie?: never;

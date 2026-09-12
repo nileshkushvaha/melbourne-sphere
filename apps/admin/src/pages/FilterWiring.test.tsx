@@ -5,6 +5,7 @@ import { PagesPage } from '@/pages/website/PagesPage';
 import { TestimonialsPage } from '@/pages/website/TestimonialsPage';
 import { ServiceAlertsPage } from '@/pages/website/ServiceAlertsPage';
 import { AdministratorsPage } from '@/pages/admins/AdministratorsPage';
+import { AuthorsPage } from '@/pages/blog/AuthorsPage';
 import { renderWithProviders, providerWithPermissions } from '@/test/render';
 import { jsonResponse } from '@/test/fetch-fakes';
 
@@ -58,6 +59,12 @@ describe('list filters reach the API', () => {
     renderWithProviders(<ServiceAlertsPage />, { initialEntries: ['/admin/website/service-alerts?q=holiday&severity=warning'], authProvider: providerWithPermissions(['website.alerts.view']) });
     await screen.findByRole('heading', { level: 1 });
     asked('/admin/service-alerts', 'q=holiday', 'severity=warning');
+  });
+
+  it('sends the author search to the server rather than filtering in the browser', async () => {
+    renderWithProviders(<AuthorsPage />, { initialEntries: ['/admin/authors?q=priya&status=active'], authProvider: providerWithPermissions(['posts.write']) });
+    await screen.findByRole('heading', { level: 1 });
+    asked('/admin/authors', 'q=priya', 'status=active');
   });
 
   it('sends the administrator role filter', async () => {

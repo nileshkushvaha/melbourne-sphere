@@ -91,9 +91,15 @@ export class BlogService {
 
   // ---- authors -------------------------------------------------------------
 
-  async listAuthors(): Promise<AuthorDto[]> {
+  async listAuthors(query: { q?: string; status?: 'active' | 'inactive' } = {}): Promise<AuthorDto[]> {
     const db = await this.database.client();
-    const rows = await db.author.findMany({ orderBy: [{ displayName: 'asc' }, { id: 'asc' }], include: authorInclude });
+    // Narrowed in the query: the screen filtered the whole list in the browser,
+    // which is fine for six authors and wrong for six hundred.
+    const where = {
+      ...(query.q ? { OR: [{ displayName: { contains: query.q } }, { role: { contains: query.q } }] } : {}),
+      ...(query.status ? { active: query.status === 'active' } : {}),
+    };
+    const rows = await db.author.findMany({ where, orderBy: [{ displayName: 'asc' }, { id: 'asc' }], include: authorInclude });
     return Promise.all(rows.map((row) => this.toAuthorDto(row)));
   }
 

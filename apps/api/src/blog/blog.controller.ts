@@ -23,6 +23,7 @@ import {
   UpdateAuthorDto,
   UpdateBlogTermDto,
   ListBlogTermsQueryDto,
+  ListAuthorsQueryDto,
   UpdatePostDto,
 } from './dto/blog.dto.js';
 
@@ -38,8 +39,8 @@ export class AuthorsAdminController {
   @Get()
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: [AuthorDto] })
-  async list() {
-    return { data: await this.blog.listAuthors() };
+  async list(@Query() query: ListAuthorsQueryDto) {
+    return { data: await this.blog.listAuthors(query) };
   }
 
   @RequirePermissions('posts.write')

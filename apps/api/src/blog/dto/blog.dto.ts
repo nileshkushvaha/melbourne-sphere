@@ -97,6 +97,12 @@ export class ListBlogTermsQueryDto {
   @ApiPropertyOptional({ enum: ['active', 'inactive'] }) @IsOptional() @IsIn(['active', 'inactive']) status?: 'active' | 'inactive';
 }
 
+/** Narrowing for the author list, matching the blog term lists. */
+export class ListAuthorsQueryDto {
+  @ApiPropertyOptional({ maxLength: 120, description: 'Matches display name and role' }) @IsOptional() @trim() @IsString() @MaxLength(120) q?: string;
+  @ApiPropertyOptional({ enum: ['active', 'inactive'] }) @IsOptional() @IsIn(['active', 'inactive']) status?: 'active' | 'inactive';
+}
+
 export class BlogTermStateDto {
   @ApiProperty() @IsInt() @Min(1) expectedVersion!: number;
   @ApiPropertyOptional({ maxLength: 500 }) @IsOptional() @trim() @IsString() @MaxLength(500) reason?: string;

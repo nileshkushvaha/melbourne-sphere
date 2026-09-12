@@ -116,7 +116,7 @@ export function PostEditorPage() {
   const post = state.status === 'ready' ? state.data : null;
   // The server's rendering of the saved draft; re-read whenever the record is.
   const [preview, reloadPreview] = useAsync((signal) => (isNew || !id ? Promise.resolve(null) : api.previewPost(id, signal)), [id, reloadKey]);
-  const [authors] = useAsync((signal) => api.listAuthors(signal), []);
+  const [authors] = useAsync((signal) => api.listAuthors({}, signal), []);
   const [categories] = useAsync((signal) => api.listTerms('blog-categories', {}, signal), []);
   const [tags] = useAsync((signal) => api.listTerms('blog-tags', {}, signal), []);
   useDocumentTitle(isNew ? 'New article' : (post?.title ?? 'Article'));

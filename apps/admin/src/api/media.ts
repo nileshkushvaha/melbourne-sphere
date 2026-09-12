@@ -1,3 +1,4 @@
+import { ALLOWED_IMAGE_MIME, MAX_MEGAPIXELS, MAX_UPLOAD_BYTES, MIN_DIMENSION } from '@melbourne-sphere/domain';
 import type { components } from '@melbourne-sphere/contracts';
 import { httpClient, type HttpClient } from './http-client';
 import { enabledFilters } from './query';
@@ -10,8 +11,19 @@ export type GalleryItem = components['schemas']['GalleryItemDto'];
 export type MediaStatus = MediaAsset['status'];
 
 export const MEDIA_STATUSES: MediaStatus[] = ['quarantined', 'ready', 'rejected'];
-export const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
-export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+/**
+ * The upload rules come from `packages/domain`, which is what the API validates
+ * against. They were written out again here — the MIME list twice, the size
+ * limit as a number and again as the words "10 MB" — so the browser could
+ * disagree with the server about what it would accept, and did: nothing here
+ * knew about the megapixel ceiling or the minimum width, so an image that broke
+ * either was uploaded in full and only then refused.
+ */
+export { ALLOWED_IMAGE_MIME as ALLOWED_TYPES, MAX_UPLOAD_BYTES, MAX_MEGAPIXELS, MIN_DIMENSION } from '@melbourne-sphere/domain';
+
+/** The same rules in a sentence, for the screen to say before the picker. */
+export const UPLOAD_RULES = `JPEG, PNG or WebP, up to ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))} MB and ${MAX_MEGAPIXELS} megapixels, at least ${MIN_DIMENSION}px on the shorter side.`;
 
 export interface MediaListQuery {
   status?: MediaStatus;
@@ -23,8 +35,10 @@ export interface MediaListQuery {
 
 /** Checks the file before any request, so an obviously invalid file never leaves the browser. */
 export function localFileProblem(file: File): string | null {
-  if (!(ALLOWED_TYPES as readonly string[]).includes(file.type)) return 'Only JPEG, PNG and WebP images are accepted';
-  if (file.size > MAX_UPLOAD_BYTES) return 'Images must be 10 MB or smaller';
+  // `file.type` is the browser's guess from the extension, so this catches the
+  // obvious cases only; the server decides from the bytes themselves.
+  if (!(ALLOWED_IMAGE_MIME as readonly string[]).includes(file.type)) return 'Only JPEG, PNG and WebP images are accepted';
+  if (file.size > MAX_UPLOAD_BYTES) return `Images must be ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))} MB or smaller`;
   if (file.size === 0) return 'That file is empty';
   return null;
 }
