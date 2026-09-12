@@ -234,7 +234,7 @@ export function ReviewsPage() {
             <Input.TextArea rows={5} maxLength={3000} />
           </Form.Item>
           <Form.Item label="Reason" name="reason" rules={[{ required: true, min: 5, message: 'Give at least 5 characters' }]}>
-            <Input maxLength={500} />
+            <Input maxLength={500} placeholder="e.g. Names a staff member" />
           </Form.Item>
         </Form>
       </Modal>

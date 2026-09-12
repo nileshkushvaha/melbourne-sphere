@@ -89,9 +89,14 @@ export class PartnerService {
 
   // ---- admin ---------------------------------------------------------------
 
-  async list(query: { page: number; pageSize: number; status?: 'draft' | 'published' }) {
+  async list(query: { page: number; pageSize: number; status?: 'draft' | 'published'; q?: string }) {
     const db = await this.database.client();
-    const where: Prisma.PartnerOrganisationWhereInput = query.status ? { status: query.status } : {};
+    const where: Prisma.PartnerOrganisationWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      // The name, and how the relationship is described: an editor looking for
+      // "our insurance partner" remembers one or the other.
+      ...(query.q ? { OR: [{ name: { contains: query.q } }, { relationshipLabel: { contains: query.q } }] } : {}),
+    };
     const [rows, total] = await Promise.all([
       db.partnerOrganisation.findMany({ where, orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }], skip: (query.page - 1) * query.pageSize, take: query.pageSize }),
       db.partnerOrganisation.count({ where }),

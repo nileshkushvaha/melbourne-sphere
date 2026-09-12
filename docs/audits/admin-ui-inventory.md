@@ -1,6 +1,6 @@
 # Admin UI inventory
 
-**Started:** 10 September 2026 · **Last swept:** 12 September 2026 · **Scope:** every route in `apps/admin/src/app/routes.tsx`.
+**Started:** 10 September 2026 · **Last swept:** 12 September 2026 (admin-wide sweep, workstream I) · **Scope:** every route in `apps/admin/src/app/routes.tsx`.
 
 This is the working record for the admin redesign: what each screen is, what was
 wrong with it, what it now uses, and whether it has been looked at in a real
@@ -45,13 +45,13 @@ the API enforces its own rule on every request whatever the screen shows.
 | `/enquiries` | Moderation | `enquiries.read` | done |
 | `/reviews`, `/comments`, `/reports` | Moderation | `reviews.moderate` / `comments.moderate` / `reports.manage` | done |
 | `/settings/general` | Settings | `settings.manage` | done |
-| `/settings` | Settings | `settings.manage` | **partial** — copy and layout done; a preview of the home-page hero is not built |
+| `/settings` | Settings | `settings.manage` | **partial** — copy, layout and the banner focal-point picker done; a preview of the home-page hero is not built |
 | `/redirects`, `/redirects/new` | List/Editor | `redirects.manage` | done — 301/302/410, on/off state, "Test an address" |
 | `/admins`, `/admins/new`, `/admins/:id` | List/Editor/Detail | `admins.manage` (changing access needs `admins.access.manage`) | done — each permission's source by role name, grants the actor lacks withheld, the change named before it is confirmed |
 | `/account` | Settings | session | done |
 | `/roles`, `/roles/new`, `/roles/:id` | List/Editor | `roles.view` (editing needs `roles.create` / `roles.update`) | done |
-| `/permissions` | List | `permissions.view` | done |
-| `/audit` | Operations | `audit.read` | done |
+| `/permissions` | List | `permissions.view` | done — search across label, code and description, module and state filters |
+| `/audit` | Operations | `audit.read` | done — date range in Melbourne days, who did it, readable wording, forensic detail in an expandable row |
 | `/security/settings` | Settings | `security.settings.view` | done — reference screen |
 | `/system/email-logs`, `/system/queues`, `/system/schedules`, `/system/cache` | Operations | `system.email_logs.view`, `system.queues.view`, `system.schedules.view`, `system.cache.view` | done |
 | `/website/pages`, `/website/pages/new`, `/website/pages/:slug`, `/pages` (redirect) | List/Editor | `settings.manage` | done |
@@ -254,3 +254,49 @@ Each was found by running the interface, not by reading it, and each is fixed:
   contracts.
 * `apps/admin/src/pages/security/SecuritySettingsPage.test.tsx` — the reference
   screen, including that no specification code reaches the page.
+
+
+## Admin-wide sweep — 12 September 2026 (workstream I)
+
+The whole admin was read against the brief's rules rather than screen by screen.
+What the sweep found, and what was done:
+
+1. **Two renderings of the same activity codes.** The dashboard and the activity
+   log each turned `auth.login.success` into English their own way, so the same
+   event read differently depending on where you saw it. Both now call
+   `shared/activity.ts`; a code with no entry falls back to its own words rather
+   than to an invented meaning.
+2. **Raw stored values on the abuse-reports queue.** The reported item's state
+   and the resolution outcome were printed as the words the database holds
+   (`retain`, `approved`). They now use the shared status vocabulary and the
+   same list the outcome was chosen from.
+3. **Ant's own palette in three places** (`<Tag color="blue">`, two hard-coded
+   greys). Those colours ignore the admin's theme tokens, so they stayed bright
+   in the dark theme. Replaced with `Pill` and `brand.*`.
+4. **Nine visible text inputs had no placeholder** — a rule the rest of the
+   admin already followed. Each now carries an example, never a repeat of its
+   label.
+5. **Blog categories and tags never showed their public address**, although both
+   have a public landing page and the API has always accepted a slug. The
+   address row is now there, as it is for a listing or an article.
+6. **Moving a blog category or tag left no redirect** (SRS SEO 004). The API
+   accepted the rename and produced a dead public URL, with saved links and
+   search results pointing at nothing — the same defect already fixed for
+   categories and local areas. It now writes a permanent redirect inside the
+   rename's transaction, so a failed redirect takes the rename back with it.
+7. **The page editor had no unsaved-changes guard**, though its body is the
+   longest thing anyone types in this admin. Added, along with the two settings
+   screens and the role editor, which had a `beforeunload` that never saw a
+   click on a navigation item.
+8. **Every image field is now the same control.** General settings kept three
+   hand-rolled pickers; they are `MediaField` like everywhere else. The picker
+   dialog also mounts only when it is opened — a screen with several image
+   fields was carrying one hidden dialog per field.
+9. **Home-page banner focal points were two numbers between 0 and 1.** Nobody
+   can picture 0.42, 0.31; the visual picker the media screen already had is now
+   used here too.
+
+Still outstanding, and deliberately so: a preview of the home-page hero and a
+preview of the placed listing on a featured placement. Both are previews of
+public rendering inside an Ant Design admin, and both are named above rather
+than quietly marked done.

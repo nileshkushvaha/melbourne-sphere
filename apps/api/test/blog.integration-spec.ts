@@ -141,6 +141,29 @@ describe('Blog editorial core (integration)', () => {
     expect(await db.outboxEvent.count({ where: { resourceId: draft.id, type: 'post.published' } })).toBe(1);
   });
 
+  it('leaves a permanent redirect behind when a category or tag moves address', async () => {
+    const db = testDatabase();
+    const tag = (await admin(agent().post('/api/v1/admin/blog-tags')).send({ name: 'Rooftop bars' }).expect(201)).body.data;
+    expect(tag.slug).toBe('rooftop-bars');
+    const moved = await admin(agent().patch(`/api/v1/admin/blog-tags/${tag.id}`))
+      .send({ name: 'Rooftop bars', slug: 'rooftops', expectedVersion: tag.version })
+      .expect(200);
+    expect(moved.body.data.slug).toBe('rooftops');
+    // A tag has a public landing page, so the address it used to live at must
+    // keep working for anyone who saved or linked it (SRS SEO 004).
+    const redirect = await db.redirect.findUniqueOrThrow({ where: { sourcePath: '/blog/tag/rooftop-bars' } });
+    expect(redirect).toMatchObject({ targetPath: '/blog/tag/rooftops', kind: 'permanent', resourceType: 'blog_tag', resourceId: tag.id });
+
+    const category = (await admin(agent().post('/api/v1/admin/blog-categories')).send({ name: 'Day trips' }).expect(201)).body.data;
+    await admin(agent().patch(`/api/v1/admin/blog-categories/${category.id}`)).send({ name: 'Day trips', slug: 'daytrips', expectedVersion: category.version }).expect(200);
+    expect(await db.redirect.findUniqueOrThrow({ where: { sourcePath: '/blog/category/day-trips' } })).toMatchObject({ targetPath: '/blog/category/daytrips', resourceType: 'blog_category' });
+
+    // Renaming without moving leaves no rule: there is nothing to redirect.
+    const after = (await admin(agent().get('/api/v1/admin/blog-tags')).expect(200)).body.data.find((row: { id: string }) => row.id === tag.id);
+    await admin(agent().patch(`/api/v1/admin/blog-tags/${tag.id}`)).send({ name: 'Rooftop drinking', expectedVersion: after.version }).expect(200);
+    expect(await db.redirect.count({ where: { resourceId: tag.id } })).toBe(1);
+  });
+
   it('prevents deactivating an author or category still used by a live article', async () => {
     const db = testDatabase();
     const author = await db.author.findUniqueOrThrow({ where: { id: authorId } });

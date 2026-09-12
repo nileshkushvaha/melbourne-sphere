@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Alert, App, Button, Descriptions, Empty, Progress, Segmented, Space, Table, Tag, Typography } from 'antd';
+import { Alert, App, Button, Descriptions, Empty, Progress, Segmented, Space, Table, Typography } from 'antd';
 import { queuesApi, type QueueJob, type QueueJobState, type QueueSummary } from '@/api/system';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
-import { PageHeader, SectionCard, statusRowClass } from '@/components/ui';
+import { PageHeader, Pill, SectionCard, statusRowClass } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -274,7 +274,7 @@ export function QueueMonitorPage() {
                 children: (
                   <Space size={6}>
                     {queue.workers.count}
-                    <Tag>estimate</Tag>
+                    <Pill>estimate</Pill>
                   </Space>
                 ),
               },

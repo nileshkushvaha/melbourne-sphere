@@ -11,7 +11,7 @@ import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
 /** The parameters that narrow this list; everything else is sort or page. */
-const FILTERS = ['status'] as const;
+const FILTERS = ['status', 'q'] as const;
 
 /**
  * Client and partner logos (SRS 1.2 PTNR 005). These records are public
@@ -29,7 +29,8 @@ export function PartnersPage() {
   const page = list.page;
   const status = (list.get('status') ?? '') as '' | 'draft' | 'published';
 
-  const [state, reload] = useAsync(() => partnersApi.list({ page, pageSize: 20, status: status || undefined }), [page, status]);
+  const q = list.get('q') ?? '';
+  const [state, reload] = useAsync(() => partnersApi.list({ page, pageSize: 20, status: status || undefined, q: q || undefined }), [page, status, q]);
 
 
   const authorise = (record: PartnerOrganisation) => {
@@ -122,6 +123,14 @@ export function PartnersPage() {
       <TableCard
         toolbar={
           <>
+            <Input.Search
+              aria-label="Search organisations"
+              placeholder="Search the name or the relationship"
+              allowClear
+              defaultValue={q}
+              onSearch={(value) => list.set('q', value.trim() || undefined)}
+              style={{ width: 280 }}
+            />
             <Select
               aria-label="Filter by status"
               placeholder="Status"

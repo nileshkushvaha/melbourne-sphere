@@ -97,6 +97,9 @@ describe('general settings page', () => {
     expect(screen.getByText(/\{year\} and \{name\} stay up to date/i)).toBeInTheDocument();
     // Branding is chosen from the media library rather than uploaded here, so
     // every image is processed and carries alt text (SRS MED 003).
-    expect(screen.getAllByRole('button', { name: /choose image/i })).toHaveLength(3);
+    // By visible label rather than by role: a role-plus-name query computes an
+    // accessible name for every button on the page, which under jsdom takes the
+    // better part of a minute here and times the test out for no finding.
+    expect(screen.getAllByText('Choose image')).toHaveLength(3);
   });
 });

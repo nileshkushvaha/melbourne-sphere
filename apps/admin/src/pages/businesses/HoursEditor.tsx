@@ -7,6 +7,7 @@ import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { SectionCard } from '@/components/ui';
+import { brand } from '@/config/theme';
 
 const DAY_STATES = [{ value: 'closed', label: 'Closed' }, { value: 'open24', label: 'Open 24 hours' }, { value: 'intervals', label: 'Set hours' }];
 const EXCEPTION_KINDS = [{ value: 'closed', label: 'Closed' }, { value: 'open24', label: 'Open 24 hours' }, { value: 'custom', label: 'Custom hours' }];
@@ -143,7 +144,7 @@ export function HoursEditor({ businessId, businessVersion, readOnly, onSaved }: 
               {(fields, { add, remove }) => (
                 <div>
                   {fields.map((field, index) => (
-                    <div key={field.key} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                    <div key={field.key} style={{ border: `1px solid ${brand.border}`, borderRadius: 8, padding: 12, marginBottom: 12 }}>
                       <div className="ms-field-row">
                         <Form.Item name={[field.name, 'date']} label="Date" rules={[{ required: true, message: 'Date is required' }]} style={{ width: 170 }}>
                           <Input type="date" />

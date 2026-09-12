@@ -10,6 +10,8 @@ import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { MediaPicker } from '@/components/MediaPicker';
 import { PageLoader, PageHeader, SectionCard, StickyActions, PageLoadError } from '@/components/ui';
+import { FocalPointPicker } from '@/components/FocalPointPicker';
+import { useUnsavedChanges } from '@/shared/useUnsavedChanges';
 import { variantUrl, type MediaAsset } from '@/api/media';
 import { brand } from '@/config/theme';
 
@@ -43,6 +45,9 @@ export function SiteSettingsPage() {
   const [state, reload] = useAsync((signal) => api.getHome(signal), []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Nothing here saves on its own; the banner is easy to lose to a stray click.
+  const [dirty, setDirty] = useState(false);
+  useUnsavedChanges(dirty);
   const [pickerOpen, setPickerOpen] = useState(false);
   // Previews for images chosen in this session; saved slides come from the record.
   const [addedPreviews, setAddedPreviews] = useState<Record<string, { url: string; alt: string }>>({});
@@ -74,6 +79,7 @@ export function SiteSettingsPage() {
         expectedVersion: record.version,
       });
       message.success('Settings saved');
+      setDirty(false);
       reload();
     } catch (err) {
       if (isApiError(err) && err.kind === 'unauthorized') onAuthError(err);
@@ -100,10 +106,10 @@ export function SiteSettingsPage() {
         description="The banner, headline and counters on the public home page."
       />
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} role="alert" />}
-      <Form<FormValues> form={form} layout="vertical" requiredMark={false} onFinish={submit} disabled={state.status !== 'ready'}>
+      <Form<FormValues> form={form} layout="vertical" requiredMark={false} onFinish={submit} onValuesChange={() => setDirty(true)} disabled={state.status !== 'ready'}>
         <SectionCard title="Hero wording" description="The heading and the phrases that rotate beneath it.">
           <Form.Item label="Headline" name="heroHeadline" extra="Read by screen readers. Must make sense without the rotating phrases." rules={[{ required: true, message: 'Headline is required' }]}>
-            <Input maxLength={80} showCount />
+            <Input maxLength={80} showCount placeholder="e.g. Everything Melbourne, in one place" />
           </Form.Item>
           <Typography.Text strong>Rotating phrases</Typography.Text>
           <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
@@ -148,28 +154,48 @@ export function SiteSettingsPage() {
                   const preview = previews[mediaId];
                   return (
                     <div key={field.key} style={{ display: 'flex', gap: 16, alignItems: 'flex-start', padding: '12px 0', borderTop: position === 0 ? undefined : '1px solid var(--ant-color-border)' }}>
-                      {preview?.url ? (
-                        <img src={preview.url} alt={preview.alt} style={{ width: 160, aspectRatio: '16 / 9', objectFit: 'cover', borderRadius: 8 }} />
-                      ) : (
-                        <div style={{ width: 160, aspectRatio: '16 / 9', borderRadius: 8, background: brand.placeholderFill, display: 'grid', placeItems: 'center' }}>
-                          <PictureOutlined aria-hidden="true" />
-                        </div>
-                      )}
+                      <div style={{ width: 240, flex: '0 0 auto' }}>
+                        {preview?.url ? (
+                          // The point to keep in frame is chosen on the picture
+                          // itself: "0.42, 0.31" is not something anyone can
+                          // picture, and the same control already does this on
+                          // the media screen.
+                          <Form.Item noStyle shouldUpdate>
+                            {({ getFieldValue, setFieldValue }) => (
+                              <FocalPointPicker
+                                src={preview.url}
+                                alt={preview.alt}
+                                x={getFieldValue(['heroSlides', field.name, 'focalX']) ?? undefined}
+                                y={getFieldValue(['heroSlides', field.name, 'focalY']) ?? undefined}
+                                onChange={({ x, y }) => {
+                                  setFieldValue(['heroSlides', field.name, 'focalX'], x);
+                                  setFieldValue(['heroSlides', field.name, 'focalY'], y);
+                                  setDirty(true);
+                                }}
+                              />
+                            )}
+                          </Form.Item>
+                        ) : (
+                          <div style={{ width: '100%', aspectRatio: '16 / 9', borderRadius: 8, background: brand.placeholderFill, display: 'grid', placeItems: 'center' }}>
+                            <PictureOutlined aria-hidden="true" />
+                          </div>
+                        )}
+                      </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <Form.Item name={[field.name, 'mediaId']} hidden>
                           <Input />
                         </Form.Item>
                         <Form.Item label="Caption or credit" name={[field.name, 'caption']} style={{ marginBottom: 8 }} extra="Optional; shown under the banner controls.">
-                          <Input maxLength={120} />
+                          <Input maxLength={120} placeholder="e.g. Flinders Street Station at dusk — photo by Jo Lee" />
                         </Form.Item>
-                        <Space wrap>
-                          <Form.Item label="Focal point across" name={[field.name, 'focalX']} style={{ marginBottom: 0 }}>
-                            <InputNumber min={0} max={1} step={0.05} style={{ width: 110 }} />
-                          </Form.Item>
-                          <Form.Item label="Focal point down" name={[field.name, 'focalY']} style={{ marginBottom: 0 }}>
-                            <InputNumber min={0} max={1} step={0.05} style={{ width: 110 }} />
-                          </Form.Item>
-                        </Space>
+                        {/* Still part of the record, and still submitted; the
+                            picture beside this is how they are set. */}
+                        <Form.Item name={[field.name, 'focalX']} hidden>
+                          <InputNumber />
+                        </Form.Item>
+                        <Form.Item name={[field.name, 'focalY']} hidden>
+                          <InputNumber />
+                        </Form.Item>
                       </div>
                       <Space direction="vertical">
                         <Button type="text" icon={<ArrowUpOutlined aria-hidden="true" />} aria-label={`Move image ${position + 1} earlier`} disabled={position === 0} onClick={() => move(position, position - 1)} />

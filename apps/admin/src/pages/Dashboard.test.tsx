@@ -29,7 +29,7 @@ describe('dashboard', () => {
     expect(screen.getByText('Winter markets')).toBeInTheDocument();
     expect(screen.getByText('overdue')).toBeInTheDocument();
     // Audit keys are turned into something a person reads.
-    expect(screen.getByText('Post publish')).toBeInTheDocument();
+    expect(screen.getByText('Blog post — published')).toBeInTheDocument();
   });
 
   it('explains an account with no visible metrics instead of showing an empty page', async () => {

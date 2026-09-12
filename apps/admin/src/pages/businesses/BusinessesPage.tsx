@@ -269,7 +269,7 @@ export function BusinessesPage() {
               render: (value: BusinessStatus, row) => (
                 <Space size={4} wrap>
                   <StatusTag status={value} />
-                  {value === 'draft' && !row.publishable && <Tag>not ready</Tag>}
+                  {value === 'draft' && !row.publishable && <Pill tone="attention">not ready</Pill>}
                 </Space>
               ),
             },

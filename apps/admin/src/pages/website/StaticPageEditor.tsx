@@ -1,14 +1,16 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Alert, App, Button, Form, Input } from 'antd';
 import { useOnError } from '@refinedev/core';
 import { pagesApi, type StaticPage } from '@/api/settings';
 import { isApiError } from '@/api/errors';
 import { RichTextEditorLazy } from '@/components/RichTextEditorLazy';
 import { MediaField } from '@/components/MediaField';
+import { PermalinkField } from '@/components/PermalinkField';
 import { SectionCard, StickyActions } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage } from '@/shared/useAsync';
 import { useRecordEditor } from '@/shared/useRecordEditor';
+import { useUnsavedChanges } from '@/shared/useUnsavedChanges';
 import { useCapabilities } from '@/auth/access-control';
 import { PERMISSION } from '@/auth/permissions';
 
@@ -53,6 +55,10 @@ export function StaticPageEditor({
   const canManage = can(PERMISSION.settingsManage);
   const [form] = Form.useForm<StaticPageFormValues>();
   const { saving, error, setError, submit } = useRecordEditor<StaticPageFormValues>(form);
+  // A page's body is the longest thing anyone types in this admin; losing it to
+  // a stray click on a navigation item is the worst version of that mistake.
+  const [dirty, setDirty] = useState(false);
+  useUnsavedChanges(dirty);
 
   useEffect(() => {
     form.setFieldsValue({
@@ -80,11 +86,12 @@ export function StaticPageEditor({
         throw thrown;
       }
       message.success('Page saved');
+      setDirty(false);
       onSaved();
     });
 
   return (
-    <Form<StaticPageFormValues> form={form} layout="vertical" requiredMark="optional" onFinish={() => void save()} disabled={!canManage}>
+    <Form<StaticPageFormValues> form={form} layout="vertical" requiredMark="optional" onFinish={() => void save()} onValuesChange={() => setDirty(true)} disabled={!canManage}>
       {error && <Alert type="error" showIcon role="alert" message={error} style={{ marginBottom: 16 }} />}
       {intro}
       {page.publicationBlockers.length > 0 && page.status !== 'published' && (
@@ -104,9 +111,13 @@ export function StaticPageEditor({
       )}
 
       <SectionCard title={page.title} description={page.purpose}>
-        <Form.Item label="Title" name="title" rules={[{ required: true, min: 3, message: 'Title is required' }]} style={{ marginBottom: 0 }}>
-          <Input maxLength={180} />
+        <Form.Item label="Title" name="title" rules={[{ required: true, min: 3, message: 'Title is required' }]}>
+          <Input maxLength={180} showCount placeholder="e.g. About Melbourne Sphere" />
         </Form.Item>
+        {/* The address is shown the way every other record shows it. It is fixed
+            here: a page's address is what the product and saved links point at,
+            and there is no endpoint that would move it and leave a redirect. */}
+        <PermalinkField base="" value={page.slug} disabled note="A page keeps the address it was created with." />
       </SectionCard>
 
       <SectionCard title={bodyLabel} description={bodyDescription} bodyPadding={0}>
@@ -117,7 +128,7 @@ export function StaticPageEditor({
 
       <SectionCard title="Search appearance">
         <Form.Item label="SEO title" name="seoTitle" extra="Defaults to the page title.">
-          <Input maxLength={180} />
+          <Input maxLength={180} showCount placeholder="e.g. About us — Melbourne Sphere" />
         </Form.Item>
         <Form.Item label="Meta description" name="seoDescription">
           <Input.TextArea rows={3} maxLength={300} showCount placeholder="The summary shown under the title in search results" />
@@ -136,7 +147,7 @@ export function StaticPageEditor({
       {page.status === 'published' && (
         <SectionCard title="Revision note">
           <Form.Item label="Why is this changing?" name="revisionReason" extra="Stored with the revision of the previous published text." style={{ marginBottom: 0 }}>
-            <Input maxLength={500} />
+            <Input maxLength={500} placeholder="e.g. Updated the refund period to 30 days" />
           </Form.Item>
         </SectionCard>
       )}

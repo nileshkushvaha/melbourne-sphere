@@ -55,8 +55,8 @@ export interface AuditQuery {
 }
 
 export const adminsApi = {
-  list(query: AdminListQuery = {}, client: HttpClient = httpClient) {
-    return client.request<{ data: AdminListItem[]; meta: CollectionMeta }>('/admin/admins', { query: queryParams(query) }).then((r) => r.data);
+  list(query: AdminListQuery = {}, signal?: AbortSignal, client: HttpClient = httpClient) {
+    return client.request<{ data: AdminListItem[]; meta: CollectionMeta }>('/admin/admins', { query: queryParams(query), signal }).then((r) => r.data);
   },
   get(id: string, client: HttpClient = httpClient) {
     return client.request<{ data: AdminListItem }>(`/admin/admins/${encodeURIComponent(id)}`).then((r) => r.data.data);
@@ -88,8 +88,8 @@ export const adminsApi = {
 };
 
 export const auditApi = {
-  list(query: AuditQuery = {}, client: HttpClient = httpClient) {
-    return client.request<{ data: AuditEntry[]; meta: CollectionMeta }>('/admin/activity', { query: queryParams(query) }).then((r) => r.data);
+  list(query: AuditQuery = {}, signal?: AbortSignal, client: HttpClient = httpClient) {
+    return client.request<{ data: AuditEntry[]; meta: CollectionMeta }>('/admin/activity', { query: queryParams(query), signal }).then((r) => r.data);
   },
 };
 

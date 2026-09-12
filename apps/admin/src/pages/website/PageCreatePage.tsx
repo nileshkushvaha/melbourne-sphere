@@ -100,7 +100,7 @@ export function PageCreatePage() {
       </Form.Item>
 
       <Form.Item label="SEO title" name="seoTitle" extra="Defaults to the page title.">
-        <Input maxLength={180} />
+        <Input maxLength={180} placeholder="e.g. Accessibility statement" />
       </Form.Item>
       <Form.Item label="Meta description" name="seoDescription" style={{ marginBottom: 0 }}>
         <Input.TextArea rows={3} maxLength={300} showCount />

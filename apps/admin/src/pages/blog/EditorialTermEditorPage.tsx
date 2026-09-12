@@ -3,6 +3,8 @@ import { App, Form, Input } from 'antd';
 import { useNavigate, useParams } from 'react-router';
 import { blogApi, type BlogTerm } from '@/api/blog';
 import { RecordEditorPage } from '@/components/ui';
+import { PermalinkField } from '@/components/PermalinkField';
+import { slugify } from '@/shared/slug';
 import { useAsync } from '@/shared/useAsync';
 import { useRecordEditor } from '@/shared/useRecordEditor';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -10,6 +12,7 @@ import type { EditorialTermsConfig } from './editorial-configs';
 
 interface Values {
   name: string;
+  slug?: string;
   landingContent?: string;
 }
 
@@ -26,6 +29,8 @@ export function EditorialTermEditorPage({ config }: { config: EditorialTermsConf
   const navigate = useNavigate();
   const [form] = Form.useForm<Values>();
   const { saving, error, submit } = useRecordEditor<Values>(form);
+  // What the address will be if one has not been chosen, shown before saving.
+  const typedName = Form.useWatch('name', form) ?? '';
   const listHref = `/${config.kind}`;
 
   // The API lists terms rather than serving one, which is the cheaper contract
@@ -37,12 +42,12 @@ export function EditorialTermEditorPage({ config }: { config: EditorialTermsConf
 
   useEffect(() => {
     if (!term) return;
-    form.setFieldsValue({ name: term.name, landingContent: term.landingContent ?? '' });
+    form.setFieldsValue({ name: term.name, slug: term.slug, landingContent: term.landingContent ?? '' });
   }, [term, form]);
 
   const save = () =>
     submit(async (values) => {
-      const body = { name: values.name, landingContent: values.landingContent || null };
+      const body = { name: values.name, ...(values.slug ? { slug: values.slug } : {}), landingContent: values.landingContent || null };
       if (creating) {
         await api.createTerm(config.kind, body);
         message.success(`${config.singular} created`);
@@ -70,7 +75,18 @@ export function EditorialTermEditorPage({ config }: { config: EditorialTermsConf
       onSubmit={save}
     >
       <Form.Item label="Name" name="name" rules={[{ required: true, message: 'Name is required' }]}>
-        <Input maxLength={80} />
+        <Input maxLength={80} placeholder="e.g. Food and drink" />
+      </Form.Item>
+      {/* A category and a tag each have a public landing page, so the address
+          is shown here the way it is for a listing or an article. Changing it
+          leaves a permanent redirect behind, so saved links keep working. */}
+      <Form.Item name="slug" noStyle>
+        <PermalinkField
+          base={config.publicBase}
+          source="name"
+          placeholder={slugify(typedName)}
+          note={creating ? undefined : 'The old address will redirect here.'}
+        />
       </Form.Item>
       <Form.Item label="Landing content (Markdown)" name="landingContent" extra="Shown on the landing page. Without it the page is not indexed.">
         <Input.TextArea rows={10} maxLength={5000} showCount />

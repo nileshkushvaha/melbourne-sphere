@@ -1,4 +1,4 @@
-import { Alert, Button, Col, List, Row, Skeleton, Space, Tag, Typography } from 'antd';
+import { Alert, Button, Col, List, Row, Skeleton, Space, Typography } from 'antd';
 import { AlertOutlined, CommentOutlined, FileSearchOutlined, MailOutlined, PictureOutlined, ReadOutlined, ShopOutlined, StarOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Link } from 'react-router';
 import type { ReactNode } from 'react';
@@ -9,6 +9,7 @@ import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { SystemHealthCard } from './dashboard/SystemHealthCard';
+import { readableAction } from '@/shared/activity';
 
 /** Icon per metric; falls back to a neutral glyph for anything new from the API. */
 const ICONS: Record<string, ReactNode> = {
@@ -21,31 +22,6 @@ const ICONS: Record<string, ReactNode> = {
   quarantinedMedia: <PictureOutlined aria-hidden="true" />,
   duePosts: <ReadOutlined aria-hidden="true" />,
 };
-
-/**
- * An audit action key turned into something an administrator reads as English.
- * `auth.login.success` is a key; "Signed in" is what happened.
- */
-const ACTION_WORDS: Record<string, string> = {
-  'auth.login.success': 'Signed in',
-  'auth.login.failure': 'Failed sign-in',
-  'auth.logout': 'Signed out',
-  'auth.password_reset.requested': 'Password reset requested',
-  'auth.password_reset.completed': 'Password reset completed',
-  'system.queue.pause': 'Queue paused',
-  'system.queue.retry': 'Job retried',
-  'system.queue.cancel': 'Job removed',
-  'system.cache.invalidate': 'Cache cleared',
-};
-
-function describeAction(action: string): string {
-  const known = ACTION_WORDS[action];
-  if (known) return known;
-  // Fall back to the last two segments, which carry the object and the verb:
-  // "blog.post.publish" reads better as "Post publish" than as the whole key.
-  const parts = action.split('.').slice(-2).join(' ').replace(/_/g, ' ');
-  return parts.charAt(0).toUpperCase() + parts.slice(1);
-}
 
 /** Operational overview (SRS ADM 003): what needs attention, and nothing private. */
 export function DashboardPage() {
@@ -62,7 +38,7 @@ export function DashboardPage() {
       <PageHeader
         title="Dashboard"
         description="What needs a decision now. Counts follow your permissions."
-        meta={state.status === 'ready' ? <Tag>Updated {formatDateTime(state.data.generatedAt)}</Tag> : null}
+        meta={state.status === 'ready' ? <Pill tone="neutral">Updated {formatDateTime(state.data.generatedAt)}</Pill> : null}
         actions={
           <Button icon={<ReloadOutlined aria-hidden="true" />} onClick={reload} loading={state.status === 'loading'}>
             Refresh
@@ -152,7 +128,7 @@ export function DashboardPage() {
                     renderItem={(entry) => (
                       <List.Item>
                         <div>
-                          <Typography.Text strong>{describeAction(entry.action)}</Typography.Text>
+                          <Typography.Text strong>{readableAction(entry.action, { withDomain: true })}</Typography.Text>
                           <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
                             {entry.actorName ?? 'System'} · {formatDateTime(entry.createdAt)}
                           </Typography.Paragraph>

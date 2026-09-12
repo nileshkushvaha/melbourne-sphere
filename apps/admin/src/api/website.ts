@@ -189,7 +189,7 @@ export const testimonialsApi = {
 };
 
 export const partnersApi = {
-  list(query: { page?: number; pageSize?: number; status?: WebsiteContentStatus } = {}, client: HttpClient = httpClient) {
+  list(query: { page?: number; pageSize?: number; status?: WebsiteContentStatus; q?: string } = {}, client: HttpClient = httpClient) {
     return client.request<{ data: PartnerOrganisation[]; meta: CollectionMeta }>('/admin/partners', { query: queryParams({ ...query }) }).then((r) => r.data);
   },
   create(input: PartnerInput, client: HttpClient = httpClient) {

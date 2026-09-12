@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Alert, App, Button, Form, Input, Modal, Select, Space, Table, Tag, Typography } from 'antd';
+import { Alert, App, Button, Form, Input, Modal, Select, Space, Table, Typography } from 'antd';
 import { useOnError } from '@refinedev/core';
 import { Link } from 'react-router';
 import { moderationApi, REPORT_STATUSES, type AdminReport, type ReportOutcome, type ReportStatus } from '@/api/moderation';
 import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
-import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
+import { ErrorState, ListEmpty, PageHeader, Pill, StatusTag, TableCard, statusRowClass } from '@/components/ui';
 import { useBusy } from '@/shared/useBusy';
 import { RevealContact } from '@/components/RevealContact';
 import { useListParams } from '@/shared/useListParams';
@@ -23,6 +23,9 @@ const OUTCOMES: { value: ReportOutcome; label: string }[] = [
   { value: 'remove', label: 'Content should be removed' },
   { value: 'spam', label: 'Spam' },
 ];
+
+/** How a decision reads once it has been made, from the same list it was chosen in. */
+const outcomeLabel = (outcome: string) => OUTCOMES.find((entry) => entry.value === outcome)?.label ?? outcome;
 
 /** The parameters that narrow this list; everything else is sort or page. */
 const FILTERS = ['status'] as const;
@@ -134,8 +137,10 @@ export function ReportsPage() {
               </Link>
             ),
           },
-          { title: 'Target status', dataIndex: 'targetStatus', render: (v: string) => <Tag>{v}</Tag> },
-          { title: 'Status', dataIndex: 'status', render: (v: ReportStatus, report) => <Space size={4}><StatusTag status={v} />{report.outcome && <Tag>{report.outcome}</Tag>}</Space> },
+          // The state of the reported item, in the same vocabulary the
+          // moderation queues use for it rather than the stored word.
+          { title: 'Target status', dataIndex: 'targetStatus', render: (v: string) => <StatusTag status={v} /> },
+          { title: 'Status', dataIndex: 'status', render: (v: ReportStatus, report) => <Space size={4}><StatusTag status={v} />{report.outcome && <Pill tone={report.outcome === 'remove' ? 'critical' : 'neutral'}>{outcomeLabel(report.outcome)}</Pill>}</Space> },
           { title: 'Received', dataIndex: 'createdAt', render: formatDateTime },
           {
             title: <span className="sr-only">Actions</span>,

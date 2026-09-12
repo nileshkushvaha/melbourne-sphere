@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, App, Button, Form, Input, Space, Table, Tag, Typography } from 'antd';
+import { Alert, App, Button, Form, Input, Space, Table, Typography } from 'antd';
 import { useGetIdentity } from '@refinedev/core';
 import { Link, useParams } from 'react-router';
 import { adminsApi, type SessionListItem } from '@/api/admins';
@@ -8,7 +8,7 @@ import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { readableAddress, readableClient } from '@/shared/forensics';
 import { errorMessage, useAsync } from '@/shared/useAsync';
-import { DangerZone, PageLoader, PageHeader, RecordMetadata, SectionCard, StatusTag, PageLoadError } from '@/components/ui';
+import { DangerZone, PageHeader, PageLoadError, PageLoader, Pill, RecordMetadata, SectionCard, StatusTag } from '@/components/ui';
 import { AdminAccessCard } from '@/pages/access/AdminAccessCard';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
@@ -61,7 +61,7 @@ export function AdminDetailPage() {
         meta={
           <Space size={8} wrap>
             <StatusTag status={admin.status} />
-            {isSelf && <Tag>This is you</Tag>}
+            {isSelf && <Pill>This is you</Pill>}
           </Space>
         }
       />
@@ -142,7 +142,7 @@ export function AdminDetailPage() {
               width: 110,
               render: (_: unknown, session) =>
                 session.current ? (
-                  <Tag>This session</Tag>
+                  <Pill>This session</Pill>
                 ) : (
                   <Button size="small" onClick={() => mutate(() => adminsApi.revokeSession(admin.id, session.id), 'Session signed out')}>
                     Sign out

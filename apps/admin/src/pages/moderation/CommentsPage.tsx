@@ -225,7 +225,7 @@ export function CommentsPage() {
             <Input.TextArea rows={4} maxLength={2000} />
           </Form.Item>
           <Form.Item label="Reason" name="reason" rules={[{ required: true, min: 5, message: 'Give at least 5 characters' }]}>
-            <Input maxLength={500} />
+            <Input maxLength={500} placeholder="e.g. Off topic for this article" />
           </Form.Item>
         </Form>
       </Modal>

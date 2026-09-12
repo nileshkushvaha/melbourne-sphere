@@ -86,8 +86,12 @@ export function MediaField({ value, onChange, current = null, emptyLabel = 'No i
         </Space>
       </Space>
 
+      {/* Mounted only while it is open. A screen with several image fields
+          otherwise carries one hidden dialog per field, which costs a
+          measurable amount of render time for something nobody is looking at. */}
+      {picking && (
       <MediaPicker
-        open={picking}
+        open
         onCancel={() => setPicking(false)}
         onPick={(assets: MediaAsset[]) => {
           const asset = assets[0];
@@ -98,6 +102,7 @@ export function MediaField({ value, onChange, current = null, emptyLabel = 'No i
           onChange?.(asset.id);
         }}
       />
+      )}
     </>
   );
 }

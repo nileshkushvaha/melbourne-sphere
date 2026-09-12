@@ -12,6 +12,7 @@ import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { PageHeader, PageLoader, Pill, SectionCard, StickyActions } from '@/components/ui';
 import { PermissionMatrix } from './PermissionMatrix';
+import { useUnsavedChanges } from '@/shared/useUnsavedChanges';
 
 interface FormValues {
   key: string;
@@ -64,13 +65,10 @@ export function RoleEditorPage() {
     form.setFieldsValue({ key: role.key, name: role.name, description: role.description, isActive: role.isActive });
   }, [role, form]);
 
-  // A half-finished permission matrix is easy to lose by navigating away.
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
+  // A half-finished permission matrix is easy to lose by navigating away. The
+  // shared guard also catches a click on a navigation item, which the
+  // `beforeunload` this used to register never saw.
+  useUnsavedChanges(dirty, 'This role has unsaved permission changes. Leave without saving?');
 
   const readOnly = role?.isSystem === true || !can(isNew ? PERMISSION.rolesCreate : PERMISSION.rolesUpdate);
 
@@ -149,10 +147,10 @@ export function RoleEditorPage() {
             <Input maxLength={64} disabled={!isNew || readOnly} placeholder="editor" />
           </Form.Item>
           <Form.Item label="Name" name="name" rules={[{ required: true, message: 'Enter a name' }]}>
-            <Input maxLength={80} />
+            <Input maxLength={80} placeholder="e.g. Editor" />
           </Form.Item>
-          <Form.Item label="Description" name="description">
-            <Input.TextArea maxLength={255} rows={2} />
+          <Form.Item label="Description" name="description" extra="What this role is for, so the next person choosing it knows.">
+            <Input.TextArea maxLength={255} rows={2} showCount placeholder="e.g. Writes and publishes articles, and moderates comments." />
           </Form.Item>
           {!isNew && (
             <Form.Item label="Active" name="isActive" valuePropName="checked" extra="An inactive role grants nothing, and cannot be assigned.">

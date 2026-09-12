@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Alert, App, Button, Empty, Input, Select, Space, Table, Tag, Typography } from 'antd';
+import { Alert, App, Button, Empty, Input, Select, Space, Table, Typography } from 'antd';
 import { useGetIdentity, useOnError } from '@refinedev/core';
 import { authorizationApi, type AdminAccessRecord, type PermissionCatalogEntry, type RoleListItem } from '@/api/authorization';
 import { auditApi, type AuditEntry } from '@/api/admins';
@@ -10,7 +10,7 @@ import { PERMISSION } from '@/auth/permissions';
 import { brand } from '@/config/theme';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
-import { PageLoader, SectionCard } from '@/components/ui';
+import { PageLoader, Pill, SectionCard } from '@/components/ui';
 import { PermissionMatrix } from './PermissionMatrix';
 
 /** The role the server refuses to hand out unless the acting administrator holds it. */
@@ -363,11 +363,11 @@ export function AdminAccessCard({ adminId, isSelf }: { adminId: string; isSelf: 
                     <Space size={4} wrap>
                       {sources.map((source) =>
                         source === 'direct' ? (
-                          <Tag key={source} color="blue">
+                          <Pill key={source} tone="progress">
                             Granted directly
-                          </Tag>
+                          </Pill>
                         ) : (
-                          <Tag key={source}>Role: {roleNameByKey.get(source) ?? source}</Tag>
+                          <Pill key={source}>Role: {roleNameByKey.get(source) ?? source}</Pill>
                         ),
                       )}
                     </Space>

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, App, Button, Col, Form, Input, Row, Space, Switch, Typography } from 'antd';
-import { DeleteOutlined, PictureOutlined } from '@ant-design/icons';
+import { Alert, App, Button, Col, Form, Input, Row, Switch } from 'antd';
 import { useOnError } from '@refinedev/core';
 import { generalSettingsApi, SOCIAL_PLATFORMS, type GeneralSettings, type SocialPlatform } from '@/api/settings';
 import { isApiError } from '@/api/errors';
@@ -8,10 +7,10 @@ import { toNamePath } from '@/api/businesses';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
-import { MediaPicker } from '@/components/MediaPicker';
+import { MediaField } from '@/components/MediaField';
 import { BrandIcon, BrandOptionLabel } from '@/components/BrandIcon';
 import { PageLoader, PageHeader, SectionCard, StickyActions, PageLoadError } from '@/components/ui';
-import { variantUrl, type MediaAsset } from '@/api/media';
+import { useUnsavedChanges } from '@/shared/useUnsavedChanges';
 
 type BrandingSlot = 'logoMediaId' | 'faviconMediaId' | 'shareImageMediaId';
 
@@ -67,15 +66,10 @@ export function GeneralSettingsPage() {
   const [state, reload] = useAsync((signal) => api.get(signal), []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [picking, setPicking] = useState<BrandingSlot | null>(null);
-  // Branding changed in this session: an entry holds the new preview, or null
-  // when the editor removed the image. Anything untouched comes from the record.
-  // The overrides are tagged with the version they were made against, so a
-  // reload discards them without a state write inside an effect.
-  const [chosen, setChosen] = useState<{ version: number; slots: Partial<Record<BrandingSlot, { url: string; alt: string } | null>> }>({ version: -1, slots: {} });
+  // Nothing here saves on its own, and the form is long enough to lose.
+  const [dirty, setDirty] = useState(false);
+  useUnsavedChanges(dirty);
   const record: GeneralSettings | null = state.status === 'ready' ? state.data : null;
-  const overrides = record && chosen.version === record.version ? chosen.slots : {};
-  const override = (slot: BrandingSlot, value: { url: string; alt: string } | null) => setChosen({ version: record?.version ?? -1, slots: { ...overrides, [slot]: value } });
 
   useEffect(() => {
     if (!record) return;
@@ -100,13 +94,6 @@ export function GeneralSettingsPage() {
     });
   }, [record, form]);
 
-  const previewFor = (entry: (typeof BRANDING)[number]): { url: string; alt: string } | undefined => {
-    const changed = overrides[entry.slot];
-    if (changed !== undefined) return changed ?? undefined;
-    const saved = record?.[entry.recordKey];
-    return saved ? { url: saved.url, alt: saved.alt } : undefined;
-  };
-
   const submit = async (values: FormValues) => {
     if (!record) return;
     setError(null);
@@ -119,6 +106,7 @@ export function GeneralSettingsPage() {
         expectedVersion: record.version,
       });
       message.success('General settings saved');
+      setDirty(false);
       reload();
     } catch (err) {
       if (isApiError(err) && err.kind === 'unauthorized') onAuthError(err);
@@ -145,7 +133,7 @@ export function GeneralSettingsPage() {
         description="Name, contact details, branding and footer."
       />
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} role="alert" />}
-      <Form<FormValues> form={form} layout="vertical" requiredMark={false} onFinish={submit} disabled={state.status !== 'ready'}>
+      <Form<FormValues> form={form} layout="vertical" requiredMark={false} onFinish={submit} onValuesChange={() => setDirty(true)} disabled={state.status !== 'ready'}>
         <SectionCard title="Site identity" description="Used in the header, page titles, search results and the copyright line.">
           <Row gutter={16}>
             <Col xs={24} md={8}>
@@ -194,46 +182,20 @@ export function GeneralSettingsPage() {
 
         <SectionCard title="Branding" description="Images are chosen from the media library, so each one already has alternative text and a web-ready version.">
           <Row gutter={16}>
-            {BRANDING.map((entry) => {
-              const preview = previewFor(entry);
-              return (
-                <Col xs={24} md={8} key={entry.slot}>
-                  <Typography.Text strong>{entry.title}</Typography.Text>
-                  <Typography.Paragraph type="secondary" style={{ marginTop: 4, marginBottom: 8, fontSize: 13 }}>
-                    {entry.hint}
-                  </Typography.Paragraph>
-                  <Form.Item name={entry.slot} hidden>
-                    <Input />
-                  </Form.Item>
-                  <div style={{ border: '1px solid var(--ant-color-border)', borderRadius: 8, padding: 12, display: 'grid', gap: 12, justifyItems: 'center' }}>
-                    {preview?.url ? (
-                      <img src={preview.url} alt={preview.alt} style={{ maxHeight: 96, maxWidth: '100%', objectFit: 'contain' }} />
-                    ) : (
-                      <div style={{ height: 96, display: 'grid', placeItems: 'center', color: 'var(--ant-color-text-quaternary)' }}>
-                        <PictureOutlined aria-hidden="true" style={{ fontSize: 28 }} />
-                      </div>
-                    )}
-                    <Space>
-                      <Button icon={<PictureOutlined aria-hidden="true" />} onClick={() => setPicking(entry.slot)}>
-                        {preview ? 'Replace' : 'Choose image'}
-                      </Button>
-                      {preview && (
-                        <Button
-                          type="text"
-                          danger
-                          icon={<DeleteOutlined aria-hidden="true" />}
-                          aria-label={`Remove ${entry.title.toLowerCase()}`}
-                          onClick={() => {
-                            form.setFieldValue(entry.slot, null);
-                            override(entry.slot, null);
-                          }}
-                        />
-                      )}
-                    </Space>
-                  </div>
-                </Col>
-              );
-            })}
+            {BRANDING.map((entry) => (
+              <Col xs={24} md={8} key={entry.slot}>
+                <Form.Item label={entry.title} name={entry.slot} extra={entry.hint}>
+                  {/* One picker for every image field in the admin, so choosing
+                      a logo works exactly like choosing a share image. */}
+                  <MediaField
+                    current={record?.[entry.recordKey] ? { url: record[entry.recordKey]!.url, alt: record[entry.recordKey]!.alt } : null}
+                    emptyLabel={`No ${entry.title.toLowerCase()} yet`}
+                    clearLabel={`Remove ${entry.title.toLowerCase()}`}
+                    aspectRatio={entry.slot === 'faviconMediaId' ? '1 / 1' : entry.slot === 'shareImageMediaId' ? '1.91 / 1' : '16 / 9'}
+                  />
+                </Form.Item>
+              </Col>
+            ))}
           </Row>
         </SectionCard>
 
@@ -280,18 +242,6 @@ export function GeneralSettingsPage() {
         </StickyActions>
       </Form>
 
-      <MediaPicker
-        open={picking !== null}
-        onCancel={() => setPicking(null)}
-        onPick={(assets: MediaAsset[]) => {
-          const asset = assets[0];
-          if (asset && picking) {
-            form.setFieldValue(picking, asset.id);
-            override(picking, { url: variantUrl(asset, 320) ?? '', alt: asset.altText ?? '' });
-          }
-          setPicking(null);
-        }}
-      />
     </div>
   );
 }

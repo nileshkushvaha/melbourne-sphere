@@ -250,9 +250,29 @@ export class BlogService {
       if (clash) throw slugTaken();
     }
     const data = { name: input.name, ...(input.slug ? { slug: input.slug } : {}), landingContent: input.landingContent ? renderSanitisedBody(input.landingContent) : null, version: { increment: 1 } };
-    const updated = await (model as typeof db.blogTag).updateMany({ where: { id, version: input.expectedVersion }, data });
-    if (updated.count !== 1) throw stale();
-    await this.audit.record({ action: `blog.${kind}.update`, actorAdminId: actor.id, targetType: `blog_${kind}`, targetId: id, requestId: ctx.requestId, ipAddress: ctx.ip });
+    const movedTo = input.slug && input.slug !== current.slug ? input.slug : null;
+    await db.$transaction(async (tx) => {
+      const table = kind === 'category' ? tx.blogCategory : tx.blogTag;
+      const updated = await (table as typeof tx.blogTag).updateMany({ where: { id, version: input.expectedVersion }, data });
+      if (updated.count !== 1) throw stale();
+      // A category and a tag both have a public landing page, so moving one
+      // leaves saved links and search results pointing at nothing unless a
+      // redirect goes with it — the same obligation a listing or an article
+      // carries (SRS SEO 004). In the transaction, so a failed redirect takes
+      // the rename back with it rather than producing a dead address.
+      if (movedTo) {
+        const base = kind === 'category' ? '/blog/category' : '/blog/tag';
+        await this.redirects.recordSlugChange(tx, {
+          sourcePath: `${base}/${current.slug}`,
+          targetPath: `${base}/${movedTo}`,
+          resourceType: kind === 'category' ? 'blog_category' : 'blog_tag',
+          resourceId: id,
+          actorAdminId: actor.id,
+          reason: null,
+        });
+      }
+    });
+    await this.audit.record({ action: `blog.${kind}.update`, actorAdminId: actor.id, targetType: `blog_${kind}`, targetId: id, requestId: ctx.requestId, ipAddress: ctx.ip, metadata: movedTo ? { movedFrom: current.slug, movedTo } : undefined });
     return (await this.listTerms(kind)).find((t) => t.id === id)!;
   }
 

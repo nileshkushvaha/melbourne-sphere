@@ -1,4 +1,4 @@
-import { App, Button, Input, Select, Space, Table, Tag, Typography } from 'antd';
+import { App, Button, Input, Select, Space, Table, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { Link } from 'react-router';
 import { pagesApi, type StaticPage } from '@/api/settings';
@@ -136,7 +136,7 @@ export function PagesPage() {
             render: (_: unknown, record) => (
               <Space size={6} wrap>
                 <Pill tone={record.isSystem ? 'progress' : 'neutral'}>{record.isSystem ? 'Part of the product' : 'Added by an editor'}</Pill>
-                {record.template === 'about' && <Tag>About template</Tag>}
+                {record.template === 'about' && <Pill>About template</Pill>}
               </Space>
             ),
           },

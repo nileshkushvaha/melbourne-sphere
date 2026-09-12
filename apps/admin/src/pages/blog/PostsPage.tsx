@@ -1,10 +1,10 @@
-import { Button, Input, Select, Space, Table, Tag } from 'antd';
+import { Button, Input, Select, Space, Table } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { Link } from 'react-router';
 import { POST_STATUSES, blogApi, type PostStatus, type PostSummary } from '@/api/blog';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
-import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard } from '@/components/ui';
+import { ErrorState, ListEmpty, PageHeader, Pill, StatusTag, TableCard } from '@/components/ui';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { useCapabilities } from '@/auth/access-control';
@@ -121,7 +121,7 @@ export function PostsPage() {
             render: (v: PostStatus, post) => (
               <Space size={4}>
                 <StatusTag status={v} />
-                {v === 'draft' && post.publicationBlockers.length > 0 && <Tag>incomplete</Tag>}
+                {v === 'draft' && post.publicationBlockers.length > 0 && <Pill tone="attention">incomplete</Pill>}
                 {v === 'scheduled' && post.scheduledAt && <span>{formatDateTime(post.scheduledAt)}</span>}
               </Space>
             ),

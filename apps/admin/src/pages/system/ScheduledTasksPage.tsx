@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Alert, App, Button, Drawer, Input, Modal, Space, Switch, Table, Tag, Tooltip, Typography } from 'antd';
+import { Alert, App, Button, Drawer, Input, Modal, Space, Switch, Table, Tooltip, Typography } from 'antd';
 import { schedulesApi, type ScheduledRun, type ScheduledTask } from '@/api/system';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
-import { PageHeader, StatusTag } from '@/components/ui';
+import { PageHeader, Pill, StatusTag } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { SCHEDULED_RUN_RETENTION_DAYS } from '@melbourne-sphere/domain';
@@ -128,7 +128,7 @@ export function ScheduledTasksPage() {
                 <Space size={8}>
                   <strong>{task.label}</strong>
                   {task.running && <StatusTag status="running" />}
-                  {!task.enabled && <Tag>off</Tag>}
+                  {!task.enabled && <Pill>off</Pill>}
                 </Space>
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                   {task.description}
@@ -227,7 +227,7 @@ export function ScheduledTasksPage() {
                 <p style={{ marginBottom: 8 }}>
                   This task changes published content or deletes records. Type <strong>{pending.code}</strong> to confirm.
                 </p>
-                <Input value={typed} aria-label={`Type ${pending.code} to confirm`} onChange={(event) => setTyped(event.target.value)} onPressEnter={() => void confirmRun()} />
+                <Input value={typed} placeholder={pending.code} aria-label={`Type ${pending.code} to confirm`} onChange={(event) => setTyped(event.target.value)} onPressEnter={() => void confirmRun()} />
               </>
             )}
           </>

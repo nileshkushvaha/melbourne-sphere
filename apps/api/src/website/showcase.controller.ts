@@ -214,6 +214,7 @@ export class UpdatePartnerDto extends UpsertPartnerDto {
 
 export class ListPartnersQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: ['draft', 'published'] }) @IsOptional() @IsIn(['draft', 'published']) status?: 'draft' | 'published';
+  @ApiPropertyOptional({ maxLength: 120, description: 'Matches the organisation and how it is described' }) @IsOptional() @IsString() @MaxLength(120) q?: string;
 }
 
 const partnerDto = (media: MediaService) => async (row: {
@@ -281,7 +282,7 @@ export class PartnerAdminController {
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: [PartnerDto] })
   async list(@Query() query: ListPartnersQueryDto) {
-    const { rows, total } = await this.partners.list({ page: query.page, pageSize: query.pageSize, status: query.status });
+    const { rows, total } = await this.partners.list({ page: query.page, pageSize: query.pageSize, status: query.status, q: query.q });
     return { data: await Promise.all(rows.map(partnerDto(this.media))), meta: collectionMeta(query.page, query.pageSize, total) };
   }
 

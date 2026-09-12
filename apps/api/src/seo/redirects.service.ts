@@ -15,7 +15,7 @@ interface RecordChangeInput {
   sourcePath: string;
   targetPath: string;
   /** What moved. Stored as a plain string column, so this list grows without a migration. */
-  resourceType: 'business' | 'post' | 'category' | 'local_area';
+  resourceType: 'business' | 'post' | 'category' | 'local_area' | 'blog_category' | 'blog_tag';
   resourceId: string;
   actorAdminId: string;
   reason?: string | null;

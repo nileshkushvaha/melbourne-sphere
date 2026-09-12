@@ -8262,6 +8262,16 @@
                 "published"
               ]
             }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Matches the organisation and how it is described",
+            "schema": {
+              "maxLength": 120,
+              "type": "string"
+            }
           }
         ],
         "responses": {

@@ -101,7 +101,7 @@ export function FeaturedEditorPage() {
         <InputNumber min={0} max={999} style={{ width: 120 }} />
       </Form.Item>
       <Form.Item label="Editorial note" name="note" extra="Recorded in the audit log; never shown publicly." style={{ marginBottom: 0 }}>
-        <Input maxLength={500} />
+        <Input maxLength={500} placeholder="e.g. Agreed with the owner on 3 March; runs to the end of the month." />
       </Form.Item>
     </RecordEditorPage>
   );

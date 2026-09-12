@@ -10416,6 +10416,8 @@ export interface operations {
                 pageSize?: components["schemas"]["Object"];
                 order?: "asc" | "desc";
                 status?: "draft" | "published";
+                /** @description Matches the organisation and how it is described */
+                q?: string;
             };
             header?: never;
             path?: never;

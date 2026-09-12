@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { App, Button, Input, Space, Table, Tag, Typography } from 'antd';
+import { App, Button, Input, Space, Table, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router';
 import { useOnError } from '@refinedev/core';
@@ -11,7 +11,7 @@ import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { formatDateTime } from '@/shared/format';
-import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard } from '@/components/ui';
+import { ErrorState, ListEmpty, PageHeader, Pill, StatusTag, TableCard } from '@/components/ui';
 
 /** The parameters that narrow this list; everything else is sort or page. */
 const FILTERS = ['q'] as const;
@@ -52,6 +52,7 @@ export function RolesPage() {
   return (
     <>
       <PageHeader
+        crumbs={[{ label: 'Configuration' }, { label: 'Roles' }]}
         title="Roles"
         description="Named sets of permissions. An administrator can hold several."
         actions={
@@ -122,7 +123,7 @@ export function RolesPage() {
                   <Space size={4} wrap>
                     <StatusTag status={role.isActive ? 'active' : 'disabled'} />
                     {/* A protected role cannot be deleted, deactivated or edited by hand (RBAC 011). */}
-                    {role.isSystem && <Tag>Built in</Tag>}
+                    {role.isSystem && <Pill>Built in</Pill>}
                   </Space>
                 ),
               },
