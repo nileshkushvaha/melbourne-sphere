@@ -82,6 +82,7 @@ export class AdminReviewDto {
 }
 
 export class ListAdminReviewsQueryDto {
+  @ApiPropertyOptional({ description: 'One record by id, so an abuse report can link to the item it is about' }) @IsOptional() @IsString() @MaxLength(64) id?: string;
   @ApiPropertyOptional({ enum: REVIEW_STATES }) @IsOptional() @IsIn(REVIEW_STATES) status?: (typeof REVIEW_STATES)[number];
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(64) businessId?: string;
   @ApiPropertyOptional({ description: 'Only reviews flagged as repeat submissions' }) @IsOptional() @Transform(({ value }) => value === 'true' || value === true) @IsBoolean() repeatFlagged?: boolean;

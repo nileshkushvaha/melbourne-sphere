@@ -54,7 +54,8 @@ describe('moderation pages', () => {
     expect(within(row).getByText('pending')).toBeInTheDocument();
     expect(within(row).getByLabelText('Repeat submission')).toBeInTheDocument();
     expect(within(row).getByLabelText('Reported')).toBeInTheDocument();
-    expect(calls[0]?.url).toBe('/api/v1/admin/reviews?status=pending&page=1&pageSize=20');
+    // The business picker also fetches, so find the queue's own request.
+    expect(calls.map((c) => c.url)).toContain('/api/v1/admin/reviews?status=pending&page=1&pageSize=20');
 
     await ue.click(within(row).getByRole('button', { name: 'Reject' }));
     const dialog = await screen.findByRole('dialog');

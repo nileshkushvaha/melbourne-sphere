@@ -6,6 +6,9 @@ import { TestimonialsPage } from '@/pages/website/TestimonialsPage';
 import { ServiceAlertsPage } from '@/pages/website/ServiceAlertsPage';
 import { AdministratorsPage } from '@/pages/admins/AdministratorsPage';
 import { AuthorsPage } from '@/pages/blog/AuthorsPage';
+import { ReviewsPage } from '@/pages/moderation/ReviewsPage';
+import { CommentsPage } from '@/pages/moderation/CommentsPage';
+import { EnquiriesPage } from '@/pages/enquiries/EnquiriesPage';
 import { renderWithProviders, providerWithPermissions } from '@/test/render';
 import { jsonResponse } from '@/test/fetch-fakes';
 
@@ -59,6 +62,28 @@ describe('list filters reach the API', () => {
     renderWithProviders(<ServiceAlertsPage />, { initialEntries: ['/admin/website/service-alerts?q=holiday&severity=warning'], authProvider: providerWithPermissions(['website.alerts.view']) });
     await screen.findByRole('heading', { level: 1 });
     asked('/admin/service-alerts', 'q=holiday', 'severity=warning');
+  });
+
+  it('sends the moderation queue business and article filters', async () => {
+    renderWithProviders(<ReviewsPage />, { initialEntries: ['/admin/reviews?businessId=b1'], authProvider: providerWithPermissions(['reviews.moderate']) });
+    await screen.findByRole('heading', { level: 1 });
+    asked('/admin/reviews', 'businessId=b1');
+
+    renderWithProviders(<CommentsPage />, { initialEntries: ['/admin/comments?postId=p1'], authProvider: providerWithPermissions(['comments.moderate']) });
+    await screen.findAllByRole('heading', { level: 1 });
+    asked('/admin/comments', 'postId=p1');
+
+    renderWithProviders(<EnquiriesPage />, { initialEntries: ['/admin/enquiries?businessId=b2'], authProvider: providerWithPermissions(['enquiries.read']) });
+    await screen.findAllByRole('heading', { level: 1 });
+    asked('/admin/enquiries', 'businessId=b2');
+  });
+
+  it('opens the exact item an abuse report is about', async () => {
+    renderWithProviders(<ReviewsPage />, { initialEntries: ['/admin/reviews?id=r7'], authProvider: providerWithPermissions(['reviews.moderate']) });
+    await screen.findByRole('heading', { level: 1 });
+    // The report used to link to the whole queue filtered by the item's status,
+    // leaving the moderator to find it by eye.
+    asked('/admin/reviews', 'id=r7');
   });
 
   it('sends the author search to the server rather than filtering in the browser', async () => {

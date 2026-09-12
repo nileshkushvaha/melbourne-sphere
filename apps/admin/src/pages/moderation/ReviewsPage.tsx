@@ -8,6 +8,8 @@ import { formatDateTime } from '@/shared/format';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
 import { useBusy } from '@/shared/useBusy';
+import { businessesApi } from '@/api/businesses';
+import { RemoteSelect } from '@/components/RemoteSelect';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { expandToggle } from '@/components/ui/expandToggle';
@@ -25,7 +27,21 @@ const DECISION_LABELS: Record<ReviewDecision, { title: string; hint: string; con
 };
 
 /** The parameters that narrow this list; everything else is sort or page. */
-const FILTERS = ['repeatFlagged', 'reported', 'status'] as const;
+/**
+ * The first line of what is being judged.
+ *
+ * The queues carried Publish, Reject and Spam on every row while showing not
+ * one word of the text those buttons decide about: the only way to read a
+ * submission was to expand it, one at a time. A moderator can now recognise
+ * obvious spam from the row, and still expand for anything that needs the whole
+ * thing.
+ */
+function excerpt(text: string, limit = 120): string {
+  const line = text.replace(/\s+/g, ' ').trim();
+  return line.length > limit ? `${line.slice(0, limit - 1)}…` : line;
+}
+
+const FILTERS = ['repeatFlagged', 'reported', 'status', 'businessId', 'id'] as const;
 
 /**
  * Review moderation queue (SRS REV 003). Decisions carry the record version and
@@ -41,7 +57,10 @@ export function ReviewsPage() {
   const repeatFlagged = list.get('repeatFlagged') === 'true';
   const reported = list.get('reported') === 'true';
   const page = list.page;
-  const [state, reload] = useAsync((signal) => api.listReviews({ status, repeatFlagged: repeatFlagged || undefined, reported: reported || undefined, page, pageSize: 20 }, signal), [status, repeatFlagged, reported, page]);
+  const businessId = list.get('businessId');
+  // Set when an abuse report links straight to the item it is about.
+  const id = list.get('id');
+  const [state, reload] = useAsync((signal) => api.listReviews({ id, status, repeatFlagged: repeatFlagged || undefined, reported: reported || undefined, businessId, page, pageSize: 20 }, signal), [id, status, repeatFlagged, reported, businessId, page]);
   const [pending, setPending] = useState<{ review: AdminReview; decision: ReviewDecision } | null>(null);
   const [redacting, setRedacting] = useState<AdminReview | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
@@ -104,6 +123,15 @@ export function ReviewsPage() {
       <TableCard
         toolbar={
           <>
+            <RemoteSelect
+              ariaLabel="Filter by business"
+              placeholder="Any business"
+              value={businessId}
+              valueLabel={state.status === 'ready' ? state.data.data.find((row) => row.businessId === businessId)?.businessName : undefined}
+              onChange={(next) => list.set('businessId', next)}
+              search={(term, signal) => businessesApi().list({ q: term || undefined, pageSize: 20, sort: 'name', order: 'asc' }, signal).then((r) => r.data.map((row) => ({ value: row.id, label: row.name })))}
+              width={230}
+            />
             <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => list.set('status', v)} style={{ width: 160 }} options={REVIEW_STATUSES.map((s) => ({ value: s, label: s }))} />
             <Select aria-label="Filter by flag" allowClear placeholder="Any flag" value={repeatFlagged ? 'repeat' : reported ? 'reported' : undefined} style={{ width: 190 }} onChange={(v) => { list.set('repeatFlagged', v === 'repeat' ? 'true' : undefined); list.set('reported', v === 'reported' ? 'true' : undefined); }} options={[{ value: 'repeat', label: 'Repeat submissions' }, { value: 'reported', label: 'Has open reports' }]} />
           </>
@@ -134,9 +162,20 @@ export function ReviewsPage() {
           ),
         }}
         columns={[
-          { title: 'Business', dataIndex: 'businessName' },
+          { title: 'Business', dataIndex: 'businessName', width: 180, ellipsis: true },
           { title: 'Rating', dataIndex: 'rating', width: 90, render: (v: number) => `${v} / 5` },
-          { title: 'Reviewer', dataIndex: 'displayName' },
+          {
+            title: 'Review',
+            dataIndex: 'originalText',
+            render: (value: string, review) => (
+              <span>
+                {excerpt(value)}
+                <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+                  {review.displayName}
+                </Typography.Text>
+              </span>
+            ),
+          },
           {
             title: 'Status',
             dataIndex: 'status',

@@ -152,6 +152,7 @@ export class ReviewsService {
     const where: Prisma.ReviewWhereInput = {
       ...(query.status ? { status: query.status } : {}),
       ...(query.businessId ? { businessId: query.businessId } : {}),
+      ...(query.id ? { id: query.id } : {}),
       ...(query.repeatFlagged ? { repeatFlagged: true } : {}),
       ...(query.reported ? { reports: { some: { status: { in: ['open', 'investigating'] } } } } : {}),
     };

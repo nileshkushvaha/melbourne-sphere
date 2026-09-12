@@ -15,6 +15,7 @@ export const REVIEW_STATUSES: ReviewStatus[] = ['pending', 'approved', 'rejected
 export const REPORT_STATUSES: ReportStatus[] = ['open', 'investigating', 'resolved'];
 
 export interface CommentListQuery {
+  id?: string;
   status?: ReviewStatus;
   postId?: string;
   reported?: boolean;
@@ -23,6 +24,7 @@ export interface CommentListQuery {
 }
 
 export interface ReviewListQuery {
+  id?: string;
   status?: ReviewStatus;
   businessId?: string;
   repeatFlagged?: boolean;

@@ -3150,6 +3150,15 @@
         "operationId": "ReviewsAdminController_list",
         "parameters": [
           {
+            "name": "id",
+            "required": false,
+            "in": "query",
+            "description": "One record by id, so an abuse report can link to the item it is about",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "status",
             "required": false,
             "in": "query",
@@ -5244,6 +5253,15 @@
                 "rejected",
                 "spam"
               ]
+            }
+          },
+          {
+            "name": "id",
+            "required": false,
+            "in": "query",
+            "description": "One record by id, so an abuse report can link to the item it is about",
+            "schema": {
+              "type": "string"
             }
           },
           {

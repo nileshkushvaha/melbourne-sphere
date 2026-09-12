@@ -38,7 +38,8 @@ describe('comments moderation queue', () => {
     const row = (await screen.findByText('Where to find laneway coffee')).closest('tr')!;
     expect(within(row).getByText('pending')).toBeInTheDocument();
     expect(within(row).getByLabelText('Reported')).toBeInTheDocument();
-    expect(calls[0]?.url).toBe('/api/v1/admin/comments?status=pending&page=1&pageSize=20');
+    // The article picker also fetches, so find the queue's own request.
+    expect(calls.map((c) => c.url)).toContain('/api/v1/admin/comments?status=pending&page=1&pageSize=20');
     await ue.click(within(row).getByRole('button', { name: 'Publish' }));
     const dialog = await screen.findByRole('dialog');
     await ue.click(within(dialog).getByRole('button', { name: 'Publish comment' }));

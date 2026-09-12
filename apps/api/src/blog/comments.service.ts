@@ -112,6 +112,7 @@ export class CommentsService {
     const db = await this.database.client();
     const where: Prisma.CommentWhereInput = {
       ...(query.status ? { status: query.status } : {}),
+      ...(query.id ? { id: query.id } : {}),
       ...(query.postId ? { postId: query.postId } : {}),
       ...(query.reported ? { reports: { some: { status: { in: ['open', 'investigating'] } } } } : {}),
     };

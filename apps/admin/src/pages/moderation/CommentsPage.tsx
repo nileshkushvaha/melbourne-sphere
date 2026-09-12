@@ -6,6 +6,8 @@ import { REVIEW_STATUSES, moderationApi, type AdminComment, type ReviewDecision,
 import { isApiError } from '@/api/errors';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
+import { blogApi } from '@/api/blog';
+import { RemoteSelect } from '@/components/RemoteSelect';
 import { useListParams } from '@/shared/useListParams';
 import { useBusy } from '@/shared/useBusy';
 import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
@@ -24,7 +26,21 @@ const DECISIONS: Record<ReviewDecision, { title: string; hint: string; confirm: 
   spam: { title: 'Mark this comment as spam?', hint: 'Same as rejecting, but recorded as spam for abuse signals.', confirm: 'Mark as spam', done: 'Comment marked as spam.', danger: true, reasonRequired: true },
 };
 
-const FILTERS = ['status', 'reported'] as const;
+/**
+ * The first line of what is being judged.
+ *
+ * The queues carried Publish, Reject and Spam on every row while showing not
+ * one word of the text those buttons decide about: the only way to read a
+ * submission was to expand it, one at a time. A moderator can now recognise
+ * obvious spam from the row, and still expand for anything that needs the whole
+ * thing.
+ */
+function excerpt(text: string, limit = 120): string {
+  const line = text.replace(/\s+/g, ' ').trim();
+  return line.length > limit ? `${line.slice(0, limit - 1)}…` : line;
+}
+
+const FILTERS = ['status', 'reported', 'postId', 'id'] as const;
 
 /** Comment moderation (SRS COM 001): the same states and rules as reviews. */
 export function CommentsPage() {
@@ -36,7 +52,10 @@ export function CommentsPage() {
   const status = list.get('status') as ReviewStatus | undefined;
   const reported = list.get('reported') === 'true';
   const page = list.page;
-  const [state, reload] = useAsync((signal) => api.listComments({ status, reported: reported || undefined, page, pageSize: 20 }, signal), [status, reported, page]);
+  const postId = list.get('postId');
+  // Set when an abuse report links straight to the item it is about.
+  const id = list.get('id');
+  const [state, reload] = useAsync((signal) => api.listComments({ id, status, reported: reported || undefined, postId, page, pageSize: 20 }, signal), [id, status, reported, postId, page]);
   const [pending, setPending] = useState<{ comment: AdminComment; decision: ReviewDecision } | null>(null);
   const [redacting, setRedacting] = useState<AdminComment | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
@@ -90,6 +109,15 @@ export function CommentsPage() {
       <TableCard
         toolbar={
           <>
+            <RemoteSelect
+              ariaLabel="Filter by article"
+              placeholder="Any article"
+              value={postId}
+              valueLabel={state.status === 'ready' ? state.data.data.find((row) => row.postId === postId)?.postTitle : undefined}
+              onChange={(next) => list.set('postId', next)}
+              search={(term, signal) => blogApi().listPosts({ q: term || undefined, pageSize: 20 }, signal).then((r) => r.data.map((row) => ({ value: row.id, label: row.title })))}
+              width={240}
+            />
             <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => list.set('status', v)} style={{ width: 160 }} options={REVIEW_STATUSES.map((s) => ({ value: s, label: s }))} />
             <Select aria-label="Filter by reports" allowClear placeholder="Any" value={reported ? 'reported' : undefined} onChange={(v) => list.set('reported', v ? 'true' : undefined)} style={{ width: 190 }} options={[{ value: 'reported', label: 'Has open reports' }]} />
           </>
@@ -109,7 +137,14 @@ export function CommentsPage() {
           expandedRowRender: (comment) => (
             <div style={{ maxWidth: 900 }}>
               <Typography.Paragraph style={{ whiteSpace: 'pre-line' }}>{comment.originalText}</Typography.Paragraph>
-              {comment.publicText && <Alert type="info" showIcon message="Published text differs from the original" description={comment.publicText} />}
+              {comment.publicText && (
+                <Alert
+                  type="info"
+                  showIcon
+                  message="Published text differs from the original"
+                  description={<span style={{ whiteSpace: 'pre-line' }}>{comment.publicText}{comment.redactionReason ? ` — ${comment.redactionReason}` : ''}</span>}
+                />
+              )}
               <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
                 Contact: {comment.email} · acknowledged {comment.acknowledgedVersion}
                 {comment.moderationReason ? ` · reason: ${comment.moderationReason}` : ''}
@@ -118,8 +153,19 @@ export function CommentsPage() {
           ),
         }}
         columns={[
-          { title: 'Article', dataIndex: 'postTitle', ellipsis: true },
-          { title: 'From', dataIndex: 'displayName' },
+          { title: 'Article', dataIndex: 'postTitle', width: 190, ellipsis: true },
+          {
+            title: 'Comment',
+            dataIndex: 'originalText',
+            render: (value: string, comment) => (
+              <span>
+                {excerpt(value)}
+                <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+                  {comment.displayName}
+                </Typography.Text>
+              </span>
+            ),
+          },
           {
             title: 'Status',
             dataIndex: 'status',

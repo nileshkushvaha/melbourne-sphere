@@ -7,6 +7,8 @@ import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass } from '@/components/ui';
 import { useBusy } from '@/shared/useBusy';
+import { businessesApi } from '@/api/businesses';
+import { RemoteSelect } from '@/components/RemoteSelect';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { useCapabilities } from '@/auth/access-control';
@@ -24,7 +26,7 @@ const DELIVERY_LABELS: Record<DeliveryStatus, string> = {
 const HANDLING_LABELS: Record<HandlingStatus, string> = { new: 'new', inProgress: 'in progress', closed: 'closed' };
 
 /** The parameters that narrow this list; everything else is sort or page. */
-const FILTERS = ['deliveryStatus', 'handlingStatus'] as const;
+const FILTERS = ['deliveryStatus', 'handlingStatus', 'businessId'] as const;
 
 /**
  * Enquiry handling (SRS ENQ 004/007). Delivery state and handling state are
@@ -41,7 +43,8 @@ export function EnquiriesPage() {
   const handlingStatus = (list.get('handlingStatus') as HandlingStatus | null) ?? undefined;
   const deliveryStatus = (list.get('deliveryStatus') as DeliveryStatus | null) ?? undefined;
   const page = list.page;
-  const [state, reload] = useAsync((signal) => api.list({ handlingStatus, deliveryStatus, page, pageSize: 20 }, signal), [handlingStatus, deliveryStatus, page]);
+  const businessId = list.get('businessId');
+  const [state, reload] = useAsync((signal) => api.list({ handlingStatus, deliveryStatus, businessId, page, pageSize: 20 }, signal), [handlingStatus, deliveryStatus, businessId, page]);
   const [retrying, setRetrying] = useState<AdminEnquiry | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
   // Confirming twice sent the decision twice; one at a time.
@@ -84,6 +87,15 @@ export function EnquiriesPage() {
       <TableCard
         toolbar={
           <>
+            <RemoteSelect
+              ariaLabel="Filter by business"
+              placeholder="Any business"
+              value={businessId}
+              valueLabel={(state.status === 'ready' ? state.data.data.find((row) => row.businessId === businessId)?.businessName : undefined) ?? undefined}
+              onChange={(next) => list.set('businessId', next)}
+              search={(term, signal) => businessesApi().list({ q: term || undefined, pageSize: 20, sort: 'name', order: 'asc' }, signal).then((r) => r.data.map((row) => ({ value: row.id, label: row.name })))}
+              width={230}
+            />
             <Select aria-label="Filter by handling status" allowClear placeholder="Any handling status" value={handlingStatus} onChange={(v) => list.set('handlingStatus', v)} style={{ width: 200 }} options={HANDLING_STATUSES.map((s) => ({ value: s, label: HANDLING_LABELS[s] }))} />
             <Select aria-label="Filter by delivery status" allowClear placeholder="Any delivery status" value={deliveryStatus} onChange={(v) => list.set('deliveryStatus', v)} style={{ width: 220 }} options={DELIVERY_STATUSES.map((s) => ({ value: s, label: DELIVERY_LABELS[s] }))} />
           </>

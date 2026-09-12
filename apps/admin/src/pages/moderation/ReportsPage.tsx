@@ -82,7 +82,7 @@ export function ReportsPage() {
 
   return (
     <div>
-      <PageHeader crumbs={[{ label: 'Community' }, { label: 'Abuse reports' }]} title="Abuse reports" description="Reports never remove content. Record an outcome, then act on the review or comment." />
+      <PageHeader crumbs={[{ label: 'Community' }, { label: 'Abuse reports' }]} title="Abuse reports" description="Reports never remove content. Record an outcome, then open the item to act on it." />
       <TableCard
         toolbar={
           <>
@@ -118,8 +118,12 @@ export function ReportsPage() {
           {
             title: 'Target',
             render: (_: unknown, report) => (
-              <Link to={report.targetType === 'review' ? `/reviews?status=${report.targetStatus}` : `/comments?status=${report.targetStatus}`}>
-                {report.targetType} {(report.reviewId ?? report.commentId ?? '').slice(-8)}
+              // The link now opens the reported item itself. It used to open
+              // the whole queue filtered by that item's status, which looked
+              // like a link to the content and was not: the moderator had to
+              // find it by eye among everything else in the same state.
+              <Link to={report.targetType === 'review' ? `/reviews?id=${encodeURIComponent(report.reviewId ?? '')}` : `/comments?id=${encodeURIComponent(report.commentId ?? '')}`}>
+                Open the {report.targetType}
               </Link>
             ),
           },

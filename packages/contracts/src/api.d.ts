@@ -7347,6 +7347,8 @@ export interface operations {
     ReviewsAdminController_list: {
         parameters: {
             query?: {
+                /** @description One record by id, so an abuse report can link to the item it is about */
+                id?: string;
                 status?: "pending" | "approved" | "rejected" | "spam";
                 businessId?: string;
                 /** @description Only reviews flagged as repeat submissions */
@@ -8525,6 +8527,8 @@ export interface operations {
         parameters: {
             query?: {
                 status?: "pending" | "approved" | "rejected" | "spam";
+                /** @description One record by id, so an abuse report can link to the item it is about */
+                id?: string;
                 postId?: string;
                 reported?: boolean;
                 page?: components["schemas"]["Object"];

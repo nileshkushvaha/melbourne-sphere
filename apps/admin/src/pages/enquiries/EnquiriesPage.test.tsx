@@ -38,7 +38,8 @@ describe('enquiries page', () => {
     const row = (await screen.findByText('Enquiry Test Bakery')).closest('tr')!;
     expect(within(row).getByText('failed')).toBeInTheDocument();
     expect(within(row).getByText('new')).toBeInTheDocument();
-    expect(calls[0]?.url).toBe('/api/v1/admin/enquiries?deliveryStatus=failed&page=1&pageSize=20');
+    // The business picker also fetches, so find the queue's own request.
+    expect(calls.map((c) => c.url)).toContain('/api/v1/admin/enquiries?deliveryStatus=failed&page=1&pageSize=20');
     await ue.click(within(row).getByRole('button', { name: 'Start' }));
     expect(JSON.parse(calls.find((c) => c.method === 'PATCH')!.body!)).toEqual({ expectedVersion: 1, handlingStatus: 'inProgress' });
   });

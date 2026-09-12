@@ -57,6 +57,7 @@ export class AdminCommentDto {
 
 export class ListAdminCommentsQueryDto {
   @ApiPropertyOptional({ enum: REVIEW_STATES }) @IsOptional() @IsIn(REVIEW_STATES) status?: (typeof REVIEW_STATES)[number];
+  @ApiPropertyOptional({ description: 'One record by id, so an abuse report can link to the item it is about' }) @IsOptional() @IsString() @MaxLength(64) id?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(64) postId?: string;
   @ApiPropertyOptional() @IsOptional() @Transform(({ value }) => value === 'true' || value === true) @IsBoolean() reported?: boolean;
   @ApiPropertyOptional({ minimum: 1, default: 1 }) @IsOptional() @Type(() => Number) @IsInt() @Min(1) page = 1;
