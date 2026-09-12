@@ -1,16 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Alert, App, Button, Col, Form, Input, Row, Select, Space, Typography } from 'antd';
-import { DeleteOutlined, PictureOutlined } from '@ant-design/icons';
+import { Alert, App, Button, Col, Form, Input, Row, Select, Typography } from 'antd';
 import { useOnError } from '@refinedev/core';
 import { ROBOTS_DIRECTIVES, SEO_ROUTES } from '@melbourne-sphere/domain';
 import { seoSettingsApi, type SeoSettings } from '@/api/settings';
 import { isApiError } from '@/api/errors';
 import { toNamePath } from '@/api/businesses';
-import { variantUrl, type MediaAsset } from '@/api/media';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
-import { MediaPicker } from '@/components/MediaPicker';
+import { MediaField } from '@/components/MediaField';
 import { PageHeader, PageLoader, PageLoadError, SectionCard, StickyActions } from '@/components/ui';
 
 /** How each directive is described to someone who does not write robots tags. */
@@ -67,13 +65,9 @@ export function SeoSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [routeKey, setRouteKey] = useState(SEO_ROUTES[0]!.key);
-  const [picking, setPicking] = useState(false);
-  /** Share images chosen in this session, by route, tagged with the version they were chosen against. */
-  const [chosen, setChosen] = useState<{ version: number; images: Record<string, { url: string; alt: string } | null> }>({ version: -1, images: {} });
 
   const record: SeoSettings | null = state.status === 'ready' ? state.data : null;
   const route = SEO_ROUTES.find((entry) => entry.key === routeKey)!;
-  const overrides = record && chosen.version === record.version ? chosen.images : {};
 
   useEffect(() => {
     if (!record) return;
@@ -103,13 +97,6 @@ export function SeoSettingsPage() {
     } as never);
   }, [record, form]);
 
-  /** The share image this route will use: what was just chosen, else what is stored. */
-  const preview = (): { url: string; alt: string } | undefined => {
-    const changed = overrides[routeKey];
-    if (changed !== undefined) return changed ?? undefined;
-    const saved = record?.shareImages?.[routeKey];
-    return saved ? { url: saved.url, alt: saved.alt } : undefined;
-  };
 
   const submit = async (values: FormValues) => {
     if (!record) return;
@@ -213,36 +200,8 @@ export function SeoSettingsPage() {
             </Col>
           </Row>
 
-          {/* The image itself is a media reference; the picker writes the id. */}
-          <Form.Item name={['routes', routeKey, 'ogImageMediaId']} hidden>
-            <Input />
-          </Form.Item>
-          <Form.Item label="Share image" extra="Shown when this page is shared. Ideally 1200 × 630. Empty uses the site image.">
-            <Space align="start" wrap size={16}>
-              {preview() ? (
-                <img src={preview()!.url} alt={preview()!.alt} style={{ width: 200, height: 105, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--ms-border)' }} />
-              ) : (
-                <div style={{ width: 200, height: 105, borderRadius: 8, border: '1px dashed var(--ms-border)', display: 'grid', placeItems: 'center', color: 'var(--ms-text-subtle)' }}>
-                  <PictureOutlined aria-hidden="true" style={{ fontSize: 22 }} />
-                </div>
-              )}
-              <Space direction="vertical" size={8}>
-                <Button icon={<PictureOutlined />} onClick={() => setPicking(true)}>
-                  {preview() ? 'Replace image' : 'Choose image'}
-                </Button>
-                {preview() && (
-                  <Button
-                    icon={<DeleteOutlined />}
-                    onClick={() => {
-                      form.setFieldValue(['routes', routeKey, 'ogImageMediaId'], null);
-                      setChosen({ version: record?.version ?? -1, images: { ...overrides, [routeKey]: null } });
-                    }}
-                  >
-                    Use the site image
-                  </Button>
-                )}
-              </Space>
-            </Space>
+          <Form.Item label="Share image" name={['routes', routeKey, 'ogImageMediaId']} extra="Shown when this page is shared. Ideally 1200 × 630. Empty uses the site image.">
+            <MediaField current={record?.shareImages?.[routeKey] ?? null} emptyLabel="The site image is used" clearLabel="Use the site image" aspectRatio="1.91 / 1" />
           </Form.Item>
         </SectionCard>
 
@@ -296,18 +255,6 @@ export function SeoSettingsPage() {
         </StickyActions>
       </Form>
 
-      <MediaPicker
-        open={picking}
-        onCancel={() => setPicking(false)}
-        onPick={(assets: MediaAsset[]) => {
-          const asset = assets[0];
-          if (asset) {
-            form.setFieldValue(['routes', routeKey, 'ogImageMediaId'], asset.id);
-            setChosen({ version: record?.version ?? -1, images: { ...overrides, [routeKey]: { url: variantUrl(asset) ?? '', alt: asset.altText ?? '' } } });
-          }
-          setPicking(false);
-        }}
-      />
     </div>
   );
 }

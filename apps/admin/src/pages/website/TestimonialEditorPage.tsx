@@ -6,6 +6,7 @@ import { RecordEditorPage } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
 import { useRecordEditor } from '@/shared/useRecordEditor';
+import { MediaField } from '@/components/MediaField';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
 interface Values {
@@ -103,8 +104,8 @@ export function TestimonialEditorPage() {
       <Form.Item label="Linked listing" name="businessId" extra="The listing's reference, so the quote links to it. Copy it from the listing address.">
         <Input maxLength={64} style={{ maxWidth: 420 }} placeholder="Paste a listing reference" />
       </Form.Item>
-      <Form.Item label="Portrait image" name="mediaId" extra="The reference of an approved image from the media library. Copy it from the image's page.">
-        <Input maxLength={64} style={{ maxWidth: 420 }} placeholder="Paste an image reference" />
+      <Form.Item label="Portrait image" name="mediaId" extra="Chosen from the media library. Optional.">
+        <MediaField current={record?.image ?? null} emptyLabel="No portrait yet" clearLabel="Remove portrait" aspectRatio="1 / 1" />
       </Form.Item>
       <Form.Item label="Display order" name="displayOrder">
         <InputNumber min={0} max={9999} placeholder="0" />

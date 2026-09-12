@@ -6,6 +6,7 @@ import { RecordEditorPage, SectionCard } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
 import { useRecordEditor } from '@/shared/useRecordEditor';
+import { MediaField } from '@/components/MediaField';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
 interface Values {
@@ -116,8 +117,8 @@ export function PartnerEditorPage() {
       <Form.Item label="Relationship" name="relationshipLabel" extra="How the organisation is described under its logo.">
         <Input maxLength={120} style={{ maxWidth: 420 }} placeholder="e.g. Community partner" />
       </Form.Item>
-      <Form.Item label="Logo image" name="mediaId" extra="The reference of an approved image from the media library. Required before publishing.">
-        <Input maxLength={64} style={{ maxWidth: 420 }} placeholder="Paste an image reference" />
+      <Form.Item label="Logo image" name="mediaId" extra="Chosen from the media library. Required before publishing.">
+        <MediaField current={record?.image ?? null} emptyLabel="No logo yet" clearLabel="Remove logo" aspectRatio="3 / 2" />
       </Form.Item>
       <Form.Item
         label="Logo alternative text"

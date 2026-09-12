@@ -5306,6 +5306,8 @@ export interface components {
             quote: string;
             businessId?: Record<string, never> | null;
             mediaId?: Record<string, never> | null;
+            /** @description The referenced image, resolved for preview; null when none is set or it is not processed */
+            image?: components["schemas"]["SettingsImageDto"] | null;
             displayOrder: number;
             /** @enum {string} */
             status: "draft" | "published";
@@ -5338,6 +5340,8 @@ export interface components {
             name: string;
             relationshipLabel?: Record<string, never> | null;
             mediaId?: Record<string, never> | null;
+            /** @description The referenced image, resolved for preview; null when none is set or it is not processed */
+            image?: components["schemas"]["SettingsImageDto"] | null;
             logoAlt?: Record<string, never> | null;
             websiteUrl?: Record<string, never> | null;
             /** @description When authorisation to display the mark was recorded. Publication is refused while it is null. */

@@ -1,12 +1,10 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { Alert, App, Button, Form, Input, Space } from 'antd';
-import { PictureOutlined } from '@ant-design/icons';
+import { useEffect, type ReactNode } from 'react';
+import { Alert, App, Button, Form, Input } from 'antd';
 import { useOnError } from '@refinedev/core';
 import { pagesApi, type StaticPage } from '@/api/settings';
 import { isApiError } from '@/api/errors';
 import { RichTextEditorLazy } from '@/components/RichTextEditorLazy';
-import { MediaPicker } from '@/components/MediaPicker';
-import { variantUrl } from '@/api/media';
+import { MediaField } from '@/components/MediaField';
 import { SectionCard, StickyActions } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage } from '@/shared/useAsync';
@@ -52,12 +50,7 @@ export function StaticPageEditor({
   const api = pagesApi();
   const { message } = App.useApp();
   const { can } = useCapabilities();
-  const [picking, setPicking] = useState(false);
-  // The image chosen in this session, before the page is saved and reloaded.
-  const [chosen, setChosen] = useState<{ url: string; alt: string } | null>(null);
   const canManage = can(PERMISSION.settingsManage);
-  // What was just chosen, else what is stored; null means the site image.
-  const shareImage = chosen ?? page.ogImage ?? null;
   const [form] = Form.useForm<StaticPageFormValues>();
   const { saving, error, setError, submit } = useRecordEditor<StaticPageFormValues>(form);
 
@@ -134,49 +127,11 @@ export function StaticPageEditor({
         </Form.Item>
         {/* A page has no featured image of its own, so an empty share image
             falls back to the site-wide one in General settings. */}
-        <Form.Item name="ogImageMediaId" hidden>
-          <Input />
-        </Form.Item>
-        <Form.Item label="Share image" extra="Used when this page is shared. Empty uses the site image." style={{ marginBottom: 0 }}>
-          <Space align="start" wrap size={16}>
-            {shareImage ? (
-              <img src={shareImage.url} alt={shareImage.alt} style={{ width: 200, height: 105, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--ms-border)' }} />
-            ) : (
-              <div style={{ width: 200, height: 105, borderRadius: 8, border: '1px dashed var(--ms-border)', display: 'grid', placeItems: 'center', color: 'var(--ms-text-subtle)' }}>
-                <PictureOutlined aria-hidden="true" style={{ fontSize: 22 }} />
-              </div>
-            )}
-            <Space direction="vertical" size={8}>
-              <Button icon={<PictureOutlined aria-hidden="true" />} onClick={() => setPicking(true)} disabled={!canManage}>
-                {shareImage ? 'Replace image' : 'Choose image'}
-              </Button>
-              {shareImage && (
-                <Button
-                  onClick={() => {
-                    form.setFieldValue('ogImageMediaId', null);
-                    setChosen(null);
-                  }}
-                  disabled={!canManage}
-                >
-                  Use the site image
-                </Button>
-              )}
-            </Space>
-          </Space>
+        <Form.Item label="Share image" name="ogImageMediaId" extra="Used when this page is shared. Empty uses the site image." style={{ marginBottom: 0 }}>
+          <MediaField current={page.ogImage ?? null} emptyLabel="The site image is used" clearLabel="Use the site image" disabled={!canManage} aspectRatio="1.91 / 1" />
         </Form.Item>
       </SectionCard>
 
-      <MediaPicker
-        open={picking}
-        onCancel={() => setPicking(false)}
-        onPick={(assets) => {
-          const asset = assets[0];
-          setPicking(false);
-          if (!asset) return;
-          form.setFieldValue('ogImageMediaId', asset.id);
-          setChosen({ url: variantUrl(asset) ?? '', alt: asset.altText ?? '' });
-        }}
-      />
 
       {page.status === 'published' && (
         <SectionCard title="Revision note">

@@ -17096,6 +17096,16 @@
             "type": "object",
             "nullable": true
           },
+          "image": {
+            "nullable": true,
+            "description": "The referenced image, resolved for preview; null when none is set or it is not processed",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettingsImageDto"
+              }
+            ]
+          },
           "displayOrder": {
             "type": "number"
           },
@@ -17224,6 +17234,16 @@
           "mediaId": {
             "type": "object",
             "nullable": true
+          },
+          "image": {
+            "nullable": true,
+            "description": "The referenced image, resolved for preview; null when none is set or it is not processed",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettingsImageDto"
+              }
+            ]
           },
           "logoAlt": {
             "type": "object",

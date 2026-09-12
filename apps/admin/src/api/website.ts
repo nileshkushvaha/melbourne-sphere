@@ -122,6 +122,8 @@ export interface Testimonial {
   quote: string;
   businessId: string | null;
   mediaId: string | null;
+  /** The image itself, resolved by the API so it can be shown without a lookup. */
+  image: { id: string; url: string; alt: string; width: number; height: number } | null;
   /** Recorded consent. Publication is refused while this is null. */
   displayOrder: number;
   status: WebsiteContentStatus;
@@ -144,6 +146,8 @@ export interface PartnerOrganisation {
   name: string;
   relationshipLabel: string | null;
   mediaId: string | null;
+  /** The image itself, resolved by the API so it can be shown without a lookup. */
+  image: { id: string; url: string; alt: string; width: number; height: number } | null;
   logoAlt: string | null;
   websiteUrl: string | null;
   /** Recorded authorisation to display the mark. Publication is refused while this is null. */

@@ -6,6 +6,8 @@ import { CurrentAdmin, Public, RequirePermissions, type AuthenticatedRequest } f
 import { getRequestId } from '../common/request-id.js';
 import { PaginationQueryDto, collectionMeta } from '../common/pagination.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
+import { MediaService } from '../media/media.service.js';
+import { SettingsImageDto } from '../settings/dto/general-settings.dto.js';
 import { PARTNER_LIMITS, PartnerService } from './partner.service.js';
 import { TESTIMONIAL_LIMITS, TestimonialService } from './testimonial.service.js';
 
@@ -20,6 +22,7 @@ export class TestimonialDto {
   @ApiProperty() quote!: string;
   @ApiPropertyOptional({ nullable: true }) businessId!: string | null;
   @ApiPropertyOptional({ nullable: true }) mediaId!: string | null;
+  @ApiPropertyOptional({ type: SettingsImageDto, nullable: true, description: 'The referenced image, resolved for preview; null when none is set or it is not processed' }) image!: SettingsImageDto | null;
   @ApiProperty() displayOrder!: number;
   @ApiProperty({ enum: ['draft', 'published'] }) status!: string;
   @ApiPropertyOptional({ nullable: true }) publishedAt!: string | null;
@@ -58,7 +61,7 @@ export class ListTestimonialsQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ maxLength: 120, description: 'Matches the person and the words they said' }) @IsOptional() @IsString() @MaxLength(120) q?: string;
 }
 
-const testimonialDto = (row: {
+const testimonialDto = (media: MediaService) => async (row: {
   id: string;
   displayName: string;
   relationship: string | null;
@@ -71,6 +74,7 @@ const testimonialDto = (row: {
   version: number;
   updatedAt: Date;
 }) => ({
+  image: await media.publicImageRefOfKind(row.mediaId, 'card'),
   id: row.id,
   displayName: row.displayName,
   relationship: row.relationship,
@@ -89,7 +93,10 @@ const testimonialDto = (row: {
 @Public()
 @Controller('testimonials')
 export class TestimonialPublicController {
-  constructor(private readonly testimonials: TestimonialService) {}
+  constructor(
+    private readonly testimonials: TestimonialService,
+    private readonly media: MediaService,
+  ) {}
 
   @Get()
   @Header('Cache-Control', 'public, max-age=300')
@@ -103,7 +110,10 @@ export class TestimonialPublicController {
 @ApiTags('admin-website')
 @Controller('admin/testimonials')
 export class TestimonialAdminController {
-  constructor(private readonly testimonials: TestimonialService) {}
+  constructor(
+    private readonly testimonials: TestimonialService,
+    private readonly media: MediaService,
+  ) {}
 
   @RequirePermissions('website.testimonials.view')
   @Get()
@@ -111,7 +121,7 @@ export class TestimonialAdminController {
   @ApiOkResponse({ type: [TestimonialDto] })
   async list(@Query() query: ListTestimonialsQueryDto) {
     const { rows, total } = await this.testimonials.list({ page: query.page, pageSize: query.pageSize, status: query.status, q: query.q });
-    return { data: rows.map(testimonialDto), meta: collectionMeta(query.page, query.pageSize, total) };
+    return { data: await Promise.all(rows.map(testimonialDto(this.media))), meta: collectionMeta(query.page, query.pageSize, total) };
   }
 
   @RequirePermissions('website.testimonials.view')
@@ -119,7 +129,7 @@ export class TestimonialAdminController {
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: TestimonialDto })
   async get(@Param('id') id: string) {
-    return { data: testimonialDto(await this.testimonials.get(id)) };
+    return { data: await testimonialDto(this.media)(await this.testimonials.get(id)) };
   }
 
   @RequirePermissions('website.testimonials.create')
@@ -127,7 +137,7 @@ export class TestimonialAdminController {
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: TestimonialDto })
   async create(@Body() body: UpsertTestimonialDto, @CurrentAdmin() admin: AdminPrincipal, @Req() req: AuthenticatedRequest) {
-    return { data: testimonialDto(await this.testimonials.create(body, admin, ctxOf(req))) };
+    return { data: await testimonialDto(this.media)(await this.testimonials.create(body, admin, ctxOf(req))) };
   }
 
   @RequirePermissions('website.testimonials.update')
@@ -135,7 +145,7 @@ export class TestimonialAdminController {
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: TestimonialDto })
   async update(@Param('id') id: string, @Body() body: UpdateTestimonialDto, @CurrentAdmin() admin: AdminPrincipal, @Req() req: AuthenticatedRequest) {
-    return { data: testimonialDto(await this.testimonials.update(id, body, admin, ctxOf(req))) };
+    return { data: await testimonialDto(this.media)(await this.testimonials.update(id, body, admin, ctxOf(req))) };
   }
 
 
@@ -144,7 +154,7 @@ export class TestimonialAdminController {
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: TestimonialDto })
   async publish(@Param('id') id: string, @Body() body: VersionOnlyDto, @CurrentAdmin() admin: AdminPrincipal, @Req() req: AuthenticatedRequest) {
-    return { data: testimonialDto(await this.testimonials.setPublished(id, true, body.expectedVersion, admin, ctxOf(req))) };
+    return { data: await testimonialDto(this.media)(await this.testimonials.setPublished(id, true, body.expectedVersion, admin, ctxOf(req))) };
   }
 
   @RequirePermissions('website.testimonials.publish')
@@ -152,7 +162,7 @@ export class TestimonialAdminController {
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: TestimonialDto })
   async unpublish(@Param('id') id: string, @Body() body: VersionOnlyDto, @CurrentAdmin() admin: AdminPrincipal, @Req() req: AuthenticatedRequest) {
-    return { data: testimonialDto(await this.testimonials.setPublished(id, false, body.expectedVersion, admin, ctxOf(req))) };
+    return { data: await testimonialDto(this.media)(await this.testimonials.setPublished(id, false, body.expectedVersion, admin, ctxOf(req))) };
   }
 
   @RequirePermissions('website.testimonials.delete')
@@ -171,6 +181,7 @@ export class PartnerDto {
   @ApiProperty() name!: string;
   @ApiPropertyOptional({ nullable: true }) relationshipLabel!: string | null;
   @ApiPropertyOptional({ nullable: true }) mediaId!: string | null;
+  @ApiPropertyOptional({ type: SettingsImageDto, nullable: true, description: 'The referenced image, resolved for preview; null when none is set or it is not processed' }) image!: SettingsImageDto | null;
   @ApiPropertyOptional({ nullable: true }) logoAlt!: string | null;
   @ApiPropertyOptional({ nullable: true }) websiteUrl!: string | null;
   @ApiPropertyOptional({ nullable: true, description: 'When authorisation to display the mark was recorded. Publication is refused while it is null.' })
@@ -205,7 +216,7 @@ export class ListPartnersQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: ['draft', 'published'] }) @IsOptional() @IsIn(['draft', 'published']) status?: 'draft' | 'published';
 }
 
-const partnerDto = (row: {
+const partnerDto = (media: MediaService) => async (row: {
   id: string;
   name: string;
   relationshipLabel: string | null;
@@ -221,6 +232,7 @@ const partnerDto = (row: {
   version: number;
   updatedAt: Date;
 }) => ({
+  image: await media.publicImageRefOfKind(row.mediaId, 'card'),
   id: row.id,
   name: row.name,
   relationshipLabel: row.relationshipLabel,
@@ -242,7 +254,10 @@ const partnerDto = (row: {
 @Public()
 @Controller('partners')
 export class PartnerPublicController {
-  constructor(private readonly partners: PartnerService) {}
+  constructor(
+    private readonly partners: PartnerService,
+    private readonly media: MediaService,
+  ) {}
 
   @Get()
   @Header('Cache-Control', 'public, max-age=300')
@@ -256,7 +271,10 @@ export class PartnerPublicController {
 @ApiTags('admin-website')
 @Controller('admin/partners')
 export class PartnerAdminController {
-  constructor(private readonly partners: PartnerService) {}
+  constructor(
+    private readonly partners: PartnerService,
+    private readonly media: MediaService,
+  ) {}
 
   @RequirePermissions('website.clients.view')
   @Get()
@@ -264,7 +282,7 @@ export class PartnerAdminController {
   @ApiOkResponse({ type: [PartnerDto] })
   async list(@Query() query: ListPartnersQueryDto) {
     const { rows, total } = await this.partners.list({ page: query.page, pageSize: query.pageSize, status: query.status });
-    return { data: rows.map(partnerDto), meta: collectionMeta(query.page, query.pageSize, total) };
+    return { data: await Promise.all(rows.map(partnerDto(this.media))), meta: collectionMeta(query.page, query.pageSize, total) };
   }
 
   @RequirePermissions('website.clients.view')
@@ -272,7 +290,7 @@ export class PartnerAdminController {
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: PartnerDto })
   async get(@Param('id') id: string) {
-    return { data: partnerDto(await this.partners.get(id)) };
+    return { data: await partnerDto(this.media)(await this.partners.get(id)) };
   }
 
   @RequirePermissions('website.clients.create')
@@ -280,7 +298,7 @@ export class PartnerAdminController {
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: PartnerDto })
   async create(@Body() body: UpsertPartnerDto, @CurrentAdmin() admin: AdminPrincipal, @Req() req: AuthenticatedRequest) {
-    return { data: partnerDto(await this.partners.create(body, admin, ctxOf(req))) };
+    return { data: await partnerDto(this.media)(await this.partners.create(body, admin, ctxOf(req))) };
   }
 
   @RequirePermissions('website.clients.update')
@@ -289,7 +307,7 @@ export class PartnerAdminController {
   @ApiOperation({ summary: 'Changing the logo clears the recorded authorisation: it was given for a particular mark.' })
   @ApiOkResponse({ type: PartnerDto })
   async update(@Param('id') id: string, @Body() body: UpdatePartnerDto, @CurrentAdmin() admin: AdminPrincipal, @Req() req: AuthenticatedRequest) {
-    return { data: partnerDto(await this.partners.update(id, body, admin, ctxOf(req))) };
+    return { data: await partnerDto(this.media)(await this.partners.update(id, body, admin, ctxOf(req))) };
   }
 
   @RequirePermissions('website.clients.approve')
@@ -298,7 +316,7 @@ export class PartnerAdminController {
   @ApiOperation({ summary: "Record written authorisation to display the organisation's mark. Publication is refused without it." })
   @ApiOkResponse({ type: PartnerDto })
   async authorise(@Param('id') id: string, @Body() body: ApproveDto, @CurrentAdmin() admin: AdminPrincipal, @Req() req: AuthenticatedRequest) {
-    return { data: partnerDto(await this.partners.authorise(id, body.note ?? null, body.expectedVersion, admin, ctxOf(req))) };
+    return { data: await partnerDto(this.media)(await this.partners.authorise(id, body.note ?? null, body.expectedVersion, admin, ctxOf(req))) };
   }
 
   @RequirePermissions('website.clients.publish')
@@ -306,7 +324,7 @@ export class PartnerAdminController {
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: PartnerDto })
   async publish(@Param('id') id: string, @Body() body: VersionOnlyDto, @CurrentAdmin() admin: AdminPrincipal, @Req() req: AuthenticatedRequest) {
-    return { data: partnerDto(await this.partners.setPublished(id, true, body.expectedVersion, admin, ctxOf(req))) };
+    return { data: await partnerDto(this.media)(await this.partners.setPublished(id, true, body.expectedVersion, admin, ctxOf(req))) };
   }
 
   @RequirePermissions('website.clients.publish')
@@ -314,7 +332,7 @@ export class PartnerAdminController {
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: PartnerDto })
   async unpublish(@Param('id') id: string, @Body() body: VersionOnlyDto, @CurrentAdmin() admin: AdminPrincipal, @Req() req: AuthenticatedRequest) {
-    return { data: partnerDto(await this.partners.setPublished(id, false, body.expectedVersion, admin, ctxOf(req))) };
+    return { data: await partnerDto(this.media)(await this.partners.setPublished(id, false, body.expectedVersion, admin, ctxOf(req))) };
   }
 
   @RequirePermissions('website.clients.delete')
