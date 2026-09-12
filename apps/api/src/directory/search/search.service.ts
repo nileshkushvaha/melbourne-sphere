@@ -24,7 +24,7 @@ type CardRow = Prisma.BusinessGetPayload<{ include: typeof cardInclude }>;
 const detailInclude = {
   ...cardInclude,
   categories: { include: { category: { select: { name: true, slug: true, active: true } } } },
-  services: { include: { service: { select: { name: true, slug: true, active: true } } } },
+  services: { include: { service: { select: { name: true, slug: true, active: true, icon: true } } } },
   address: true,
   links: { orderBy: { sortOrder: 'asc' } },
   openingHours: true,
@@ -284,8 +284,9 @@ export class SearchService {
     return {
       ...this.toCard(row),
       description: row.description,
+      establishedYear: row.establishedYear,
       secondaryCategories: row.categories.filter((c) => c.category.active).map((c) => ({ name: c.category.name, slug: c.category.slug })),
-      services: row.services.filter((s) => s.service.active).map((s) => ({ name: s.service.name, slug: s.service.slug })),
+      services: row.services.filter((s) => s.service.active).map((s) => ({ name: s.service.name, slug: s.service.slug, icon: s.service.icon })),
       contact: { phone: phone ? { display: phone.display, telHref: phone.telHref } : null, email: row.publicEmail, website: row.publicUrl },
       links: (row.links as BusinessLink[]).map((l) => ({ kind: l.kind, url: l.url, label: l.label })),
       addressVisibility: row.addressVisibility,

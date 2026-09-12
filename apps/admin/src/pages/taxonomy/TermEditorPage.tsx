@@ -1,9 +1,12 @@
-import { useEffect } from 'react';
+import { Fragment, useEffect } from 'react';
 import { App, Form, Input, InputNumber, Select } from 'antd';
 import { useNavigate, useParams } from 'react-router';
 import { taxonomyApi, type TermItem } from '@/api/taxonomy';
 import { RecordEditorPage } from '@/components/ui';
 import { PermalinkField } from '@/components/PermalinkField';
+import { MediaField } from '@/components/MediaField';
+import { ServiceIconPicker } from '@/components/ServiceIconPicker';
+import { Typography } from 'antd';
 import { slugify } from '@/shared/slug';
 import { useAsync } from '@/shared/useAsync';
 import { useRecordEditor } from '@/shared/useRecordEditor';
@@ -79,17 +82,37 @@ export function TermEditorPage({ config }: { config: TermsPageConfig }) {
       submitLabel={isNew ? 'Create' : 'Save'}
       onSubmit={save}
     >
-      {config.fields.map((field) =>
-        field.input === 'permalink' ? (
+      {config.fields.map((field) => (
+        <Fragment key={field.name}>
+        {field.section && (
+          <div style={{ marginTop: 8, marginBottom: 16, paddingTop: 16, borderTop: '1px solid var(--ant-color-border)' }}>
+            <Typography.Title level={5} style={{ margin: 0 }}>{field.section.title}</Typography.Title>
+            {field.section.description && <Typography.Text type="secondary" style={{ fontSize: 13 }}>{field.section.description}</Typography.Text>}
+          </div>
+        )}
+        {field.input === 'icon' ? (
+          <Form.Item label={field.label} name={field.name} extra={field.help}>
+            <ServiceIconPicker serviceName={name ?? ''} />
+          </Form.Item>
+        ) : field.input === 'media' ? (
+          <Form.Item label={field.label} name={field.name} extra={field.help}>
+            <MediaField
+              current={(term as Record<string, unknown> | null)?.[field.preview ?? ''] as { url: string; alt: string } | null ?? null}
+              emptyLabel={field.emptyLabel}
+              clearLabel={field.clearLabel}
+              aspectRatio={field.aspectRatio}
+            />
+          </Form.Item>
+        ) : field.input === 'permalink' ? (
           // An ordinary form control, so Ant validates it and shows any
           // refusal from the API under this row rather than only at the top.
-          <Form.Item key={field.name} name={field.name} style={{ marginBottom: 0 }}>
+          <Form.Item name={field.name} style={{ marginBottom: 0 }}>
             <PermalinkField base={field.base ?? ''} placeholder={name ? slugify(name) : undefined} note={field.help} />
           </Form.Item>
         ) : (
-        <Form.Item key={field.name} label={field.label} name={field.name} extra={field.help} rules={field.required ? [{ required: true, message: `${field.label} is required` }] : undefined}>
+        <Form.Item label={field.label} name={field.name} extra={field.help} rules={field.required ? [{ required: true, message: `${field.label} is required` }] : undefined}>
           {field.input === 'textarea' ? (
-            <Input.TextArea rows={4} maxLength={field.max} />
+            <Input.TextArea rows={4} maxLength={field.max} showCount placeholder={field.placeholder} />
           ) : field.input === 'number' ? (
             <InputNumber min={0} max={10_000} style={{ width: 160 }} />
           ) : field.input === 'tags' ? (
@@ -104,8 +127,9 @@ export function TermEditorPage({ config }: { config: TermsPageConfig }) {
             <Input maxLength={field.max} placeholder={field.placeholder} />
           )}
         </Form.Item>
-        ),
-      )}
+        )}
+        </Fragment>
+      ))}
     </RecordEditorPage>
   );
 }

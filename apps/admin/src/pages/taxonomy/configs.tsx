@@ -19,7 +19,18 @@ export const CATEGORIES_CONFIG: TermsPageConfig = {
   title: 'Categories',
   singular: 'Category',
   intro: 'Organise listings into directory categories. Categories nest at most two levels.',
-  fields: [name('e.g. Cafés and coffee'), address('/business/category'), { name: 'parentId', label: 'Parent category', input: 'parent', help: 'Only top-level categories can be parents.' }, { name: 'description', label: 'Description', input: 'textarea', max: 500 }, sortOrder],
+  fields: [
+    name('e.g. Cafés and coffee'),
+    address('/business/category'),
+    { name: 'parentId', label: 'Parent category', input: 'parent', help: 'Only top-level categories can be parents.' },
+    { name: 'description', label: 'Description', input: 'textarea', max: 500 },
+    { name: 'imageMediaId', label: 'Image', input: 'media', preview: 'image', emptyLabel: 'No image yet', clearLabel: 'Remove image', aspectRatio: '4 / 3', help: 'Shown on the home-page tile and at the top of the category page.' },
+    sortOrder,
+    { section: { title: 'Search appearance', description: 'How this category appears in search results and when shared. Each falls back to the name or description when empty.' }, name: 'seoTitle', label: 'SEO title', input: 'text', max: 180, placeholder: 'e.g. Cafés in Melbourne — find a local coffee shop' },
+    { name: 'seoDescription', label: 'Meta description', input: 'textarea', max: 300, placeholder: 'The summary shown under the title in search results' },
+    { name: 'seoKeywords', label: 'Keywords', input: 'text', max: 255, placeholder: 'e.g. cafes, coffee, melbourne', help: 'Comma separated. Search engines ignore this tag; it will not affect ranking.' },
+    { name: 'ogImageMediaId', label: 'Share image', input: 'media', preview: 'ogImage', emptyLabel: 'The category image is used', clearLabel: 'Use the category image', aspectRatio: '1.91 / 1', help: 'Used when the page is shared. Empty uses the category image, then the site image.' },
+  ],
 };
 
 export const SERVICES_CONFIG: TermsPageConfig = {
@@ -29,7 +40,11 @@ export const SERVICES_CONFIG: TermsPageConfig = {
   intro: 'The services listings can offer. Synonyms help visitors find them by other words.',
   // A service has no page of its own — it is a search facet — so its address
   // is made from the name and never shown.
-  fields: [name('e.g. Plumbing'), { name: 'synonyms', label: 'Search synonyms', input: 'tags', help: 'Other words people search for, e.g. “plumber” for Plumbing. Up to 20.' }],
+  fields: [
+    name('e.g. Plumbing'),
+    { name: 'icon', label: 'Icon', input: 'icon', help: 'Shown beside the service on every listing that offers it.' },
+    { name: 'synonyms', label: 'Search synonyms', input: 'tags', help: 'Other words people search for, e.g. “plumber” for Plumbing. Up to 20.' },
+  ],
   columns: [{ title: 'Synonyms', render: (item) => ('synonyms' in item ? item.synonyms.join(', ') || '—' : '—') }],
 };
 
@@ -51,5 +66,16 @@ export const AREAS_CONFIG: TermsPageConfig = {
         ),
     },
   ],
-  fields: [name('e.g. Fitzroy'), address('/business/area'), { name: 'eligibilitySource', label: 'How this area was verified', input: 'text', max: 255, help: 'Where the boundary came from, e.g. “City of Melbourne suburb list, checked 6 Sep 2026”. Saving records the time.' }, { name: 'editorialIntro', label: 'Editorial introduction', input: 'textarea', max: 5000 }, sortOrder],
+  fields: [
+    name('e.g. Fitzroy'),
+    address('/business/area'),
+    { name: 'eligibilitySource', label: 'How this area was verified', input: 'text', max: 255, help: 'Where the boundary came from, e.g. “City of Melbourne suburb list, checked 6 Sep 2026”. Saving records the time.' },
+    { name: 'editorialIntro', label: 'Editorial introduction', input: 'textarea', max: 5000 },
+    { name: 'imageMediaId', label: 'Image', input: 'media', preview: 'image', emptyLabel: 'No image yet', clearLabel: 'Remove image', aspectRatio: '4 / 3', help: 'Shown at the top of the area page and on the home page.' },
+    sortOrder,
+    { section: { title: 'Search appearance', description: 'How this area appears in search results and when shared. Each falls back to the name or introduction when empty.' }, name: 'seoTitle', label: 'SEO title', input: 'text', max: 180, placeholder: 'e.g. Businesses in Carlton — cafés, shops and services' },
+    { name: 'seoDescription', label: 'Meta description', input: 'textarea', max: 300, placeholder: 'The summary shown under the title in search results' },
+    { name: 'seoKeywords', label: 'Keywords', input: 'text', max: 255, placeholder: 'e.g. carlton, lygon street, melbourne', help: 'Comma separated. Search engines ignore this tag; it will not affect ranking.' },
+    { name: 'ogImageMediaId', label: 'Share image', input: 'media', preview: 'ogImage', emptyLabel: 'The area image is used', clearLabel: 'Use the area image', aspectRatio: '1.91 / 1', help: 'Used when the page is shared. Empty uses the area image, then the site image.' },
+  ],
 };

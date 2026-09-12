@@ -30,6 +30,7 @@
     "@tiptap/starter-kit": "3.31.3",
     "antd": "5.29.3",
     "dayjs": "1.11.23",
+    "lucide-react": "1.41.0",
     "qrcode.react": "4.2.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",

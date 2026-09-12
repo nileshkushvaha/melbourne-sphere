@@ -1,3 +1,4 @@
+import { SERVICE_ICON_KEYS } from '@melbourne-sphere/domain/service-icons';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsIn, IsInt, IsOptional, IsString, Length, Matches, Max, MaxLength, Min } from 'class-validator';
@@ -63,6 +64,12 @@ export class CreateCategoryDto extends TermBaseDto {
   @IsString()
   @MaxLength(64)
   parentId?: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Image shown on the home-page tile and the landing page (media asset id)' }) @IsOptional() @IsString() @MaxLength(64) imageMediaId?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 180, nullable: true, description: 'Search-result title; the name is used when empty' }) @IsOptional() @trim() @IsString() @MaxLength(180) seoTitle?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 300, nullable: true, description: 'Meta description; the description is used when empty' }) @IsOptional() @trim() @IsString() @MaxLength(300) seoDescription?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 255, nullable: true, description: 'Comma-separated keywords' }) @IsOptional() @trim() @IsString() @MaxLength(255) seoKeywords?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Share image (media asset id); the category image, then the site image, is used when empty' }) @IsOptional() @IsString() @MaxLength(64) ogImageMediaId?: string | null;
 }
 
 export class UpdateCategoryDto {
@@ -72,6 +79,12 @@ export class UpdateCategoryDto {
   @ApiPropertyOptional({ maxLength: 500, nullable: true }) @IsOptional() @trim() @IsString() @MaxLength(500) description?: string | null;
   @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsString() @MaxLength(64) parentId?: string | null;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) @Max(10_000) sortOrder?: number;
+
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Image shown on the home-page tile and the landing page (media asset id)' }) @IsOptional() @IsString() @MaxLength(64) imageMediaId?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 180, nullable: true, description: 'Search-result title; the name is used when empty' }) @IsOptional() @trim() @IsString() @MaxLength(180) seoTitle?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 300, nullable: true, description: 'Meta description; the description is used when empty' }) @IsOptional() @trim() @IsString() @MaxLength(300) seoDescription?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 255, nullable: true, description: 'Comma-separated keywords' }) @IsOptional() @trim() @IsString() @MaxLength(255) seoKeywords?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Share image (media asset id); the category image, then the site image, is used when empty' }) @IsOptional() @IsString() @MaxLength(64) ogImageMediaId?: string | null;
 }
 
 export class CreateServiceDto extends TermBaseDto {
@@ -82,6 +95,11 @@ export class CreateServiceDto extends TermBaseDto {
   @IsString({ each: true })
   @Length(2, 80, { each: true, message: 'Synonyms must be 2–80 characters' })
   synonyms?: string[];
+
+  @ApiPropertyOptional({ type: String, nullable: true, enum: SERVICE_ICON_KEYS, description: 'Icon from the shared library; omit to match the name' })
+  @IsOptional()
+  @IsIn(SERVICE_ICON_KEYS, { message: 'Choose an icon from the library' })
+  icon?: string | null;
 }
 
 export class UpdateServiceDto {
@@ -89,6 +107,7 @@ export class UpdateServiceDto {
   @ApiPropertyOptional({ minLength: 2, maxLength: 80 }) @IsOptional() @trim() @IsString() @Length(2, 80, { message: 'Name must be 2–80 characters' }) name?: string;
   @ApiPropertyOptional({ maxLength: SLUG_MAX_LENGTH }) @IsOptional() @trim() @IsString() @MaxLength(SLUG_MAX_LENGTH) @Matches(SLUG_PATTERN, { message: 'Slug must be lowercase letters, numbers and single hyphens' }) slug?: string;
   @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsArray() @ArrayMaxSize(20) @IsString({ each: true }) @Length(2, 80, { each: true, message: 'Synonyms must be 2–80 characters' }) synonyms?: string[];
+  @ApiPropertyOptional({ type: String, nullable: true, enum: SERVICE_ICON_KEYS }) @IsOptional() @IsIn(SERVICE_ICON_KEYS, { message: 'Choose an icon from the library' }) icon?: string | null;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) @Max(10_000) sortOrder?: number;
 }
 
@@ -106,6 +125,12 @@ export class CreateLocalAreaDto extends TermBaseDto {
   @IsString()
   @MaxLength(255)
   eligibilitySource?: string;
+
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Image shown at the top of the area page (media asset id)' }) @IsOptional() @IsString() @MaxLength(64) imageMediaId?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 180, nullable: true, description: 'Search-result title; the name is used when empty' }) @IsOptional() @trim() @IsString() @MaxLength(180) seoTitle?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 300, nullable: true, description: 'Meta description; the introduction is used when empty' }) @IsOptional() @trim() @IsString() @MaxLength(300) seoDescription?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 255, nullable: true, description: 'Comma-separated keywords' }) @IsOptional() @trim() @IsString() @MaxLength(255) seoKeywords?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Share image (media asset id); the area image, then the site image, is used when empty' }) @IsOptional() @IsString() @MaxLength(64) ogImageMediaId?: string | null;
 }
 
 export class UpdateLocalAreaDto {
@@ -115,11 +140,23 @@ export class UpdateLocalAreaDto {
   @ApiPropertyOptional({ maxLength: 5000, nullable: true }) @IsOptional() @trim() @IsString() @MaxLength(5000) editorialIntro?: string | null;
   @ApiPropertyOptional({ maxLength: 255, nullable: true }) @IsOptional() @trim() @IsString() @MaxLength(255) eligibilitySource?: string | null;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) @Max(10_000) sortOrder?: number;
+
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Image shown at the top of the area page (media asset id)' }) @IsOptional() @IsString() @MaxLength(64) imageMediaId?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 180, nullable: true, description: 'Search-result title; the name is used when empty' }) @IsOptional() @trim() @IsString() @MaxLength(180) seoTitle?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 300, nullable: true, description: 'Meta description; the introduction is used when empty' }) @IsOptional() @trim() @IsString() @MaxLength(300) seoDescription?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 255, nullable: true, description: 'Comma-separated keywords' }) @IsOptional() @trim() @IsString() @MaxLength(255) seoKeywords?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Share image (media asset id); the area image, then the site image, is used when empty' }) @IsOptional() @IsString() @MaxLength(64) ogImageMediaId?: string | null;
 }
 
 export class TermStateDto {
   @ApiProperty() @IsInt() @Min(1) expectedVersion!: number;
   @ApiPropertyOptional({ maxLength: 500 }) @IsOptional() @IsString() @MaxLength(500) reason?: string;
+}
+
+export class TermImageRefDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() url!: string;
+  @ApiProperty() alt!: string;
 }
 
 export class CategoryDto {
@@ -129,6 +166,13 @@ export class CategoryDto {
   @ApiProperty({ type: String, nullable: true }) description!: string | null;
   @ApiProperty({ type: String, nullable: true }) parentId!: string | null;
   @ApiProperty() sortOrder!: number;
+  @ApiProperty({ type: String, nullable: true }) imageMediaId!: string | null;
+  @ApiProperty({ type: String, nullable: true }) seoTitle!: string | null;
+  @ApiProperty({ type: String, nullable: true }) seoDescription!: string | null;
+  @ApiProperty({ type: String, nullable: true }) seoKeywords!: string | null;
+  @ApiProperty({ type: String, nullable: true }) ogImageMediaId!: string | null;
+  @ApiProperty({ type: TermImageRefDto, nullable: true, description: 'The chosen image, resolved for the editor preview' }) image!: TermImageRefDto | null;
+  @ApiProperty({ type: TermImageRefDto, nullable: true }) ogImage!: TermImageRefDto | null;
   @ApiProperty() active!: boolean;
   @ApiProperty() version!: number;
   @ApiProperty({ format: 'date-time' }) createdAt!: string;
@@ -152,6 +196,11 @@ export class PublicCategoryDto {
   @ApiProperty() name!: string;
   @ApiProperty() slug!: string;
   @ApiProperty({ type: String, nullable: true }) description!: string | null;
+  @ApiProperty({ type: TermImageRefDto, nullable: true, description: 'Card-sized image for tiles and the landing page' }) image!: TermImageRefDto | null;
+  @ApiProperty({ type: String, nullable: true }) seoTitle!: string | null;
+  @ApiProperty({ type: String, nullable: true }) seoDescription!: string | null;
+  @ApiProperty({ type: String, nullable: true }) seoKeywords!: string | null;
+  @ApiProperty({ type: TermImageRefDto, nullable: true, description: 'Share image at hero size; null falls back to the category image, then the site image' }) shareImage!: TermImageRefDto | null;
   @ApiProperty({ type: () => [PublicCategoryDto] }) children!: PublicCategoryDto[];
 }
 
@@ -160,6 +209,7 @@ export class ServiceDto {
   @ApiProperty() name!: string;
   @ApiProperty() slug!: string;
   @ApiProperty({ type: [String] }) synonyms!: string[];
+  @ApiProperty({ type: String, nullable: true, description: 'Icon key from the shared library; null matches the name' }) icon!: string | null;
   @ApiProperty() active!: boolean;
   @ApiProperty() version!: number;
   @ApiProperty({ format: 'date-time' }) createdAt!: string;
@@ -178,10 +228,30 @@ export class LocalAreaDto {
   @ApiProperty({ type: String, nullable: true }) eligibilitySource!: string | null;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) eligibilityVerifiedAt!: string | null;
   @ApiProperty() sortOrder!: number;
+  @ApiProperty({ type: String, nullable: true }) imageMediaId!: string | null;
+  @ApiProperty({ type: String, nullable: true }) seoTitle!: string | null;
+  @ApiProperty({ type: String, nullable: true }) seoDescription!: string | null;
+  @ApiProperty({ type: String, nullable: true }) seoKeywords!: string | null;
+  @ApiProperty({ type: String, nullable: true }) ogImageMediaId!: string | null;
+  @ApiProperty({ type: TermImageRefDto, nullable: true }) image!: TermImageRefDto | null;
+  @ApiProperty({ type: TermImageRefDto, nullable: true }) ogImage!: TermImageRefDto | null;
   @ApiProperty() active!: boolean;
   @ApiProperty() version!: number;
   @ApiProperty({ format: 'date-time' }) createdAt!: string;
   @ApiProperty({ format: 'date-time' }) updatedAt!: string;
+}
+
+/** An approved local area as the public site shows it (SRS BUS 008). */
+export class PublicLocalAreaDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() slug!: string;
+  @ApiProperty({ type: String, nullable: true }) editorialIntro!: string | null;
+  @ApiProperty({ type: TermImageRefDto, nullable: true }) image!: TermImageRefDto | null;
+  @ApiProperty({ type: String, nullable: true }) seoTitle!: string | null;
+  @ApiProperty({ type: String, nullable: true }) seoDescription!: string | null;
+  @ApiProperty({ type: String, nullable: true }) seoKeywords!: string | null;
+  @ApiProperty({ type: TermImageRefDto, nullable: true }) shareImage!: TermImageRefDto | null;
 }
 
 export class LocalAreaListItemDto extends LocalAreaDto {

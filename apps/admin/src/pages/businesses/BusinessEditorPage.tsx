@@ -69,6 +69,7 @@ const toForm = (b: BusinessRecord): FormValues => ({
   name: b.name,
   slug: b.slug,
   description: b.description,
+  establishedYear: b.establishedYear,
   primaryCategoryId: b.primaryCategoryId,
   secondaryCategoryIds: b.secondaryCategoryIds,
   serviceIds: b.serviceIds,
@@ -91,6 +92,7 @@ const toBody = (v: FormValues, existing: BusinessRecord | null): CreateBusinessI
   const body: CreateBusinessInput = {
     name: v.name,
     description: v.description,
+    establishedYear: v.establishedYear ?? null,
     primaryCategoryId: v.primaryCategoryId,
     localAreaId: v.localAreaId,
     secondaryCategoryIds: v.secondaryCategoryIds ?? [],
@@ -323,6 +325,9 @@ export function BusinessEditorPage() {
               />
               <Form.Item label="Description" name="description" extra="At least 40 characters are required to publish." rules={[{ required: true, message: 'Description is required' }]}>
                 <Input.TextArea rows={6} maxLength={5000} showCount placeholder="What the business does, who it serves and what makes it worth visiting." />
+              </Form.Item>
+              <Form.Item label="Year established" name="establishedYear" extra="Shown on the listing as “n years in business”. Leave empty if the business has not said." style={{ marginBottom: 0 }}>
+                <InputNumber min={1835} max={new Date().getFullYear()} precision={0} controls={false} style={{ width: 140 }} placeholder="e.g. 2012" />
               </Form.Item>
             </SectionCard>
 

@@ -12,7 +12,7 @@ import type { ChangeSlugDto } from '../seo/dto/redirect.dto.js';
 import { DatabaseService } from '../database/database.service.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import { TaxonomyService } from '../taxonomy/taxonomy.service.js';
-import { normaliseAddressKey, normaliseBusinessName, normalisePhone, parseAustralianPhone, publicationBlockers, TRANSITIONS, validateLinks, validatePublicUrl } from './business-rules.js';
+import { EstablishedYearError, normaliseAddressKey, normaliseBusinessName, normalisePhone, parseAustralianPhone, publicationBlockers, TRANSITIONS, validateEstablishedYear, validateLinks, validatePublicUrl } from './business-rules.js';
 import type { BusinessDto, BusinessListItemDto, BusinessStateDto, CreateBusinessDto, DuplicateWarningDto, ListBusinessesQueryDto, UpdateBusinessDto } from './dto/business.dto.js';
 
 type BusinessRow = Business & {
@@ -77,6 +77,18 @@ function phoneOrThrow(value: string | null | undefined): { publicPhone: string |
   const parsed = parseAustralianPhone(value);
   if (!parsed) throw validation('publicPhone', 'Enter an Australian phone number (landline, mobile, 13, 1300 or 1800)');
   return { publicPhone: parsed.display, normalizedPhone: normalisePhone(parsed.national) };
+}
+
+/** Field error rather than a 500 when the year is out of range. */
+function establishedYearOrThrow(year: number | null | undefined): number | null {
+  try {
+    return validateEstablishedYear(year);
+  } catch (error) {
+    if (error instanceof EstablishedYearError) {
+      throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Some fields are invalid', fields: { establishedYear: [error.message] } }, HttpStatus.BAD_REQUEST);
+    }
+    throw error;
+  }
 }
 
 function websiteOrThrow(value: string | null | undefined): string | null {
@@ -165,6 +177,7 @@ export class DirectoryService {
       address: row.address ? { line1: row.address.line1, line2: row.address.line2, suburb: row.address.suburb, postcode: row.address.postcode, latitude: row.address.latitude === null ? null : Number(row.address.latitude), longitude: row.address.longitude === null ? null : Number(row.address.longitude) } : null,
       ...(includePrivate ? { privateEnquiryEmail: row.privateEnquiryEmailEncrypted ? this.encryption.decrypt(row.privateEnquiryEmailEncrypted, row.id) : null } : {}),
       hasPrivateEnquiryEmail: row.privateEnquiryEmailEncrypted !== null,
+      establishedYear: row.establishedYear,
       eligibilitySource: row.eligibilitySource,
       eligibilityVerifiedAt: row.eligibilityVerifiedAt?.toISOString() ?? null,
       contentRightsReviewedAt: row.contentRightsReviewedAt?.toISOString() ?? null,
@@ -315,6 +328,7 @@ export class DirectoryService {
           publicUrl,
           links: { create: links },
           addressVisibility: input.addressVisibility ?? 'full',
+          establishedYear: establishedYearOrThrow(input.establishedYear),
           eligibilitySource: input.eligibilitySource ?? null,
           eligibilityVerifiedAt: input.eligibilitySource ? now : null,
           contentRightsReviewedAt: input.contentRightsReviewed ? now : null,
@@ -367,6 +381,7 @@ export class DirectoryService {
     const links = input.links !== undefined ? linksOrThrow(input.links) : undefined;
     if (input.addressVisibility !== undefined) { data.addressVisibility = input.addressVisibility; changed.push('addressVisibility'); }
     if (input.privateEnquiryEmail !== undefined) { data.privateEnquiryEmailEncrypted = input.privateEnquiryEmail ? this.encryption.encrypt(input.privateEnquiryEmail.toLowerCase(), id) : null; changed.push('privateEnquiryEmail'); }
+    if (input.establishedYear !== undefined) { data.establishedYear = establishedYearOrThrow(input.establishedYear); changed.push('establishedYear'); }
     if (input.eligibilitySource !== undefined) { data.eligibilitySource = input.eligibilitySource; data.eligibilityVerifiedAt = input.eligibilitySource ? new Date() : null; changed.push('eligibility'); }
     if (input.contentRightsReviewed !== undefined) { data.contentRightsReviewedAt = input.contentRightsReviewed ? (current.contentRightsReviewedAt ?? new Date()) : null; changed.push('contentRights'); }
     if (input.contentRightsNote !== undefined) { data.contentRightsNote = input.contentRightsNote; changed.push('contentRightsNote'); }

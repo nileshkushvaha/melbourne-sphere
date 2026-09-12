@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { routeMetadata } from '@/lib/route-seo';
+import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRightIcon, MapPinIcon, PenLineIcon, ShieldCheckIcon } from 'lucide-react';
 import { JsonLdScript } from '@/components/json-ld';
@@ -133,7 +134,7 @@ export default async function HomePage() {
         <SectionHeading
           id="categories-heading"
           eyebrow="Browse"
-          title="Start with a category"
+          title="Browse businesses by category"
           description="Every category is curated by our editors and lists only published Melbourne businesses."
           href="/business"
           linkLabel="View all categories"
@@ -148,11 +149,19 @@ export default async function HomePage() {
               <li key={category.id}>
                 <Link
                   href={`/business/category/${category.slug}`}
-                  className="ms-card-lift group flex h-full flex-col rounded-card-lg border border-white/80 bg-white/75 p-7 shadow-md backdrop-blur-md"
+                  className="ms-card-lift group flex h-full flex-col overflow-hidden rounded-card-lg border border-white/80 bg-white/75 p-7 shadow-md backdrop-blur-md"
                 >
-                  <span className="inline-flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-white text-sky-700 shadow-sm ring-1 ring-sky-500/10">
-                    <CategoryIcon slug={category.slug} className="size-6" />
-                  </span>
+                  {category.image ? (
+                    // The category's own picture, where an editor has chosen one;
+                    // the icon stays the mark for the ones without.
+                    <span className="relative -mx-7 -mt-7 mb-5 block aspect-[16/9] overflow-hidden bg-navy-950">
+                      <Image src={category.image.url} alt="" fill sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
+                    </span>
+                  ) : (
+                    <span className="inline-flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-white text-sky-700 shadow-sm ring-1 ring-sky-500/10">
+                      <CategoryIcon slug={category.slug} className="size-6" />
+                    </span>
+                  )}
                   <h3 className="mt-5 text-lg font-semibold tracking-tight group-hover:text-link">{category.name}</h3>
                   {category.description ? (
                     <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-text-muted">{category.description}</p>
@@ -258,7 +267,12 @@ export default async function HomePage() {
               <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {areasWithIntro.slice(0, 6).map((area) => (
                   <li key={area.id}>
-                    <Link href={`/business/area/${area.slug}`} className="ms-glass-dark group flex h-full flex-col rounded-card-lg p-7 transition-all hover:-translate-y-1 hover:border-sky-400">
+                    <Link href={`/business/area/${area.slug}`} className="ms-glass-dark group flex h-full flex-col overflow-hidden rounded-card-lg p-7 transition-all hover:-translate-y-1 hover:border-sky-400">
+                      {area.image && (
+                        <span className="relative -mx-7 -mt-7 mb-5 block aspect-[16/9] overflow-hidden bg-navy-950">
+                          <Image src={area.image.url} alt="" fill sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
+                        </span>
+                      )}
                       <h3 className="font-display text-2xl text-white">{area.name}</h3>
                       <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-band-muted">{area.editorialIntro}</p>
                       <span className="mt-auto inline-flex items-center gap-1.5 pt-6 text-sm font-semibold text-band-link">

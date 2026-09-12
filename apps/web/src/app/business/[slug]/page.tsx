@@ -2,13 +2,15 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowRightIcon, GlobeIcon, MailIcon, MapPinIcon, PhoneIcon, ShieldCheckIcon } from 'lucide-react';
+import { ArrowRightIcon, CalendarCheckIcon, GlobeIcon, MailIcon, MapPinIcon, PhoneIcon, ShieldCheckIcon } from 'lucide-react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { JsonLdScript } from '@/components/json-ld';
 import { breadcrumbJsonLd, localBusinessJsonLd } from '@/lib/structured-data';
 import { BusinessCard } from '@/components/business-card';
 import { HoursTable } from '@/components/hours-table';
-import { statusLabel } from '@/lib/hours';
+import { PhotoGallery } from '@/components/photo-gallery';
+import { ServiceIcon } from '@/components/service-icon';
+import { melbourneYear, statusLabel } from '@/lib/hours';
 import { RatingStars } from '@/components/rating-stars';
 import { RatingPanel } from '@/components/rating-panel';
 import { gridColumns } from '@/components/page-shell';
@@ -45,6 +47,9 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
   const { contact, address } = business;
   const crumbs = [{ label: 'Home', href: '/' }, { label: 'Businesses', href: '/business' }, { label: business.primaryCategory.name, href: `/business/category/${business.primaryCategory.slug}` }, { label: business.name }];
   const hasContact = contact.phone || contact.email || contact.website || business.links.length > 0;
+  // Whole years since the year the business gave; the current Melbourne year,
+  // so a listing does not age a year early for a reader in another timezone.
+  const yearsInBusiness = typeof business.establishedYear === 'number' ? Math.max(0, melbourneYear() - business.establishedYear) : null;
   const status = business.hours?.status;
   const statusTone = status?.state === 'open' ? 'bg-success/15 text-white' : status?.state === 'closed' ? 'bg-white/10 text-band-muted' : 'bg-white/10 text-band-muted';
   const action = 'inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-bold transition-all hover:-translate-y-0.5';
@@ -93,6 +98,14 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
                 ) : (
                   <span className="text-band-muted">No reviews yet</span>
                 )}
+                {/* `typeof`, not a null check: a response cached before the field existed has no such key at all. */}
+                {yearsInBusiness !== null && (
+                  <span className="inline-flex items-center gap-1.5 text-band-muted">
+                    <CalendarCheckIcon aria-hidden="true" className="size-4" />
+                    {yearsInBusiness === 0 ? `Established ${business.establishedYear}` : `${yearsInBusiness} year${yearsInBusiness === 1 ? '' : 's'} in business`}
+                    <span className="sr-only"> (established {business.establishedYear})</span>
+                  </span>
+                )}
                 {status && <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusTone}`}>{statusLabel(status)}</span>}
               </p>
 
@@ -138,23 +151,6 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
                   </div>
                 )}
               </div>
-              {business.gallery.length > 1 && (
-                <ul aria-label="Gallery" className="grid grid-cols-3 gap-2">
-                  {business.gallery.slice(1, 7).map((image) => {
-                    const thumb = image.variants.find((variant) => variant.kind === 'thumbnail') ?? image.variants[0];
-                    return thumb ? (
-                      <li key={thumb.url}>
-                        <figure>
-                          <div className="relative aspect-[4/3] overflow-hidden rounded-card bg-navy-950">
-                            <Image src={thumb.url} alt={image.alt} fill sizes="9rem" className="object-cover" />
-                          </div>
-                          {image.caption && <figcaption className="mt-1 text-xs text-band-muted">{image.caption}</figcaption>}
-                        </figure>
-                      </li>
-                    ) : null;
-                  })}
-                </ul>
-              )}
             </div>
           </div>
         </div>
@@ -172,7 +168,8 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
                 <h3 className="mt-8 text-sm font-semibold uppercase tracking-[0.14em] text-text-muted">Services</h3>
                 <ul className="mt-3 flex flex-wrap gap-2">
                   {business.services.map((service) => (
-                    <li key={service.slug} className="rounded-full bg-surface-sunken px-3.5 py-1.5 text-sm">
+                    <li key={service.slug} className="inline-flex items-center gap-2 rounded-full bg-surface-sunken px-3.5 py-1.5 text-sm">
+                      <ServiceIcon name={service.name} icon={service.icon} className="size-4 text-sky-700" />
                       {service.name}
                     </li>
                   ))}
@@ -180,6 +177,8 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
               </>
             )}
           </section>
+
+          {business.gallery.length > 0 && <PhotoGallery photos={business.gallery} businessName={business.name} />}
 
           <HoursTable hours={business.hours} correctionEmail={editorsEmail} businessName={business.name} />
 

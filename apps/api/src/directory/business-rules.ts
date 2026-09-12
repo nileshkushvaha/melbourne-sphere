@@ -2,6 +2,22 @@ import { validatePublicUrl } from '@melbourne-sphere/domain';
 import type { AddressVisibility, Business, BusinessAddress, BusinessStatus } from '@melbourne-sphere/database';
 
 /** Lower-cased, punctuation- and whitespace-collapsed name for duplicate detection (SRS BUS 007). */
+/**
+ * The year a business began trading. Anything before 1835 predates Melbourne
+ * itself, and a year in the future is a typo; the rule lives here rather than
+ * on the DTO so the upper bound is today's year at the time of the request,
+ * not the year the process started.
+ */
+export class EstablishedYearError extends Error {}
+
+export function validateEstablishedYear(year: number | null | undefined, now = new Date()): number | null {
+  if (year === null || year === undefined) return null;
+  if (!Number.isInteger(year) || year < 1835 || year > now.getFullYear()) {
+    throw new EstablishedYearError(`Enter a year between 1835 and ${now.getFullYear()}`);
+  }
+  return year;
+}
+
 export function normaliseBusinessName(name: string): string {
   return name
     .normalize('NFKD')

@@ -57,6 +57,7 @@ class BusinessFieldsDto {
   @ApiPropertyOptional({ enum: ['full', 'areaOnly'] }) @IsOptional() @IsIn(['full', 'areaOnly']) addressVisibility?: 'full' | 'areaOnly';
   @ApiPropertyOptional({ type: AddressInputDto, nullable: true }) @IsOptional() @ValidateNested() @Type(() => AddressInputDto) address?: AddressInputDto | null;
   @ApiPropertyOptional({ type: String, maxLength: 254, nullable: true, writeOnly: true, description: 'Private enquiry destination; encrypted at rest, never public' }) @IsOptional() @emptyToNull() @trim() @IsEmail({}, { message: 'Enter a valid email address' }) @MaxLength(254) privateEnquiryEmail?: string | null;
+  @ApiPropertyOptional({ type: Number, nullable: true, minimum: 1835, description: 'The year the business began trading; shown publicly as "n years in business"' }) @IsOptional() @IsInt() establishedYear?: number | null;
   @ApiPropertyOptional({ type: String, maxLength: 255, nullable: true, description: 'How Melbourne eligibility was verified; saving it records the verification time' }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(255) eligibilitySource?: string | null;
   @ApiPropertyOptional({ description: 'Set true once content rights/sources have been reviewed' }) @IsOptional() @IsBoolean() contentRightsReviewed?: boolean;
   @ApiPropertyOptional({ type: String, maxLength: 500, nullable: true }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(500) contentRightsNote?: string | null;
@@ -118,6 +119,7 @@ export class BusinessDto {
   @ApiProperty({ type: BusinessAddressDto, nullable: true }) address!: BusinessAddressDto | null;
   @ApiProperty({ type: String, nullable: true, description: 'Only present for listings.write holders on the detail endpoint' }) privateEnquiryEmail?: string | null;
   @ApiProperty() hasPrivateEnquiryEmail!: boolean;
+  @ApiProperty({ type: Number, nullable: true }) establishedYear!: number | null;
   @ApiProperty({ type: String, nullable: true }) eligibilitySource!: string | null;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) eligibilityVerifiedAt!: string | null;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) contentRightsReviewedAt!: string | null;

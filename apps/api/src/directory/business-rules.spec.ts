@@ -1,4 +1,4 @@
-import { normaliseAddressKey, normaliseBusinessName, normalisePhone, parseAustralianPhone, publicationBlockers, TRANSITIONS, validateLinks, validatePublicUrl } from './business-rules.js';
+import { normaliseAddressKey, normaliseBusinessName, normalisePhone, parseAustralianPhone, publicationBlockers, TRANSITIONS, validateLinks, validatePublicUrl, EstablishedYearError, validateEstablishedYear } from './business-rules.js';
 
 describe('business rules', () => {
   it('normalises names for duplicate detection', () => {
@@ -34,6 +34,19 @@ describe('business rules', () => {
     expect(TRANSITIONS.unpublish).toEqual({ from: ['published'], to: 'draft' });
     expect(TRANSITIONS.archive.from).toEqual(['draft', 'published']);
     expect(TRANSITIONS.restore).toEqual({ from: ['archived'], to: 'draft' });
+  });
+});
+
+describe('established year', () => {
+  it('accepts a year between Melbourne and today, and nothing else', () => {
+    const now = new Date('2026-09-12T00:00:00Z');
+    expect(validateEstablishedYear(null, now)).toBeNull();
+    expect(validateEstablishedYear(undefined, now)).toBeNull();
+    expect(validateEstablishedYear(1987, now)).toBe(1987);
+    expect(validateEstablishedYear(2026, now)).toBe(2026);
+    expect(() => validateEstablishedYear(2027, now)).toThrow(EstablishedYearError);
+    expect(() => validateEstablishedYear(1834, now)).toThrow(EstablishedYearError);
+    expect(() => validateEstablishedYear(2012.5, now)).toThrow(EstablishedYearError);
   });
 });
 

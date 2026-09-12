@@ -32,6 +32,10 @@ const USAGE_INCLUDE = {
   authorOf: { select: { id: true, displayName: true } },
   testimonials: { select: { id: true, displayName: true } },
   partners: { select: { id: true, name: true } },
+  categoryImageOf: { select: { id: true, name: true } },
+  categoryShareImageOf: { select: { id: true, name: true } },
+  areaImageOf: { select: { id: true, name: true } },
+  areaShareImageOf: { select: { id: true, name: true } },
 } satisfies Prisma.MediaAssetInclude;
 
 type UsageRow = Prisma.MediaAssetGetPayload<{ include: typeof USAGE_INCLUDE }>;
@@ -49,6 +53,10 @@ function relationUsages(row: UsageRow): MediaAssetDto['usages'] {
     ...row.authorOf.map((a) => ({ kind: 'author' as const, id: a.id, label: a.displayName })),
     ...row.testimonials.map((t) => ({ kind: 'testimonial' as const, id: t.id, label: t.displayName })),
     ...row.partners.map((p) => ({ kind: 'partner' as const, id: p.id, label: p.name })),
+    ...row.categoryImageOf.map((c) => ({ kind: 'category' as const, id: c.id, label: c.name })),
+    ...row.categoryShareImageOf.map((c) => ({ kind: 'category' as const, id: c.id, label: `${c.name} (share image)` })),
+    ...row.areaImageOf.map((a) => ({ kind: 'area' as const, id: a.id, label: a.name })),
+    ...row.areaShareImageOf.map((a) => ({ kind: 'area' as const, id: a.id, label: `${a.name} (share image)` })),
   ];
 }
 

@@ -51,3 +51,8 @@ export function formatExceptionDate(isoDate: string): string {
   const [y, m, d] = isoDate.split('-').map(Number);
   return dateFormatter.format(new Date(Date.UTC(y!, m! - 1, d!, 12)));
 }
+
+/** The calendar year in Melbourne right now (SRS NFR 012). */
+export function melbourneYear(now = new Date()): number {
+  return Number(new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Melbourne', year: 'numeric' }).format(now));
+}

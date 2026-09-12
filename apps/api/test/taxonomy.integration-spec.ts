@@ -53,7 +53,8 @@ describe('Taxonomy and local areas (integration)', () => {
     expect(renamed.body.data).toMatchObject({ name: 'Cafés', slug: 'cafes-melbourne', version: 2 });
     await patch(`/api/v1/admin/categories/${cafes.id}`).send({ expectedVersion: 1, name: 'Stale' }).expect(409);
     const tree = await agent().get('/api/v1/categories').expect(200);
-    expect(tree.body.data).toEqual([{ id: food.id, name: 'Food & Drink', slug: 'food-and-drink', description: null, children: [{ id: cafes.id, name: 'Cafés', slug: 'cafes-melbourne', description: null, children: [] }] }]);
+    const bare = { description: null, image: null, seoTitle: null, seoDescription: null, seoKeywords: null, shareImage: null };
+    expect(tree.body.data).toEqual([{ id: food.id, name: 'Food & Drink', slug: 'food-and-drink', ...bare, children: [{ id: cafes.id, name: 'Cafés', slug: 'cafes-melbourne', ...bare, children: [] }] }]);
   });
 
   it('deactivation rules: children block a parent, inactive parent blocks child activation, inactive items vanish from public reads', async () => {
@@ -88,6 +89,38 @@ describe('Taxonomy and local areas (integration)', () => {
     await post(`/api/v1/admin/services/${created.body.data.id}/deactivate`).send({ expectedVersion: 2 }).expect(200);
     expect((await agent().get('/api/v1/services').expect(200)).body.data).toEqual([]);
     await post('/api/v1/admin/services').send({ name: 'Coffee', synonyms: Array.from({ length: 21 }, (_, i) => `syn${i}`) }).expect(400);
+  });
+
+  it('services: an icon must come from the shared library, and reaches the public listing', async () => {
+    await post('/api/v1/admin/services').send({ name: 'Wifi', icon: 'not-an-icon' }).expect(400);
+    const chosen = (await post('/api/v1/admin/services').send({ name: 'Wifi', icon: 'wifi' }).expect(201)).body.data;
+    expect(chosen.icon).toBe('wifi');
+    // Left empty, the name decides on the public site; the record says so with null.
+    const matched = (await post('/api/v1/admin/services').send({ name: 'Late opening' }).expect(201)).body.data;
+    expect(matched.icon).toBeNull();
+    const cleared = await patch(`/api/v1/admin/services/${chosen.id}`).send({ expectedVersion: 1, icon: null }).expect(200);
+    expect(cleared.body.data.icon).toBeNull();
+  });
+
+  it('categories and areas carry an image and search appearance, and refuse an image that is not ready', async () => {
+    const db = testDatabase();
+    const ready = await db.mediaAsset.create({ data: { sourceName: 'tile.jpg', mimeType: 'image/jpeg', bytes: 10, checksum: 'a'.repeat(64), objectKey: 'q/tile.jpg', status: 'ready', readyAt: new Date(), altText: 'Cafés in a laneway' } });
+    const pending = await db.mediaAsset.create({ data: { sourceName: 'pending.jpg', mimeType: 'image/jpeg', bytes: 10, checksum: 'b'.repeat(64), objectKey: 'q/pending.jpg', status: 'quarantined' } });
+    const refused = await post('/api/v1/admin/categories').send({ name: 'Bars', imageMediaId: pending.id }).expect(400);
+    expect(refused.body.error.fields.imageMediaId[0]).toMatch(/still being processed/);
+    const bars = (await post('/api/v1/admin/categories').send({ name: 'Bars', imageMediaId: ready.id, seoTitle: 'Bars in Melbourne', seoDescription: 'Where to drink.', seoKeywords: 'bars, melbourne' }).expect(201)).body.data;
+    expect(bars).toMatchObject({ imageMediaId: ready.id, seoTitle: 'Bars in Melbourne', seoKeywords: 'bars, melbourne', ogImageMediaId: null });
+    const tree = (await agent().get('/api/v1/categories').expect(200)).body.data.find((c: { slug: string }) => c.slug === 'bars');
+    expect(tree).toMatchObject({ seoTitle: 'Bars in Melbourne', seoDescription: 'Where to drink.', shareImage: null });
+    // The image resolves only once a rendition exists; with none it is null rather than a broken address.
+    expect(tree.image).toBeNull();
+    const area = (await post('/api/v1/admin/areas').send({ name: 'Fitzroy', seoTitle: 'Fitzroy businesses', ogImageMediaId: ready.id }).expect(201)).body.data;
+    expect(area).toMatchObject({ seoTitle: 'Fitzroy businesses', ogImageMediaId: ready.id });
+    // The image is now in use, so the library refuses to delete it (SRS MED 004).
+    const usage = await agent().get(`/api/v1/admin/media/${ready.id}`).set('Cookie', cookie).expect(200);
+    expect(usage.body.data.usages).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'category', id: bars.id }), expect.objectContaining({ kind: 'area', id: area.id })]));
+    // Retired so the ordering test below sees only its own areas.
+    await post(`/api/v1/admin/areas/${area.id}/deactivate`).send({ expectedVersion: 1 }).expect(200);
   });
 
   it('local areas: allowlist entries with eligibility source, ordering and no city entity', async () => {

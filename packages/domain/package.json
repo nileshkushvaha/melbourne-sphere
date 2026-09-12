@@ -16,6 +16,10 @@
     "./seo-routes": {
       "types": "./dist/seo-routes.d.ts",
       "default": "./dist/seo-routes.js"
+    },
+    "./service-icons": {
+      "types": "./dist/service-icons.d.ts",
+      "default": "./dist/service-icons.js"
     }
   },
   "scripts": {

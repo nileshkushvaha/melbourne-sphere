@@ -13,13 +13,7 @@ export type PostCard = components['schemas']['PublicPostCardDto'];
 export type PostDetail = components['schemas']['PublicPostDto'];
 export type BlogTerm = components['schemas']['PublicBlogTermDto'];
 export type PublicComment = components['schemas']['PublicCommentDto'];
-/** GET /areas is documented by operation only; shape from TaxonomyService.publicAreas(). */
-export interface PublicArea {
-  id: string;
-  name: string;
-  slug: string;
-  editorialIntro: string | null;
-}
+export type PublicArea = components['schemas']['PublicLocalAreaDto'];
 
 const apiOrigin = (process.env.API_ORIGIN ?? 'http://127.0.0.1:3001').replace(/\/+$/, '');
 

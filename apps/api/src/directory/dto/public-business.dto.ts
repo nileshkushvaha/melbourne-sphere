@@ -42,6 +42,7 @@ export class SearchBusinessesQueryDto {
 export class PublicTermDto {
   @ApiProperty() name!: string;
   @ApiProperty() slug!: string;
+  @ApiPropertyOptional({ type: String, nullable: true, description: 'Services only: the icon key an editor chose, from the shared library' }) icon?: string | null;
 }
 
 export class PublicRatingDto {
@@ -115,6 +116,7 @@ export class PublicGalleryImageDto {
 
 export class PublicBusinessDetailDto extends PublicBusinessCardDto {
   @ApiProperty() description!: string;
+  @ApiProperty({ type: Number, nullable: true, description: 'The year the business says it began trading; null when not recorded' }) establishedYear!: number | null;
   @ApiProperty({ type: [PublicTermDto] }) secondaryCategories!: PublicTermDto[];
   @ApiProperty({ type: [PublicTermDto] }) services!: PublicTermDto[];
   @ApiProperty({ type: PublicContactDto }) contact!: PublicContactDto;

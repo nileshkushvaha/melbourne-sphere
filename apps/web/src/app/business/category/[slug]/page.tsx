@@ -19,11 +19,17 @@ export async function generateMetadata({ params, searchParams }: PageProps<'/bus
   // Same request the page body makes, so it is served from the data cache; an
   // unfiltered landing is indexed only when it has text and at least one listing.
   const total = filtered ? 0 : (await searchBusinesses({ ...state, category: null }, { category: category.slug })).meta.total;
+  const description = category.seoDescription ?? category.description ?? `Published ${category.name} businesses across Melbourne with opening hours and contact details.`;
+  // The share image is the category's own choice, then its picture; with
+  // neither, the site-wide image applies through the root layout.
+  const share = category.shareImage ?? category.image;
   return {
-    title: `${category.name} in Melbourne`,
-    description: category.description ?? `Published ${category.name} businesses across Melbourne with opening hours and contact details.`,
+    title: category.seoTitle ?? `${category.name} in Melbourne`,
+    description,
+    ...(category.seoKeywords ? { keywords: category.seoKeywords.split(',').map((word) => word.trim()).filter(Boolean) } : {}),
     alternates: { canonical: `/business/category/${category.slug}${toQueryString(state)}` },
     robots: landingRobots(category.description, total, filtered),
+    openGraph: { type: 'website', title: category.seoTitle ?? `${category.name} in Melbourne`, description, ...(share ? { images: [{ url: share.url, alt: share.alt }] } : {}) },
   };
 }
 
@@ -46,6 +52,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps<'
           { label: category.name },
         ]}
         description={category.description ?? `Published ${category.name.toLowerCase()} businesses across Melbourne.`}
+        image={category.image}
       />
       {category.children.length > 0 && (
         <nav aria-label="Subcategories" className="border-b border-border bg-surface">

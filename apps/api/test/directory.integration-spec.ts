@@ -90,6 +90,12 @@ describe('Business listings core (integration)', () => {
     expect(row.privateEnquiryEmailEncrypted).not.toContain('littlecollins');
     expect(row.rating).toMatchObject({ approvedCount: 0, ratingSum: 0 });
     // Validation: unknown field, invalid postcode, inactive taxonomy, non-VIC postcode
+    // The year trading began is optional, bounded, and public once recorded.
+    const nextYear = new Date().getFullYear() + 1;
+    const future = await post('/api/v1/admin/businesses').send({ ...validBody(), name: 'Future Trader', establishedYear: nextYear }).expect(400);
+    expect(future.body.error.fields.establishedYear[0]).toMatch(/between 1835 and/);
+    const dated = await post('/api/v1/admin/businesses').send({ ...validBody(), name: 'Dated Trader', establishedYear: 1987 }).expect(201);
+    expect(dated.body.data.establishedYear).toBe(1987);
     await post('/api/v1/admin/businesses').send({ ...validBody(), city: 'Sydney' }).expect(400);
     await post('/api/v1/admin/businesses').send({ ...validBody(), address: { line1: 'x', suburb: 'y', postcode: '2000' } }).expect(400);
     await post('/api/v1/admin/businesses').send({ ...validBody(), name: 'Other', primaryCategoryId: 'nope' }).expect(400);

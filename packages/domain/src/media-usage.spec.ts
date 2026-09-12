@@ -7,7 +7,7 @@ describe('media usage', () => {
     // and show another, so dropping the cover must not make the share image
     // look unused and collectable.
     expect(MEDIA_USAGE_RELATIONS).toEqual(
-      expect.arrayContaining(['businesses', 'coverOf', 'shareImageOf', 'pageShareImageOf', 'authorOf', 'testimonials', 'partners']),
+      expect.arrayContaining(['businesses', 'coverOf', 'shareImageOf', 'pageShareImageOf', 'authorOf', 'testimonials', 'partners', 'categoryImageOf', 'categoryShareImageOf', 'areaImageOf', 'areaShareImageOf']),
     );
     expect(unusedMediaRelations()).toEqual({
       businesses: { none: {} },
@@ -17,6 +17,10 @@ describe('media usage', () => {
       authorOf: { none: {} },
       testimonials: { none: {} },
       partners: { none: {} },
+      categoryImageOf: { none: {} },
+      categoryShareImageOf: { none: {} },
+      areaImageOf: { none: {} },
+      areaShareImageOf: { none: {} },
     });
   });
 

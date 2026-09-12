@@ -1324,3 +1324,26 @@ Client requests in this session, in order. No commit, no push.
   breadcrumbs, then the error with a retry. This was also why an access-control
   test was flaky: it watched the catalogue heading appear, and the page's
   unanswered request then replaced it. That test now answers its requests.
+
+
+## 12 September 2026 — Demonstration listings, richer business and taxonomy records
+
+* **Twenty fictional Melbourne listings** seeded into development databases by
+  `apps/api/scripts/seed-businesses.ts`, with services, hours, addresses,
+  contact routes, social links, four attribution-licensed photographs each and
+  approved reviews; the three existing listings were filled in the same way.
+  Content and licensing rules: `docs/content/business-demonstration-listings.md`.
+* **Four additive, reviewed migrations**, each approved by the client before it
+  was written (SRS §74): `businesses.establishedYear` ("n years in business");
+  image and search-appearance fields on `categories` and on `local_areas`;
+  `services.icon`. No existing row changed.
+* **Public business page:** photographs open at full size from a sliding
+  gallery; every service carries a pictogram — an editor's choice from the
+  shared icon library in `@melbourne-sphere/domain/service-icons`, or a
+  name-based match until one is made; "n years in business" in the header.
+* **Categories and local areas** can carry an image (home-page tile and landing
+  header) and their own SEO title, description, keywords and share image; the
+  home page's category band is titled "Browse businesses by category".
+* **SRS conflict surfaced and resolved:** a request to rename local areas to
+  "Cities" was declined by the client once the Melbourne-only scope rule
+  (SCP 001–005, UX 003) was pointed out; local areas keep their name.

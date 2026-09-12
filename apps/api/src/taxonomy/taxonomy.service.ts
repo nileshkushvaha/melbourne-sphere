@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service.js';
 import type { RequestContext } from '../auth/auth.service.js';
 import { collectionMeta, skipFor } from '../common/pagination.js';
 import { isValidSlug, slugify } from '../common/slug.js';
+import { MediaService } from '../media/media.service.js';
 import { RedirectsService } from '../seo/redirects.service.js';
 import { DatabaseService } from '../database/database.service.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
@@ -19,6 +20,7 @@ import type {
   UpdateCategoryDto,
   UpdateLocalAreaDto,
   UpdateServiceDto,
+  PublicLocalAreaDto,
 } from './dto/taxonomy.dto.js';
 
 export type TermKind = 'category' | 'service' | 'localArea';
@@ -27,14 +29,24 @@ const stale = () => new ConflictException({ code: 'STALE_VERSION', message: 'Thi
 const notFound = () => new NotFoundException({ code: 'NOT_FOUND', message: 'Item not found' });
 const slugTaken = () => new ConflictException({ code: 'SLUG_IN_USE', message: 'That slug is already used', fields: { slug: ['That slug is already used'] } });
 
-export function toCategoryDto(c: Category): CategoryDto {
-  return { id: c.id, name: c.name, slug: c.slug, description: c.description, parentId: c.parentId, sortOrder: c.sortOrder, active: c.active, version: c.version, createdAt: c.createdAt.toISOString(), updatedAt: c.updatedAt.toISOString() };
+export function toCategoryDto(c: Category, images: { image: CategoryDto['image']; ogImage: CategoryDto['ogImage'] } = { image: null, ogImage: null }): CategoryDto {
+  return {
+    id: c.id, name: c.name, slug: c.slug, description: c.description, parentId: c.parentId, sortOrder: c.sortOrder,
+    imageMediaId: c.imageMediaId, seoTitle: c.seoTitle, seoDescription: c.seoDescription, seoKeywords: c.seoKeywords, ogImageMediaId: c.ogImageMediaId,
+    image: images.image, ogImage: images.ogImage,
+    active: c.active, version: c.version, createdAt: c.createdAt.toISOString(), updatedAt: c.updatedAt.toISOString(),
+  };
 }
 export function toServiceDto(s: Service & { synonyms: ServiceSynonym[] }): ServiceDto {
-  return { id: s.id, name: s.name, slug: s.slug, synonyms: s.synonyms.map((x) => x.term).sort(), active: s.active, version: s.version, createdAt: s.createdAt.toISOString(), updatedAt: s.updatedAt.toISOString() };
+  return { id: s.id, name: s.name, slug: s.slug, synonyms: s.synonyms.map((x) => x.term).sort(), icon: s.icon, active: s.active, version: s.version, createdAt: s.createdAt.toISOString(), updatedAt: s.updatedAt.toISOString() };
 }
-export function toLocalAreaDto(a: LocalArea): LocalAreaDto {
-  return { id: a.id, name: a.name, slug: a.slug, editorialIntro: a.editorialIntro, eligibilitySource: a.eligibilitySource, eligibilityVerifiedAt: a.eligibilityVerifiedAt?.toISOString() ?? null, sortOrder: a.sortOrder, active: a.active, version: a.version, createdAt: a.createdAt.toISOString(), updatedAt: a.updatedAt.toISOString() };
+export function toLocalAreaDto(a: LocalArea, images: { image: LocalAreaDto['image']; ogImage: LocalAreaDto['ogImage'] } = { image: null, ogImage: null }): LocalAreaDto {
+  return {
+    id: a.id, name: a.name, slug: a.slug, editorialIntro: a.editorialIntro, eligibilitySource: a.eligibilitySource, eligibilityVerifiedAt: a.eligibilityVerifiedAt?.toISOString() ?? null, sortOrder: a.sortOrder,
+    imageMediaId: a.imageMediaId, seoTitle: a.seoTitle, seoDescription: a.seoDescription, seoKeywords: a.seoKeywords, ogImageMediaId: a.ogImageMediaId,
+    image: images.image, ogImage: images.ogImage,
+    active: a.active, version: a.version, createdAt: a.createdAt.toISOString(), updatedAt: a.updatedAt.toISOString(),
+  };
 }
 
 export function normaliseSynonyms(terms: string[] | undefined): string[] {
@@ -55,7 +67,14 @@ export class TaxonomyService {
     private readonly database: DatabaseService,
     private readonly audit: AuditService,
     private readonly redirects: RedirectsService,
+    private readonly media: MediaService,
   ) {}
+
+  /** The two pictures a category or an area can carry, resolved to public addresses. */
+  private async categoryImages(c: { imageMediaId: string | null; ogImageMediaId: string | null }) {
+    const [image, ogImage] = await Promise.all([this.media.publicImageRef(c.imageMediaId), this.media.publicImageRefOfKind(c.ogImageMediaId, 'hero')]);
+    return { image, ogImage: ogImage ? { id: ogImage.id, url: ogImage.url, alt: ogImage.alt } : null };
+  }
 
   /**
    * Where a term lives on the public site, or null when it has no page of its
@@ -75,7 +94,11 @@ export class TaxonomyService {
     const byParent = new Map<string, Category[]>();
     for (const c of rows) if (c.parentId) byParent.set(c.parentId, [...(byParent.get(c.parentId) ?? []), c]);
     // A child whose parent is inactive is not exposed (the parent is the public path).
-    return roots.map((r) => ({ id: r.id, name: r.name, slug: r.slug, description: r.description, children: (byParent.get(r.id) ?? []).map((c) => ({ id: c.id, name: c.name, slug: c.slug, description: c.description, children: [] })) }));
+    const publicTerm = async (c: Category, children: PublicCategoryDto[]): Promise<PublicCategoryDto> => {
+      const { image, ogImage } = await this.categoryImages(c);
+      return { id: c.id, name: c.name, slug: c.slug, description: c.description, image, seoTitle: c.seoTitle, seoDescription: c.seoDescription, seoKeywords: c.seoKeywords, shareImage: ogImage, children };
+    };
+    return Promise.all(roots.map(async (r) => publicTerm(r, await Promise.all((byParent.get(r.id) ?? []).map((c) => publicTerm(c, []))))));
   }
 
   async publicServices(): Promise<Pick<ServiceDto, 'id' | 'name' | 'slug' | 'synonyms'>[]> {
@@ -84,10 +107,15 @@ export class TaxonomyService {
     return rows.map((s) => ({ id: s.id, name: s.name, slug: s.slug, synonyms: s.synonyms.map((x) => x.term).sort() }));
   }
 
-  async publicAreas(): Promise<Pick<LocalAreaDto, 'id' | 'name' | 'slug' | 'editorialIntro'>[]> {
+  async publicAreas(): Promise<PublicLocalAreaDto[]> {
     const db = await this.database.client();
     const rows = await db.localArea.findMany({ where: { active: true }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }, { id: 'asc' }] });
-    return rows.map((a) => ({ id: a.id, name: a.name, slug: a.slug, editorialIntro: a.editorialIntro }));
+    return Promise.all(
+      rows.map(async (a) => {
+        const { image, ogImage } = await this.categoryImages(a);
+        return { id: a.id, name: a.name, slug: a.slug, editorialIntro: a.editorialIntro, image, seoTitle: a.seoTitle, seoDescription: a.seoDescription, seoKeywords: a.seoKeywords, shareImage: ogImage };
+      }),
+    );
   }
 
   // ---- admin lists ----------------------------------------------------------
@@ -134,7 +162,7 @@ export class TaxonomyService {
     const db = await this.database.client();
     const row = await db.category.findUnique({ where: { id } });
     if (!row) throw notFound();
-    return toCategoryDto(row);
+    return toCategoryDto(row, await this.categoryImages(row));
   }
   async getService(id: string): Promise<ServiceDto> {
     const db = await this.database.client();
@@ -146,7 +174,7 @@ export class TaxonomyService {
     const db = await this.database.client();
     const row = await db.localArea.findUnique({ where: { id } });
     if (!row) throw notFound();
-    return toLocalAreaDto(row);
+    return toLocalAreaDto(row, await this.categoryImages(row));
   }
 
   // ---- categories ------------------------------------------------------------
@@ -156,7 +184,13 @@ export class TaxonomyService {
     const slug = this.resolveSlug(input.name, input.slug);
     if (await db.category.findUnique({ where: { slug } })) throw slugTaken();
     if (input.parentId) await this.assertValidParent(input.parentId);
-    const row = await db.category.create({ data: { name: input.name, slug, description: input.description ?? null, parentId: input.parentId ?? null, sortOrder: input.sortOrder ?? 0 } });
+    await this.assertUsableImages(input);
+    const row = await db.category.create({
+      data: {
+        name: input.name, slug, description: input.description ?? null, parentId: input.parentId ?? null, sortOrder: input.sortOrder ?? 0,
+        imageMediaId: input.imageMediaId ?? null, seoTitle: input.seoTitle ?? null, seoDescription: input.seoDescription ?? null, seoKeywords: input.seoKeywords ?? null, ogImageMediaId: input.ogImageMediaId ?? null,
+      },
+    });
     await this.audit.record({ action: 'taxonomy.category.create', actorAdminId: actor.id, targetType: 'category', targetId: row.id, metadata: { slug, parentId: row.parentId }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return toCategoryDto(row);
   }
@@ -166,7 +200,7 @@ export class TaxonomyService {
     const current = await db.category.findUnique({ where: { id }, include: { children: { select: { id: true } } } });
     if (!current) throw notFound();
     if (current.version !== input.expectedVersion) throw stale();
-    const data: Prisma.CategoryUpdateManyMutationInput = {};
+    const data: Prisma.CategoryUncheckedUpdateManyInput = {};
     if (input.name !== undefined) data.name = input.name;
     if (input.slug !== undefined && input.slug !== current.slug) {
       if (!isValidSlug(input.slug)) throw this.invalidSlug();
@@ -175,13 +209,19 @@ export class TaxonomyService {
     }
     if (input.description !== undefined) data.description = input.description;
     if (input.sortOrder !== undefined) data.sortOrder = input.sortOrder;
+    await this.assertUsableImages(input);
+    if (input.imageMediaId !== undefined) data.imageMediaId = input.imageMediaId;
+    if (input.seoTitle !== undefined) data.seoTitle = input.seoTitle;
+    if (input.seoDescription !== undefined) data.seoDescription = input.seoDescription;
+    if (input.seoKeywords !== undefined) data.seoKeywords = input.seoKeywords;
+    if (input.ogImageMediaId !== undefined) data.ogImageMediaId = input.ogImageMediaId;
     if (input.parentId !== undefined && input.parentId !== current.parentId) {
       if (input.parentId === id) throw new ConflictException({ code: 'CATEGORY_CYCLE', message: 'A category cannot be its own parent' });
       if (input.parentId !== null) {
         if (current.children.length > 0) throw new ConflictException({ code: 'CATEGORY_DEPTH', message: 'A category with children cannot be nested (two levels only)' });
         await this.assertValidParent(input.parentId);
       }
-      (data as Prisma.CategoryUpdateManyMutationInput & { parentId?: string | null }).parentId = input.parentId;
+      data.parentId = input.parentId;
     }
     await db.$transaction(async (tx) => {
       const result = await tx.category.updateMany({ where: { id, version: input.expectedVersion }, data: { ...data, version: { increment: 1 } } });
@@ -192,6 +232,18 @@ export class TaxonomyService {
     });
     await this.audit.record({ action: 'taxonomy.category.update', actorAdminId: actor.id, targetType: 'category', targetId: id, metadata: { fields: Object.keys(data).join(',') }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return this.getCategory(id);
+  }
+
+  /** A picture must exist and be processed before a category can show it. */
+  private async assertUsableImages(input: { imageMediaId?: string | null; ogImageMediaId?: string | null }): Promise<void> {
+    const db = await this.database.client();
+    for (const [field, id] of [['imageMediaId', input.imageMediaId], ['ogImageMediaId', input.ogImageMediaId]] as const) {
+      if (!id) continue;
+      const asset = await db.mediaAsset.findUnique({ where: { id }, select: { status: true } });
+      if (!asset || asset.status !== 'ready') {
+        throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Some fields are invalid', fields: { [field]: [asset ? 'That image is still being processed' : 'Choose an image from the media library'] } }, HttpStatus.BAD_REQUEST);
+      }
+    }
   }
 
   private async assertValidParent(parentId: string): Promise<void> {
@@ -208,7 +260,7 @@ export class TaxonomyService {
     const slug = this.resolveSlug(input.name, input.slug);
     if (await db.service.findUnique({ where: { slug } })) throw slugTaken();
     const synonyms = normaliseSynonyms(input.synonyms);
-    const row = await db.service.create({ data: { name: input.name, slug, synonyms: { create: synonyms.map((term) => ({ term })) } }, include: { synonyms: true } });
+    const row = await db.service.create({ data: { name: input.name, slug, icon: input.icon ?? null, synonyms: { create: synonyms.map((term) => ({ term })) } }, include: { synonyms: true } });
     await this.audit.record({ action: 'taxonomy.service.create', actorAdminId: actor.id, targetType: 'service', targetId: row.id, metadata: { slug, synonyms: synonyms.length }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return toServiceDto(row);
   }
@@ -220,6 +272,7 @@ export class TaxonomyService {
     if (current.version !== input.expectedVersion) throw stale();
     const data: Prisma.ServiceUpdateManyMutationInput = {};
     if (input.name !== undefined) data.name = input.name;
+    if (input.icon !== undefined) data.icon = input.icon;
     if (input.slug !== undefined && input.slug !== current.slug) {
       if (!isValidSlug(input.slug)) throw this.invalidSlug();
       if (await db.service.findUnique({ where: { slug: input.slug } })) throw slugTaken();
@@ -243,8 +296,12 @@ export class TaxonomyService {
     const db = await this.database.client();
     const slug = this.resolveSlug(input.name, input.slug);
     if (await db.localArea.findUnique({ where: { slug } })) throw slugTaken();
+    await this.assertUsableImages(input);
     const row = await db.localArea.create({
-      data: { name: input.name, slug, editorialIntro: input.editorialIntro ?? null, eligibilitySource: input.eligibilitySource ?? null, eligibilityVerifiedAt: input.eligibilitySource ? new Date() : null, sortOrder: input.sortOrder ?? 0 },
+      data: {
+        name: input.name, slug, editorialIntro: input.editorialIntro ?? null, eligibilitySource: input.eligibilitySource ?? null, eligibilityVerifiedAt: input.eligibilitySource ? new Date() : null, sortOrder: input.sortOrder ?? 0,
+        imageMediaId: input.imageMediaId ?? null, seoTitle: input.seoTitle ?? null, seoDescription: input.seoDescription ?? null, seoKeywords: input.seoKeywords ?? null, ogImageMediaId: input.ogImageMediaId ?? null,
+      },
     });
     await this.audit.record({ action: 'taxonomy.area.create', actorAdminId: actor.id, targetType: 'local_area', targetId: row.id, metadata: { slug, verified: !!input.eligibilitySource }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return toLocalAreaDto(row);
@@ -255,7 +312,7 @@ export class TaxonomyService {
     const current = await db.localArea.findUnique({ where: { id } });
     if (!current) throw notFound();
     if (current.version !== input.expectedVersion) throw stale();
-    const data: Prisma.LocalAreaUpdateManyMutationInput = {};
+    const data: Prisma.LocalAreaUncheckedUpdateManyInput = {};
     if (input.name !== undefined) data.name = input.name;
     if (input.slug !== undefined && input.slug !== current.slug) {
       if (!isValidSlug(input.slug)) throw this.invalidSlug();
@@ -264,6 +321,12 @@ export class TaxonomyService {
     }
     if (input.editorialIntro !== undefined) data.editorialIntro = input.editorialIntro;
     if (input.sortOrder !== undefined) data.sortOrder = input.sortOrder;
+    await this.assertUsableImages(input);
+    if (input.imageMediaId !== undefined) data.imageMediaId = input.imageMediaId;
+    if (input.seoTitle !== undefined) data.seoTitle = input.seoTitle;
+    if (input.seoDescription !== undefined) data.seoDescription = input.seoDescription;
+    if (input.seoKeywords !== undefined) data.seoKeywords = input.seoKeywords;
+    if (input.ogImageMediaId !== undefined) data.ogImageMediaId = input.ogImageMediaId;
     if (input.eligibilitySource !== undefined) {
       data.eligibilitySource = input.eligibilitySource;
       // Re-verification is recorded with the actor's timestamp (SRS BUS 008).

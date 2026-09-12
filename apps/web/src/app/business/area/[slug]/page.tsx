@@ -18,11 +18,16 @@ export async function generateMetadata({ params, searchParams }: PageProps<'/bus
   // Same request the page body makes, so it is served from the data cache; an
   // unfiltered landing is indexed only when it has text and at least one listing.
   const total = filtered ? 0 : (await searchBusinesses({ ...state, area: null }, { area: area.slug })).meta.total;
+  const title = area.seoTitle ?? `Businesses in ${area.name}`;
+  const description = area.seoDescription ?? area.editorialIntro?.slice(0, 160) ?? `Published businesses in ${area.name}, Melbourne, with opening hours and contact details.`;
+  const share = area.shareImage ?? area.image;
   return {
-    title: `Businesses in ${area.name}`,
-    description: area.editorialIntro?.slice(0, 160) ?? `Published businesses in ${area.name}, Melbourne, with opening hours and contact details.`,
+    title,
+    description,
+    ...(area.seoKeywords ? { keywords: area.seoKeywords.split(',').map((word: string) => word.trim()).filter(Boolean) } : {}),
     alternates: { canonical: `/business/area/${area.slug}${toQueryString(state)}` },
     robots: landingRobots(area.editorialIntro, total, filtered),
+    openGraph: { type: 'website', title, description, ...(share ? { images: [{ url: share.url, alt: share.alt }] } : {}) },
   };
 }
 
@@ -40,6 +45,7 @@ export default async function AreaPage({ params, searchParams }: PageProps<'/bus
         title={`Businesses in ${area.name}`}
         crumbs={[{ label: 'Home', href: '/' }, { label: 'Businesses', href: '/business' }, { label: area.name }]}
         description={area.editorialIntro ?? `Published businesses located in ${area.name}, Melbourne.`}
+        image={area.image}
       />
       <div className="ms-container py-10 sm:py-12">
         <BusinessResults basePath={basePath} state={{ ...state, area: null }} fixed={{ area: area.slug }} />

@@ -1344,7 +1344,17 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicLocalAreaDto"
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "Approved, active Melbourne local areas",
@@ -2155,6 +2165,331 @@
         },
         "tags": [
           "admin-taxonomy"
+        ]
+      }
+    },
+    "/api/v1/admin/media": {
+      "get": {
+        "operationId": "MediaAdminController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "quarantined",
+                "ready",
+                "rejected"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          {
+            "name": "unused",
+            "required": false,
+            "in": "query",
+            "description": "Only assets that are not used anywhere",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MediaAssetDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List media assets (status, q, unused)",
+        "tags": [
+          "admin-media"
+        ]
+      }
+    },
+    "/api/v1/admin/media/uploads": {
+      "post": {
+        "operationId": "MediaAdminController_requestUpload",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestUploadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadTicketDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Request a short-lived signed upload for the private quarantine bucket",
+        "tags": [
+          "admin-media"
+        ]
+      }
+    },
+    "/api/v1/admin/media/{id}/complete": {
+      "post": {
+        "operationId": "MediaAdminController_complete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteUploadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Validate the uploaded bytes and queue variant processing",
+        "tags": [
+          "admin-media"
+        ]
+      }
+    },
+    "/api/v1/admin/media/{id}": {
+      "get": {
+        "operationId": "MediaAdminController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-media"
+        ]
+      },
+      "patch": {
+        "operationId": "MediaAdminController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMediaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaAssetDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Edit alt text, credit, rights note and focal point",
+        "tags": [
+          "admin-media"
+        ]
+      },
+      "delete": {
+        "operationId": "MediaAdminController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Delete an unused asset; refused while any usage exists",
+        "tags": [
+          "admin-media"
+        ]
+      }
+    },
+    "/api/v1/admin/businesses/{businessId}/gallery": {
+      "get": {
+        "operationId": "BusinessGalleryController_get",
+        "parameters": [
+          {
+            "name": "businessId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GalleryEntryDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-businesses"
+        ]
+      },
+      "put": {
+        "operationId": "BusinessGalleryController_set",
+        "parameters": [
+          {
+            "name": "businessId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetGalleryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GalleryEntryDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Replace the gallery (order, captions, alt overrides, cover) with expectedVersion",
+        "tags": [
+          "admin-businesses"
         ]
       }
     },
@@ -5615,331 +5950,6 @@
         "summary": "Replace or restore the published text; the original is always kept",
         "tags": [
           "admin-comments"
-        ]
-      }
-    },
-    "/api/v1/admin/media": {
-      "get": {
-        "operationId": "MediaAdminController_list",
-        "parameters": [
-          {
-            "name": "status",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "quarantined",
-                "ready",
-                "rejected"
-              ]
-            }
-          },
-          {
-            "name": "q",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "maxLength": 120,
-              "type": "string"
-            }
-          },
-          {
-            "name": "unused",
-            "required": false,
-            "in": "query",
-            "description": "Only assets that are not used anywhere",
-            "schema": {
-              "type": "boolean"
-            }
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "default": 1,
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/Object"
-                }
-              ]
-            }
-          },
-          {
-            "name": "pageSize",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "maximum": 50,
-              "default": 20,
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/Object"
-                }
-              ]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MediaAssetDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "List media assets (status, q, unused)",
-        "tags": [
-          "admin-media"
-        ]
-      }
-    },
-    "/api/v1/admin/media/uploads": {
-      "post": {
-        "operationId": "MediaAdminController_requestUpload",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RequestUploadDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UploadTicketDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Request a short-lived signed upload for the private quarantine bucket",
-        "tags": [
-          "admin-media"
-        ]
-      }
-    },
-    "/api/v1/admin/media/{id}/complete": {
-      "post": {
-        "operationId": "MediaAdminController_complete",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CompleteUploadDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MediaAssetDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Validate the uploaded bytes and queue variant processing",
-        "tags": [
-          "admin-media"
-        ]
-      }
-    },
-    "/api/v1/admin/media/{id}": {
-      "get": {
-        "operationId": "MediaAdminController_get",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MediaAssetDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "admin-media"
-        ]
-      },
-      "patch": {
-        "operationId": "MediaAdminController_update",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateMediaDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MediaAssetDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Edit alt text, credit, rights note and focal point",
-        "tags": [
-          "admin-media"
-        ]
-      },
-      "delete": {
-        "operationId": "MediaAdminController_remove",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": ""
-          }
-        },
-        "summary": "Delete an unused asset; refused while any usage exists",
-        "tags": [
-          "admin-media"
-        ]
-      }
-    },
-    "/api/v1/admin/businesses/{businessId}/gallery": {
-      "get": {
-        "operationId": "BusinessGalleryController_get",
-        "parameters": [
-          {
-            "name": "businessId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/GalleryEntryDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "admin-businesses"
-        ]
-      },
-      "put": {
-        "operationId": "BusinessGalleryController_set",
-        "parameters": [
-          {
-            "name": "businessId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetGalleryDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/GalleryEntryDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "Replace the gallery (order, captions, alt overrides, cover) with expectedVersion",
-        "tags": [
-          "admin-businesses"
         ]
       }
     },
@@ -9744,6 +9754,25 @@
           "expectedVersion"
         ]
       },
+      "TermImageRefDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "alt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "alt"
+        ]
+      },
       "PublicCategoryDto": {
         "type": "object",
         "properties": {
@@ -9760,6 +9789,38 @@
             "type": "string",
             "nullable": true
           },
+          "image": {
+            "nullable": true,
+            "description": "Card-sized image for tiles and the landing page",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TermImageRefDto"
+              }
+            ]
+          },
+          "seoTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "shareImage": {
+            "nullable": true,
+            "description": "Share image at hero size; null falls back to the category image, then the site image",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TermImageRefDto"
+              }
+            ]
+          },
           "children": {
             "type": "array",
             "items": {
@@ -9772,7 +9833,71 @@
           "name",
           "slug",
           "description",
+          "image",
+          "seoTitle",
+          "seoDescription",
+          "seoKeywords",
+          "shareImage",
           "children"
+        ]
+      },
+      "PublicLocalAreaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "editorialIntro": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TermImageRefDto"
+              }
+            ]
+          },
+          "seoTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "shareImage": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TermImageRefDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "editorialIntro",
+          "image",
+          "seoTitle",
+          "seoDescription",
+          "seoKeywords",
+          "shareImage"
         ]
       },
       "CategoryListItemDto": {
@@ -9797,6 +9922,45 @@
           },
           "sortOrder": {
             "type": "number"
+          },
+          "imageMediaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "nullable": true,
+            "description": "The chosen image, resolved for the editor preview",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TermImageRefDto"
+              }
+            ]
+          },
+          "ogImage": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TermImageRefDto"
+              }
+            ]
           },
           "active": {
             "type": "boolean"
@@ -9828,6 +9992,13 @@
           "description",
           "parentId",
           "sortOrder",
+          "imageMediaId",
+          "seoTitle",
+          "seoDescription",
+          "seoKeywords",
+          "ogImageMediaId",
+          "image",
+          "ogImage",
           "active",
           "version",
           "createdAt",
@@ -9861,6 +10032,34 @@
             "type": "object",
             "description": "Parent category id (must be a root category); omit for a root",
             "nullable": true
+          },
+          "imageMediaId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Image shown on the home-page tile and the landing page (media asset id)"
+          },
+          "seoTitle": {
+            "type": "string",
+            "maxLength": 180,
+            "nullable": true,
+            "description": "Search-result title; the name is used when empty"
+          },
+          "seoDescription": {
+            "type": "string",
+            "maxLength": 300,
+            "nullable": true,
+            "description": "Meta description; the description is used when empty"
+          },
+          "seoKeywords": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true,
+            "description": "Comma-separated keywords"
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Share image (media asset id); the category image, then the site image, is used when empty"
           }
         },
         "required": [
@@ -9890,6 +10089,45 @@
           "sortOrder": {
             "type": "number"
           },
+          "imageMediaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "nullable": true,
+            "description": "The chosen image, resolved for the editor preview",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TermImageRefDto"
+              }
+            ]
+          },
+          "ogImage": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TermImageRefDto"
+              }
+            ]
+          },
           "active": {
             "type": "boolean"
           },
@@ -9912,6 +10150,13 @@
           "description",
           "parentId",
           "sortOrder",
+          "imageMediaId",
+          "seoTitle",
+          "seoDescription",
+          "seoKeywords",
+          "ogImageMediaId",
+          "image",
+          "ogImage",
           "active",
           "version",
           "createdAt",
@@ -9944,6 +10189,34 @@
           },
           "sortOrder": {
             "type": "number"
+          },
+          "imageMediaId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Image shown on the home-page tile and the landing page (media asset id)"
+          },
+          "seoTitle": {
+            "type": "string",
+            "maxLength": 180,
+            "nullable": true,
+            "description": "Search-result title; the name is used when empty"
+          },
+          "seoDescription": {
+            "type": "string",
+            "maxLength": 300,
+            "nullable": true,
+            "description": "Meta description; the description is used when empty"
+          },
+          "seoKeywords": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true,
+            "description": "Comma-separated keywords"
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Share image (media asset id); the category image, then the site image, is used when empty"
           }
         },
         "required": [
@@ -9983,6 +10256,11 @@
               "type": "string"
             }
           },
+          "icon": {
+            "type": "string",
+            "nullable": true,
+            "description": "Icon key from the shared library; null matches the name"
+          },
           "active": {
             "type": "boolean"
           },
@@ -10007,6 +10285,7 @@
           "name",
           "slug",
           "synonyms",
+          "icon",
           "active",
           "version",
           "createdAt",
@@ -10037,6 +10316,82 @@
             "items": {
               "type": "string"
             }
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "wifi",
+              "parking",
+              "accessible",
+              "kids",
+              "emergency",
+              "wholesale",
+              "delivery",
+              "takeaway",
+              "catering",
+              "breakfast",
+              "lunch",
+              "snacks",
+              "functions",
+              "room",
+              "menu",
+              "dining",
+              "coffee",
+              "cocktails",
+              "wine",
+              "beer",
+              "music",
+              "vaccination",
+              "surgery",
+              "whitening",
+              "dental",
+              "grooming",
+              "boarding",
+              "microchip",
+              "pets",
+              "water",
+              "gas",
+              "plumbing",
+              "electrical",
+              "mechanic",
+              "cleaning",
+              "painting",
+              "building",
+              "locks",
+              "garden",
+              "physio",
+              "massage",
+              "yoga",
+              "pilates",
+              "health",
+              "books",
+              "records",
+              "gifts",
+              "haircut",
+              "clothing",
+              "bread",
+              "pastries",
+              "cake",
+              "seafood",
+              "produce",
+              "flowers",
+              "wedding",
+              "accounting",
+              "tax",
+              "bookkeeping",
+              "conveyancing",
+              "wills",
+              "legal",
+              "advice",
+              "online",
+              "photography",
+              "education",
+              "outdoor",
+              "hours",
+              "generic"
+            ],
+            "description": "Icon from the shared library; omit to match the name"
           }
         },
         "required": [
@@ -10061,6 +10416,11 @@
               "type": "string"
             }
           },
+          "icon": {
+            "type": "string",
+            "nullable": true,
+            "description": "Icon key from the shared library; null matches the name"
+          },
           "active": {
             "type": "boolean"
           },
@@ -10081,6 +10441,7 @@
           "name",
           "slug",
           "synonyms",
+          "icon",
           "active",
           "version",
           "createdAt",
@@ -10107,6 +10468,81 @@
             "items": {
               "type": "string"
             }
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "wifi",
+              "parking",
+              "accessible",
+              "kids",
+              "emergency",
+              "wholesale",
+              "delivery",
+              "takeaway",
+              "catering",
+              "breakfast",
+              "lunch",
+              "snacks",
+              "functions",
+              "room",
+              "menu",
+              "dining",
+              "coffee",
+              "cocktails",
+              "wine",
+              "beer",
+              "music",
+              "vaccination",
+              "surgery",
+              "whitening",
+              "dental",
+              "grooming",
+              "boarding",
+              "microchip",
+              "pets",
+              "water",
+              "gas",
+              "plumbing",
+              "electrical",
+              "mechanic",
+              "cleaning",
+              "painting",
+              "building",
+              "locks",
+              "garden",
+              "physio",
+              "massage",
+              "yoga",
+              "pilates",
+              "health",
+              "books",
+              "records",
+              "gifts",
+              "haircut",
+              "clothing",
+              "bread",
+              "pastries",
+              "cake",
+              "seafood",
+              "produce",
+              "flowers",
+              "wedding",
+              "accounting",
+              "tax",
+              "bookkeeping",
+              "conveyancing",
+              "wills",
+              "legal",
+              "advice",
+              "online",
+              "photography",
+              "education",
+              "outdoor",
+              "hours",
+              "generic"
+            ]
           },
           "sortOrder": {
             "type": "number"
@@ -10144,6 +10580,44 @@
           "sortOrder": {
             "type": "number"
           },
+          "imageMediaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TermImageRefDto"
+              }
+            ]
+          },
+          "ogImage": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TermImageRefDto"
+              }
+            ]
+          },
           "active": {
             "type": "boolean"
           },
@@ -10171,6 +10645,13 @@
           "eligibilitySource",
           "eligibilityVerifiedAt",
           "sortOrder",
+          "imageMediaId",
+          "seoTitle",
+          "seoDescription",
+          "seoKeywords",
+          "ogImageMediaId",
+          "image",
+          "ogImage",
           "active",
           "version",
           "createdAt",
@@ -10204,6 +10685,34 @@
             "type": "string",
             "description": "How eligibility was verified against the approved boundary",
             "maxLength": 255
+          },
+          "imageMediaId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Image shown at the top of the area page (media asset id)"
+          },
+          "seoTitle": {
+            "type": "string",
+            "maxLength": 180,
+            "nullable": true,
+            "description": "Search-result title; the name is used when empty"
+          },
+          "seoDescription": {
+            "type": "string",
+            "maxLength": 300,
+            "nullable": true,
+            "description": "Meta description; the introduction is used when empty"
+          },
+          "seoKeywords": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true,
+            "description": "Comma-separated keywords"
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Share image (media asset id); the area image, then the site image, is used when empty"
           }
         },
         "required": [
@@ -10238,6 +10747,44 @@
           "sortOrder": {
             "type": "number"
           },
+          "imageMediaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TermImageRefDto"
+              }
+            ]
+          },
+          "ogImage": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TermImageRefDto"
+              }
+            ]
+          },
           "active": {
             "type": "boolean"
           },
@@ -10261,6 +10808,13 @@
           "eligibilitySource",
           "eligibilityVerifiedAt",
           "sortOrder",
+          "imageMediaId",
+          "seoTitle",
+          "seoDescription",
+          "seoKeywords",
+          "ogImageMediaId",
+          "image",
+          "ogImage",
           "active",
           "version",
           "createdAt",
@@ -10294,10 +10848,378 @@
           },
           "sortOrder": {
             "type": "number"
+          },
+          "imageMediaId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Image shown at the top of the area page (media asset id)"
+          },
+          "seoTitle": {
+            "type": "string",
+            "maxLength": 180,
+            "nullable": true,
+            "description": "Search-result title; the name is used when empty"
+          },
+          "seoDescription": {
+            "type": "string",
+            "maxLength": 300,
+            "nullable": true,
+            "description": "Meta description; the introduction is used when empty"
+          },
+          "seoKeywords": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true,
+            "description": "Comma-separated keywords"
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Share image (media asset id); the area image, then the site image, is used when empty"
           }
         },
         "required": [
           "expectedVersion"
+        ]
+      },
+      "MediaVariantDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "thumbnail",
+              "card",
+              "hero"
+            ]
+          },
+          "url": {
+            "type": "string"
+          },
+          "width": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "url",
+          "width",
+          "height"
+        ]
+      },
+      "MediaUsageDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "business",
+              "post",
+              "page",
+              "author",
+              "testimonial",
+              "partner",
+              "category",
+              "area",
+              "setting"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "label"
+        ]
+      },
+      "MediaAssetDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sourceName": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "number"
+          },
+          "width": {
+            "type": "number",
+            "nullable": true
+          },
+          "height": {
+            "type": "number",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "quarantined",
+              "ready",
+              "rejected"
+            ]
+          },
+          "rejectionReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "altText": {
+            "type": "string",
+            "nullable": true
+          },
+          "credit": {
+            "type": "string",
+            "nullable": true
+          },
+          "rightsNote": {
+            "type": "string",
+            "nullable": true
+          },
+          "focalX": {
+            "type": "number",
+            "nullable": true
+          },
+          "focalY": {
+            "type": "number",
+            "nullable": true
+          },
+          "variants": {
+            "description": "Empty until processing finishes; a quarantined asset has no public URL",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaVariantDto"
+            }
+          },
+          "usages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaUsageDto"
+            }
+          },
+          "version": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "sourceName",
+          "mimeType",
+          "bytes",
+          "width",
+          "height",
+          "status",
+          "rejectionReason",
+          "altText",
+          "credit",
+          "rightsNote",
+          "focalX",
+          "focalY",
+          "variants",
+          "usages",
+          "version",
+          "createdAt"
+        ]
+      },
+      "RequestUploadDto": {
+        "type": "object",
+        "properties": {
+          "fileName": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Original file name, for admin display only"
+          },
+          "contentType": {
+            "type": "string",
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp"
+            ]
+          },
+          "bytes": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 10485760
+          }
+        },
+        "required": [
+          "fileName",
+          "contentType",
+          "bytes"
+        ]
+      },
+      "UploadTicketDto": {
+        "type": "object",
+        "properties": {
+          "assetId": {
+            "type": "string"
+          },
+          "uploadUrl": {
+            "type": "string",
+            "description": "Short-lived signed PUT URL; the key is server-generated"
+          },
+          "headers": {
+            "type": "object",
+            "description": "Headers that must accompany the PUT"
+          },
+          "expiresInSeconds": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "assetId",
+          "uploadUrl",
+          "headers",
+          "expiresInSeconds"
+        ]
+      },
+      "CompleteUploadDto": {
+        "type": "object",
+        "properties": {
+          "checksum": {
+            "type": "string",
+            "description": "SHA-256 of the uploaded bytes, hex; verified when supplied"
+          },
+          "altText": {
+            "type": "object",
+            "maxLength": 255,
+            "description": "Alt text; required before the asset can be used on a page (SRS MED 003)"
+          }
+        }
+      },
+      "UpdateMediaDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          },
+          "altText": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255
+          },
+          "credit": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255
+          },
+          "rightsNote": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 500
+          },
+          "focalX": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Focal point as a fraction of the width"
+          },
+          "focalY": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "GalleryEntryDto": {
+        "type": "object",
+        "properties": {
+          "mediaId": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "caption": {
+            "type": "string",
+            "nullable": true
+          },
+          "alt": {
+            "type": "string",
+            "description": "Alt text actually used: the override when set, otherwise the asset alt text"
+          },
+          "isCover": {
+            "type": "boolean"
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaVariantDto"
+            }
+          }
+        },
+        "required": [
+          "mediaId",
+          "sortOrder",
+          "caption",
+          "alt",
+          "isCover",
+          "variants"
+        ]
+      },
+      "GalleryItemDto": {
+        "type": "object",
+        "properties": {
+          "mediaId": {
+            "type": "string"
+          },
+          "caption": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255
+          },
+          "altOverride": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255,
+            "description": "Alt text for this context; falls back to the asset alt text"
+          },
+          "isCover": {
+            "type": "boolean",
+            "description": "Exactly one item may be the cover"
+          }
+        },
+        "required": [
+          "mediaId"
+        ]
+      },
+      "SetGalleryDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          },
+          "items": {
+            "maxItems": 24,
+            "description": "Replaces the gallery; order is the array order",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GalleryItemDto"
+            }
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "items"
         ]
       },
       "BusinessListItemDto": {
@@ -10518,6 +11440,12 @@
             "writeOnly": true,
             "description": "Private enquiry destination; encrypted at rest, never public"
           },
+          "establishedYear": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1835,
+            "description": "The year the business began trading; shown publicly as \"n years in business\""
+          },
           "eligibilitySource": {
             "type": "string",
             "maxLength": 255,
@@ -10736,6 +11664,10 @@
           "hasPrivateEnquiryEmail": {
             "type": "boolean"
           },
+          "establishedYear": {
+            "type": "number",
+            "nullable": true
+          },
           "eligibilitySource": {
             "type": "string",
             "nullable": true
@@ -10818,6 +11750,7 @@
           "address",
           "privateEnquiryEmail",
           "hasPrivateEnquiryEmail",
+          "establishedYear",
           "eligibilitySource",
           "eligibilityVerifiedAt",
           "contentRightsReviewedAt",
@@ -10904,6 +11837,12 @@
             "nullable": true,
             "writeOnly": true,
             "description": "Private enquiry destination; encrypted at rest, never public"
+          },
+          "establishedYear": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1835,
+            "description": "The year the business began trading; shown publicly as \"n years in business\""
           },
           "eligibilitySource": {
             "type": "string",
@@ -11340,6 +12279,11 @@
           },
           "slug": {
             "type": "string"
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true,
+            "description": "Services only: the icon key an editor chose, from the shared library"
           }
         },
         "required": [
@@ -11779,6 +12723,11 @@
           "description": {
             "type": "string"
           },
+          "establishedYear": {
+            "type": "number",
+            "nullable": true,
+            "description": "The year the business says it began trading; null when not recorded"
+          },
           "secondaryCategories": {
             "type": "array",
             "items": {
@@ -11863,6 +12812,7 @@
           "rating",
           "image",
           "description",
+          "establishedYear",
           "secondaryCategories",
           "services",
           "contact",
@@ -14211,344 +15161,6 @@
           "expectedVersion",
           "publicText",
           "reason"
-        ]
-      },
-      "MediaVariantDto": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "thumbnail",
-              "card",
-              "hero"
-            ]
-          },
-          "url": {
-            "type": "string"
-          },
-          "width": {
-            "type": "number"
-          },
-          "height": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "kind",
-          "url",
-          "width",
-          "height"
-        ]
-      },
-      "MediaUsageDto": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "business",
-              "post",
-              "page",
-              "author",
-              "testimonial",
-              "partner",
-              "setting"
-            ]
-          },
-          "id": {
-            "type": "string"
-          },
-          "label": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "kind",
-          "id",
-          "label"
-        ]
-      },
-      "MediaAssetDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "sourceName": {
-            "type": "string"
-          },
-          "mimeType": {
-            "type": "string"
-          },
-          "bytes": {
-            "type": "number"
-          },
-          "width": {
-            "type": "number",
-            "nullable": true
-          },
-          "height": {
-            "type": "number",
-            "nullable": true
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "quarantined",
-              "ready",
-              "rejected"
-            ]
-          },
-          "rejectionReason": {
-            "type": "string",
-            "nullable": true
-          },
-          "altText": {
-            "type": "string",
-            "nullable": true
-          },
-          "credit": {
-            "type": "string",
-            "nullable": true
-          },
-          "rightsNote": {
-            "type": "string",
-            "nullable": true
-          },
-          "focalX": {
-            "type": "number",
-            "nullable": true
-          },
-          "focalY": {
-            "type": "number",
-            "nullable": true
-          },
-          "variants": {
-            "description": "Empty until processing finishes; a quarantined asset has no public URL",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MediaVariantDto"
-            }
-          },
-          "usages": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MediaUsageDto"
-            }
-          },
-          "version": {
-            "type": "number"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "sourceName",
-          "mimeType",
-          "bytes",
-          "width",
-          "height",
-          "status",
-          "rejectionReason",
-          "altText",
-          "credit",
-          "rightsNote",
-          "focalX",
-          "focalY",
-          "variants",
-          "usages",
-          "version",
-          "createdAt"
-        ]
-      },
-      "RequestUploadDto": {
-        "type": "object",
-        "properties": {
-          "fileName": {
-            "type": "string",
-            "maxLength": 255,
-            "description": "Original file name, for admin display only"
-          },
-          "contentType": {
-            "type": "string",
-            "enum": [
-              "image/jpeg",
-              "image/png",
-              "image/webp"
-            ]
-          },
-          "bytes": {
-            "type": "number",
-            "minimum": 1,
-            "maximum": 10485760
-          }
-        },
-        "required": [
-          "fileName",
-          "contentType",
-          "bytes"
-        ]
-      },
-      "UploadTicketDto": {
-        "type": "object",
-        "properties": {
-          "assetId": {
-            "type": "string"
-          },
-          "uploadUrl": {
-            "type": "string",
-            "description": "Short-lived signed PUT URL; the key is server-generated"
-          },
-          "headers": {
-            "type": "object",
-            "description": "Headers that must accompany the PUT"
-          },
-          "expiresInSeconds": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "assetId",
-          "uploadUrl",
-          "headers",
-          "expiresInSeconds"
-        ]
-      },
-      "CompleteUploadDto": {
-        "type": "object",
-        "properties": {
-          "checksum": {
-            "type": "string",
-            "description": "SHA-256 of the uploaded bytes, hex; verified when supplied"
-          },
-          "altText": {
-            "type": "object",
-            "maxLength": 255,
-            "description": "Alt text; required before the asset can be used on a page (SRS MED 003)"
-          }
-        }
-      },
-      "UpdateMediaDto": {
-        "type": "object",
-        "properties": {
-          "expectedVersion": {
-            "type": "number"
-          },
-          "altText": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 255
-          },
-          "credit": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 255
-          },
-          "rightsNote": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 500
-          },
-          "focalX": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1,
-            "description": "Focal point as a fraction of the width"
-          },
-          "focalY": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
-          }
-        },
-        "required": [
-          "expectedVersion"
-        ]
-      },
-      "GalleryEntryDto": {
-        "type": "object",
-        "properties": {
-          "mediaId": {
-            "type": "string"
-          },
-          "sortOrder": {
-            "type": "number"
-          },
-          "caption": {
-            "type": "string",
-            "nullable": true
-          },
-          "alt": {
-            "type": "string",
-            "description": "Alt text actually used: the override when set, otherwise the asset alt text"
-          },
-          "isCover": {
-            "type": "boolean"
-          },
-          "variants": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MediaVariantDto"
-            }
-          }
-        },
-        "required": [
-          "mediaId",
-          "sortOrder",
-          "caption",
-          "alt",
-          "isCover",
-          "variants"
-        ]
-      },
-      "GalleryItemDto": {
-        "type": "object",
-        "properties": {
-          "mediaId": {
-            "type": "string"
-          },
-          "caption": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 255
-          },
-          "altOverride": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 255,
-            "description": "Alt text for this context; falls back to the asset alt text"
-          },
-          "isCover": {
-            "type": "boolean",
-            "description": "Exactly one item may be the cover"
-          }
-        },
-        "required": [
-          "mediaId"
-        ]
-      },
-      "SetGalleryDto": {
-        "type": "object",
-        "properties": {
-          "expectedVersion": {
-            "type": "number"
-          },
-          "items": {
-            "maxItems": 24,
-            "description": "Replaces the gallery; order is the array order",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/GalleryItemDto"
-            }
-          }
-        },
-        "required": [
-          "expectedVersion",
-          "items"
         ]
       },
       "DashboardMetricDto": {

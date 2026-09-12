@@ -758,6 +758,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/media": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List media assets (status, q, unused) */
+        get: operations["MediaAdminController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/media/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request a short-lived signed upload for the private quarantine bucket */
+        post: operations["MediaAdminController_requestUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/media/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate the uploaded bytes and queue variant processing */
+        post: operations["MediaAdminController_complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/media/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MediaAdminController_get"];
+        put?: never;
+        post?: never;
+        /** Delete an unused asset; refused while any usage exists */
+        delete: operations["MediaAdminController_remove"];
+        options?: never;
+        head?: never;
+        /** Edit alt text, credit, rights note and focal point */
+        patch: operations["MediaAdminController_update"];
+        trace?: never;
+    };
+    "/api/v1/admin/businesses/{businessId}/gallery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["BusinessGalleryController_get"];
+        /** Replace the gallery (order, captions, alt overrides, cover) with expectedVersion */
+        put: operations["BusinessGalleryController_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/businesses": {
         parameters: {
             query?: never;
@@ -1882,92 +1968,6 @@ export interface paths {
         head?: never;
         /** Replace or restore the published text; the original is always kept */
         patch: operations["CommentsAdminController_redact"];
-        trace?: never;
-    };
-    "/api/v1/admin/media": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List media assets (status, q, unused) */
-        get: operations["MediaAdminController_list"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/media/uploads": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Request a short-lived signed upload for the private quarantine bucket */
-        post: operations["MediaAdminController_requestUpload"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/media/{id}/complete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Validate the uploaded bytes and queue variant processing */
-        post: operations["MediaAdminController_complete"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/media/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["MediaAdminController_get"];
-        put?: never;
-        post?: never;
-        /** Delete an unused asset; refused while any usage exists */
-        delete: operations["MediaAdminController_remove"];
-        options?: never;
-        head?: never;
-        /** Edit alt text, credit, rights note and focal point */
-        patch: operations["MediaAdminController_update"];
-        trace?: never;
-    };
-    "/api/v1/admin/businesses/{businessId}/gallery": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["BusinessGalleryController_get"];
-        /** Replace the gallery (order, captions, alt overrides, cover) with expectedVersion */
-        put: operations["BusinessGalleryController_set"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/api/v1/admin/dashboard": {
@@ -3302,12 +3302,35 @@ export interface components {
             /** @description Recorded in the audit log */
             reason?: string;
         };
+        TermImageRefDto: {
+            id: string;
+            url: string;
+            alt: string;
+        };
         PublicCategoryDto: {
             id: string;
             name: string;
             slug: string;
             description: string | null;
+            /** @description Card-sized image for tiles and the landing page */
+            image: components["schemas"]["TermImageRefDto"] | null;
+            seoTitle: string | null;
+            seoDescription: string | null;
+            seoKeywords: string | null;
+            /** @description Share image at hero size; null falls back to the category image, then the site image */
+            shareImage: components["schemas"]["TermImageRefDto"] | null;
             children: components["schemas"]["PublicCategoryDto"][];
+        };
+        PublicLocalAreaDto: {
+            id: string;
+            name: string;
+            slug: string;
+            editorialIntro: string | null;
+            image: components["schemas"]["TermImageRefDto"] | null;
+            seoTitle: string | null;
+            seoDescription: string | null;
+            seoKeywords: string | null;
+            shareImage: components["schemas"]["TermImageRefDto"] | null;
         };
         CategoryListItemDto: {
             id: string;
@@ -3316,6 +3339,14 @@ export interface components {
             description: string | null;
             parentId: string | null;
             sortOrder: number;
+            imageMediaId: string | null;
+            seoTitle: string | null;
+            seoDescription: string | null;
+            seoKeywords: string | null;
+            ogImageMediaId: string | null;
+            /** @description The chosen image, resolved for the editor preview */
+            image: components["schemas"]["TermImageRefDto"] | null;
+            ogImage: components["schemas"]["TermImageRefDto"] | null;
             active: boolean;
             version: number;
             /** Format: date-time */
@@ -3335,6 +3366,16 @@ export interface components {
             description?: string;
             /** @description Parent category id (must be a root category); omit for a root */
             parentId?: Record<string, never> | null;
+            /** @description Image shown on the home-page tile and the landing page (media asset id) */
+            imageMediaId?: string | null;
+            /** @description Search-result title; the name is used when empty */
+            seoTitle?: string | null;
+            /** @description Meta description; the description is used when empty */
+            seoDescription?: string | null;
+            /** @description Comma-separated keywords */
+            seoKeywords?: string | null;
+            /** @description Share image (media asset id); the category image, then the site image, is used when empty */
+            ogImageMediaId?: string | null;
         };
         CategoryDto: {
             id: string;
@@ -3343,6 +3384,14 @@ export interface components {
             description: string | null;
             parentId: string | null;
             sortOrder: number;
+            imageMediaId: string | null;
+            seoTitle: string | null;
+            seoDescription: string | null;
+            seoKeywords: string | null;
+            ogImageMediaId: string | null;
+            /** @description The chosen image, resolved for the editor preview */
+            image: components["schemas"]["TermImageRefDto"] | null;
+            ogImage: components["schemas"]["TermImageRefDto"] | null;
             active: boolean;
             version: number;
             /** Format: date-time */
@@ -3357,6 +3406,16 @@ export interface components {
             description?: Record<string, never> | null;
             parentId?: Record<string, never> | null;
             sortOrder?: number;
+            /** @description Image shown on the home-page tile and the landing page (media asset id) */
+            imageMediaId?: string | null;
+            /** @description Search-result title; the name is used when empty */
+            seoTitle?: string | null;
+            /** @description Meta description; the description is used when empty */
+            seoDescription?: string | null;
+            /** @description Comma-separated keywords */
+            seoKeywords?: string | null;
+            /** @description Share image (media asset id); the category image, then the site image, is used when empty */
+            ogImageMediaId?: string | null;
         };
         TermStateDto: {
             expectedVersion: number;
@@ -3367,6 +3426,8 @@ export interface components {
             name: string;
             slug: string;
             synonyms: string[];
+            /** @description Icon key from the shared library; null matches the name */
+            icon: string | null;
             active: boolean;
             version: number;
             /** Format: date-time */
@@ -3384,12 +3445,19 @@ export interface components {
             sortOrder: number;
             /** @description Search synonyms (2–80 chars each, max 20) */
             synonyms?: string[];
+            /**
+             * @description Icon from the shared library; omit to match the name
+             * @enum {string|null}
+             */
+            icon?: "wifi" | "parking" | "accessible" | "kids" | "emergency" | "wholesale" | "delivery" | "takeaway" | "catering" | "breakfast" | "lunch" | "snacks" | "functions" | "room" | "menu" | "dining" | "coffee" | "cocktails" | "wine" | "beer" | "music" | "vaccination" | "surgery" | "whitening" | "dental" | "grooming" | "boarding" | "microchip" | "pets" | "water" | "gas" | "plumbing" | "electrical" | "mechanic" | "cleaning" | "painting" | "building" | "locks" | "garden" | "physio" | "massage" | "yoga" | "pilates" | "health" | "books" | "records" | "gifts" | "haircut" | "clothing" | "bread" | "pastries" | "cake" | "seafood" | "produce" | "flowers" | "wedding" | "accounting" | "tax" | "bookkeeping" | "conveyancing" | "wills" | "legal" | "advice" | "online" | "photography" | "education" | "outdoor" | "hours" | "generic" | null;
         };
         ServiceDto: {
             id: string;
             name: string;
             slug: string;
             synonyms: string[];
+            /** @description Icon key from the shared library; null matches the name */
+            icon: string | null;
             active: boolean;
             version: number;
             /** Format: date-time */
@@ -3402,6 +3470,8 @@ export interface components {
             name?: string;
             slug?: string;
             synonyms?: string[];
+            /** @enum {string|null} */
+            icon?: "wifi" | "parking" | "accessible" | "kids" | "emergency" | "wholesale" | "delivery" | "takeaway" | "catering" | "breakfast" | "lunch" | "snacks" | "functions" | "room" | "menu" | "dining" | "coffee" | "cocktails" | "wine" | "beer" | "music" | "vaccination" | "surgery" | "whitening" | "dental" | "grooming" | "boarding" | "microchip" | "pets" | "water" | "gas" | "plumbing" | "electrical" | "mechanic" | "cleaning" | "painting" | "building" | "locks" | "garden" | "physio" | "massage" | "yoga" | "pilates" | "health" | "books" | "records" | "gifts" | "haircut" | "clothing" | "bread" | "pastries" | "cake" | "seafood" | "produce" | "flowers" | "wedding" | "accounting" | "tax" | "bookkeeping" | "conveyancing" | "wills" | "legal" | "advice" | "online" | "photography" | "education" | "outdoor" | "hours" | "generic" | null;
             sortOrder?: number;
         };
         LocalAreaListItemDto: {
@@ -3413,6 +3483,13 @@ export interface components {
             /** Format: date-time */
             eligibilityVerifiedAt: string | null;
             sortOrder: number;
+            imageMediaId: string | null;
+            seoTitle: string | null;
+            seoDescription: string | null;
+            seoKeywords: string | null;
+            ogImageMediaId: string | null;
+            image: components["schemas"]["TermImageRefDto"] | null;
+            ogImage: components["schemas"]["TermImageRefDto"] | null;
             active: boolean;
             version: number;
             /** Format: date-time */
@@ -3432,6 +3509,16 @@ export interface components {
             editorialIntro?: string;
             /** @description How eligibility was verified against the approved boundary */
             eligibilitySource?: string;
+            /** @description Image shown at the top of the area page (media asset id) */
+            imageMediaId?: string | null;
+            /** @description Search-result title; the name is used when empty */
+            seoTitle?: string | null;
+            /** @description Meta description; the introduction is used when empty */
+            seoDescription?: string | null;
+            /** @description Comma-separated keywords */
+            seoKeywords?: string | null;
+            /** @description Share image (media asset id); the area image, then the site image, is used when empty */
+            ogImageMediaId?: string | null;
         };
         LocalAreaDto: {
             id: string;
@@ -3442,6 +3529,13 @@ export interface components {
             /** Format: date-time */
             eligibilityVerifiedAt: string | null;
             sortOrder: number;
+            imageMediaId: string | null;
+            seoTitle: string | null;
+            seoDescription: string | null;
+            seoKeywords: string | null;
+            ogImageMediaId: string | null;
+            image: components["schemas"]["TermImageRefDto"] | null;
+            ogImage: components["schemas"]["TermImageRefDto"] | null;
             active: boolean;
             version: number;
             /** Format: date-time */
@@ -3456,6 +3550,103 @@ export interface components {
             editorialIntro?: Record<string, never> | null;
             eligibilitySource?: Record<string, never> | null;
             sortOrder?: number;
+            /** @description Image shown at the top of the area page (media asset id) */
+            imageMediaId?: string | null;
+            /** @description Search-result title; the name is used when empty */
+            seoTitle?: string | null;
+            /** @description Meta description; the introduction is used when empty */
+            seoDescription?: string | null;
+            /** @description Comma-separated keywords */
+            seoKeywords?: string | null;
+            /** @description Share image (media asset id); the area image, then the site image, is used when empty */
+            ogImageMediaId?: string | null;
+        };
+        MediaVariantDto: {
+            /** @enum {string} */
+            kind: "thumbnail" | "card" | "hero";
+            url: string;
+            width: number;
+            height: number;
+        };
+        MediaUsageDto: {
+            /** @enum {string} */
+            kind: "business" | "post" | "page" | "author" | "testimonial" | "partner" | "category" | "area" | "setting";
+            id: string;
+            label: string;
+        };
+        MediaAssetDto: {
+            id: string;
+            sourceName: string;
+            mimeType: string;
+            bytes: number;
+            width: number | null;
+            height: number | null;
+            /** @enum {string} */
+            status: "quarantined" | "ready" | "rejected";
+            rejectionReason: string | null;
+            altText: string | null;
+            credit: string | null;
+            rightsNote: string | null;
+            focalX: number | null;
+            focalY: number | null;
+            /** @description Empty until processing finishes; a quarantined asset has no public URL */
+            variants: components["schemas"]["MediaVariantDto"][];
+            usages: components["schemas"]["MediaUsageDto"][];
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        RequestUploadDto: {
+            /** @description Original file name, for admin display only */
+            fileName: string;
+            /** @enum {string} */
+            contentType: "image/jpeg" | "image/png" | "image/webp";
+            bytes: number;
+        };
+        UploadTicketDto: {
+            assetId: string;
+            /** @description Short-lived signed PUT URL; the key is server-generated */
+            uploadUrl: string;
+            /** @description Headers that must accompany the PUT */
+            headers: Record<string, never>;
+            expiresInSeconds: number;
+        };
+        CompleteUploadDto: {
+            /** @description SHA-256 of the uploaded bytes, hex; verified when supplied */
+            checksum?: string;
+            /** @description Alt text; required before the asset can be used on a page (SRS MED 003) */
+            altText?: Record<string, never>;
+        };
+        UpdateMediaDto: {
+            expectedVersion: number;
+            altText?: string | null;
+            credit?: string | null;
+            rightsNote?: string | null;
+            /** @description Focal point as a fraction of the width */
+            focalX?: number;
+            focalY?: number;
+        };
+        GalleryEntryDto: {
+            mediaId: string;
+            sortOrder: number;
+            caption: string | null;
+            /** @description Alt text actually used: the override when set, otherwise the asset alt text */
+            alt: string;
+            isCover: boolean;
+            variants: components["schemas"]["MediaVariantDto"][];
+        };
+        GalleryItemDto: {
+            mediaId: string;
+            caption?: string | null;
+            /** @description Alt text for this context; falls back to the asset alt text */
+            altOverride?: string | null;
+            /** @description Exactly one item may be the cover */
+            isCover?: boolean;
+        };
+        SetGalleryDto: {
+            expectedVersion: number;
+            /** @description Replaces the gallery; order is the array order */
+            items: components["schemas"]["GalleryItemDto"][];
         };
         BusinessListItemDto: {
             id: string;
@@ -3512,6 +3703,8 @@ export interface components {
             address?: components["schemas"]["AddressInputDto"] | null;
             /** @description Private enquiry destination; encrypted at rest, never public */
             privateEnquiryEmail?: string | null;
+            /** @description The year the business began trading; shown publicly as "n years in business" */
+            establishedYear?: number | null;
             /** @description How Melbourne eligibility was verified; saving it records the verification time */
             eligibilitySource?: string | null;
             /** @description Set true once content rights/sources have been reviewed */
@@ -3569,6 +3762,7 @@ export interface components {
             /** @description Only present for listings.write holders on the detail endpoint */
             privateEnquiryEmail: string | null;
             hasPrivateEnquiryEmail: boolean;
+            establishedYear: number | null;
             eligibilitySource: string | null;
             /** Format: date-time */
             eligibilityVerifiedAt: string | null;
@@ -3607,6 +3801,8 @@ export interface components {
             address?: components["schemas"]["AddressInputDto"] | null;
             /** @description Private enquiry destination; encrypted at rest, never public */
             privateEnquiryEmail?: string | null;
+            /** @description The year the business began trading; shown publicly as "n years in business" */
+            establishedYear?: number | null;
             /** @description How Melbourne eligibility was verified; saving it records the verification time */
             eligibilitySource?: string | null;
             /** @description Set true once content rights/sources have been reviewed */
@@ -3755,6 +3951,8 @@ export interface components {
         PublicTermDto: {
             name: string;
             slug: string;
+            /** @description Services only: the icon key an editor chose, from the shared library */
+            icon?: string | null;
         };
         PublicRatingDto: {
             /** @description Average of approved reviews, one decimal */
@@ -3866,6 +4064,8 @@ export interface components {
             /** @description Cover image; null when the listing has no published image, so clients render the fallback */
             image: components["schemas"]["PublicImageDto"] | null;
             description: string;
+            /** @description The year the business says it began trading; null when not recorded */
+            establishedYear: number | null;
             secondaryCategories: components["schemas"]["PublicTermDto"][];
             services: components["schemas"]["PublicTermDto"][];
             contact: components["schemas"]["PublicContactDto"];
@@ -4524,93 +4724,6 @@ export interface components {
             expectedVersion: number;
             publicText: string | null;
             reason: string;
-        };
-        MediaVariantDto: {
-            /** @enum {string} */
-            kind: "thumbnail" | "card" | "hero";
-            url: string;
-            width: number;
-            height: number;
-        };
-        MediaUsageDto: {
-            /** @enum {string} */
-            kind: "business" | "post" | "page" | "author" | "testimonial" | "partner" | "setting";
-            id: string;
-            label: string;
-        };
-        MediaAssetDto: {
-            id: string;
-            sourceName: string;
-            mimeType: string;
-            bytes: number;
-            width: number | null;
-            height: number | null;
-            /** @enum {string} */
-            status: "quarantined" | "ready" | "rejected";
-            rejectionReason: string | null;
-            altText: string | null;
-            credit: string | null;
-            rightsNote: string | null;
-            focalX: number | null;
-            focalY: number | null;
-            /** @description Empty until processing finishes; a quarantined asset has no public URL */
-            variants: components["schemas"]["MediaVariantDto"][];
-            usages: components["schemas"]["MediaUsageDto"][];
-            version: number;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        RequestUploadDto: {
-            /** @description Original file name, for admin display only */
-            fileName: string;
-            /** @enum {string} */
-            contentType: "image/jpeg" | "image/png" | "image/webp";
-            bytes: number;
-        };
-        UploadTicketDto: {
-            assetId: string;
-            /** @description Short-lived signed PUT URL; the key is server-generated */
-            uploadUrl: string;
-            /** @description Headers that must accompany the PUT */
-            headers: Record<string, never>;
-            expiresInSeconds: number;
-        };
-        CompleteUploadDto: {
-            /** @description SHA-256 of the uploaded bytes, hex; verified when supplied */
-            checksum?: string;
-            /** @description Alt text; required before the asset can be used on a page (SRS MED 003) */
-            altText?: Record<string, never>;
-        };
-        UpdateMediaDto: {
-            expectedVersion: number;
-            altText?: string | null;
-            credit?: string | null;
-            rightsNote?: string | null;
-            /** @description Focal point as a fraction of the width */
-            focalX?: number;
-            focalY?: number;
-        };
-        GalleryEntryDto: {
-            mediaId: string;
-            sortOrder: number;
-            caption: string | null;
-            /** @description Alt text actually used: the override when set, otherwise the asset alt text */
-            alt: string;
-            isCover: boolean;
-            variants: components["schemas"]["MediaVariantDto"][];
-        };
-        GalleryItemDto: {
-            mediaId: string;
-            caption?: string | null;
-            /** @description Alt text for this context; falls back to the asset alt text */
-            altOverride?: string | null;
-            /** @description Exactly one item may be the cover */
-            isCover?: boolean;
-        };
-        SetGalleryDto: {
-            expectedVersion: number;
-            /** @description Replaces the gallery; order is the array order */
-            items: components["schemas"]["GalleryItemDto"][];
         };
         DashboardMetricDto: {
             /** @description Stable key the UI maps to a route and label */
@@ -6453,7 +6566,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PublicLocalAreaDto"][];
+                };
             };
         };
     };
@@ -6880,6 +6995,191 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    MediaAdminController_list: {
+        parameters: {
+            query?: {
+                status?: "quarantined" | "ready" | "rejected";
+                q?: string;
+                /** @description Only assets that are not used anywhere */
+                unused?: boolean;
+                page?: components["schemas"]["Object"];
+                pageSize?: components["schemas"]["Object"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaAssetDto"][];
+                };
+            };
+        };
+    };
+    MediaAdminController_requestUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestUploadDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadTicketDto"];
+                };
+            };
+        };
+    };
+    MediaAdminController_complete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteUploadDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaAssetDto"];
+                };
+            };
+        };
+    };
+    MediaAdminController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaAssetDto"];
+                };
+            };
+        };
+    };
+    MediaAdminController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MediaAdminController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMediaDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaAssetDto"];
+                };
+            };
+        };
+    };
+    BusinessGalleryController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                businessId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GalleryEntryDto"][];
+                };
+            };
+        };
+    };
+    BusinessGalleryController_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                businessId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetGalleryDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GalleryEntryDto"][];
+                };
             };
         };
     };
@@ -8811,191 +9111,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminCommentDto"];
-                };
-            };
-        };
-    };
-    MediaAdminController_list: {
-        parameters: {
-            query?: {
-                status?: "quarantined" | "ready" | "rejected";
-                q?: string;
-                /** @description Only assets that are not used anywhere */
-                unused?: boolean;
-                page?: components["schemas"]["Object"];
-                pageSize?: components["schemas"]["Object"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MediaAssetDto"][];
-                };
-            };
-        };
-    };
-    MediaAdminController_requestUpload: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RequestUploadDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UploadTicketDto"];
-                };
-            };
-        };
-    };
-    MediaAdminController_complete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CompleteUploadDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MediaAssetDto"];
-                };
-            };
-        };
-    };
-    MediaAdminController_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MediaAssetDto"];
-                };
-            };
-        };
-    };
-    MediaAdminController_remove: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    MediaAdminController_update: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateMediaDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MediaAssetDto"];
-                };
-            };
-        };
-    };
-    BusinessGalleryController_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                businessId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GalleryEntryDto"][];
-                };
-            };
-        };
-    };
-    BusinessGalleryController_set: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                businessId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SetGalleryDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GalleryEntryDto"][];
                 };
             };
         };

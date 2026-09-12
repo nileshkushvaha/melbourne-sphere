@@ -1,6 +1,6 @@
 import { Controller, Get, Header } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { PublicCategoryDto } from './dto/taxonomy.dto.js';
+import { PublicCategoryDto, PublicLocalAreaDto } from './dto/taxonomy.dto.js';
 import { TaxonomyService } from './taxonomy.service.js';
 
 /** Public taxonomy (SRS API table: GET /categories /services /areas). Active items only. */
@@ -25,6 +25,7 @@ export class TaxonomyPublicController {
   }
 
   @Get('areas')
+  @ApiOkResponse({ type: [PublicLocalAreaDto] })
   @Header('Cache-Control', 'public, max-age=300')
   @ApiOperation({ summary: 'Approved, active Melbourne local areas' })
   async areas() {

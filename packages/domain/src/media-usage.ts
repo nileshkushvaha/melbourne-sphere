@@ -18,7 +18,7 @@
  * `MediaAsset` relations that make an image in use. The names are the Prisma
  * relation fields, so a query can be built from them directly.
  */
-export const MEDIA_USAGE_RELATIONS = ['businesses', 'coverOf', 'shareImageOf', 'pageShareImageOf', 'authorOf', 'testimonials', 'partners'] as const;
+export const MEDIA_USAGE_RELATIONS = ['businesses', 'coverOf', 'shareImageOf', 'pageShareImageOf', 'authorOf', 'testimonials', 'partners', 'categoryImageOf', 'categoryShareImageOf', 'areaImageOf', 'areaShareImageOf'] as const;
 
 export type MediaUsageRelation = (typeof MEDIA_USAGE_RELATIONS)[number];
 

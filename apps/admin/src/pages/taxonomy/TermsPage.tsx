@@ -14,7 +14,15 @@ import { useDocumentTitle } from '@/shared/useDocumentTitle';
 export interface TermField {
   name: string;
   label: string;
-  input: 'text' | 'textarea' | 'number' | 'tags' | 'parent' | 'permalink';
+  input: 'text' | 'textarea' | 'number' | 'tags' | 'parent' | 'permalink' | 'media' | 'icon';
+  /** A heading rendered above this field, opening a new group of fields. */
+  section?: { title: string; description?: string };
+  /** For `media`: the record key holding the resolved image, for the preview. */
+  preview?: string;
+  /** For `media`: what the empty frame says, and what clearing means. */
+  emptyLabel?: string;
+  clearLabel?: string;
+  aspectRatio?: string;
   required?: boolean;
   max?: number;
   help?: string;
