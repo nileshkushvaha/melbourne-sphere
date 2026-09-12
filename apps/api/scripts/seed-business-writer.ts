@@ -20,8 +20,9 @@ import { db, need, searchCommons, sleep, uploadImage, waitUntilReady, type Commo
 /** The API's own encryption, given the one value it reads from configuration. */
 export const encryption = new FieldEncryptionService({ get: () => need('FIELD_ENCRYPTION_KEY') } as never);
 const appSecret = need('APP_SECRET_KEY');
-const termsVersion = process.env.SUBMISSION_TERMS_VERSION ?? '2026-09-01';
-const hash = (value: string) => createHmac('sha256', appSecret).update(value).digest('hex');
+export const termsVersion = process.env.SUBMISSION_TERMS_VERSION ?? '2026-09-01';
+/** The keyed hash the API stores instead of an address or an IP (SRS DAT 002). */
+export const hash = (value: string) => createHmac('sha256', appSecret).update(value).digest('hex');
 
 export const slugify = (value: string) =>
   value

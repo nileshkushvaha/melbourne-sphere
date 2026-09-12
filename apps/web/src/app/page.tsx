@@ -144,7 +144,10 @@ export default async function HomePage() {
         ) : categories.data.length === 0 ? (
           <SectionEmpty>Categories are being prepared. In the meantime you can browse every published listing in the directory.</SectionEmpty>
         ) : (
-          <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          // Four across on a desktop: the directory now has enough categories
+          // that three left a long column, and a tile is a picture and two
+          // lines rather than a paragraph, so it reads fine at a quarter.
+          <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {categories.data.map((category) => (
               <li key={category.id}>
                 <Link

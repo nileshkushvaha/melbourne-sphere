@@ -144,3 +144,39 @@ Anything still under five synonyms is **reported, not padded**: a term nobody
 types makes search worse, so the dry run prints the list to be written by hand.
 That is how the eighty-three written entries at the end of the file were
 chosen.
+
+## Website content: FAQs, testimonials, partners and comments
+
+`apps/api/scripts/seed-website-content.ts` fills the surfaces that ship empty.
+
+```bash
+pnpm --filter api exec tsx --env-file=.env scripts/seed-website-content.ts
+```
+
+* **FAQs** — twenty-two questions in five groups, answers written as Markdown
+  and rendered through the same sanitiser an editor's answer goes through. One
+  is left as a draft, so the list screen has both states in it.
+* **Testimonials** — eleven quotes, most of them tied to a seeded listing so
+  the business link on the record has something to point at; one unpublished.
+* **Clients and partners** — eight organisations, each with a recorded
+  authorisation note, because permission is evidence kept with the record.
+* **Comments** — twenty-eight across the six seeded articles, in every state
+  the moderation queue deals with: published, waiting, refused with a reason,
+  and one published after a personal detail was taken out of it. Addresses are
+  encrypted and hashed exactly as a real submission's would be.
+
+### The partner logos are drawn, not found
+
+A partner's logo is its own mark. Passing a stock photograph off as one would
+put a lie on the page, so each is a plain wordmark — the organisation's
+initials in a rounded square, the name beside them — drawn at seed time and
+put through the same upload pipeline as any other image. The rights note on
+each says plainly that it is a demonstration wordmark for a fictional
+organisation.
+
+Sharp does the drawing, resolved from `apps/worker`: image processing is that
+application's job, and the API should not grow the dependency for a seeder.
+
+Publishing a partner requires a logo and its alternative text (the API refuses
+otherwise, SRS MED 003 / NFR 006), which is the other reason the logos are
+generated rather than left for later.

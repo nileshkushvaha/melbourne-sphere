@@ -216,6 +216,43 @@ export interface UploadInput {
   rightsNote: string;
 }
 
+/**
+ * Puts image bytes through the pipeline the upload endpoint uses: the original
+ * into the quarantine bucket, a row in the library, and an outbox event for the
+ * worker to make the renditions from. Whether the bytes came from Commons or
+ * were drawn here makes no difference to any of that.
+ */
+export async function uploadBytes(input: { bytes: Buffer; mimeType: string; extension: string; sourceName: string; alt: string; credit: string; rightsNote: string }): Promise<string> {
+  const already = await db.mediaAsset.findFirst({ where: { sourceName: input.sourceName, status: { in: ['ready', 'quarantined'] } }, select: { id: true } });
+  if (already) {
+    console.log(`  reusing        ${input.sourceName}`);
+    return already.id;
+  }
+  const objectKey = objectKeyFor('quarantine', randomBytes(8).toString('hex'), input.extension, randomBytes(12).toString('hex'));
+  await s3.send(new PutObjectCommand({ Bucket: quarantineBucket, Key: objectKey, Body: input.bytes, ContentType: input.mimeType }));
+  const asset = await db.$transaction(async (tx) => {
+    const row = await tx.mediaAsset.create({
+      data: {
+        sourceName: input.sourceName,
+        mimeType: input.mimeType,
+        bytes: input.bytes.byteLength,
+        checksum: createHash('sha256').update(input.bytes).digest('hex'),
+        objectKey,
+        status: 'quarantined',
+        altText: input.alt,
+        credit: input.credit,
+        rightsNote: input.rightsNote,
+      },
+      select: { id: true, version: true },
+    });
+    await tx.outboxEvent.create({
+      data: { type: 'media.uploaded', resourceType: 'media_asset', resourceId: row.id, resourceVersion: row.version, payload: { mediaId: row.id } },
+    });
+    return row;
+  });
+  return asset.id;
+}
+
 /** Uploads one photograph and asks the worker to process it, as the API does. */
 export async function uploadImage({ file, sourceName, alt, credit, rightsNote }: UploadInput): Promise<string> {
   const already = await db.mediaAsset.findFirst({ where: { sourceName, status: { in: ['ready', 'quarantined'] } }, select: { id: true } });
