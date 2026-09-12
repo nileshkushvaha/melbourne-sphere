@@ -572,3 +572,25 @@ export const SEED_ENRICHMENT: Record<string, Partial<SeedBusiness> & Pick<SeedBu
     ],
   },
 };
+
+/**
+ * What to look for on Commons for each category the product ships with.
+ *
+ * Keyed by slug rather than derived from the name: "Shopping" and "Home
+ * Services" find nothing useful on their own, and a category is a broad idea
+ * that needs a concrete subject before a photo search can answer it. A
+ * category that is not listed here falls back to its own name, which is worse
+ * but never wrong — and an editor can always choose a different picture.
+ */
+export const CATEGORY_IMAGE_QUERIES: Record<string, string> = {
+  cafes: 'cafe coffee shop counter',
+  restaurants: 'restaurant dining room table',
+  bars: 'cocktail bar counter',
+  'food-and-drink': 'food market produce stall',
+  shopping: 'shopping street storefront',
+  'independent-shops': 'bookshop interior shelves',
+  'pets-and-vets': 'veterinarian dog examination',
+  'home-services': 'plumber tools repair',
+  'health-and-wellness': 'physiotherapy treatment clinic',
+  'professional-services': 'office meeting desk documents',
+};

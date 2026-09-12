@@ -6,7 +6,6 @@ import { RecordEditorPage } from '@/components/ui';
 import { PermalinkField } from '@/components/PermalinkField';
 import { MediaField } from '@/components/MediaField';
 import { ServiceIconPicker } from '@/components/ServiceIconPicker';
-import { Typography } from 'antd';
 import { slugify } from '@/shared/slug';
 import { useAsync } from '@/shared/useAsync';
 import { useRecordEditor } from '@/shared/useRecordEditor';
@@ -85,9 +84,11 @@ export function TermEditorPage({ config }: { config: TermsPageConfig }) {
       {config.fields.map((field) => (
         <Fragment key={field.name}>
         {field.section && (
-          <div style={{ marginTop: 8, marginBottom: 16, paddingTop: 16, borderTop: '1px solid var(--ant-color-border)' }}>
-            <Typography.Title level={5} style={{ margin: 0 }}>{field.section.title}</Typography.Title>
-            {field.section.description && <Typography.Text type="secondary" style={{ fontSize: 13 }}>{field.section.description}</Typography.Text>}
+          // A real heading, so the group is announced as one rather than being
+          // grey text that happens to sit above some fields.
+          <div className="ms-form-section">
+            <h3>{field.section.title}</h3>
+            {field.section.description && <p>{field.section.description}</p>}
           </div>
         )}
         {field.input === 'icon' ? (

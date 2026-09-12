@@ -54,6 +54,52 @@ Nothing here describes a real trader, so nothing here can misdescribe one. The
 eligibility and content-rights fields on each record say plainly that the
 listing was seeded for development rather than checked by hand.
 
+## Filling out the directory
+
+`apps/api/scripts/seed-trades.ts` is the second half of the demonstration
+content: forty-odd trade categories — plumbers, electricians, roofing,
+dentists, removalists and the rest — each with at least four published
+listings and a photograph of its own.
+
+```bash
+pnpm --filter api exec tsx --env-file=.env scripts/seed-trades.ts
+```
+
+A directory of twenty listings cannot be judged: search returns everything,
+pagination never appears, a category page is a short list and every facet
+count is one. This creates enough of a tail for those screens to behave the
+way they will in use.
+
+Where the twenty hand-written listings in `business-seed-content.ts` are
+composed one by one, these are built from a vocabulary per trade in
+`trade-seed-content.ts` — what the trade does, how it works, what its
+customers say — and the composer gives each business a different name,
+suburb, street, year, hours, services and reviews, chosen by its position
+rather than at random, so a re-run produces the same twenty-second listing it
+produced before. Both paths write the record through
+`seed-business-writer.ts`, so there is one answer to "how is a listing
+created" rather than two that drift.
+
+The categories are nested two levels, which is the most the model allows:
+Home Services, Auto & Transport, Health & Wellness, Personal Care, Food &
+Drink, Professional Services, Shopping and Pets & Vets hold the trades. A
+parent category's page already includes its children's listings, so filling
+the children fills the parents.
+
+Photographs come from one pool per category rather than a search per listing.
+Where Commons has fewer permissively-licensed pictures of a trade than the
+category needs — it often does, for towing or upholstery — the listings that
+miss out show the site's own branded panel, which is exactly what a real
+listing without a photograph shows.
+
+## Category pictures
+
+The same run gives every active category a picture, where it has none: the
+subject searched for is in `CATEGORY_IMAGE_QUERIES` (keyed by slug, because
+"Shopping" and "Home Services" find nothing useful on their own), and a
+category an editor has already illustrated is left alone. The picture appears
+on the home-page tile and at the top of the category page.
+
 ## The photographs
 
 Photographs are found on Wikimedia Commons **at seed time**, from short subject

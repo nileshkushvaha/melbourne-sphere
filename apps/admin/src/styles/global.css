@@ -588,35 +588,76 @@ form .ant-form-item {
 }
 
 /*
- * Fields inside an editor flow into as many columns as the window can hold at a
- * readable width, rather than one column of very wide inputs.
+ * Fields inside an editor sit in two columns, rather than one column of very
+ * wide inputs.
  *
  * The page uses its full width — on a 1440 px screen a single 760 px column left
  * half the screen empty — but a text input the width of the whole screen is
  * harder to use, not easier: the eye has to travel back across it, and short
- * values look lost in it. `auto-fit` resolves both: two or three columns on a
- * desktop, one on a laptop split-screen or a phone, with no breakpoints to keep
- * in step.
+ * values look lost in it.
+ *
+ * Two, and not "as many as fit". `auto-fit` gave three columns on a wide screen,
+ * and a third column is where a form stops reading as a form: the eye zig-zags,
+ * a field lands a long way from the one it belongs with, and a group heading
+ * ends up beside a field instead of above its group. Two columns is also what
+ * every editor was designed and checked against.
  */
 .ms-form-grid {
   display: grid;
   gap: 0 24px;
   align-items: start;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 768px) {
+  .ms-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* Anything that is written rather than filled in takes the whole row: a
-   paragraph, an address, a rich-text body, a repeating group. */
+   paragraph, an address, a rich-text body, a repeating group, a picture. */
 .ms-form-grid > .ant-form-item:has(textarea),
 .ms-form-grid > .ant-form-item:has(.ms-permalink),
 .ms-form-grid > .ant-form-item:has(.ms-editor-surface),
+.ms-form-grid > .ant-form-item:has(.ms-media-field),
 .ms-form-grid > .ant-form-item:has(.ant-upload),
 .ms-form-grid > .ant-form-item:has(.ant-form-list),
 .ms-form-grid > .ms-span-all,
+.ms-form-grid > .ms-form-section,
 .ms-form-grid > .ant-divider,
 .ms-form-grid > h2,
 .ms-form-grid > h3 {
   grid-column: 1 / -1;
+}
+
+/*
+ * A named group of fields inside one form — "Search appearance" and the like.
+ * It takes the whole row and carries a rule above it, so it reads as the start
+ * of a group rather than as another field: as an ordinary grid cell it landed
+ * beside an input and looked like its label.
+ */
+.ms-form-section {
+  margin: 4px 0 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--ms-border, #e2e8f0);
+}
+.ms-form-section:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.ms-form-section h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.ms-form-section p {
+  margin: 4px 0 0;
+  max-width: 62ch;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ms-text-muted, #475569);
 }
 .ms-editor-grid--aside {
   grid-template-columns: minmax(0, 1fr);
