@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Header, HttpCode, Param, Post, Put, Query, Req } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
-import { IsIn, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, MaxLength, Min, Max } from 'class-validator';
 import type { RequestContext } from '../auth/auth.service.js';
 import { CurrentAdmin, Public, RequirePermissions, type AuthenticatedRequest } from '../auth/decorators.js';
 import { getRequestId } from '../common/request-id.js';
@@ -20,6 +20,7 @@ export class TestimonialDto {
   @ApiProperty() displayName!: string;
   @ApiPropertyOptional({ nullable: true }) relationship!: string | null;
   @ApiProperty() quote!: string;
+  @ApiPropertyOptional({ type: Number, nullable: true, description: 'Stars the person gave, 1–5; null when they gave none' }) rating!: number | null;
   @ApiPropertyOptional({ nullable: true }) businessId!: string | null;
   @ApiPropertyOptional({ nullable: true }) mediaId!: string | null;
   @ApiPropertyOptional({ type: SettingsImageDto, nullable: true, description: 'The referenced image, resolved for preview; null when none is set or it is not processed' }) image!: SettingsImageDto | null;
@@ -34,6 +35,7 @@ export class UpsertTestimonialDto {
   @ApiProperty({ maxLength: TESTIMONIAL_LIMITS.displayName }) @IsString() @MaxLength(TESTIMONIAL_LIMITS.displayName) displayName!: string;
   @ApiPropertyOptional({ nullable: true, maxLength: TESTIMONIAL_LIMITS.relationship }) @IsOptional() @IsString() @MaxLength(TESTIMONIAL_LIMITS.relationship) relationship?: string | null;
   @ApiProperty({ maxLength: TESTIMONIAL_LIMITS.quote }) @IsString() @MaxLength(TESTIMONIAL_LIMITS.quote) quote!: string;
+  @ApiPropertyOptional({ type: Number, nullable: true, minimum: 1, maximum: 5, description: 'Stars the person gave, 1–5; omit when they gave none' }) @IsOptional() @IsInt() @Min(1) @Max(5) rating?: number | null;
   @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsString() @MaxLength(64) businessId?: string | null;
   @ApiPropertyOptional({ nullable: true }) @IsOptional() @IsString() @MaxLength(64) mediaId?: string | null;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) displayOrder?: number;
@@ -66,6 +68,7 @@ const testimonialDto = (media: MediaService) => async (row: {
   displayName: string;
   relationship: string | null;
   quote: string;
+  rating: number | null;
   businessId: string | null;
   mediaId: string | null;
   displayOrder: number;
@@ -79,6 +82,7 @@ const testimonialDto = (media: MediaService) => async (row: {
   displayName: row.displayName,
   relationship: row.relationship,
   quote: row.quote,
+  rating: row.rating,
   businessId: row.businessId,
   mediaId: row.mediaId,
   displayOrder: row.displayOrder,

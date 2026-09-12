@@ -173,15 +173,15 @@ export function tradeBusinesses(trade: TradeProfile, phoneFrom: number): SeedBus
 }
 
 /** Parent categories these trades sit under; created if they are not there. */
-export const TRADE_PARENTS: { slug: string; name: string; description: string }[] = [
-  { slug: 'home-services', name: 'Home Services', description: 'Trades and services that come to your home — repairs, maintenance, cleaning and renovation.' },
-  { slug: 'auto-and-transport', name: 'Auto & Transport', description: 'Keeping a vehicle on the road, and getting things from one place to another.' },
-  { slug: 'health-and-wellness', name: 'Health & Wellness', description: 'Clinics, practitioners and studios looking after health, movement and recovery.' },
-  { slug: 'personal-care', name: 'Personal Care', description: 'Everyday services for how you look and what you wear.' },
-  { slug: 'food-and-drink', name: 'Food & Drink', description: 'Where Melbourne eats and drinks, and the people who supply it.' },
-  { slug: 'professional-services', name: 'Professional Services', description: 'Advice and services for people and the businesses they run.' },
-  { slug: 'shopping', name: 'Shopping', description: 'Shops worth crossing town for.' },
-  { slug: 'pets-and-vets', name: 'Pets & Vets', description: 'Care for the animals that live here too.' },
+export const TRADE_PARENTS: { slug: string; name: string; description: string; imageQueries: string[] }[] = [
+  { slug: 'home-services', name: 'Home Services', description: 'Trades and services that come to your home — repairs, maintenance, cleaning and renovation.', imageQueries: ['tradesman tools house', 'home repair worker'] },
+  { slug: 'auto-and-transport', name: 'Auto & Transport', description: 'Keeping a vehicle on the road, and getting things from one place to another.', imageQueries: ['car workshop vehicle', 'delivery van road'] },
+  { slug: 'health-and-wellness', name: 'Health & Wellness', description: 'Clinics, practitioners and studios looking after health, movement and recovery.', imageQueries: ['clinic treatment room', 'wellness exercise studio'] },
+  { slug: 'personal-care', name: 'Personal Care', description: 'Everyday services for how you look and what you wear.', imageQueries: ['hair salon interior', 'grooming products shelf'] },
+  { slug: 'food-and-drink', name: 'Food & Drink', description: 'Where Melbourne eats and drinks, and the people who supply it.', imageQueries: ['food market stall', 'kitchen cooking chef'] },
+  { slug: 'professional-services', name: 'Professional Services', description: 'Advice and services for people and the businesses they run.', imageQueries: ['office desk meeting', 'business documents desk'] },
+  { slug: 'shopping', name: 'Shopping', description: 'Shops worth crossing town for.', imageQueries: ['shop window retail street', 'store interior shelves'] },
+  { slug: 'pets-and-vets', name: 'Pets & Vets', description: 'Care for the animals that live here too.', imageQueries: ['dog cat pet care', 'veterinary clinic animal'] },
 ];
 
 export const TRADES: TradeProfile[] = [
@@ -688,7 +688,10 @@ TRADES.push(
   {
     slug: 'chiropractors', name: 'Chiropractors', self: 'chiropractic clinic', siting: 'premises', parent: 'health-and-wellness',
     description: 'Chiropractic care for back and neck pain, headaches and sports injuries.',
-    imageQueries: ['chiropractor treating patient back', 'chiropractic adjustment table', 'physiotherapy spine treatment'],
+    // Deliberately several, and not physiotherapy: the physio trade takes those
+    // files first, and a photograph is never used twice, which left this trade
+    // with nothing at all on the first run.
+    imageQueries: ['chiropractor patient treatment', 'massage table therapist back', 'osteopath manual therapy', 'spine anatomy model', 'back treatment clinic'],
     services: ['Back and neck pain', 'Headaches', 'Sports injuries', 'Posture assessment', 'Dry needling', 'Rehabilitation'],
     nouns: ['Chiropractic', 'Chiropractic Clinic', 'Spine & Health', 'Chiropractors'],
     angles: [

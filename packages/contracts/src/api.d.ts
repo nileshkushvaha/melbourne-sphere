@@ -5485,6 +5485,8 @@ export interface components {
             displayName: string;
             relationship?: Record<string, never> | null;
             quote: string;
+            /** @description Stars the person gave, 1–5; null when they gave none */
+            rating?: number | null;
             businessId?: Record<string, never> | null;
             mediaId?: Record<string, never> | null;
             /** @description The referenced image, resolved for preview; null when none is set or it is not processed */
@@ -5500,6 +5502,8 @@ export interface components {
             displayName: string;
             relationship?: Record<string, never> | null;
             quote: string;
+            /** @description Stars the person gave, 1–5; omit when they gave none */
+            rating?: number | null;
             businessId?: Record<string, never> | null;
             mediaId?: Record<string, never> | null;
             displayOrder?: number;
@@ -5508,6 +5512,8 @@ export interface components {
             displayName: string;
             relationship?: Record<string, never> | null;
             quote: string;
+            /** @description Stars the person gave, 1–5; omit when they gave none */
+            rating?: number | null;
             businessId?: Record<string, never> | null;
             mediaId?: Record<string, never> | null;
             displayOrder?: number;

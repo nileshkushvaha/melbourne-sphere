@@ -53,22 +53,24 @@ export interface SeedTestimonial {
   name: string;
   relationship: string;
   quote: string;
+  /** Stars this person gave. Omitted where they gave none, which is a real case. */
+  rating?: 4 | 5;
   /** Slug of a seeded listing, when the quote is from one of them. */
   business?: string;
   published?: boolean;
 }
 
 export const SEED_TESTIMONIALS: SeedTestimonial[] = [
-  { name: 'Marika Stevens', relationship: 'Owner', business: 'lygon-lane-espresso', quote: 'We had a website nobody could find and a Google listing with the wrong hours. Within a month of being on Melbourne Sphere we were getting people through the door who said they found us here. The editors actually checked our details with us first, which nobody else does.' },
-  { name: 'Daniel Okonkwo', relationship: 'Owner', business: 'kensington-plumbing-and-gas', quote: 'Most directories sell you a package and then sell your competitor a better one. This one just lists you properly. Half our new work in winter came through the listing.' },
-  { name: 'Sophie Tran', relationship: 'Visitor, Carlton', quote: 'I moved to Carlton in February and used the area page to find a vet, a bakery and somebody to fix the heater. All three were exactly what the listings said they were, which sounds like a low bar until you have used the alternatives.' },
-  { name: 'Reuben Clarke', relationship: 'Owner', business: 'bay-street-fish-market', quote: 'My father ran this shop for thirty years without a website. The listing was written in an afternoon, the photographs are honest, and it has brought us a new generation of customers from across the river.' },
-  { name: 'Anita Bose', relationship: 'Visitor, Docklands', quote: 'The opening hours are right. I know that is a strange thing to praise, but I have been caught out enough times to notice when a directory keeps them current.' },
-  { name: 'Tom Whelan', relationship: 'Owner', business: 'errol-street-barbers', quote: 'A customer told me she picked us because the review said we were good with nervous kids. That review went up because somebody read it first and checked it was fair. That matters to a small shop.' },
-  { name: 'Grace Mbeki', relationship: 'Visitor, North Melbourne', quote: 'I wanted a physio who did clinical Pilates and was open before work. Two filters and I had three options, all of them real. That is all I wanted a directory to do.' },
-  { name: 'Peter Lawson', relationship: 'Owner', business: 'flinders-lane-books', quote: 'We have been on Flinders Lane since 1998 and have watched a lot of listing sites come and go. This is the first one that asked what we actually do before writing about us.' },
-  { name: 'Hannah Reid', relationship: 'Visitor, Kensington', quote: 'The enquiry form went straight to the business and they rang me back within the hour. No sales calls afterwards from anybody else, which is more than I can say for the last site I used.' },
-  { name: 'Julian Marsh', relationship: 'Owner', business: 'harbour-kitchen-docklands', quote: 'We are in Docklands, which people write off before they have been. Having a proper area page with our listing on it has genuinely changed who walks in on a weeknight.' },
+  { rating: 5, name: 'Marika Stevens', relationship: 'Owner', business: 'lygon-lane-espresso', quote: 'We had a website nobody could find and a Google listing with the wrong hours. Within a month of being on Melbourne Sphere we were getting people through the door who said they found us here. The editors actually checked our details with us first, which nobody else does.' },
+  { rating: 5, name: 'Daniel Okonkwo', relationship: 'Owner', business: 'kensington-plumbing-and-gas', quote: 'Most directories sell you a package and then sell your competitor a better one. This one just lists you properly. Half our new work in winter came through the listing.' },
+  { rating: 5, name: 'Sophie Tran', relationship: 'Visitor, Carlton', quote: 'I moved to Carlton in February and used the area page to find a vet, a bakery and somebody to fix the heater. All three were exactly what the listings said they were, which sounds like a low bar until you have used the alternatives.' },
+  { rating: 5, name: 'Reuben Clarke', relationship: 'Owner', business: 'bay-street-fish-market', quote: 'My father ran this shop for thirty years without a website. The listing was written in an afternoon, the photographs are honest, and it has brought us a new generation of customers from across the river.' },
+  { rating: 4, name: 'Anita Bose', relationship: 'Visitor, Docklands', quote: 'The opening hours are right. I know that is a strange thing to praise, but I have been caught out enough times to notice when a directory keeps them current.' },
+  { rating: 5, name: 'Tom Whelan', relationship: 'Owner', business: 'errol-street-barbers', quote: 'A customer told me she picked us because the review said we were good with nervous kids. That review went up because somebody read it first and checked it was fair. That matters to a small shop.' },
+  { rating: 5, name: 'Grace Mbeki', relationship: 'Visitor, North Melbourne', quote: 'I wanted a physio who did clinical Pilates and was open before work. Two filters and I had three options, all of them real. That is all I wanted a directory to do.' },
+  { rating: 4, name: 'Peter Lawson', relationship: 'Owner', business: 'flinders-lane-books', quote: 'We have been on Flinders Lane since 1998 and have watched a lot of listing sites come and go. This is the first one that asked what we actually do before writing about us.' },
+  { rating: 5, name: 'Hannah Reid', relationship: 'Visitor, Kensington', quote: 'The enquiry form went straight to the business and they rang me back within the hour. No sales calls afterwards from anybody else, which is more than I can say for the last site I used.' },
+  { rating: 5, name: 'Julian Marsh', relationship: 'Owner', business: 'harbour-kitchen-docklands', quote: 'We are in Docklands, which people write off before they have been. Having a proper area page with our listing on it has genuinely changed who walks in on a weeknight.' },
   { name: 'Elif Demir', relationship: 'Visitor, Southbank', quote: 'I like that featured listings are in their own labelled box. I know what I am looking at, and the rest of the results are in the order the site says they are in.', published: false },
 ];
 

@@ -1399,6 +1399,8 @@ model Testimonial {
   relationship      String?              @db.VarChar(160)
   /// Plain text, sanitised and bounded; no markup is accepted.
   quote             String               @db.VarChar(1000)
+  /// 1–5 as the person gave it; null when they gave none, so the page shows no stars rather than a default.
+  rating            Int?                 @db.TinyInt
   /// Optional link to the listing the person is associated with.
   businessId        String?
   /// Optional portrait; an approved asset from the media pipeline (MED 001-004).

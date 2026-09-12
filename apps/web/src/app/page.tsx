@@ -6,6 +6,7 @@ import { ArrowRightIcon, MapPinIcon, PenLineIcon, ShieldCheckIcon } from 'lucide
 import { JsonLdScript } from '@/components/json-ld';
 import { organizationJsonLd, webSiteJsonLd } from '@/lib/structured-data';
 import { BusinessCard } from '@/components/business-card';
+import { TestimonialCarousel } from '@/components/testimonial-carousel';
 import { CategoryIcon } from '@/components/category-icon';
 import { PostCard } from '@/components/post-card';
 import { FeaturedPostCard } from '@/components/featured-post-card';
@@ -340,30 +341,7 @@ export default async function HomePage() {
       {testimonials.length > 0 && (
         <Band tone="soft" aria-labelledby="testimonials-heading">
           <SectionHeading id="testimonials-heading" eyebrow="In their words" title="What Melbourne businesses say" description="Quotes published with the permission of the people who gave them." />
-          <ul className={`mt-8 grid gap-6 ${gridColumns(testimonials.length)}`}>
-            {testimonials.map((testimonial) => (
-              <li key={testimonial.id}>
-                <figure className="flex h-full flex-col justify-between rounded-card-lg border border-white/80 bg-white/85 p-6 shadow-md backdrop-blur-sm">
-                  <blockquote className="text-[1.0625rem] leading-relaxed">“{testimonial.quote}”</blockquote>
-                  <figcaption className="mt-5 flex items-center gap-3 border-t border-border pt-4 text-sm">
-                    {testimonial.image && (
-                      // eslint-disable-next-line @next/next/no-img-element -- fixed 48 px avatar from our own media pipeline
-                      <img src={testimonial.image.url} alt="" width={48} height={48} className="size-12 shrink-0 rounded-full object-cover" />
-                    )}
-                    <span className="min-w-0">
-                      <span className="block font-semibold">{testimonial.displayName}</span>
-                      {testimonial.relationship && <span className="block text-text-muted">{testimonial.relationship}</span>}
-                      {testimonial.business && (
-                        <Link href={`/business/${testimonial.business.slug}`} className="text-link underline-offset-4 hover:underline">
-                          {testimonial.business.name}
-                        </Link>
-                      )}
-                    </span>
-                  </figcaption>
-                </figure>
-              </li>
-            ))}
-          </ul>
+          <TestimonialCarousel testimonials={testimonials} />
         </Band>
       )}
 

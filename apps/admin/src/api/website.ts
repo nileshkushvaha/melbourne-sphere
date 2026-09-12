@@ -120,6 +120,8 @@ export interface Testimonial {
   displayName: string;
   relationship: string | null;
   quote: string;
+  /** Stars the person gave, 1–5; null when they gave none. */
+  rating: number | null;
   businessId: string | null;
   mediaId: string | null;
   /** The image itself, resolved by the API so it can be shown without a lookup. */
@@ -136,6 +138,7 @@ export interface TestimonialInput {
   displayName: string;
   relationship?: string | null;
   quote: string;
+  rating?: number | null;
   businessId?: string | null;
   mediaId?: string | null;
   displayOrder?: number;

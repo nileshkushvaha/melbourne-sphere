@@ -13,6 +13,7 @@ interface Values {
   displayName: string;
   relationship: string;
   quote: string;
+  rating?: number | null;
   businessId: string;
   mediaId: string;
   displayOrder: number;
@@ -42,6 +43,7 @@ export function TestimonialEditorPage() {
       displayName: record.displayName,
       relationship: record.relationship ?? '',
       quote: record.quote,
+      rating: record.rating,
       businessId: record.businessId ?? '',
       mediaId: record.mediaId ?? '',
       displayOrder: record.displayOrder,
@@ -54,6 +56,9 @@ export function TestimonialEditorPage() {
         displayName: values.displayName,
         relationship: values.relationship?.trim() || null,
         quote: values.quote,
+        // Left empty means the person gave no rating, which is not the same as
+        // giving a low one: the page then shows no stars at all.
+        rating: values.rating ?? null,
         businessId: values.businessId?.trim() || null,
         mediaId: values.mediaId?.trim() || null,
         displayOrder: values.displayOrder,
@@ -79,7 +84,7 @@ export function TestimonialEditorPage() {
       listHref={LIST}
       listLabel="Back to testimonials"
       form={form}
-      initialValues={{ displayName: '', relationship: '', quote: '', businessId: '', mediaId: '', displayOrder: 0 }}
+      initialValues={{ displayName: '', relationship: '', quote: '', rating: null, businessId: '', mediaId: '', displayOrder: 0 }}
       loading={state.status === 'loading'}
       saving={saving}
       error={error ?? (state.status === 'error' ? state.message : null)}
@@ -100,6 +105,9 @@ export function TestimonialEditorPage() {
         rules={[{ required: true, min: 20, max: 1000, message: 'Between 20 and 1000 characters' }]}
       >
         <Input.TextArea rows={7} maxLength={1000} showCount placeholder="What they said, in their own words." />
+      </Form.Item>
+      <Form.Item label="Rating" name="rating" extra="Stars the person gave, 1 to 5. Leave it empty if they did not give one — the page then shows no stars rather than a score they never gave.">
+        <InputNumber min={1} max={5} precision={0} style={{ width: 120 }} placeholder="e.g. 5" />
       </Form.Item>
       <Form.Item label="Linked listing" name="businessId" extra="The listing's reference, so the quote links to it. Copy it from the listing address.">
         <Input maxLength={64} style={{ maxWidth: 420 }} placeholder="Paste a listing reference" />

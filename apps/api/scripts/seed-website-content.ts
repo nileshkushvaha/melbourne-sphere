@@ -36,6 +36,31 @@ const sharp = require('sharp') as Sharp;
 
 const LOGO_WIDTH = 640;
 const LOGO_HEIGHT = 240;
+const AVATAR_SIZE = 400;
+
+/** Colours the initials discs cycle through; each is 4.5:1 or better with white. */
+const AVATAR_COLOURS = ['#0B1F3A', '#0369A1', '#155E75', '#065F46', '#7C2D12', '#9D174D', '#4C1D95', '#3F6212'];
+
+/**
+ * A portrait for somebody who does not exist.
+ *
+ * These testimonials are invented, so a real person's photograph must not sit
+ * beside an invented quote and an invented name — that is putting words in the
+ * mouth of somebody who never said them. Initials on a coloured disc fills the
+ * same slot in the design and claims nothing about anyone.
+ */
+function avatarSvg(name: string, colour: string): string {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]!.toUpperCase())
+    .join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${AVATAR_SIZE}" height="${AVATAR_SIZE}" viewBox="0 0 ${AVATAR_SIZE} ${AVATAR_SIZE}">
+    <rect width="${AVATAR_SIZE}" height="${AVATAR_SIZE}" fill="${colour}"/>
+    <text x="50%" y="50%" dy="0.35em" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="168" font-weight="600" fill="#FFFFFF">${initials}</text>
+  </svg>`;
+}
 
 /** A plain wordmark: the initials in a rounded square, the name beside them. */
 function logoSvg(name: string, initials: string, colour: string): string {
@@ -87,11 +112,25 @@ async function seedTestimonials(): Promise<void> {
     if (existing) continue;
     const business = item.business ? await db.business.findUnique({ where: { slug: item.business }, select: { id: true } }) : null;
     const published = item.published !== false;
+    const png = await sharp(Buffer.from(avatarSvg(item.name, AVATAR_COLOURS[index % AVATAR_COLOURS.length]!))).png().toBuffer();
+    const mediaId = await uploadBytes({
+      bytes: png,
+      mimeType: 'image/png',
+      extension: 'png',
+      sourceName: `testimonial-${item.name.toLowerCase().replace(/[^a-z]+/g, '-')}.png`,
+      // The name is beside the picture, so the disc itself says nothing new.
+      alt: '',
+      credit: '',
+      rightsNote: `Generated initials avatar for the seeded testimonial from "${item.name}"; not a photograph of anybody.`,
+    });
+    await waitUntilReady([mediaId]);
     await db.testimonial.create({
       data: {
         displayName: item.name,
         relationship: item.relationship,
         quote: item.quote,
+        rating: item.rating ?? null,
+        mediaId,
         businessId: business?.id ?? null,
         displayOrder: index,
         status: published ? 'published' : 'draft',
@@ -202,9 +241,11 @@ async function refresh(): Promise<void> {
     changed += 1;
   }
   for (const item of SEED_TESTIMONIALS) {
-    const row = await db.testimonial.findFirst({ where: { displayName: item.name }, select: { id: true, quote: true, relationship: true } });
-    if (!row || (row.quote === item.quote && row.relationship === item.relationship)) continue;
-    await db.testimonial.update({ where: { id: row.id }, data: { quote: item.quote, relationship: item.relationship, version: { increment: 1 } } });
+    const row = await db.testimonial.findFirst({ where: { displayName: item.name }, select: { id: true, quote: true, relationship: true, rating: true } });
+    if (!row) continue;
+    const wanted = item.rating ?? null;
+    if (row.quote === item.quote && row.relationship === item.relationship && row.rating === wanted) continue;
+    await db.testimonial.update({ where: { id: row.id }, data: { quote: item.quote, relationship: item.relationship, rating: wanted, version: { increment: 1 } } });
     changed += 1;
   }
   console.log(`Done. ${changed} record(s) rewritten.`);

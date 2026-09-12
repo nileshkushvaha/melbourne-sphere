@@ -115,6 +115,20 @@ async function refreshCopy(): Promise<number> {
  */
 async function fillImages(): Promise<void> {
   let added = 0;
+
+  // The parents were created without a subject of their own, so they sat
+  // pictureless while every trade under them had one.
+  for (const parent of TRADE_PARENTS) {
+    const row = await db.category.findUnique({ where: { slug: parent.slug }, select: { id: true, imageMediaId: true } });
+    if (!row || row.imageMediaId) continue;
+    console.log(`\n${parent.name} — a picture for the parent category`);
+    const [image] = await imagePool(parent.slug, parent.imageQueries, 1);
+    if (!image) {
+      console.log('  nothing usable found');
+      continue;
+    }
+    await db.category.update({ where: { id: row.id }, data: { imageMediaId: image.id, version: { increment: 1 } } });
+  }
   for (const [index, trade] of TRADES.entries()) {
     const category = await db.category.findUnique({ where: { slug: trade.slug }, select: { id: true, imageMediaId: true } });
     if (!category) continue;

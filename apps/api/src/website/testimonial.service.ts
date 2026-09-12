@@ -16,6 +16,7 @@ export interface TestimonialInput {
   displayName: string;
   relationship?: string | null;
   quote: string;
+  rating?: number | null;
   businessId?: string | null;
   mediaId?: string | null;
   displayOrder?: number;
@@ -26,6 +27,7 @@ export interface PublicTestimonial {
   displayName: string;
   relationship: string | null;
   quote: string;
+  rating: number | null;
   business: { name: string; slug: string } | null;
   image: { url: string; alt: string; width: number; height: number } | null;
 }
@@ -57,6 +59,7 @@ export class TestimonialService {
     displayName: string;
     relationship: string | null;
     quote: string;
+    rating: number | null;
     businessId: string | null;
     mediaId: string | null;
     displayOrder: number;
@@ -69,6 +72,9 @@ export class TestimonialService {
     const displayOrder = input.displayOrder ?? 0;
     const businessId = (input.businessId ?? '')?.trim() || null;
     const mediaId = (input.mediaId ?? '')?.trim() || null;
+    // Null, not zero or five: a testimonial without a rating shows no stars
+    // rather than a score the person never gave.
+    const rating = input.rating === null || input.rating === undefined ? null : input.rating;
 
     if (displayName.length < 2) fields.displayName = ['A name needs at least 2 characters'];
     else if (displayName.length > TESTIMONIAL_LIMITS.displayName) fields.displayName = [`A name is at most ${TESTIMONIAL_LIMITS.displayName} characters`];
@@ -76,6 +82,7 @@ export class TestimonialService {
     if (quote.length < 20) fields.quote = ['A quote needs at least 20 characters'];
     else if (quote.length > TESTIMONIAL_LIMITS.quote) fields.quote = [`A quote is at most ${TESTIMONIAL_LIMITS.quote} characters`];
     if (!Number.isInteger(displayOrder) || displayOrder < 0 || displayOrder > 9999) fields.displayOrder = ['Display order is a whole number between 0 and 9999'];
+    if (rating !== null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) fields.rating = ['A rating is a whole number of stars from 1 to 5'];
 
     const db = await this.database.client();
     if (businessId && !(await db.business.findUnique({ where: { id: businessId }, select: { id: true } }))) {
@@ -87,7 +94,7 @@ export class TestimonialService {
     }
 
     if (Object.keys(fields).length > 0) throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Some fields are invalid', fields }, HttpStatus.BAD_REQUEST);
-    return { displayName, relationship, quote, businessId, mediaId, displayOrder };
+    return { displayName, relationship, quote, rating, businessId, mediaId, displayOrder };
   }
 
   private async purge(tx: Prisma.TransactionClient, ctx: RequestContext, id: string): Promise<void> {
@@ -239,6 +246,7 @@ export class TestimonialService {
         displayName: row.displayName,
         relationship: row.relationship,
         quote: row.quote,
+        rating: row.rating,
         // A listing that is no longer published is not linked from a quote.
         business: row.business && row.business.status === 'published' ? { name: row.business.name, slug: row.business.slug } : null,
         image: await this.media.publicImageRefOfKind(row.mediaId, 'thumbnail'),

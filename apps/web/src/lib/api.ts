@@ -154,6 +154,8 @@ export interface PublicTestimonial {
   displayName: string;
   relationship: string | null;
   quote: string;
+  /** Stars the person gave, 1–5; null when they gave none, and then none are shown. */
+  rating: number | null;
   business: { name: string; slug: string } | null;
   image: { url: string; alt: string; width: number; height: number } | null;
 }
