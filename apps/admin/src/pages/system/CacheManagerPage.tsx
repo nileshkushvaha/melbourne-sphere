@@ -109,7 +109,7 @@ export function CacheManagerPage() {
                 { title: 'Expires after', dataIndex: 'ttlSeconds', width: 140, render: (value: number) => duration(value) },
                 { title: 'Last cleared', dataIndex: 'lastClearedAt', width: 190, render: (value: string | null) => (value ? formatDateTime(value) : 'Never') },
                 {
-                  title: '',
+                  title: <span className="sr-only">Actions</span>,
                   width: 110,
                   render: (_: unknown, record) =>
                     mayClear ? (
@@ -133,7 +133,7 @@ export function CacheManagerPage() {
                 { title: 'What it covers', dataIndex: 'description' },
                 { title: 'Last cleared', dataIndex: 'lastClearedAt', width: 190, render: (value: string | null) => (value ? formatDateTime(value) : 'Never') },
                 {
-                  title: '',
+                  title: <span className="sr-only">Actions</span>,
                   width: 110,
                   render: (_: unknown, record) =>
                     mayClear ? (

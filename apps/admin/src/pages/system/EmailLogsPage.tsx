@@ -23,7 +23,11 @@ const STATUS_COLOUR: Record<EmailDeliveryStatus, string> = {
 };
 
 const STATUSES: EmailDeliveryStatus[] = ['queued', 'sent', 'delivered', 'delayed', 'failed', 'bounced', 'complained', 'suppressed'];
-const CATEGORIES = ['auth', 'enquiry', 'moderation', 'system'];
+/** What each kind of email is for, in the reader's words rather than the stored key. */
+const CATEGORY_LABELS: Record<string, string> = { auth: 'Sign-in and account', enquiry: 'Enquiries', moderation: 'Moderation', system: 'System' };
+const CATEGORIES = Object.keys(CATEGORY_LABELS);
+/** The stored delivery states as they read on screen; "bounced" is plain enough to keep. */
+const STATUS_LABELS: Record<string, string> = { queued: 'Queued', sent: 'Sent', delivered: 'Delivered', delayed: 'Delayed', failed: 'Failed', bounced: 'Bounced', complained: 'Marked as spam', suppressed: 'Suppressed' };
 
 /** Statuses a resend is refused for (SRS 1.2 MAIL 009); the server refuses them too. */
 const RESEND_REFUSED: EmailDeliveryStatus[] = ['delivered', 'complained', 'suppressed'];
@@ -118,7 +122,7 @@ export function EmailLogsPage() {
               value={status || undefined}
               style={{ width: 160 }}
               onChange={(value?: string) => list.set('status', value)}
-              options={STATUSES.map((value) => ({ value, label: value }))}
+              options={STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] ?? value }))}
             />
             <Select
               aria-label="Filter by category"
@@ -127,7 +131,7 @@ export function EmailLogsPage() {
               value={category || undefined}
               style={{ width: 160 }}
               onChange={(value?: string) => list.set('category', value)}
-              options={CATEGORIES.map((value) => ({ value, label: value }))}
+              options={CATEGORIES.map((value) => ({ value, label: CATEGORY_LABELS[value] ?? value }))}
             />
             <Input.Search
               aria-label="Search by message or reference id"
@@ -211,7 +215,7 @@ export function EmailLogsPage() {
             <Descriptions column={1} size="small" bordered items={[
               { key: 'status', label: 'Status', children: <StatusTag status={detail.data.status} /> },
               { key: 'template', label: 'Message', children: detail.data.templateKey },
-              { key: 'category', label: 'Category', children: detail.data.category },
+              { key: 'category', label: 'Category', children: CATEGORY_LABELS[detail.data.category] ?? detail.data.category },
               { key: 'recipient', label: 'Recipient', children: revealed[detail.data.id] ?? detail.data.recipient },
               { key: 'subject', label: 'Subject', children: detail.data.subject ?? 'Not retained for this kind of message' },
               { key: 'provider', label: 'Provider', children: `${detail.data.provider}${detail.data.providerMessageId ? ` · ${detail.data.providerMessageId}` : ''}` },

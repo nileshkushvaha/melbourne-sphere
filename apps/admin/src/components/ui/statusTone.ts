@@ -61,6 +61,10 @@ const TONES: Record<string, { tone: Tone; label?: string }> = {
   spam: { tone: 'critical' },
   gone: { tone: 'critical' },
   timedOut: { tone: 'critical', label: 'timed out' },
+  // Email delivery (SRS COMM 004): what the provider reported back.
+  delayed: { tone: 'attention' },
+  bounced: { tone: 'critical' },
+  complained: { tone: 'critical', label: 'marked as spam' },
 };
 
 

@@ -7,6 +7,7 @@ import { PageHeader, Pill, SectionCard, statusRowClass } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { useListParams } from '@/shared/useListParams';
 
 const STATES: { value: QueueJobState; label: string }[] = [
   { value: 'failed', label: 'Failed' },
@@ -38,8 +39,13 @@ export function QueueMonitorPage() {
   useDocumentTitle('Queue monitor');
   const { can } = useCapabilities();
   const { message, modal } = App.useApp();
-  const [state, setState] = useState<QueueJobState>('failed');
-  const [page, setPage] = useState(1);
+  // The state being looked at and the page are in the address bar, as on every
+  // other list: an operator can send a colleague "the failed jobs" as a link,
+  // and Back returns to the view they left. Failed is the default because it
+  // is the one state that needs a decision.
+  const list = useListParams(['state'] as const);
+  const state = (STATES.some((entry) => entry.value === list.get('state')) ? list.get('state') : 'failed') as QueueJobState;
+  const page = list.page;
   const [selected, setSelected] = useState<string[]>([]);
   const [reloadKey, setReloadKey] = useState(0);
   // When the figures on screen were read. The page does not poll — nothing here
@@ -307,8 +313,7 @@ export function QueueMonitorPage() {
               <Segmented
                 value={state}
                 onChange={(value) => {
-                  setState(value as QueueJobState);
-                  setPage(1);
+                  list.set('state', value === 'failed' ? undefined : String(value));
                   setSelected([]);
                 }}
                 options={STATES.map((entry) => ({ value: entry.value, label: `${entry.label}${queue.counts ? ` (${queue.counts[entry.value]})` : ''}` }))}
@@ -337,7 +342,7 @@ export function QueueMonitorPage() {
               }
               pagination={
                 jobs.status === 'ready' && jobs.data
-                  ? { current: jobs.data.meta.page, pageSize: jobs.data.meta.pageSize, total: jobs.data.meta.total, showSizeChanger: false, onChange: setPage }
+                  ? { current: jobs.data.meta.page, pageSize: jobs.data.meta.pageSize, total: jobs.data.meta.total, showSizeChanger: false, onChange: list.setPage }
                   : false
               }
               scroll={{ x: 900 }}
