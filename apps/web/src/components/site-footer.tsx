@@ -10,7 +10,10 @@ const DIRECTORY_LINKS = [
   { href: '/business', label: 'All businesses' },
   { href: '/business?sort=rating&minRating=4', label: 'Highly rated' },
   { href: '/business?sort=newest', label: 'Recently added' },
-  { href: '/#business-listing', label: 'Add your business' },
+  // The contact page, not the home page's own call-to-action band: somebody
+  // who clicks this from the foot of an article wants the form, not to be sent
+  // back to the top of a different page to read the pitch again.
+  { href: '/contact', label: 'Add your business' },
 ];
 
 const EDITORIAL_LINKS = [{ href: '/blog', label: 'Latest articles' }];
