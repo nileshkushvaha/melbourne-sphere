@@ -20,10 +20,12 @@
  *   pnpm --filter api exec tsx --env-file=.env scripts/seed-website-content.ts
  */
 import { createRequire } from 'node:module';
-import { renderSanitisedBody } from '../src/blog/sanitise.js';
+import { renderSanitisedBody, toPlainText } from '../src/blog/sanitise.js';
+import { staticPageBlockers } from '../src/settings/static-pages.js';
 import { databaseName, db, uploadBytes, waitUntilReady } from './seed-commons.js';
 import { encryption, hash, termsVersion } from './seed-business-writer.js';
 import { SEED_COMMENTS, SEED_FAQS, SEED_PARTNERS, SEED_TESTIMONIALS } from './website-seed-content.js';
+import { SEED_POLICY_PAGES } from './policy-page-content.js';
 
 /**
  * Sharp lives in the worker, which is the application that processes images;
@@ -180,6 +182,38 @@ async function seedPartners(): Promise<void> {
   console.log(`Clients and partners: ${added} added, ${SEED_PARTNERS.length - added} already there`);
 }
 
+/**
+ * Writes the baseline policy wording, and only into a page that is empty.
+ *
+ * An editor's own text is never replaced: the check is on the stored body, not
+ * on a flag, so a page somebody has written stays exactly as they left it even
+ * if this runs again. A page is published only when the API's own publication
+ * gate is satisfied, so this cannot put a page live that the admin would have
+ * refused.
+ */
+async function seedPolicyPages(): Promise<void> {
+  let written = 0;
+  for (const page of SEED_POLICY_PAGES) {
+    const existing = await db.staticPage.findUnique({ where: { slug: page.slug }, select: { id: true, sanitizedBody: true, status: true } });
+    if (existing && existing.sanitizedBody.trim().length > 0) {
+      console.log(`  ${page.slug}: already written (${existing.status}); left alone`);
+      continue;
+    }
+    const sanitizedBody = renderSanitisedBody(page.body, 'markdown');
+    const blockers = staticPageBlockers({ title: page.title, plainBody: toPlainText(sanitizedBody) });
+    if (blockers.length > 0) {
+      console.log(`  ${page.slug}: not publishable — ${blockers.join('; ')}`);
+      continue;
+    }
+    const data = { title: page.title, bodySource: page.body, bodyFormat: 'markdown' as const, sanitizedBody, status: 'published' as const, publishedAt: new Date() };
+    if (existing) await db.staticPage.update({ where: { id: existing.id }, data: { ...data, version: { increment: 1 } } });
+    else await db.staticPage.create({ data: { slug: page.slug, ...data } });
+    written += 1;
+    console.log(`  ${page.slug}: published`);
+  }
+  console.log(`Policy pages: ${written} written, ${SEED_POLICY_PAGES.length - written} left as they were`);
+}
+
 async function seedComments(): Promise<void> {
   const now = Date.now();
   let added = 0;
@@ -259,6 +293,7 @@ async function main(): Promise<void> {
   await seedTestimonials();
   await seedPartners();
   await seedComments();
+  await seedPolicyPages();
   console.log('\nDone. The FAQ page, home-page testimonials, partners strip and article comments all have content.');
 }
 

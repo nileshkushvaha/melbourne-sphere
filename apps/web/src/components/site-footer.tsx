@@ -1,7 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { fetchCategories, fetchSiteSettings, fetchStaticPages, fetchFaqs } from '@/lib/api';
-import { contactChannelFrom } from '@/lib/site';
 import { renderCopyright } from '@/lib/copyright';
 import { ConsentPreferencesLink } from './consent-banner';
 import { BrandMark } from './brand-mark';
@@ -11,6 +10,7 @@ const DIRECTORY_LINKS = [
   { href: '/business', label: 'All businesses' },
   { href: '/business?sort=rating&minRating=4', label: 'Highly rated' },
   { href: '/business?sort=newest', label: 'Recently added' },
+  { href: '/#business-listing', label: 'Add your business' },
 ];
 
 const EDITORIAL_LINKS = [{ href: '/blog', label: 'Latest articles' }];
@@ -42,7 +42,6 @@ export async function SiteFooter() {
     fetchFaqs(),
     fetchCategories().catch(() => []),
   ]);
-  const channel = contactChannelFrom(settings);
   // The parents people recognise, and the areas with the most to show.
   const topCategories = categories.slice(0, 6);
   const policyLinks = POLICY_SLUGS.map((slug) => pages.find((page) => page.slug === slug)).filter((page): page is { slug: string; title: string } => page !== undefined);
@@ -109,7 +108,20 @@ export async function SiteFooter() {
           <div className="text-sm">
             <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-400">Information</h2>
             {pages.length === 0 && faqs.length === 0 ? (
-              <p className="mt-4 text-band-muted">Privacy, terms and review guidelines are being prepared and will be linked here once published.</p>
+              <ul className="mt-4 flex flex-col gap-1">
+                {EDITORIAL_LINKS.map((link) => (
+                  <li key={link.label}>
+                    <Link href={link.href} className="inline-flex min-h-9 items-center text-band-muted underline-offset-4 hover:text-white hover:underline">
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+                <li>
+                  <Link href="/contact" className="inline-flex min-h-9 items-center text-band-muted underline-offset-4 hover:text-white hover:underline">
+                    Contact us
+                  </Link>
+                </li>
+              </ul>
             ) : (
               <ul className="mt-4 flex flex-col gap-1">
                 {EDITORIAL_LINKS.map((link) => (
@@ -135,28 +147,13 @@ export async function SiteFooter() {
                     </Link>
                   </li>
                 ))}
+                <li>
+                  <Link href="/contact" className="inline-flex min-h-9 items-center text-band-muted underline-offset-4 hover:text-white hover:underline">
+                    Contact us
+                  </Link>
+                </li>
               </ul>
             )}
-            <h2 className="mt-8 text-xs font-semibold uppercase tracking-[0.16em] text-sky-400">Get in touch</h2>
-            <ul className="mt-4 flex flex-col gap-1 text-band-muted">
-              <li>
-                <Link href="/contact" className="inline-flex min-h-9 items-center text-band-link underline-offset-4 hover:underline">
-                  Contact the editors
-                </Link>
-              </li>
-              {channel.email && (
-                <li>
-                  <a className="inline-flex min-h-9 items-center text-band-link underline-offset-4 hover:underline" href={`mailto:${channel.email}`}>
-                    {channel.email}
-                  </a>
-                </li>
-              )}
-              <li>
-                <Link href="/business#business-listing" className="inline-flex min-h-9 items-center text-band-link underline-offset-4 hover:underline">
-                  Add your business
-                </Link>
-              </li>
-            </ul>
           </div>
         </div>
 
