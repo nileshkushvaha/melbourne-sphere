@@ -136,7 +136,6 @@ export function PagesPage() {
             render: (_: unknown, record) => (
               <Space size={6} wrap>
                 <Pill tone={record.isSystem ? 'progress' : 'neutral'}>{record.isSystem ? 'Part of the product' : 'Added by an editor'}</Pill>
-                {record.template === 'about' && <Pill>About template</Pill>}
               </Space>
             ),
           },

@@ -28,7 +28,7 @@ const about = {
   publishedAt: '2026-09-08T00:00:00.000Z',
   publicationBlockers: [],
   purpose: 'Who publishes the directory.',
-  template: 'about',
+  template: 'generic',
   isSystem: true,
   canDelete: false,
   version: 3,
@@ -82,7 +82,6 @@ describe('Website pages', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Pages' })).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: 'About Melbourne Sphere' })).toHaveAttribute('href', '/admin/website/pages/about');
     expect(screen.getByText('/privacy')).toBeInTheDocument();
-    expect(screen.getByText('About template')).toBeInTheDocument();
     // The reason a page is not publishable is visible before opening it.
     expect(screen.getByText('1 to fix')).toBeInTheDocument();
   });
@@ -96,7 +95,7 @@ describe('Website pages', () => {
     expect(screen.queryByRole('button', { name: /^edit$/i })).not.toBeInTheDocument();
   });
 
-  it('edits a page on its own route, and explains what the About template adds', async () => {
+  it('edits a page on its own route', async () => {
     globalThis.fetch = (async () => jsonResponse(200, { data: about })) as typeof fetch;
     renderWithProviders(<PageEditorPage />, {
       initialEntries: ['/admin/website/pages/about'],
@@ -106,7 +105,6 @@ describe('Website pages', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'About Melbourne Sphere' })).toBeInTheDocument();
     expect(screen.getByText('Public address: /about')).toBeInTheDocument();
-    expect(await screen.findByText(/uses the About template/i)).toBeInTheDocument();
     // Published, so the action offered is the reverse one.
     expect(await screen.findByRole('button', { name: /^unpublish$/i })).toBeInTheDocument();
   });

@@ -7,17 +7,6 @@ import { useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { StaticPageEditor, StaticPagePublishAction } from './StaticPageEditor';
 
-/** Editor-facing note for the pages whose template adds fixed sections. */
-const ABOUT_NOTE = (
-  <Alert
-    type="info"
-    showIcon
-    style={{ marginBottom: 16 }}
-    message="This page uses the About template"
-    description="Your title and text form the introduction. The rest of the page is filled in automatically."
-  />
-);
-
 /**
  * One information page on its own route (SRS CFG 002). Editing lives on a page
  * rather than in a dialog so it can be linked to, reloaded and read at the
@@ -55,17 +44,10 @@ export function PageEditorPage() {
           </Space>
         }
       />
-      <StaticPageEditor
-        page={page}
-        onSaved={reload}
-        intro={page.template === 'about' ? ABOUT_NOTE : undefined}
-        bodyLabel={page.template === 'about' ? 'Introduction' : 'Content'}
-        bodyDescription={
-          page.template === 'about'
-            ? 'Sanitised rich text shown at the top of the About page, under the heading. Scripts and styles are removed on save.'
-            : 'Sanitised rich text: headings, lists, links and emphasis. Scripts and styles are removed on save.'
-        }
-      />
+      {/* Every page is now written entirely here: the About page used to be
+          assembled around the editor's words by a template, so most of what it
+          said could not be changed from the admin. */}
+      <StaticPageEditor page={page} onSaved={reload} />
     </div>
   );
 }

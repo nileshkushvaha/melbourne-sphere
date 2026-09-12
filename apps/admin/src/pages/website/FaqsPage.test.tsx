@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { FaqsPage } from '@/pages/website/FaqsPage';
 import { renderWithProviders, providerWithPermissions } from '@/test/render';
 import { jsonResponse } from '@/test/fetch-fakes';
@@ -45,10 +45,15 @@ describe('FaqsPage', () => {
       authProvider: providerWithPermissions(['website.faqs.view', 'website.faqs.create', 'website.faqs.update', 'website.faqs.publish', 'website.faqs.delete']),
     });
 
+    // One await for the list to arrive, then synchronous queries: a
+    // `findByRole` with a name computes an accessible name for every button on
+    // the screen and retries until it matches, so four of them in a row is four
+    // sweeps of the whole table for something already on screen after the first.
     expect(await screen.findByRole('button', { name: /new question/i })).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: /^edit$/i })).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: /^publish$/i })).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: /^delete$/i })).toBeInTheDocument();
+    const row = screen.getByRole('row', { name: /list my business/i });
+    for (const action of [/^edit$/i, /^publish$/i, /^delete$/i]) {
+      expect(within(row).getByRole('button', { name: action })).toBeInTheDocument();
+    }
   });
 
   it('offers Unpublish for a published question rather than Publish', async () => {

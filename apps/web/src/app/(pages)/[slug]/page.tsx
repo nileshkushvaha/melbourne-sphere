@@ -12,10 +12,12 @@ import { fetchStaticPage } from '@/lib/api';
  * list would have to be edited every time an editor added a page, and would be
  * wrong until it was.
  *
- * An address nobody has published is a genuine 404. `/about` has its own
- * template and route, and `/contact` is a product route driven by the site
- * settings; both are refused as page addresses by the API, so a created page
- * can never shadow them.
+ * An address nobody has published is a genuine 404. `/about` is one of these
+ * pages: it used to have a route of its own that assembled a hero, live counts
+ * and four fixed sections around the editor's words, which meant most of what
+ * it said could not be changed from the admin. `/contact` is still a product
+ * route driven by the site settings, and is refused as a page address by the
+ * API, so a created page can never shadow it.
  */
 export async function generateMetadata({ params }: PageProps<'/[slug]'>): Promise<Metadata> {
   const { slug } = await params;

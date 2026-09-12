@@ -38,8 +38,8 @@ export const SYSTEM_PAGES: StaticPageDefinition[] = [
   {
     slug: 'about',
     defaultTitle: 'About Melbourne Sphere',
-    purpose: 'Who publishes the directory, how listings are chosen and how editorial decisions are made. Rendered by the About template, which adds live directory counts.',
-    template: 'about',
+    purpose: 'Who publishes the directory, how listings are chosen and how editorial decisions are made. Written entirely in the admin: the page shows what an editor writes and nothing else.',
+    template: 'generic',
   },
   { slug: 'privacy', defaultTitle: 'Privacy Policy', purpose: 'What personal data the site collects, why, how long it is kept and how to request deletion.', template: 'generic' },
   { slug: 'terms', defaultTitle: 'Terms of Use', purpose: 'The terms visitors accept by using the site, including listing accuracy and liability.', template: 'generic' },

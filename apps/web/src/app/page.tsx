@@ -336,16 +336,6 @@ export default async function HomePage() {
         )}
       </Band>
 
-      {/* Testimonials — omitted entirely when nothing is approved and published
-          (SRS 1.2 TSTM 004): an empty band would be a placeholder, and the
-          specification is explicit that the site ships without invented copy. */}
-      {testimonials.length > 0 && (
-        <Band tone="soft" aria-labelledby="testimonials-heading">
-          <SectionHeading id="testimonials-heading" eyebrow="In their words" title="What Melbourne businesses say" description="Quotes published with the permission of the people who gave them." />
-          <TestimonialCarousel testimonials={testimonials} />
-        </Band>
-      )}
-
       {/* Client and partner organisations — public marketing content only; these
           records grant nobody any access (SRS 1.2 PTNR 001). Omitted when none
           is published and authorised, rather than rendering an empty strip. */}
@@ -400,6 +390,16 @@ export default async function HomePage() {
           </ul>
         </div>
       </Band>
+
+      {/* Testimonials — omitted entirely when nothing is approved and published
+          (SRS 1.2 TSTM 004): an empty band would be a placeholder, and the
+          specification is explicit that the site ships without invented copy. */}
+      {testimonials.length > 0 && (
+        <Band tone="soft" aria-labelledby="testimonials-heading">
+          <SectionHeading id="testimonials-heading" eyebrow="In their words" title="What Melbourne businesses say" description="Quotes published with the permission of the people who gave them." />
+          <TestimonialCarousel testimonials={testimonials} />
+        </Band>
+      )}
     </>
   );
 }
