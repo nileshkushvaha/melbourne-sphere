@@ -87,6 +87,16 @@ export class UpdateBlogTermDto extends BlogTermInputDto {
   @ApiProperty() @IsInt() @Min(1) expectedVersion!: number;
 }
 
+/**
+ * Narrowing for the category and tag lists. Both are small sets today, but tags
+ * grow with the writing, and a screen that can only show all of them stops
+ * being usable at exactly the point it matters.
+ */
+export class ListBlogTermsQueryDto {
+  @ApiPropertyOptional({ maxLength: 80, description: 'Matches name and slug' }) @IsOptional() @trim() @IsString() @MaxLength(80) q?: string;
+  @ApiPropertyOptional({ enum: ['active', 'inactive'] }) @IsOptional() @IsIn(['active', 'inactive']) status?: 'active' | 'inactive';
+}
+
 export class BlogTermStateDto {
   @ApiProperty() @IsInt() @Min(1) expectedVersion!: number;
   @ApiPropertyOptional({ maxLength: 500 }) @IsOptional() @trim() @IsString() @MaxLength(500) reason?: string;

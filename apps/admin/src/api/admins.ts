@@ -15,6 +15,8 @@ export interface AdminListQuery {
   page?: number;
   pageSize?: number;
   q?: string;
+  /** Role key; matches administrators who hold that role. */
+  role?: string;
   status?: 'invited' | 'active' | 'disabled';
   sort?: 'createdAt' | 'email' | 'displayName' | 'lastLoginAt' | 'status';
   order?: 'asc' | 'desc';

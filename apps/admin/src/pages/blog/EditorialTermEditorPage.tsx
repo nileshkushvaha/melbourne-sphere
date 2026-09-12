@@ -30,7 +30,7 @@ export function EditorialTermEditorPage({ config }: { config: EditorialTermsConf
 
   // The API lists terms rather than serving one, which is the cheaper contract
   // for a set this small; the record is picked out of that list.
-  const [state] = useAsync<BlogTerm | null>((signal) => (creating ? Promise.resolve(null) : api.listTerms(config.kind, signal).then((rows) => rows.find((row) => row.id === id) ?? null)), [config.kind, id]);
+  const [state] = useAsync<BlogTerm | null>((signal) => (creating ? Promise.resolve(null) : api.listTerms(config.kind, {}, signal).then((rows) => rows.find((row) => row.id === id) ?? null)), [config.kind, id]);
   const term = state.status === 'ready' ? state.data : null;
   const title = creating ? `Add ${config.singular.toLowerCase()}` : (term?.name ?? config.singular);
   useDocumentTitle(title);

@@ -951,6 +951,16 @@
             }
           },
           {
+            "name": "role",
+            "required": false,
+            "in": "query",
+            "description": "Role key; matches administrators holding that role",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          {
             "name": "status",
             "required": false,
             "in": "query",
@@ -4065,7 +4075,30 @@
     "/api/v1/admin/blog-categories": {
       "get": {
         "operationId": "BlogCategoriesAdminController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Matches name and slug",
+            "schema": {
+              "maxLength": 80,
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -4210,7 +4243,30 @@
     "/api/v1/admin/blog-tags": {
       "get": {
         "operationId": "BlogTagsAdminController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Matches name and slug",
+            "schema": {
+              "maxLength": 80,
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -6480,7 +6536,30 @@
     "/api/v1/admin/pages": {
       "get": {
         "operationId": "StaticPagesAdminController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Matches title and address",
+            "schema": {
+              "maxLength": 80,
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "published"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -6496,7 +6575,7 @@
             }
           }
         },
-        "summary": "Every page, including ones never edited",
+        "summary": "Every page, including ones never edited (q, status)",
         "tags": [
           "admin-settings"
         ]
@@ -7442,6 +7521,16 @@
                 "emergency"
               ]
             }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Matches the title",
+            "schema": {
+              "maxLength": 120,
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -7733,6 +7822,16 @@
                 "draft",
                 "published"
               ]
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Matches the person and the words they said",
+            "schema": {
+              "maxLength": 120,
+              "type": "string"
             }
           }
         ],

@@ -22,6 +22,7 @@ import {
   SchedulePostDto,
   UpdateAuthorDto,
   UpdateBlogTermDto,
+  ListBlogTermsQueryDto,
   UpdatePostDto,
 } from './dto/blog.dto.js';
 
@@ -94,8 +95,8 @@ export class BlogCategoriesAdminController {
   @Get()
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: [BlogTermDto] })
-  async list() {
-    return { data: await this.blog.listTerms('category') };
+  async list(@Query() query: ListBlogTermsQueryDto) {
+    return { data: await this.blog.listTerms('category', query) };
   }
 
   @RequirePermissions('posts.write')
@@ -140,8 +141,8 @@ export class BlogTagsAdminController {
   @Get()
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: [BlogTermDto] })
-  async list() {
-    return { data: await this.blog.listTerms('tag') };
+  async list(@Query() query: ListBlogTermsQueryDto) {
+    return { data: await this.blog.listTerms('tag', query) };
   }
 
   @RequirePermissions('posts.write')

@@ -199,13 +199,19 @@ export class BlogService {
 
   // ---- categories and tags --------------------------------------------------
 
-  async listTerms(kind: TermKind): Promise<BlogTermDto[]> {
+  async listTerms(kind: TermKind, query: { q?: string; status?: 'active' | 'inactive' } = {}): Promise<BlogTermDto[]> {
     const db = await this.database.client();
+    // Narrowed in the query rather than after it, so the screen stays usable as
+    // the tag list grows with the writing.
+    const where = {
+      ...(query.q ? { OR: [{ name: { contains: query.q } }, { slug: { contains: query.q } }] } : {}),
+      ...(query.status ? { active: query.status === 'active' } : {}),
+    };
     if (kind === 'category') {
-      const rows = await db.blogCategory.findMany({ orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }], include: { _count: { select: { posts: true } } } });
+      const rows = await db.blogCategory.findMany({ where, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }], include: { _count: { select: { posts: true } } } });
       return rows.map((row) => this.toTermDto(row, row._count.posts));
     }
-    const rows = await db.blogTag.findMany({ orderBy: [{ name: 'asc' }], include: { _count: { select: { posts: true } } } });
+    const rows = await db.blogTag.findMany({ where, orderBy: [{ name: 'asc' }], include: { _count: { select: { posts: true } } } });
     return rows.map((row) => this.toTermDto(row, row._count.posts));
   }
 

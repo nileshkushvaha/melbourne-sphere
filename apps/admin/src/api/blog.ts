@@ -13,6 +13,11 @@ export type BlogTermKind = 'blog-categories' | 'blog-tags';
 
 export const POST_STATUSES: PostStatus[] = ['draft', 'scheduled', 'published', 'archived'];
 
+export interface BlogTermListQuery {
+  q?: string;
+  status?: 'active' | 'inactive';
+}
+
 export interface PostListQuery {
   status?: PostStatus;
   categoryId?: string;
@@ -53,7 +58,8 @@ export function blogApi(client: HttpClient = httpClient) {
     updateAuthor: (id: string, body: Record<string, unknown> & { expectedVersion: number }) => client.request<{ data: Author }>(`/admin/authors/${encodeURIComponent(id)}`, { method: 'PATCH', body }).then((r) => r.data.data),
     setAuthorActive: (id: string, active: boolean, expectedVersion: number) =>
       client.request<{ data: Author }>(`/admin/authors/${encodeURIComponent(id)}/${active ? 'activate' : 'deactivate'}`, { method: 'POST', body: { expectedVersion } }).then((r) => r.data.data),
-    listTerms: (kind: BlogTermKind, signal?: AbortSignal) => client.request<{ data: BlogTerm[] }>(`/admin/${kind}`, { signal }).then((r) => r.data.data),
+    listTerms: (kind: BlogTermKind, query: BlogTermListQuery = {}, signal?: AbortSignal) =>
+      client.request<{ data: BlogTerm[] }>(`/admin/${kind}`, { query: queryParams(query), signal }).then((r) => r.data.data),
     createTerm: (kind: BlogTermKind, body: Record<string, unknown>) => client.request<{ data: BlogTerm }>(`/admin/${kind}`, { method: 'POST', body }).then((r) => r.data.data),
     updateTerm: (kind: BlogTermKind, id: string, body: Record<string, unknown> & { expectedVersion: number }) =>
       client.request<{ data: BlogTerm }>(`/admin/${kind}/${encodeURIComponent(id)}`, { method: 'PATCH', body }).then((r) => r.data.data),

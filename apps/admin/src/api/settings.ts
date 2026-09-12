@@ -1,5 +1,6 @@
 import type { components } from '@melbourne-sphere/contracts';
 import { httpClient, type HttpClient } from './http-client';
+import { queryParams } from './query';
 
 export type HomeSettings = components['schemas']['HomeSettingsRecordDto'];
 export type UpdateHomeSettings = components['schemas']['UpdateHomeSettingsDto'];
@@ -66,7 +67,8 @@ export interface UpdateStaticPage {
 /** Information pages (SRS CFG 002); the API enforces `settings.manage`. */
 export function pagesApi(client: HttpClient = httpClient) {
   return {
-    list: (signal?: AbortSignal) => client.request<{ data: StaticPage[] }>('/admin/pages', { signal }).then((r) => r.data.data),
+    list: (query: { q?: string; status?: 'draft' | 'published' } = {}, signal?: AbortSignal) =>
+      client.request<{ data: StaticPage[] }>('/admin/pages', { query: queryParams(query), signal }).then((r) => r.data.data),
     get: (slug: string, signal?: AbortSignal) => client.request<{ data: StaticPage }>(`/admin/pages/${encodeURIComponent(slug)}`, { signal }).then((r) => r.data.data),
     create: (body: CreateStaticPage) => client.request<{ data: StaticPage }>('/admin/pages', { method: 'POST', body }).then((r) => r.data.data),
     remove: (slug: string) => client.request<void>(`/admin/pages/${encodeURIComponent(slug)}`, { method: 'DELETE' }).then(() => undefined),

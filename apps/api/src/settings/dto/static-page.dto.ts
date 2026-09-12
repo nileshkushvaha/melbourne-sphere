@@ -81,3 +81,17 @@ export class PublicStaticPageSummaryDto {
   @ApiProperty() slug!: string;
   @ApiProperty() title!: string;
 }
+
+/**
+ * Narrowing for the page list.
+ *
+ * Applied after the list is assembled rather than in the query, because half of
+ * it does not come from the database: the system pages are defined in code and
+ * appear whether or not anyone has ever edited them. A `WHERE` clause would
+ * silently drop exactly the pages an administrator is most likely to be looking
+ * for.
+ */
+export class ListStaticPagesQueryDto {
+  @ApiPropertyOptional({ maxLength: 80, description: 'Matches title and address' }) @IsOptional() @IsString() @MaxLength(80) q?: string;
+  @ApiPropertyOptional({ enum: ['draft', 'published'] }) @IsOptional() @IsIn(['draft', 'published']) status?: 'draft' | 'published';
+}

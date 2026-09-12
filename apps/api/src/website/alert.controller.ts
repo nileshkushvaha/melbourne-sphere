@@ -68,6 +68,7 @@ export class PublishAlertDto {
 export class ListAlertsQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: ['draft', 'published'] }) @IsOptional() @IsIn(['draft', 'published']) status?: 'draft' | 'published';
   @ApiPropertyOptional({ enum: SEVERITIES }) @IsOptional() @IsIn(SEVERITIES) severity?: AlertSeverity;
+  @ApiPropertyOptional({ maxLength: 120, description: 'Matches the title' }) @IsOptional() @IsString() @MaxLength(120) q?: string;
 }
 
 const toDto = (row: {
@@ -136,7 +137,7 @@ export class AlertAdminController {
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: [ServiceAlertDto] })
   async list(@Query() query: ListAlertsQueryDto) {
-    const { rows, total } = await this.alerts.list({ page: query.page, pageSize: query.pageSize, status: query.status, severity: query.severity });
+    const { rows, total } = await this.alerts.list({ page: query.page, pageSize: query.pageSize, status: query.status, severity: query.severity, q: query.q });
     return { data: rows.map(toDto), meta: collectionMeta(query.page, query.pageSize, total) };
   }
 

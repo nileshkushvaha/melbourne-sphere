@@ -1,4 +1,4 @@
-import { App, Button, Select, Space, Table } from 'antd';
+import { App, Button, Input, Select, Space, Table } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router';
 import { serviceAlertsApi, type AlertSeverity, type ServiceAlert } from '@/api/website';
@@ -15,7 +15,7 @@ import { useDocumentTitle } from '@/shared/useDocumentTitle';
 const SEVERITY_TONE: Record<AlertSeverity, StatusTone> = { informational: 'progress', warning: 'attention', emergency: 'critical' };
 
 /** The parameters that narrow this list; everything else is sort or page. */
-const FILTERS = ['status', 'severity'] as const;
+const FILTERS = ['status', 'severity', 'q'] as const;
 
 /**
  * Service alerts (SRS 1.2 ALRT 007). An alert renders above the header on every
@@ -33,7 +33,8 @@ export function ServiceAlertsPage() {
 
   const navigate = useNavigate();
   const severity = list.get('severity') as AlertSeverity | undefined;
-  const [state, reload] = useAsync(() => serviceAlertsApi.list({ page, pageSize: 20, status: status || undefined, severity }), [page, status, severity]);
+  const q = list.get('q') ?? '';
+  const [state, reload] = useAsync(() => serviceAlertsApi.list({ page, pageSize: 20, status: status || undefined, severity, q: q || undefined }), [page, status, severity, q]);
 
 
   const setPublished = (record: ServiceAlert, published: boolean) => {
@@ -93,6 +94,14 @@ export function ServiceAlertsPage() {
       <TableCard
         toolbar={
           <>
+            <Input.Search
+              aria-label="Search alerts"
+              placeholder="Search by title"
+              allowClear
+              defaultValue={q}
+              onSearch={(value) => list.set('q', value.trim() || undefined)}
+              style={{ width: 260 }}
+            />
             <Select
               aria-label="Filter by status"
               placeholder="Status"

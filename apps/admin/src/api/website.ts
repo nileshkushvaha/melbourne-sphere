@@ -98,7 +98,7 @@ export interface ServiceAlertInput {
 }
 
 export const serviceAlertsApi = {
-  list(query: { page?: number; pageSize?: number; status?: WebsiteContentStatus; severity?: AlertSeverity } = {}, client: HttpClient = httpClient) {
+  list(query: { page?: number; pageSize?: number; status?: WebsiteContentStatus; severity?: AlertSeverity; q?: string } = {}, client: HttpClient = httpClient) {
     return client.request<{ data: ServiceAlert[]; meta: CollectionMeta }>('/admin/service-alerts', { query: queryParams({ ...query }) }).then((r) => r.data);
   },
   create(input: ServiceAlertInput, client: HttpClient = httpClient) {
@@ -167,7 +167,7 @@ export interface PartnerInput {
 }
 
 export const testimonialsApi = {
-  list(query: { page?: number; pageSize?: number; status?: WebsiteContentStatus } = {}, client: HttpClient = httpClient) {
+  list(query: { page?: number; pageSize?: number; status?: WebsiteContentStatus; q?: string } = {}, client: HttpClient = httpClient) {
     return client.request<{ data: Testimonial[]; meta: CollectionMeta }>('/admin/testimonials', { query: queryParams({ ...query }) }).then((r) => r.data);
   },
   create(input: TestimonialInput, client: HttpClient = httpClient) {

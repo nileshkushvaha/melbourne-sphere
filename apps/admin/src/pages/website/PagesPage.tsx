@@ -1,14 +1,18 @@
-import { App, Button, Space, Table, Tag, Typography } from 'antd';
+import { App, Button, Input, Select, Space, Table, Tag, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { Link } from 'react-router';
 import { pagesApi, type StaticPage } from '@/api/settings';
 import { errorMessage } from '@/shared/useAsync';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
-import { PageHeader, PageLoadError, Pill, StatusTag } from '@/components/ui';
+import { ListEmpty, PageHeader, PageLoadError, Pill, StatusTag, TableCard } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
+import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+
+/** The parameters that narrow this list; everything else is sort or page. */
+const FILTERS = ['q', 'status'] as const;
 
 /**
  * Website pages (SRS CFG 002, amended in SRS 1.6 and 1.7).
@@ -24,7 +28,10 @@ export function PagesPage() {
   const { can } = useCapabilities();
   const { message, modal } = App.useApp();
   const canManage = can(PERMISSION.settingsManage);
-  const [state, reload] = useAsync((signal) => pagesApi().list(signal), []);
+  const list = useListParams(FILTERS);
+  const q = list.get('q') ?? '';
+  const status = list.get('status') as 'draft' | 'published' | undefined;
+  const [state, reload] = useAsync((signal) => pagesApi().list({ q: q || undefined, status }, signal), [q, status]);
 
   const remove = (page: StaticPage) => {
     modal.confirm({
@@ -65,6 +72,32 @@ export function PagesPage() {
           ) : null
         }
       />
+      <TableCard
+        toolbar={
+          <>
+            <Input.Search
+              aria-label="Search pages"
+              placeholder="Search by title or address"
+              allowClear
+              defaultValue={q}
+              onSearch={(value) => list.set('q', value.trim() || undefined)}
+              style={{ width: 280 }}
+            />
+            <Select
+              aria-label="Filter by status"
+              allowClear
+              placeholder="Any status"
+              value={status}
+              onChange={(value) => list.set('status', value)}
+              style={{ width: 150 }}
+              options={[
+                { value: 'published', label: 'Published' },
+                { value: 'draft', label: 'Draft' },
+              ]}
+            />
+          </>
+        }
+      >
       <Table<StaticPage>
         className="ms-scroll-table"
         scroll={{ x: 640 }}
@@ -72,6 +105,17 @@ export function PagesPage() {
         dataSource={pages}
         loading={state.status === 'loading'}
         pagination={false}
+        locale={{
+          emptyText: (
+            <ListEmpty
+              state={state}
+              filtered={list.filtered}
+              noun="pages"
+              onClear={list.clear}
+              empty={{ title: 'No pages yet', description: 'The pages the product ships with appear here as soon as this list can be read.' }}
+            />
+          ),
+        }}
         columns={[
           {
             title: 'Page',
@@ -146,6 +190,7 @@ export function PagesPage() {
           },
         ]}
       />
+      </TableCard>
     </div>
   );
 }

@@ -10,7 +10,7 @@ import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
 /** The parameters that narrow this list; everything else is sort or page. */
-const FILTERS = ['q', 'status'] as const;
+const FILTERS = ['q', 'status', 'role'] as const;
 
 /**
  * Administrators (SRS ADM 003, RBAC 004). Inviting happens on its own route so
@@ -25,7 +25,8 @@ export function AdministratorsPage() {
   const status = (list.get('status') as AdminListItem['status'] | null) ?? undefined;
   const sort = (list.get('sort') as 'createdAt' | 'displayName' | 'email' | 'lastLoginAt' | undefined) ?? 'createdAt';
   const order = (list.get('order') as 'asc' | 'desc' | undefined) ?? 'desc';
-  const [state, reload] = useAsync(() => adminsApi.list({ page, pageSize: 20, q: q || undefined, status, sort, order }), [page, q, status, sort, order]);
+  const role = list.get('role');
+  const [state, reload] = useAsync(() => adminsApi.list({ page, pageSize: 20, q: q || undefined, status, role, sort, order }), [page, q, status, role, sort, order]);
 
   /** Ant's own name for the direction, for the column currently sorted. */
   const sortColumn = (field: string) => (sort === field ? (order === 'desc' ? ('descend' as const) : ('ascend' as const)) : null);
@@ -55,6 +56,20 @@ export function AdministratorsPage() {
           <>
             <Input.Search aria-label="Search by email or name" placeholder="Search email or name" allowClear defaultValue={q} onSearch={(v) => list.set('q', v.trim() || undefined)} style={{ width: 280 }} />
             <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => list.set('status', v)} style={{ width: 160 }} options={[{ value: 'invited', label: 'Invited' }, { value: 'active', label: 'Active' }, { value: 'disabled', label: 'Disabled' }]} />
+            {/* The roles are already loaded to name them in the table, so the
+                filter costs no extra request. */}
+            <Select
+              aria-label="Filter by role"
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="Any role"
+              value={role}
+              onChange={(value) => list.set('role', value)}
+              style={{ width: 200 }}
+              loading={rolesState.status === 'loading'}
+              options={rolesState.status === 'ready' ? rolesState.data.data.map((entry) => ({ value: entry.key, label: entry.name })) : []}
+            />
           </>
         }
       >

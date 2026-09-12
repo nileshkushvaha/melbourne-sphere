@@ -2218,7 +2218,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Every page, including ones never edited */
+        /** Every page, including ones never edited (q, status) */
         get: operations["StaticPagesAdminController_list"];
         put?: never;
         /** Create a page at a chosen address; reserved and taken addresses are refused (SRS 1.7) */
@@ -6113,6 +6113,8 @@ export interface operations {
                 order?: "asc" | "desc";
                 /** @description Case-insensitive match on email or display name */
                 q?: string;
+                /** @description Role key; matches administrators holding that role */
+                role?: string;
                 status?: "invited" | "active" | "disabled";
                 sort?: "createdAt" | "email" | "displayName" | "lastLoginAt" | "status";
             };
@@ -7861,7 +7863,11 @@ export interface operations {
     };
     BlogCategoriesAdminController_list: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Matches name and slug */
+                q?: string;
+                status?: "active" | "inactive";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7970,7 +7976,11 @@ export interface operations {
     };
     BlogTagsAdminController_list: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Matches name and slug */
+                q?: string;
+                status?: "active" | "inactive";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -9364,7 +9374,11 @@ export interface operations {
     };
     StaticPagesAdminController_list: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Matches title and address */
+                q?: string;
+                status?: "draft" | "published";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -9884,6 +9898,8 @@ export interface operations {
                 order?: "asc" | "desc";
                 status?: "draft" | "published";
                 severity?: "informational" | "warning" | "emergency";
+                /** @description Matches the title */
+                q?: string;
             };
             header?: never;
             path?: never;
@@ -10063,6 +10079,8 @@ export interface operations {
                 pageSize?: components["schemas"]["Object"];
                 order?: "asc" | "desc";
                 status?: "draft" | "published";
+                /** @description Matches the person and the words they said */
+                q?: string;
             };
             header?: never;
             path?: never;

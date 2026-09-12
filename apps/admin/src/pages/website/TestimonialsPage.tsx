@@ -1,4 +1,4 @@
-import { App, Button, Select, Space, Table } from 'antd';
+import { App, Button, Input, Select, Space, Table } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router';
 import { testimonialsApi, type Testimonial } from '@/api/website';
@@ -10,7 +10,7 @@ import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 
 /** The parameters that narrow this list; everything else is sort or page. */
-const FILTERS = ['status'] as const;
+const FILTERS = ['status', 'q'] as const;
 
 /**
  * Testimonials (SRS 1.2 TSTM 005).
@@ -33,7 +33,8 @@ export function TestimonialsPage() {
   const page = list.page;
   const status = (list.get('status') ?? '') as '' | 'draft' | 'published';
 
-  const [state, reload] = useAsync(() => testimonialsApi.list({ page, pageSize: 20, status: status || undefined }), [page, status]);
+  const q = list.get('q') ?? '';
+  const [state, reload] = useAsync(() => testimonialsApi.list({ page, pageSize: 20, status: status || undefined, q: q || undefined }), [page, status, q]);
 
 
 
@@ -92,6 +93,14 @@ export function TestimonialsPage() {
       <TableCard
         toolbar={
           <>
+            <Input.Search
+              aria-label="Search testimonials"
+              placeholder="Search the person or the quote"
+              allowClear
+              defaultValue={q}
+              onSearch={(value) => list.set('q', value.trim() || undefined)}
+              style={{ width: 260 }}
+            />
             <Select
               aria-label="Filter by status"
               placeholder="Status"

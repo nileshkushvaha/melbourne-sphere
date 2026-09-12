@@ -55,6 +55,7 @@ export class VersionOnlyDto {
 
 export class ListTestimonialsQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: ['draft', 'published'] }) @IsOptional() @IsIn(['draft', 'published']) status?: 'draft' | 'published';
+  @ApiPropertyOptional({ maxLength: 120, description: 'Matches the person and the words they said' }) @IsOptional() @IsString() @MaxLength(120) q?: string;
 }
 
 const testimonialDto = (row: {
@@ -109,7 +110,7 @@ export class TestimonialAdminController {
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: [TestimonialDto] })
   async list(@Query() query: ListTestimonialsQueryDto) {
-    const { rows, total } = await this.testimonials.list({ page: query.page, pageSize: query.pageSize, status: query.status });
+    const { rows, total } = await this.testimonials.list({ page: query.page, pageSize: query.pageSize, status: query.status, q: query.q });
     return { data: rows.map(testimonialDto), meta: collectionMeta(query.page, query.pageSize, total) };
   }
 

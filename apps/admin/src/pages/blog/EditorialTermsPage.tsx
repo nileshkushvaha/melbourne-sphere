@@ -1,14 +1,18 @@
-import { Alert, App, Button, Switch, Table } from 'antd';
+import { App, Button, Input, Select, Switch, Table } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
 import { Link } from 'react-router';
 import { blogApi, type BlogTerm } from '@/api/blog';
 import { isApiError } from '@/api/errors';
-import { EmptyState, PageHeader, StatusTag } from '@/components/ui';
+import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
+import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import type { EditorialTermsConfig } from './editorial-configs';
+
+/** The parameters that narrow this list; everything else is sort or page. */
+const FILTERS = ['q', 'status'] as const;
 
 /**
  * Blog categories and tags (SRS BLOG 001/005). The list activates and
@@ -20,7 +24,10 @@ export function EditorialTermsPage({ config }: { config: EditorialTermsConfig })
   const api = blogApi();
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
-  const [state, reload] = useAsync<BlogTerm[]>((signal) => api.listTerms(config.kind, signal), [config.kind]);
+  const list = useListParams(FILTERS);
+  const q = list.get('q') ?? '';
+  const status = list.get('status') as 'active' | 'inactive' | undefined;
+  const [state, reload] = useAsync<BlogTerm[]>((signal) => api.listTerms(config.kind, { q: q || undefined, status }, signal), [config.kind, q, status]);
   const listHref = `/${config.kind}`;
 
   const toggleActive = async (row: BlogTerm) => {
@@ -48,7 +55,33 @@ export function EditorialTermsPage({ config }: { config: EditorialTermsConfig })
           </Link>
         }
       />
-      {state.status === 'error' && <Alert type="error" showIcon message={state.message} description={state.reference} action={<Button onClick={reload}>Retry</Button>} style={{ marginBottom: 16 }} />}
+      {state.status === 'error' && <ErrorState message={state.message} reference={state.reference} onRetry={reload} />}
+      <TableCard
+        toolbar={
+          <>
+            <Input.Search
+              aria-label={`Search ${config.title.toLowerCase()}`}
+              placeholder={`Search ${config.title.toLowerCase()}`}
+              allowClear
+              defaultValue={q}
+              onSearch={(value) => list.set('q', value.trim() || undefined)}
+              style={{ width: 260 }}
+            />
+            <Select
+              aria-label="Filter by status"
+              allowClear
+              placeholder="Any status"
+              value={status}
+              onChange={(value) => list.set('status', value)}
+              style={{ width: 150 }}
+              options={[
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' },
+              ]}
+            />
+          </>
+        }
+      >
       <Table<BlogTerm>
         rowKey="id"
         loading={state.status === 'loading'}
@@ -65,10 +98,19 @@ export function EditorialTermsPage({ config }: { config: EditorialTermsConfig })
             render: (_: unknown, row) => <Switch checked={row.active} onChange={() => void toggleActive(row)} aria-label={`${row.active ? 'Deactivate' : 'Activate'} ${row.name}`} />,
           },
         ]}
-        // The whole list is fetched and nothing filters it, so there is only one
-        // empty case to explain here.
-        locale={{ emptyText: state.status === 'ready' ? <EmptyState title={`No ${config.title.toLowerCase()} yet`} description={config.intro} /> : <span className="sr-only">Loading</span> }}
+        locale={{
+          emptyText: (
+            <ListEmpty
+              state={state}
+              filtered={list.filtered}
+              noun={config.title.toLowerCase()}
+              onClear={list.clear}
+              empty={{ title: `No ${config.title.toLowerCase()} yet`, description: config.intro }}
+            />
+          ),
+        }}
       />
+      </TableCard>
     </div>
   );
 }

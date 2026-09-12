@@ -112,11 +112,12 @@ export class AlertService {
 
   // ---- admin ---------------------------------------------------------------
 
-  async list(query: { page: number; pageSize: number; status?: 'draft' | 'published'; severity?: AlertSeverity }) {
+  async list(query: { page: number; pageSize: number; status?: 'draft' | 'published'; severity?: AlertSeverity; q?: string }) {
     const db = await this.database.client();
     const where: Prisma.ServiceAlertWhereInput = {
       ...(query.status ? { status: query.status } : {}),
       ...(query.severity ? { severity: query.severity } : {}),
+      ...(query.q ? { title: { contains: query.q } } : {}),
     };
     const [rows, total] = await Promise.all([
       db.serviceAlert.findMany({ where, orderBy: [{ status: 'asc' }, { priority: 'desc' }, { displayOrder: 'asc' }], skip: (query.page - 1) * query.pageSize, take: query.pageSize }),

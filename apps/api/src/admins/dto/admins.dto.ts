@@ -14,6 +14,12 @@ export class ListAdminsQueryDto extends PaginationQueryDto {
   @MaxLength(120)
   q?: string;
 
+  @ApiPropertyOptional({ description: 'Role key; matches administrators holding that role', maxLength: 64 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  role?: string;
+
   @ApiPropertyOptional({ enum: ['invited', 'active', 'disabled'] })
   @IsOptional()
   @IsIn(['invited', 'active', 'disabled'])

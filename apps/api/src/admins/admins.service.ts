@@ -61,6 +61,9 @@ export class AdminsService {
     const where: Prisma.AdminUserWhereInput = {
       ...(query.status ? { status: query.status } : {}),
       ...(query.q ? { OR: [{ email: { contains: query.q } }, { displayName: { contains: query.q } }] } : {}),
+      // "Who can do X" is the question this screen is opened with, and a role
+      // is how the answer is granted.
+      ...(query.role ? { roles: { some: { role: { key: query.role } } } } : {}),
     };
     const [total, rows] = await Promise.all([
       db.adminUser.count({ where }),

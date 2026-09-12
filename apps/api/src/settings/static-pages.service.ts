@@ -49,14 +49,22 @@ export class StaticPagesService {
    * The system pages first, in registry order and including ones never edited
    * yet, then the administrator's own pages, newest first.
    */
-  async list(): Promise<StaticPageDto[]> {
+  async list(query: { q?: string; status?: 'draft' | 'published' } = {}): Promise<StaticPageDto[]> {
     const db = await this.database.client();
     const rows = await db.staticPage.findMany({ orderBy: { updatedAt: 'desc' } });
     const bySlug = new Map(rows.map((row) => [row.slug, row]));
-    return [
+    const pages = [
       ...(await Promise.all(SYSTEM_PAGES.map((definition) => this.toDto(definition.slug, bySlug.get(definition.slug))))),
       ...(await Promise.all(rows.filter((row) => !isSystemPage(row.slug)).map((row) => this.toDto(row.slug, row)))),
     ];
+    // Filtered here, not in the query: a system page that has never been edited
+    // has no row to match, and it is the one most likely to be searched for.
+    const term = query.q?.trim().toLowerCase();
+    return pages.filter(
+      (page) =>
+        (!query.status || page.status === query.status) &&
+        (!term || page.title.toLowerCase().includes(term) || page.slug.toLowerCase().includes(term)),
+    );
   }
 
   async get(slug: string): Promise<StaticPageDto> {

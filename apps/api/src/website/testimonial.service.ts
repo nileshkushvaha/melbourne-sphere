@@ -96,10 +96,13 @@ export class TestimonialService {
 
   // ---- admin ---------------------------------------------------------------
 
-  async list(query: { page: number; pageSize: number; status?: 'draft' | 'published' }) {
+  async list(query: { page: number; pageSize: number; status?: 'draft' | 'published'; q?: string }) {
     const db = await this.database.client();
     const where: Prisma.TestimonialWhereInput = {
       ...(query.status ? { status: query.status } : {}),
+      // Both halves of a testimonial are worth searching: an editor looks for
+      // the person, or for the words they remember.
+      ...(query.q ? { OR: [{ displayName: { contains: query.q } }, { quote: { contains: query.q } }] } : {}),
     };
     const [rows, total] = await Promise.all([
       db.testimonial.findMany({ where, orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }], skip: (query.page - 1) * query.pageSize, take: query.pageSize }),

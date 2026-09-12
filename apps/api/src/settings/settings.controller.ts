@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Header, HttpCode, Param, Post, Put, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, HttpCode, Param, Post, Put, Req, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { RequestContext } from '../auth/auth.service.js';
 import { CurrentAdmin, Public, RequirePermissions, type AuthenticatedRequest } from '../auth/decorators.js';
@@ -9,7 +9,7 @@ import { SeoSettingsRecordDto, UpdateSeoSettingsDto } from './dto/seo-settings.d
 import { GeneralSettingsRecordDto, PublicSiteSettingsDto, UpdateGeneralSettingsDto } from './dto/general-settings.dto.js';
 import { SettingsService } from './settings.service.js';
 import { StaticPagesService } from './static-pages.service.js';
-import { CreateStaticPageDto, PublicStaticPageDto, PublicStaticPageSummaryDto, StaticPageDto, StaticPageStateDto, UpdateStaticPageDto } from './dto/static-page.dto.js';
+import { CreateStaticPageDto, PublicStaticPageDto, PublicStaticPageSummaryDto, StaticPageDto, StaticPageStateDto, UpdateStaticPageDto, ListStaticPagesQueryDto } from './dto/static-page.dto.js';
 
 const ctxOf = (req: AuthenticatedRequest): RequestContext => ({ ip: req.ip ?? 'unknown', userAgent: req.headers['user-agent'], requestId: getRequestId(req) });
 
@@ -117,10 +117,10 @@ export class StaticPagesAdminController {
   @RequirePermissions('settings.manage')
   @Get()
   @Header('Cache-Control', 'no-store')
-  @ApiOperation({ summary: 'Every page, including ones never edited' })
+  @ApiOperation({ summary: 'Every page, including ones never edited (q, status)' })
   @ApiOkResponse({ type: [StaticPageDto] })
-  async list() {
-    return { data: await this.pages.list() };
+  async list(@Query() query: ListStaticPagesQueryDto) {
+    return { data: await this.pages.list(query) };
   }
 
   @RequirePermissions('settings.manage')
