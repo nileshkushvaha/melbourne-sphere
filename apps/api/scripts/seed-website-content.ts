@@ -186,8 +186,37 @@ async function seedComments(): Promise<void> {
   console.log(`  now: ${counts.map((row) => `${row._count._all} ${row.status}`).join(', ')}`);
 }
 
+/**
+ * Rewrites the seeded text to what the content file says now.
+ *
+ * Opt-in with `--refresh`, because it overwrites: for seeded copy that is the
+ * point, but it must not happen as a side effect of a run somebody started to
+ * add a missing record.
+ */
+async function refresh(): Promise<void> {
+  let changed = 0;
+  for (const faq of SEED_FAQS) {
+    const row = await db.faq.findFirst({ where: { question: faq.question }, select: { id: true, answerSource: true } });
+    if (!row || row.answerSource === faq.answer) continue;
+    await db.faq.update({ where: { id: row.id }, data: { answerSource: faq.answer, answerHtml: renderSanitisedBody(faq.answer, 'markdown'), version: { increment: 1 } } });
+    changed += 1;
+  }
+  for (const item of SEED_TESTIMONIALS) {
+    const row = await db.testimonial.findFirst({ where: { displayName: item.name }, select: { id: true, quote: true, relationship: true } });
+    if (!row || (row.quote === item.quote && row.relationship === item.relationship)) continue;
+    await db.testimonial.update({ where: { id: row.id }, data: { quote: item.quote, relationship: item.relationship, version: { increment: 1 } } });
+    changed += 1;
+  }
+  console.log(`Done. ${changed} record(s) rewritten.`);
+}
+
 async function main(): Promise<void> {
   console.log(`Seeding website content into ${databaseName}\n`);
+
+  if (process.argv.includes('--refresh')) {
+    await refresh();
+    return;
+  }
   await seedFaqs();
   await seedTestimonials();
   await seedPartners();
