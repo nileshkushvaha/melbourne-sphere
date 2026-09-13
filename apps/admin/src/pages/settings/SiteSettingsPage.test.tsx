@@ -33,7 +33,7 @@ describe('site settings page', () => {
   it('loads the settings, maps field errors and saves with the record version', async () => {
     const ue = user();
     renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/settings'] });
-    expect(await screen.findByRole('heading', { level: 1, name: 'Site settings' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Home page settings' })).toBeInTheDocument();
     expect(await screen.findByDisplayValue('Discover Melbourne businesses')).toBeInTheDocument();
     expect(screen.getByDisplayValue('local services')).toBeInTheDocument();
     await ue.click(screen.getByRole('switch', { name: /show counters/i }));
@@ -53,7 +53,7 @@ describe('site settings page', () => {
     provider.getPermissions = async () => ['listings.read'];
     renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/'], authProvider: provider });
     await screen.findByRole('heading', { level: 1 });
-    expect(screen.queryByRole('link', { name: 'Site settings' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Home page settings' })).not.toBeInTheDocument();
   });
 });
 
@@ -110,7 +110,7 @@ describe('home banner slides', () => {
   it('shows the saved slides and adds another from the media library', async () => {
     const ue = user();
     renderWithProviders(<SiteSettingsPage />, { initialEntries: ['/admin/settings'] });
-    expect(await screen.findByRole('heading', { level: 1, name: 'Site settings' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Home page settings' })).toBeInTheDocument();
     expect(await screen.findByDisplayValue('Flinders Street')).toBeInTheDocument();
 
     await ue.click(screen.getByRole('button', { name: /add image/i }));

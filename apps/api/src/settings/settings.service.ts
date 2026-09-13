@@ -33,7 +33,7 @@ export class SettingsService {
   /**
    * Turns stored slide references into renditions the site can render. A slide
    * whose asset is missing or not processed is dropped rather than rendered
-   * broken, so the hero degrades to the solid fallback (SRS HERO 001).
+   * broken; with none left the site shows its built-in photographs (SRS HERO 001).
    */
   private async resolveSlides(slides: HomeSettings['heroSlides']): Promise<PublicHeroSlideDto[]> {
     const resolved = await Promise.all(
@@ -70,6 +70,16 @@ export class SettingsService {
   async updateHomeSettings(input: UpdateHomeSettingsDto, actor: AdminPrincipal, ctx: RequestContext): Promise<HomeSettingsRecordDto> {
     const { errors, value } = validateHomeSettings(input);
     if (Object.keys(errors).length > 0) throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Some settings are invalid', fields: errors }, HttpStatus.BAD_REQUEST);
+    // Every slide must be a processed image. The public read drops a slide it
+    // cannot render, so accepting one here let a save succeed while the banner
+    // silently kept showing the built-in photographs.
+    const slideErrors: Record<string, string[]> = {};
+    await Promise.all(
+      value.heroSlides.map(async (slide, index) => {
+        if (!(await this.media.heroRendition(slide.mediaId))) slideErrors[`heroSlides.${index}.mediaId`] = ['That image does not exist or is still being processed'];
+      }),
+    );
+    if (Object.keys(slideErrors).length > 0) throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Some settings are invalid', fields: slideErrors }, HttpStatus.BAD_REQUEST);
     // The version check, the transaction, the audit record and the cache purge
     // are the shared settings path (SET 003); only the validation above is
     // specific to the home settings.

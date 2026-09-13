@@ -9,16 +9,17 @@ import type { HeroSlide } from '@/components/hero-banner';
  * being commissioned, and they are stored locally (never hot-linked) as
  * pre-cropped 2560×1440 WebP with EXIF stripped.
  *
- * Both are Creative Commons *Attribution* images — no share-alike obligation —
- * and the required credit is rendered with the banner. Sources and licences are
- * recorded in `docs/content/hero-photography.md`.
+ * Both are Creative Commons *Attribution* images — no share-alike obligation.
+ * Their credits are recorded with the sources and licences in
+ * `docs/content/hero-photography.md` and are not printed on the page (client
+ * instruction, 13 Sep 2026); the caption names the place only.
  */
 export const DEFAULT_HERO_SLIDES: HeroSlide[] = [
   {
     url: '/hero/flinders-street-evening.webp',
     previewUrl: '/hero/flinders-street-evening.webp',
     alt: 'A tram passes Flinders Street Station in the Melbourne CBD on a summer evening',
-    caption: 'Flinders Street Station · photo Caroline Jones, CC BY 2.0',
+    caption: 'Flinders Street Station',
     focalX: 0.5,
     focalY: 0.42,
     width: 2560,
@@ -28,7 +29,7 @@ export const DEFAULT_HERO_SLIDES: HeroSlide[] = [
     url: '/hero/degraves-street-laneway.webp',
     previewUrl: '/hero/degraves-street-laneway.webp',
     alt: 'Cafés, awnings and hanging signs along Degraves Street, a laneway in the Melbourne CBD',
-    caption: 'Degraves Street · photo -wuppertaler, CC BY 4.0',
+    caption: 'Degraves Street',
     focalX: 0.58,
     focalY: 0.5,
     width: 2560,

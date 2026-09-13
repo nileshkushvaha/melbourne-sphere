@@ -38,7 +38,7 @@ const MAX_HERO_SLIDES = 6;
  * version; the API validates the document and audits every change.
  */
 export function SiteSettingsPage() {
-  useDocumentTitle('Site settings');
+  useDocumentTitle('Home page settings');
   const api = settingsApi();
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
@@ -101,15 +101,15 @@ export function SiteSettingsPage() {
   };
 
   // The screen is empty until its record arrives; say so rather than showing a blank disabled form.
-  if (state.status === 'loading') return <PageLoader label="Loading site settings…" />;
-  if (state.status === 'error') return <PageLoadError title="Site settings" crumbs={[{ label: 'Configuration' }, { label: 'Site settings' }]} message={state.message} reference={state.reference} onRetry={reload} />;
+  if (state.status === 'loading') return <PageLoader label="Loading home page settings…" />;
+  if (state.status === 'error') return <PageLoadError title="Home page settings" crumbs={[{ label: 'Configuration' }, { label: 'Home page settings' }]} message={state.message} reference={state.reference} onRetry={reload} />;
 
   return (
     <div>
       <PageHeader
-        crumbs={[{ label: 'Configuration' }, { label: 'Site settings' }]}
-        title="Site settings"
-        description="The banner, headline and counters on the public home page."
+        crumbs={[{ label: 'Configuration' }, { label: 'Home page settings' }]}
+        title="Home page settings"
+        description="The banner images, headline and counters on the public home page. Changes appear on the site within a minute of saving."
       />
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} role="alert" />}
       <Form<FormValues> form={form} layout="vertical" requiredMark={false} onFinish={submit} onValuesChange={() => setDirty(true)} disabled={state.status !== 'ready'}>
@@ -144,7 +144,7 @@ export function SiteSettingsPage() {
 
         <SectionCard
           title="Home banner"
-          description={`Up to ${MAX_HERO_SLIDES} photographs behind the hero. With none, a solid navy panel shows.`}
+          description={`Up to ${MAX_HERO_SLIDES} photographs behind the hero, shown in this order. They replace the site's two built-in Melbourne photographs; with none, those built-in photographs show.`}
           extra={
             <Button icon={<PictureOutlined aria-hidden="true" />} onClick={() => setPickerOpen(true)}>
               Add image
@@ -154,7 +154,9 @@ export function SiteSettingsPage() {
           <Form.List name="heroSlides">
             {(fields, { move, remove }) => (
               <div>
-                {fields.length === 0 && <Typography.Paragraph type="secondary">No banner images yet — the hero uses the solid navy fallback.</Typography.Paragraph>}
+                {fields.length === 0 && (
+                  <Typography.Paragraph type="secondary">No banner images yet, so the home page shows the two built-in Melbourne photographs. Add an image from the media library to replace them.</Typography.Paragraph>
+                )}
                 {fields.map((field, position) => {
                   const mediaId = (form.getFieldValue(['heroSlides', field.name, 'mediaId']) ?? '') as string;
                   const preview = previews[mediaId];
@@ -191,8 +193,8 @@ export function SiteSettingsPage() {
                         <Form.Item name={[field.name, 'mediaId']} hidden>
                           <Input />
                         </Form.Item>
-                        <Form.Item label="Caption or credit" name={[field.name, 'caption']} style={{ marginBottom: 8 }} extra="Optional; shown under the banner controls.">
-                          <Input maxLength={120} placeholder="e.g. Flinders Street Station at dusk — photo by Jo Lee" />
+                        <Form.Item label="Caption" name={[field.name, 'caption']} style={{ marginBottom: 8 }} extra="Optional; a short place name shown under the banner controls.">
+                          <Input maxLength={120} placeholder="e.g. Flinders Street Station at dusk" />
                         </Form.Item>
                         {/* Still part of the record, and still submitted; the
                             picture beside this is how they are set. */}

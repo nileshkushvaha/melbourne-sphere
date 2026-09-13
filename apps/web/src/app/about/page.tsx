@@ -56,7 +56,12 @@ export async function generateMetadata(): Promise<Metadata> {
   );
 }
 
-/** Licensed photographs held by the project (ABT 006); sources in `docs/content/about-photography.md`. */
+/**
+ * Licensed photographs held by the project (ABT 006); sources in
+ * `docs/content/about-photography.md`. The credits are kept here as the record
+ * of each licence but are not printed on the page (client instruction,
+ * 13 Sep 2026).
+ */
 const PHOTOS = {
   skyline: { src: '/about/melbourne-skyline-yarra.webp', alt: 'The Melbourne skyline along the Yarra River', credit: 'Jorge Láscar, CC BY 2.0, via Wikimedia Commons' },
   laneway: { src: '/about/degraves-street-laneway.webp', alt: 'A Melbourne laneway lined with cafés', credit: '-wuppertaler, CC BY 4.0, via Wikimedia Commons' },
@@ -107,7 +112,6 @@ function Photo({ photo, className, sizes, priority = false }: { photo: (typeof P
       <div className={`relative w-full overflow-hidden rounded-card-lg shadow-md ${className}`}>
         <Image src={photo.src} alt={photo.alt} fill sizes={sizes} priority={priority} className="object-cover" />
       </div>
-      <figcaption className="mt-2 text-xs text-text-muted">Photograph: {photo.credit}</figcaption>
     </figure>
   );
 }
@@ -119,7 +123,7 @@ export default async function AboutPage() {
   const title = `About ${settings.name}`;
   const { email } = contactChannelFrom(settings);
   const { phone } = settings.contact;
-  const contactLinkClass = 'flex min-h-11 items-center gap-2.5 break-words font-medium text-link underline-offset-4 hover:underline [overflow-wrap:anywhere]';
+  const contactLinkClass = 'flex min-h-11 items-center gap-2.5 break-words font-medium text-link underline-offset-4 ms-text-link [overflow-wrap:anywhere]';
   const figures = [
     { value: metrics.businesses, label: 'Published businesses' },
     { value: metrics.areas, label: 'Local areas' },
@@ -128,15 +132,15 @@ export default async function AboutPage() {
   ].filter((figure): figure is { value: number; label: string } => typeof figure.value === 'number' && figure.value > 0);
 
   return (
-    <article>
+    <article className="ms-product-page">
       <JsonLdScript data={aboutPageJsonLd({ name: title, description: `${settings.name} is an independently edited guide to Melbourne’s local businesses.` })} />
-      <InformationHero title={title} eyebrow="About us" intro="An independently edited guide to Melbourne’s local businesses, neighbourhoods and city life." className="ms-editorial-band" />
+      <InformationHero title={title} eyebrow="About us" intro="An independently edited guide to Melbourne’s local businesses, neighbourhoods and city life." className="ms-editorial-band ms-ocean-band" />
 
       <ProductPageLayout
         lead={
           <>
             <Photo photo={PHOTOS.skyline} className="aspect-[5/2] sm:aspect-[4/1]" sizes="(min-width: 1024px) 60vw, 100vw" priority />
-            <section aria-labelledby="who-heading">
+            <section aria-labelledby="who-heading" className="ms-content-panel">
               <h2 id="who-heading" className="font-display text-2xl tracking-tight sm:text-3xl">
                 Who we are
               </h2>
@@ -161,9 +165,9 @@ export default async function AboutPage() {
             {figures.length > 0 && (
               <dl className="mt-5 grid grid-cols-2 gap-3">
                 {figures.map((figure) => (
-                  <div key={figure.label} className="flex flex-col-reverse rounded-card border border-sky-100 bg-linear-to-br from-sky-50 to-surface p-4">
+                  <div key={figure.label} className="flex flex-col-reverse rounded-card border border-sky-100 bg-linear-to-br from-sky-50 to-teal-100 p-4">
                     <dt className="text-sm text-text-muted">{figure.label}</dt>
-                    <dd className="font-display bg-linear-to-br from-sky-600 to-navy-800 bg-clip-text text-3xl tracking-tight text-transparent">{count.format(figure.value)}</dd>
+                    <dd className="font-display bg-linear-to-br from-sky-700 to-teal-700 bg-clip-text text-3xl tracking-tight text-transparent">{count.format(figure.value)}</dd>
                   </div>
                 ))}
               </dl>
@@ -175,7 +179,7 @@ export default async function AboutPage() {
               <ul className="flex flex-wrap gap-2">
                 {areas.slice(0, 12).map((area) => (
                   <li key={area.id}>
-                    <Link href={`/business/area/${area.slug}`} className="inline-flex min-h-9 items-center rounded-full border border-sky-100 bg-sky-50 px-3.5 text-sm font-medium text-sky-700 transition-colors hover:border-sky-400 hover:bg-sky-100">
+                    <Link href={`/business/area/${area.slug}`} className="ms-text-link inline-flex min-h-11 items-center rounded-full px-3.5 text-sm font-medium">
                       {area.name}
                     </Link>
                   </li>
@@ -189,7 +193,7 @@ export default async function AboutPage() {
               {email && (
                 <li>
                   <a href={`mailto:${email}`} className={contactLinkClass}>
-                    <MailIcon aria-hidden="true" className="size-4 shrink-0 text-sky-600" />
+                    <MailIcon aria-hidden="true" className="size-4 shrink-0 text-current" />
                     {email}
                   </a>
                 </li>
@@ -197,7 +201,7 @@ export default async function AboutPage() {
               {phone && (
                 <li>
                   <a href={phone.telHref} className={contactLinkClass}>
-                    <PhoneIcon aria-hidden="true" className="size-4 shrink-0 text-sky-600" />
+                    <PhoneIcon aria-hidden="true" className="size-4 shrink-0 text-current" />
                     {phone.display}
                   </a>
                 </li>
@@ -230,7 +234,7 @@ export default async function AboutPage() {
           </div>
         </ContentSection>
 
-        <section aria-labelledby="join-heading" className="ms-on-dark relative isolate overflow-hidden rounded-card-lg bg-linear-to-br from-navy-950 via-navy-800 to-sky-700 p-6 text-white shadow-lg sm:p-8">
+        <section aria-labelledby="join-heading" className="ms-on-dark ms-ocean-band relative isolate overflow-hidden rounded-card-lg bg-band-deep p-6 text-white shadow-lg sm:p-8">
           <div aria-hidden="true" className="absolute -right-16 -top-20 -z-10 size-64 rounded-full bg-sky-400/30 blur-3xl" />
           <h2 id="join-heading" className="font-display text-2xl tracking-tight sm:text-3xl">
             Be part of {settings.name}
@@ -239,7 +243,7 @@ export default async function AboutPage() {
           <ul className="mt-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
             {JOIN.map((item) => (
               <li key={item.href}>
-                <Link href={item.href} className="group flex h-full min-h-14 items-center gap-3 rounded-card border border-white/15 bg-white/[0.07] px-4 py-3 font-semibold transition-colors hover:border-sky-400 hover:bg-white/12">
+                <Link href={item.href} className="ms-primary-action group flex h-full min-h-14 items-center gap-3 rounded-card border border-white/15 bg-white/[0.07] px-4 py-3 font-semibold transition-colors hover:border-sky-400 hover:bg-white/12">
                   <item.icon aria-hidden="true" className="size-5 shrink-0 text-sky-400" />
                   <span className="flex-1">{item.label}</span>
                   <ArrowRightIcon aria-hidden="true" className="size-4 shrink-0 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />

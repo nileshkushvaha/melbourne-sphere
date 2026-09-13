@@ -13,9 +13,35 @@ BY‑SA and non-commercial candidates were rejected. Files are stored locally in
 WebP at quality 76 with EXIF removed, and served through the Next.js image
 optimiser with responsive `sizes`.
 
-The credit below is rendered with the banner (`caption` in
-`apps/web/src/lib/hero-assets.ts`), which is where the licence's attribution
-requirement is satisfied.
+The credits below are recorded here and on the media assets, but are not shown
+on the site: the banner caption names the place only (client instruction,
+13 September 2026). The CC BY licences ask for attribution where the image is
+used, so displaying the credits again — or replacing these photographs — is an
+open item before launch.
+
+These two files are the **fallback only**: the site shows them when no Home
+banner slide is configured. They are not in the media library.
+
+## The configured banner (database)
+
+The banner the home page shows comes from the Home banner slides in
+Configuration → Home page settings, stored in the `website/home` settings
+document and managed there (reorder, focal point, caption, remove, replace). Five
+Melbourne photographs were added to the media library as those slides by
+`apps/api/scripts/seed-hero-slides.ts` on 13 September 2026. Credits are kept on
+each media asset and not shown on the site.
+
+| Media asset | Caption | Author | Licence | Source |
+| --- | --- | --- | --- | --- |
+| `home-hero-princes-bridge-night.jpg` | Princes Bridge and the Yarra | Commons artist on the asset | CC BY 2.0 | [Melbourne CBD and Princes Bridge at night (2013)](https://commons.wikimedia.org/wiki/File:Melbourne_CBD_and_Princes_Bridge_at_night_(2013).jpg) |
+| `home-hero-southbank-bolte-bridge.jpg` | Southbank at night | Commons artist on the asset | CC BY 2.0 | [Southbank and the Bolte Bridge at night](https://commons.wikimedia.org/wiki/File:Southbank_and_the_Bolte_Bridge_at_night_(11866185983).jpg) |
+| `home-hero-federation-square.jpg` | Federation Square | Commons artist on the asset | CC BY 2.0 | [Federation Square Melbourne](https://commons.wikimedia.org/wiki/File:Federation_Square_Melbourne_(6768126635).jpg) |
+| `home-hero-hosier-lane.jpg` | Hosier Lane | Commons artist on the asset | CC0 | [Hosier Lane Melbourne](https://commons.wikimedia.org/wiki/File:Hosier_Lane_Melbourne._(21380271866).jpg) |
+| `home-hero-docklands-skyline.jpg` | The city from Docklands | Commons artist on the asset | CC0 | [City of Melbourne Skyline From Docklands](https://commons.wikimedia.org/wiki/File:City_of_Melbourne_Skyline_From_Docklands.JPG) |
+
+A sixth candidate, `home-hero-royal-exhibition-building.jpg` (public domain), was
+uploaded but left out because it is portrait; nothing uses it, so the media
+retention task removes it after its recoverable period.
 
 | File | Subject | Author | Licence | Source |
 | --- | --- | --- | --- | --- |
