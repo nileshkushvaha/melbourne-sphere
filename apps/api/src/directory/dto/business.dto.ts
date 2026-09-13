@@ -58,6 +58,10 @@ class BusinessFieldsDto {
   @ApiPropertyOptional({ type: AddressInputDto, nullable: true }) @IsOptional() @ValidateNested() @Type(() => AddressInputDto) address?: AddressInputDto | null;
   @ApiPropertyOptional({ type: String, maxLength: 254, nullable: true, writeOnly: true, description: 'Private enquiry destination; encrypted at rest, never public' }) @IsOptional() @emptyToNull() @trim() @IsEmail({}, { message: 'Enter a valid email address' }) @MaxLength(254) privateEnquiryEmail?: string | null;
   @ApiPropertyOptional({ type: Number, nullable: true, minimum: 1835, description: 'The year the business began trading; shown publicly as "n years in business"' }) @IsOptional() @IsInt() establishedYear?: number | null;
+  @ApiPropertyOptional({ type: String, maxLength: 180, nullable: true, description: 'Search-result title; the listing name is used when empty' }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(180) seoTitle?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 300, nullable: true, description: 'Meta description; the listing description is used when empty' }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(300) seoDescription?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 255, nullable: true, description: 'Comma-separated keywords' }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(255) seoKeywords?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 64, nullable: true, description: 'A processed media asset used when the listing is shared; the cover photograph is used when empty' }) @IsOptional() @emptyToNull() @IsString() @MaxLength(64) ogImageMediaId?: string | null;
   @ApiPropertyOptional({ type: String, maxLength: 255, nullable: true, description: 'How Melbourne eligibility was verified; saving it records the verification time' }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(255) eligibilitySource?: string | null;
   @ApiPropertyOptional({ description: 'Set true once content rights/sources have been reviewed' }) @IsOptional() @IsBoolean() contentRightsReviewed?: boolean;
   @ApiPropertyOptional({ type: String, maxLength: 500, nullable: true }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(500) contentRightsNote?: string | null;
@@ -99,6 +103,13 @@ export class DuplicateWarningDto {
   @ApiProperty({ enum: ['name_and_address', 'name_and_phone', 'name'] }) match!: 'name_and_address' | 'name_and_phone' | 'name';
 }
 
+/** A preview of a chosen image, so the editor can show what is selected. */
+export class BusinessImagePreviewDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() url!: string;
+  @ApiProperty() alt!: string;
+}
+
 export class BusinessDto {
   @ApiProperty() id!: string;
   @ApiProperty() name!: string;
@@ -120,6 +131,11 @@ export class BusinessDto {
   @ApiProperty({ type: String, nullable: true, description: 'Only present for listings.write holders on the detail endpoint' }) privateEnquiryEmail?: string | null;
   @ApiProperty() hasPrivateEnquiryEmail!: boolean;
   @ApiProperty({ type: Number, nullable: true }) establishedYear!: number | null;
+  @ApiProperty({ type: String, nullable: true }) seoTitle!: string | null;
+  @ApiProperty({ type: String, nullable: true }) seoDescription!: string | null;
+  @ApiProperty({ type: String, nullable: true }) seoKeywords!: string | null;
+  @ApiProperty({ type: String, nullable: true }) ogImageMediaId!: string | null;
+  @ApiProperty({ type: BusinessImagePreviewDto, nullable: true, description: 'The share image, for the editor preview' }) ogImage!: BusinessImagePreviewDto | null;
   @ApiProperty({ type: String, nullable: true }) eligibilitySource!: string | null;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) eligibilityVerifiedAt!: string | null;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) contentRightsReviewedAt!: string | null;

@@ -50,6 +50,20 @@ describe('Dashboard (integration)', () => {
     // Audit entries carry an action and an actor, never message content.
     expect(Object.keys(res.body.data.activity[0])).toEqual(['id', 'action', 'actorName', 'targetType', 'createdAt']);
     expect(res.headers['cache-control']).toBe('no-store');
+    // Trends, figures and breakdowns are counts only, in Melbourne calendar days.
+    const data = res.body.data;
+    expect(data.periodDays).toBe(30);
+    expect(data.trend.days).toHaveLength(30);
+    expect(data.trend.series.map((series: { key: string }) => series.key)).toEqual(['reviews', 'comments', 'enquiries']);
+    for (const series of data.trend.series) {
+      expect(series.points).toHaveLength(30);
+      expect(Object.keys(series).sort()).toEqual(['href', 'key', 'label', 'points', 'previousTotal', 'total']);
+    }
+    expect(data.figures.map((figure: { key: string }) => figure.key)).toEqual(['publishedBusinesses', 'publishedPosts', 'approvedReviews', 'activeCategories', 'activeAreas']);
+    expect(data.ratingDistribution.map((item: { key: string }) => item.key)).toEqual(['5', '4', '3', '2', '1']);
+    expect(data.enquiryDelivery.map((item: { key: string }) => item.key)).toEqual(['delivered', 'providerAccepted', 'queued', 'retrying', 'failed', 'suppressed']);
+    expect(data.listingStatus.map((item: { key: string }) => item.key)).toEqual(['published', 'draft', 'archived']);
+    expect(Array.isArray(data.topCategories)).toBe(true);
   });
 
   it('hides metrics the caller has no permission for, and refuses anonymous callers', async () => {
@@ -58,6 +72,13 @@ describe('Dashboard (integration)', () => {
     expect(keys).toEqual(['draftListings']);
     expect(res.body.data.activity).toEqual([]);
     expect(res.body.data.scheduledPosts).toEqual([]);
+    // listings.read sees listing figures and nothing from the queues it cannot open.
+    expect(res.body.data.trend.series).toEqual([]);
+    expect(res.body.data.figures.map((figure: { key: string }) => figure.key)).toEqual(['publishedBusinesses', 'activeCategories', 'activeAreas']);
+    expect(res.body.data.averageRating).toBeNull();
+    expect(res.body.data.ratingDistribution).toEqual([]);
+    expect(res.body.data.enquiryDelivery).toEqual([]);
+    expect(res.body.data.listingStatus).toHaveLength(3);
     await agent().get('/api/v1/admin/dashboard').expect(401);
   });
 });

@@ -114,9 +114,21 @@ export class PublicGalleryImageDto {
   @ApiProperty({ type: [PublicImageVariantDto] }) variants!: PublicImageVariantDto[];
 }
 
+/** An image with its dimensions, as social platforms want it. */
+export class PublicShareImageDto {
+  @ApiProperty() url!: string;
+  @ApiProperty() alt!: string;
+  @ApiProperty() width!: number;
+  @ApiProperty() height!: number;
+}
+
 export class PublicBusinessDetailDto extends PublicBusinessCardDto {
   @ApiProperty() description!: string;
   @ApiProperty({ type: Number, nullable: true, description: 'The year the business says it began trading; null when not recorded' }) establishedYear!: number | null;
+  @ApiProperty({ type: String, nullable: true, description: 'Search-result title set by an editor; null means the page composes one' }) seoTitle!: string | null;
+  @ApiProperty({ type: String, nullable: true, description: 'Meta description set by an editor; null means the description is used' }) seoDescription!: string | null;
+  @ApiProperty({ type: String, nullable: true, description: 'Comma-separated keywords' }) seoKeywords!: string | null;
+  @ApiProperty({ type: PublicShareImageDto, nullable: true, description: 'Image used when the listing is shared; null means the cover photograph is used' }) shareImage!: PublicShareImageDto | null;
   @ApiProperty({ type: [PublicTermDto] }) secondaryCategories!: PublicTermDto[];
   @ApiProperty({ type: [PublicTermDto] }) services!: PublicTermDto[];
   @ApiProperty({ type: PublicContactDto }) contact!: PublicContactDto;

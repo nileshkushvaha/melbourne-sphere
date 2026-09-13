@@ -101,6 +101,8 @@ export const RESERVED_SLUGS = [
   'contact',
   'directory',
   'faqs',
+  // Generated share images (`/og/[kind]/[key]`).
+  'og',
   'privacy',
   'terms',
   'review-guidelines',

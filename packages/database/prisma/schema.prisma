@@ -432,6 +432,12 @@ model Business {
   description                  String            @db.Text
   /// The year trading began, as the business states it; shown as "n years in business".
   establishedYear              Int?              @db.SmallInt
+  /// Search appearance (SRS SEO 001): each is optional and falls back to the
+  /// listing's own name, description and photograph when empty.
+  seoTitle                     String?           @db.VarChar(180)
+  seoDescription               String?           @db.VarChar(300)
+  seoKeywords                  String?           @db.VarChar(255)
+  ogImageMediaId               String?
   status                       BusinessStatus    @default(draft)
   primaryCategoryId            String
   localAreaId                  String
@@ -459,6 +465,7 @@ model Business {
 
   primaryCategory    Category            @relation("BusinessPrimaryCategory", fields: [primaryCategoryId], references: [id], onDelete: Restrict)
   localArea          LocalArea           @relation(fields: [localAreaId], references: [id], onDelete: Restrict)
+  ogImage            MediaAsset?         @relation("BusinessShareImage", fields: [ogImageMediaId], references: [id], onDelete: Restrict)
   address            BusinessAddress?
   categories         BusinessCategory[]
   services           BusinessService[]
@@ -1221,6 +1228,7 @@ model MediaAsset {
   categoryShareImageOf Category[] @relation("CategoryShareImage")
   areaImageOf      LocalArea[]  @relation("LocalAreaImage")
   areaShareImageOf LocalArea[]  @relation("LocalAreaShareImage")
+  businessShareImageOf Business[] @relation("BusinessShareImage")
   testimonials Testimonial[]  @relation("TestimonialMedia")
   partners   PartnerOrganisation[] @relation("PartnerMedia")
   authorOf   Author[]        @relation("AuthorImage")

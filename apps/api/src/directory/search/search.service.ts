@@ -208,7 +208,8 @@ export class SearchService {
     const row = await db.business.findFirst({ where: { slug, status: 'published' }, include: detailInclude });
     if (!row) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Business not found' });
     const related = await this.related(row.id, row.primaryCategoryId, row.localAreaId);
-    return this.toDetail(row, related, now, await this.ratingBreakdown(row.id, db));
+    const [ratingBreakdown, shareImage] = await Promise.all([this.ratingBreakdown(row.id, db), this.shareImage(row.ogImageMediaId, db)]);
+    return this.toDetail(row, related, now, ratingBreakdown, shareImage);
   }
 
   async relatedById(id: string): Promise<PublicBusinessCardDto[]> {
@@ -276,7 +277,16 @@ export class SearchService {
     return [5, 4, 3, 2, 1].map((stars) => ({ stars, count: counts.get(stars) ?? 0 }));
   }
 
-  private toDetail(row: DetailRow, related: PublicBusinessCardDto[], now: Date, ratingBreakdown: PublicRatingBucketDto[]): PublicBusinessDetailDto {
+  /** The share image an editor chose, at the largest processed size, for search and social cards (SRS SEO 001). */
+  private async shareImage(id: string | null, db: Awaited<ReturnType<DatabaseService['client']>>): Promise<PublicBusinessDetailDto['shareImage']> {
+    if (!id) return null;
+    const asset = await db.mediaAsset.findUnique({ where: { id }, include: { variants: true } });
+    if (!asset || asset.status !== 'ready') return null;
+    const variant = asset.variants.find((v) => v.kind === 'hero') ?? asset.variants.find((v) => v.kind === 'card') ?? asset.variants[0];
+    return variant ? { url: this.storage.publicUrl(variant.objectKey), alt: asset.altText ?? '', width: variant.width, height: variant.height } : null;
+  }
+
+  private toDetail(row: DetailRow, related: PublicBusinessCardDto[], now: Date, ratingBreakdown: PublicRatingBucketDto[], shareImage: PublicBusinessDetailDto['shareImage']): PublicBusinessDetailDto {
     const phone = row.publicPhone ? parseAustralianPhone(row.publicPhone) : null;
     const schedule = scheduleFromRows(row.hoursMode, row.openingHours as OpeningInterval[], row.hoursExceptions as HoursException[]);
     const todayKey = localDateKey(toLocal(now));
@@ -285,6 +295,10 @@ export class SearchService {
       ...this.toCard(row),
       description: row.description,
       establishedYear: row.establishedYear,
+      seoTitle: row.seoTitle,
+      seoDescription: row.seoDescription,
+      seoKeywords: row.seoKeywords,
+      shareImage,
       secondaryCategories: row.categories.filter((c) => c.category.active).map((c) => ({ name: c.category.name, slug: c.category.slug })),
       services: row.services.filter((s) => s.service.active).map((s) => ({ name: s.service.name, slug: s.service.slug, icon: s.service.icon })),
       contact: { phone: phone ? { display: phone.display, telHref: phone.telHref } : null, email: row.publicEmail, website: row.publicUrl },

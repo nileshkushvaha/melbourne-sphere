@@ -3705,6 +3705,14 @@ export interface components {
             privateEnquiryEmail?: string | null;
             /** @description The year the business began trading; shown publicly as "n years in business" */
             establishedYear?: number | null;
+            /** @description Search-result title; the listing name is used when empty */
+            seoTitle?: string | null;
+            /** @description Meta description; the listing description is used when empty */
+            seoDescription?: string | null;
+            /** @description Comma-separated keywords */
+            seoKeywords?: string | null;
+            /** @description A processed media asset used when the listing is shared; the cover photograph is used when empty */
+            ogImageMediaId?: string | null;
             /** @description How Melbourne eligibility was verified; saving it records the verification time */
             eligibilitySource?: string | null;
             /** @description Set true once content rights/sources have been reviewed */
@@ -3726,6 +3734,11 @@ export interface components {
             postcode: string;
             latitude: number | null;
             longitude: number | null;
+        };
+        BusinessImagePreviewDto: {
+            id: string;
+            url: string;
+            alt: string;
         };
         DuplicateWarningDto: {
             businessId: string;
@@ -3763,6 +3776,12 @@ export interface components {
             privateEnquiryEmail: string | null;
             hasPrivateEnquiryEmail: boolean;
             establishedYear: number | null;
+            seoTitle: string | null;
+            seoDescription: string | null;
+            seoKeywords: string | null;
+            ogImageMediaId: string | null;
+            /** @description The share image, for the editor preview */
+            ogImage: components["schemas"]["BusinessImagePreviewDto"] | null;
             eligibilitySource: string | null;
             /** Format: date-time */
             eligibilityVerifiedAt: string | null;
@@ -3803,6 +3822,14 @@ export interface components {
             privateEnquiryEmail?: string | null;
             /** @description The year the business began trading; shown publicly as "n years in business" */
             establishedYear?: number | null;
+            /** @description Search-result title; the listing name is used when empty */
+            seoTitle?: string | null;
+            /** @description Meta description; the listing description is used when empty */
+            seoDescription?: string | null;
+            /** @description Comma-separated keywords */
+            seoKeywords?: string | null;
+            /** @description A processed media asset used when the listing is shared; the cover photograph is used when empty */
+            ogImageMediaId?: string | null;
             /** @description How Melbourne eligibility was verified; saving it records the verification time */
             eligibilitySource?: string | null;
             /** @description Set true once content rights/sources have been reviewed */
@@ -4006,6 +4033,12 @@ export interface components {
             /** @description Conditional "open now" filter state (SRS DIR 008) */
             openNow: components["schemas"]["OpenNowMetaDto"];
         };
+        PublicShareImageDto: {
+            url: string;
+            alt: string;
+            width: number;
+            height: number;
+        };
         PublicPhoneDto: {
             display: string;
             telHref: string;
@@ -4066,6 +4099,14 @@ export interface components {
             description: string;
             /** @description The year the business says it began trading; null when not recorded */
             establishedYear: number | null;
+            /** @description Search-result title set by an editor; null means the page composes one */
+            seoTitle: string | null;
+            /** @description Meta description set by an editor; null means the description is used */
+            seoDescription: string | null;
+            /** @description Comma-separated keywords */
+            seoKeywords: string | null;
+            /** @description Image used when the listing is shared; null means the cover photograph is used */
+            shareImage: components["schemas"]["PublicShareImageDto"] | null;
             secondaryCategories: components["schemas"]["PublicTermDto"][];
             services: components["schemas"]["PublicTermDto"][];
             contact: components["schemas"]["PublicContactDto"];
@@ -4754,12 +4795,59 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        DashboardTrendSeriesDto: {
+            /** @enum {string} */
+            key: "reviews" | "comments" | "enquiries";
+            label: string;
+            /** @description Admin route for this queue */
+            href: string;
+            /** @description Submissions per Melbourne calendar day, aligned with `days` */
+            points: number[];
+            /** @description Submissions in the current period */
+            total: number;
+            /** @description Submissions in the period before it, for the change figure */
+            previousTotal: number;
+        };
+        DashboardTrendDto: {
+            /** @description Melbourne calendar days (YYYY-MM-DD), oldest first */
+            days: string[];
+            /** @description Only the queues the caller may moderate or read */
+            series: components["schemas"]["DashboardTrendSeriesDto"][];
+        };
+        DashboardFigureDto: {
+            key: string;
+            label: string;
+            value: number;
+            href: string;
+            /** @description How many were added in the current period, where that is meaningful */
+            recent: number | null;
+        };
+        DashboardBreakdownItemDto: {
+            key: string;
+            label: string;
+            value: number;
+        };
         DashboardDto: {
             /** @description Only metrics the signed-in administrator may see */
             metrics: components["schemas"]["DashboardMetricDto"][];
             scheduledPosts: components["schemas"]["DashboardScheduledPostDto"][];
             /** @description Recent audit entries; never private message text (SRS ADM 003) */
             activity: components["schemas"]["DashboardActivityDto"][];
+            /** @description Length of the reporting period in days */
+            periodDays: number;
+            trend: components["schemas"]["DashboardTrendDto"];
+            /** @description Headline totals the caller may see */
+            figures: components["schemas"]["DashboardFigureDto"][];
+            /** @description Mean of approved ratings to one decimal; null without reviews.moderate or without approved reviews */
+            averageRating: number | null;
+            /** @description Approved reviews by rating, five stars first; empty without reviews.moderate */
+            ratingDistribution: components["schemas"]["DashboardBreakdownItemDto"][];
+            /** @description Enquiries received in the period by delivery state; empty without enquiries.read */
+            enquiryDelivery: components["schemas"]["DashboardBreakdownItemDto"][];
+            /** @description Listings by status; empty without listings.read */
+            listingStatus: components["schemas"]["DashboardBreakdownItemDto"][];
+            /** @description Primary categories with the most published listings; empty without listings.read */
+            topCategories: components["schemas"]["DashboardBreakdownItemDto"][];
             /** Format: date-time */
             generatedAt: string;
         };

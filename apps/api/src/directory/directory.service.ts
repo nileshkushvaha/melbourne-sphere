@@ -1,4 +1,5 @@
 import { ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { ObjectStoragePort } from '../media/storage.port.js';
 import type { Business, BusinessAddress, BusinessLink, BusinessStatus, Category, LocalArea, Prisma } from '@melbourne-sphere/database';
 import { AuditService } from '../audit/audit.service.js';
 import type { RequestContext } from '../auth/auth.service.js';
@@ -13,7 +14,7 @@ import { DatabaseService } from '../database/database.service.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import { TaxonomyService } from '../taxonomy/taxonomy.service.js';
 import { EstablishedYearError, normaliseAddressKey, normaliseBusinessName, normalisePhone, parseAustralianPhone, publicationBlockers, TRANSITIONS, validateEstablishedYear, validateLinks, validatePublicUrl } from './business-rules.js';
-import type { BusinessDto, BusinessListItemDto, BusinessStateDto, CreateBusinessDto, DuplicateWarningDto, ListBusinessesQueryDto, UpdateBusinessDto } from './dto/business.dto.js';
+import type { BusinessDto, BusinessListItemDto, BusinessStateDto, CreateBusinessDto, DuplicateWarningDto, ListBusinessesQueryDto, UpdateBusinessDto, BusinessImagePreviewDto } from './dto/business.dto.js';
 
 type BusinessRow = Business & {
   address: BusinessAddress | null;
@@ -118,6 +119,7 @@ export class DirectoryService {
     private readonly taxonomy: TaxonomyService,
     private readonly redirects: RedirectsService,
     private readonly cache: CacheService,
+    private readonly storage: ObjectStoragePort,
   ) {
     // Taxonomy terms in use by active (non-archived) listings cannot be
     // deactivated (SRS BUS 007), and the admin lists show the same number. One
@@ -155,6 +157,23 @@ export class DirectoryService {
 
   // ---- projections ----------------------------------------------------------
 
+  /** A share image must exist and be processed before a listing can use it (SRS MED 004). */
+  private async assertShareImage(id: string | null | undefined): Promise<void> {
+    if (!id) return;
+    const db = await this.database.client();
+    const asset = await db.mediaAsset.findUnique({ where: { id }, select: { status: true } });
+    if (!asset || asset.status !== 'ready') throw validation('ogImageMediaId', asset ? 'That image is still being processed' : 'Choose an image from the media library');
+  }
+
+  /** What the editor shows for the chosen share image. */
+  private async shareImagePreview(id: string | null): Promise<BusinessImagePreviewDto | null> {
+    if (!id) return null;
+    const db = await this.database.client();
+    const asset = await db.mediaAsset.findUnique({ where: { id }, include: { variants: true } });
+    const variant = asset?.variants.find((v) => v.kind === 'card') ?? asset?.variants[0];
+    return asset && variant ? { id: asset.id, url: this.storage.publicUrl(variant.objectKey), alt: asset.altText ?? '' } : null;
+  }
+
   private async toDto(row: BusinessRow, includePrivate: boolean): Promise<BusinessDto> {
     const duplicateWarnings = await this.findDuplicates(row.id, row.normalizedName, row.normalizedPhone, row.address);
     return {
@@ -178,6 +197,11 @@ export class DirectoryService {
       ...(includePrivate ? { privateEnquiryEmail: row.privateEnquiryEmailEncrypted ? this.encryption.decrypt(row.privateEnquiryEmailEncrypted, row.id) : null } : {}),
       hasPrivateEnquiryEmail: row.privateEnquiryEmailEncrypted !== null,
       establishedYear: row.establishedYear,
+      seoTitle: row.seoTitle,
+      seoDescription: row.seoDescription,
+      seoKeywords: row.seoKeywords,
+      ogImageMediaId: row.ogImageMediaId,
+      ogImage: await this.shareImagePreview(row.ogImageMediaId),
       eligibilitySource: row.eligibilitySource,
       eligibilityVerifiedAt: row.eligibilityVerifiedAt?.toISOString() ?? null,
       contentRightsReviewedAt: row.contentRightsReviewedAt?.toISOString() ?? null,
@@ -313,6 +337,7 @@ export class DirectoryService {
     const phone = phoneOrThrow(input.publicPhone);
     const publicUrl = websiteOrThrow(input.publicUrl);
     const links = linksOrThrow(input.links);
+    await this.assertShareImage(input.ogImageMediaId);
     const now = new Date();
     const row = await db.$transaction(async (tx) => {
       const created = await tx.business.create({
@@ -329,6 +354,10 @@ export class DirectoryService {
           links: { create: links },
           addressVisibility: input.addressVisibility ?? 'full',
           establishedYear: establishedYearOrThrow(input.establishedYear),
+          seoTitle: input.seoTitle ?? null,
+          seoDescription: input.seoDescription ?? null,
+          seoKeywords: input.seoKeywords ?? null,
+          ogImageMediaId: input.ogImageMediaId ?? null,
           eligibilitySource: input.eligibilitySource ?? null,
           eligibilityVerifiedAt: input.eligibilitySource ? now : null,
           contentRightsReviewedAt: input.contentRightsReviewed ? now : null,
@@ -382,6 +411,10 @@ export class DirectoryService {
     if (input.addressVisibility !== undefined) { data.addressVisibility = input.addressVisibility; changed.push('addressVisibility'); }
     if (input.privateEnquiryEmail !== undefined) { data.privateEnquiryEmailEncrypted = input.privateEnquiryEmail ? this.encryption.encrypt(input.privateEnquiryEmail.toLowerCase(), id) : null; changed.push('privateEnquiryEmail'); }
     if (input.establishedYear !== undefined) { data.establishedYear = establishedYearOrThrow(input.establishedYear); changed.push('establishedYear'); }
+    if (input.seoTitle !== undefined) { data.seoTitle = input.seoTitle; changed.push('seoTitle'); }
+    if (input.seoDescription !== undefined) { data.seoDescription = input.seoDescription; changed.push('seoDescription'); }
+    if (input.seoKeywords !== undefined) { data.seoKeywords = input.seoKeywords; changed.push('seoKeywords'); }
+    if (input.ogImageMediaId !== undefined) { await this.assertShareImage(input.ogImageMediaId); data.ogImageMediaId = input.ogImageMediaId; changed.push('ogImageMediaId'); }
     if (input.eligibilitySource !== undefined) { data.eligibilitySource = input.eligibilitySource; data.eligibilityVerifiedAt = input.eligibilitySource ? new Date() : null; changed.push('eligibility'); }
     if (input.contentRightsReviewed !== undefined) { data.contentRightsReviewedAt = input.contentRightsReviewed ? (current.contentRightsReviewedAt ?? new Date()) : null; changed.push('contentRights'); }
     if (input.contentRightsNote !== undefined) { data.contentRightsNote = input.contentRightsNote; changed.push('contentRightsNote'); }

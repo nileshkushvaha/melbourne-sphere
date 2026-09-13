@@ -11446,6 +11446,30 @@
             "minimum": 1835,
             "description": "The year the business began trading; shown publicly as \"n years in business\""
           },
+          "seoTitle": {
+            "type": "string",
+            "maxLength": 180,
+            "nullable": true,
+            "description": "Search-result title; the listing name is used when empty"
+          },
+          "seoDescription": {
+            "type": "string",
+            "maxLength": 300,
+            "nullable": true,
+            "description": "Meta description; the listing description is used when empty"
+          },
+          "seoKeywords": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true,
+            "description": "Comma-separated keywords"
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "maxLength": 64,
+            "nullable": true,
+            "description": "A processed media asset used when the listing is shared; the cover photograph is used when empty"
+          },
           "eligibilitySource": {
             "type": "string",
             "maxLength": 255,
@@ -11538,6 +11562,25 @@
           "postcode",
           "latitude",
           "longitude"
+        ]
+      },
+      "BusinessImagePreviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "alt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "alt"
         ]
       },
       "DuplicateWarningDto": {
@@ -11668,6 +11711,32 @@
             "type": "number",
             "nullable": true
           },
+          "seoTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "ogImage": {
+            "nullable": true,
+            "description": "The share image, for the editor preview",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BusinessImagePreviewDto"
+              }
+            ]
+          },
           "eligibilitySource": {
             "type": "string",
             "nullable": true
@@ -11751,6 +11820,11 @@
           "privateEnquiryEmail",
           "hasPrivateEnquiryEmail",
           "establishedYear",
+          "seoTitle",
+          "seoDescription",
+          "seoKeywords",
+          "ogImageMediaId",
+          "ogImage",
           "eligibilitySource",
           "eligibilityVerifiedAt",
           "contentRightsReviewedAt",
@@ -11843,6 +11917,30 @@
             "nullable": true,
             "minimum": 1835,
             "description": "The year the business began trading; shown publicly as \"n years in business\""
+          },
+          "seoTitle": {
+            "type": "string",
+            "maxLength": 180,
+            "nullable": true,
+            "description": "Search-result title; the listing name is used when empty"
+          },
+          "seoDescription": {
+            "type": "string",
+            "maxLength": 300,
+            "nullable": true,
+            "description": "Meta description; the listing description is used when empty"
+          },
+          "seoKeywords": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true,
+            "description": "Comma-separated keywords"
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "maxLength": 64,
+            "nullable": true,
+            "description": "A processed media asset used when the listing is shared; the cover photograph is used when empty"
           },
           "eligibilitySource": {
             "type": "string",
@@ -12492,6 +12590,29 @@
           "openNow"
         ]
       },
+      "PublicShareImageDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "alt": {
+            "type": "string"
+          },
+          "width": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "url",
+          "alt",
+          "width",
+          "height"
+        ]
+      },
       "PublicPhoneDto": {
         "type": "object",
         "properties": {
@@ -12728,6 +12849,31 @@
             "nullable": true,
             "description": "The year the business says it began trading; null when not recorded"
           },
+          "seoTitle": {
+            "type": "string",
+            "nullable": true,
+            "description": "Search-result title set by an editor; null means the page composes one"
+          },
+          "seoDescription": {
+            "type": "string",
+            "nullable": true,
+            "description": "Meta description set by an editor; null means the description is used"
+          },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true,
+            "description": "Comma-separated keywords"
+          },
+          "shareImage": {
+            "nullable": true,
+            "description": "Image used when the listing is shared; null means the cover photograph is used",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicShareImageDto"
+              }
+            ]
+          },
           "secondaryCategories": {
             "type": "array",
             "items": {
@@ -12813,6 +12959,10 @@
           "image",
           "description",
           "establishedYear",
+          "seoTitle",
+          "seoDescription",
+          "seoKeywords",
+          "shareImage",
           "secondaryCategories",
           "services",
           "contact",
@@ -15253,6 +15403,120 @@
           "createdAt"
         ]
       },
+      "DashboardTrendSeriesDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "reviews",
+              "comments",
+              "enquiries"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "href": {
+            "type": "string",
+            "description": "Admin route for this queue"
+          },
+          "points": {
+            "description": "Submissions per Melbourne calendar day, aligned with `days`",
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "Submissions in the current period"
+          },
+          "previousTotal": {
+            "type": "number",
+            "description": "Submissions in the period before it, for the change figure"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "href",
+          "points",
+          "total",
+          "previousTotal"
+        ]
+      },
+      "DashboardTrendDto": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "description": "Melbourne calendar days (YYYY-MM-DD), oldest first",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "series": {
+            "description": "Only the queues the caller may moderate or read",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardTrendSeriesDto"
+            }
+          }
+        },
+        "required": [
+          "days",
+          "series"
+        ]
+      },
+      "DashboardFigureDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number"
+          },
+          "href": {
+            "type": "string"
+          },
+          "recent": {
+            "type": "number",
+            "nullable": true,
+            "description": "How many were added in the current period, where that is meaningful"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "value",
+          "href",
+          "recent"
+        ]
+      },
+      "DashboardBreakdownItemDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "value"
+        ]
+      },
       "DashboardDto": {
         "type": "object",
         "properties": {
@@ -15276,6 +15540,53 @@
               "$ref": "#/components/schemas/DashboardActivityDto"
             }
           },
+          "periodDays": {
+            "type": "number",
+            "description": "Length of the reporting period in days"
+          },
+          "trend": {
+            "$ref": "#/components/schemas/DashboardTrendDto"
+          },
+          "figures": {
+            "description": "Headline totals the caller may see",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardFigureDto"
+            }
+          },
+          "averageRating": {
+            "type": "number",
+            "nullable": true,
+            "description": "Mean of approved ratings to one decimal; null without reviews.moderate or without approved reviews"
+          },
+          "ratingDistribution": {
+            "description": "Approved reviews by rating, five stars first; empty without reviews.moderate",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardBreakdownItemDto"
+            }
+          },
+          "enquiryDelivery": {
+            "description": "Enquiries received in the period by delivery state; empty without enquiries.read",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardBreakdownItemDto"
+            }
+          },
+          "listingStatus": {
+            "description": "Listings by status; empty without listings.read",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardBreakdownItemDto"
+            }
+          },
+          "topCategories": {
+            "description": "Primary categories with the most published listings; empty without listings.read",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardBreakdownItemDto"
+            }
+          },
           "generatedAt": {
             "type": "string",
             "format": "date-time"
@@ -15285,6 +15596,14 @@
           "metrics",
           "scheduledPosts",
           "activity",
+          "periodDays",
+          "trend",
+          "figures",
+          "averageRating",
+          "ratingDistribution",
+          "enquiryDelivery",
+          "listingStatus",
+          "topCategories",
           "generatedAt"
         ]
       },
