@@ -36,6 +36,24 @@ api_command() (
   set -a
   . "$ROOT/shared/api.env"
   set +a
+  # The application driver uses sslca/sslmode; Prisma CLI uses sslcert/sslaccept.
+  # Translate only this subprocess, leaving the shared application URL intact.
+  DATABASE_URL=$(node --input-type=module - "$ROOT/shared/mysql-ca.pem" <<'NODE'
+import { accessSync, constants } from 'node:fs';
+try {
+  const url = new URL(process.env.DATABASE_URL);
+  const ca = url.searchParams.get('sslca') || url.searchParams.get('sslcert') || process.argv[2];
+  accessSync(ca, constants.R_OK);
+  url.searchParams.set('sslcert', ca);
+  url.searchParams.set('sslaccept', 'strict');
+  process.stdout.write(url.toString());
+} catch {
+  console.error('Cannot prepare Prisma TLS URL. Check DATABASE_URL and the readable MySQL CA file.');
+  process.exit(1);
+}
+NODE
+  )
+  export DATABASE_URL
   "$@"
 )
 

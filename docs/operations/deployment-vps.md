@@ -909,15 +909,12 @@ pnpm db:build && pnpm domain:build && pnpm mail:build
 set -a && . /srv/melbourne-sphere/shared/api.env && set +a && pnpm db:migrations:check && pnpm db:migrate:deploy && pnpm db:migrate:status
 ```
 
-`db:migrate:status` must end with "Database schema is up to date". If the Prisma
-CLI rejects the `sslmode`/`sslca` query parameters (they are read by the
-application's driver, not by every Prisma CLI version), run the two migrate
-commands with the same URL minus the query string — the connection is loopback
-on the same host:
-
-```bash
-DATABASE_URL="${DATABASE_URL%%\?*}" pnpm db:migrate:deploy
-```
+`db:migrate:status` must end with "Database schema is up to date". The
+application driver uses `sslmode`/`sslca`, while the Prisma CLI requires
+`sslcert` and `sslaccept=strict`. Supply the readable CA path as `sslcert` for
+CLI commands, keeping certificate verification enabled. The deployment script
+translates these options in its database-command subprocess only; it does not
+modify `shared/api.env`. Never strip TLS options to work around an error.
 
 ### 10.4 Build the API, worker and admin
 
