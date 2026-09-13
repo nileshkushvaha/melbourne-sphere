@@ -29,6 +29,10 @@ before launch.
 
 ## 2. Deployment (OPS 002)
 
+The complete single-server procedure — provisioning, services, environment
+files, nginx/TLS, first data, backups, releases and rollback — is in
+[deployment-vps.md](deployment-vps.md). The rules below apply to any target.
+
 1. CI (`.github/workflows/ci.yml`) installs from the frozen lockfile, lints,
    typechecks, tests, builds, checks the bundle budget and verifies the
    generated contracts match the API.
