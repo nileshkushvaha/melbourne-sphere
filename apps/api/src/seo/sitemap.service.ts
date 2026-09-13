@@ -54,6 +54,18 @@ export class SitemapService {
     // `/about` and `/contact` are product routes rather than editable content,
     // so their last-modified time is the newest page change we know of.
     const newest = latest(...rows.map((row) => row.updatedAt)).toISOString();
+    // The routes that are pages in their own right but have no record: the home
+    // page and the directory index whenever there is a published listing to
+    // show, and the FAQ page only while it has a published question, because it
+    // answers 404 without one.
+    const [newestBusiness, newestPost, newestFaq] = await Promise.all([
+      db.business.findFirst({ where: { status: 'published' }, orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } }),
+      db.post.findFirst({ where: { status: 'published' }, orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } }),
+      db.faq.findFirst({ where: { status: 'published' }, orderBy: { updatedAt: 'desc' }, select: { updatedAt: true } }),
+    ]);
+    entries.push({ path: '/', lastModified: latest(newestBusiness?.updatedAt, newestPost?.updatedAt, ...rows.map((row) => row.updatedAt)).toISOString() });
+    if (newestBusiness) entries.push({ path: '/business', lastModified: newestBusiness.updatedAt.toISOString() });
+    if (newestFaq) entries.push({ path: '/faqs', lastModified: newestFaq.updatedAt.toISOString() });
     entries.push({ path: '/about', lastModified: newest }, { path: '/contact', lastModified: newest });
     return entries;
   }
@@ -100,9 +112,11 @@ export class SitemapService {
         where: { active: true, NOT: { editorialIntro: null }, businesses: { some: publishedBusiness } },
         select: { slug: true, editorialIntro: true, updatedAt: true },
       }),
+      // A blog category is indexed once it holds a published article, the same
+      // rule its page applies; only tags need landing content (SRS BLOG 005).
       db.blogCategory.findMany({
-        where: { active: true, NOT: { landingContent: null }, posts: { some: { status: 'published' } } },
-        select: { slug: true, landingContent: true, updatedAt: true },
+        where: { active: true, posts: { some: { status: 'published' } } },
+        select: { slug: true, updatedAt: true },
       }),
       db.blogTag.findMany({
         where: { active: true, NOT: { landingContent: null }, posts: { some: { post: { status: 'published' } } } },
@@ -113,7 +127,7 @@ export class SitemapService {
     const entries: SitemapEntryDto[] = [
       ...categories.filter((row) => hasText(row.description)).map((row) => ({ path: `/business/category/${row.slug}`, lastModified: row.updatedAt.toISOString() })),
       ...areas.filter((row) => hasText(row.editorialIntro)).map((row) => ({ path: `/business/area/${row.slug}`, lastModified: row.updatedAt.toISOString() })),
-      ...blogCategories.filter((row) => hasText(row.landingContent)).map((row) => ({ path: `/blog/category/${row.slug}`, lastModified: row.updatedAt.toISOString() })),
+      ...blogCategories.map((row) => ({ path: `/blog/category/${row.slug}`, lastModified: row.updatedAt.toISOString() })),
       ...blogTags.filter((row) => hasText(row.landingContent)).map((row) => ({ path: `/blog/tag/${row.slug}`, lastModified: row.updatedAt.toISOString() })),
     ];
     return entries.slice(0, MAX_ENTRIES);

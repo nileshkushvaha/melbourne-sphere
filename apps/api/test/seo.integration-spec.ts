@@ -110,18 +110,19 @@ describe('SEO: sitemaps and redirects (integration)', () => {
     expect(res.headers['cache-control']).toContain('max-age=300');
   });
 
-  it('lists an information page only once it is published, and always lists the About and Contact routes', async () => {
+  it('lists an information page only once it is published, and the home, directory, About and Contact routes', async () => {
     const draft = await agent().get('/api/v1/seo/sitemap/pages').expect(200);
-    expect(draft.body.data.map((e: { path: string }) => e.path)).toEqual(['/about', '/contact']);
+    // No FAQ is published in this suite, so /faqs (a 404 without one) is not listed.
+    expect(draft.body.data.map((e: { path: string }) => e.path)).toEqual(['/', '/business', '/about', '/contact']);
 
     const realCopy = `<p>${'Melbourne Sphere is an independently edited directory of businesses across the city. '.repeat(4)}</p>`;
     const saved = await put('/api/v1/admin/pages/privacy').send({ expectedVersion: 0, title: 'Privacy Policy', body: realCopy }).expect(200);
     // Still a draft: a page that answers 404 must not be advertised (SEO 002).
-    expect((await agent().get('/api/v1/seo/sitemap/pages').expect(200)).body.data.map((e: { path: string }) => e.path)).toEqual(['/about', '/contact']);
+    expect((await agent().get('/api/v1/seo/sitemap/pages').expect(200)).body.data.map((e: { path: string }) => e.path)).toEqual(['/', '/business', '/about', '/contact']);
 
     await post('/api/v1/admin/pages/privacy/publish').send({ expectedVersion: saved.body.data.version }).expect(200);
     const published = await agent().get('/api/v1/seo/sitemap/pages').expect(200);
-    expect(published.body.data.map((e: { path: string }) => e.path)).toEqual(['/privacy', '/about', '/contact']);
+    expect(published.body.data.map((e: { path: string }) => e.path)).toEqual(['/privacy', '/', '/business', '/about', '/contact']);
     expect(Number.isNaN(Date.parse(published.body.data[0].lastModified))).toBe(false);
   });
 

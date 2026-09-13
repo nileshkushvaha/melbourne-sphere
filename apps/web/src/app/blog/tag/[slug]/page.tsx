@@ -20,7 +20,10 @@ export async function generateMetadata({ params }: PageProps<'/blog/tag/[slug]'>
     path: `/blog/tag/${tag.slug}`,
     keywords: [tag.name, `${tag.name} Melbourne`, `${tag.name} articles`, 'Melbourne blog'],
     // A landing page without editorial content or articles is not worth indexing (SRS BLOG 005, SEO 003).
-    robots: tag.landingContent || tag.postCount > 0 ? undefined : { index: false, follow: true },
+    // A tag is indexed only with its own landing content and at least one article
+    // (SRS BLOG 005: "a tag with no substantive editorial landing shall be
+    // noindex"). The sitemap applies the same rule, so the two cannot disagree.
+    robots: (tag.landingContent ?? '').trim() && tag.postCount > 0 ? undefined : { index: false, follow: true },
     og: { kind: 'tag', key: tag.slug },
   });
 }

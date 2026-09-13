@@ -18,7 +18,8 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/admin', '/api/', '/business?', '/blog?', '/*?utm_', '/*?q='],
       },
     ],
+    // `Host` is left out: it is a retired Yandex extension that Google and Bing
+    // ignore, and the canonical origin is already declared on every page.
     sitemap: `${origin}/sitemap.xml`,
-    host: origin,
   };
 }
