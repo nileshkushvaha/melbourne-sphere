@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import { notFound } from 'next/navigation';
 import { CollectionHeader } from '@/components/collection-header';
 import { BusinessResults } from '@/components/business-results';
@@ -18,17 +19,17 @@ export async function generateMetadata({ params, searchParams }: PageProps<'/bus
   // Same request the page body makes, so it is served from the data cache; an
   // unfiltered landing is indexed only when it has text and at least one listing.
   const total = filtered ? 0 : (await searchBusinesses({ ...state, area: null }, { area: area.slug })).meta.total;
-  const title = area.seoTitle ?? `Businesses in ${area.name}`;
-  const description = area.seoDescription ?? area.editorialIntro?.slice(0, 160) ?? `Published businesses in ${area.name}, Melbourne, with opening hours and contact details.`;
   const share = area.shareImage ?? area.image;
-  return {
-    title,
-    description,
-    ...(area.seoKeywords ? { keywords: area.seoKeywords.split(',').map((word: string) => word.trim()).filter(Boolean) } : {}),
-    alternates: { canonical: `/business/area/${area.slug}${toQueryString(state)}` },
+  return pageMetadata({
+    title: area.seoTitle ?? `Businesses in ${area.name}, Melbourne`,
+    description: area.seoDescription ?? area.editorialIntro ?? `Published businesses in ${area.name}, Melbourne, with opening hours, contact details and reviews.`,
+    path: `/business/area/${area.slug}`,
+    canonical: `/business/area/${area.slug}${toQueryString(state)}`,
+    keywords: area.seoKeywords ? [area.seoKeywords] : [`businesses in ${area.name}`, area.name, `${area.name} Melbourne`, `${area.name} local services`, 'Melbourne local areas'],
     robots: landingRobots(area.editorialIntro, total, filtered),
-    openGraph: { type: 'website', title, description, ...(share ? { images: [{ url: share.url, alt: share.alt }] } : {}) },
-  };
+    image: share ? { url: share.url, alt: share.alt } : null,
+    og: { kind: 'area', key: area.slug },
+  });
 }
 
 /** Approved local area page (SRS BUS 008, UX 003: areas are an allowlist, never a generic city route). */

@@ -26,14 +26,21 @@ export async function generateMetadata(): Promise<Metadata> {
   const { favicon, shareImage } = settings.branding;
   return {
     metadataBase: new URL(siteOrigin()),
-    title: { default: siteTitle(settings), template: `%s · ${settings.shortName ?? settings.name}` },
+    // The full name, not the short one: "· Sphere" on its own does not tell a
+    // search result which site it is (SRS SEO 001).
+    title: { default: siteTitle(settings), template: `%s · ${settings.name}` },
     description: settings.metaDescription ?? undefined,
+    applicationName: settings.name,
+    // Pages built with `pageMetadata` replace these with their own complete set;
+    // they stand only for a route that declares nothing (SRS SEO 001).
+    robots: { index: true, follow: true, googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 } },
     openGraph: {
       siteName: settings.name,
       locale: 'en_AU',
       type: 'website',
       ...(shareImage ? { images: [{ url: shareImage.url, width: shareImage.width, height: shareImage.height, alt: shareImage.alt || settings.name }] } : {}),
     },
+    twitter: { card: settings.seo?.twitterCard === 'summary' ? 'summary' : 'summary_large_image' },
     // Declared explicitly rather than through the app-directory file convention:
     // the generated icon module is pulled into every render, including error and
     // not-found responses, where it prevented the HTML from being produced.
@@ -54,7 +61,11 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="en-AU" className={`${bodyFont.variable} ${displayFont.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col font-sans">
+      {/* Browser extensions (ColorZilla's `cz-shortcut-listen`, Grammarly and
+          others) write attributes onto <body> before React hydrates. This
+          ignores attribute differences on this one element only; its
+          children are still checked. */}
+      <body suppressHydrationWarning className="flex min-h-full flex-col font-sans">
         <a className="ms-skip-link" href="#main-content">
           Skip to main content
         </a>

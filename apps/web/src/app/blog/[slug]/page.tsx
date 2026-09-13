@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArticleMedia } from '@/components/article-media';
@@ -20,24 +21,19 @@ export async function generateMetadata({ params }: PageProps<'/blog/[slug]'>): P
   const { slug } = await params;
   const post = await fetchPost(slug);
   if (!post) return { title: 'Article not found', robots: { index: false } };
-  return {
+  // The article's own share image when it sets one, otherwise its cover — the
+  // same order the editor is shown.
+  const picture = post.shareImage ?? post.cover.find((variant) => variant.kind === 'hero') ?? post.cover.at(-1) ?? null;
+  const tags = post.tags.map((tag) => tag.name);
+  return pageMetadata({
     title: post.seoTitle ?? post.title,
     description: post.seoDescription ?? post.excerpt,
-    alternates: { canonical: `/blog/${post.slug}` },
-    openGraph: {
-      type: 'article',
-      title: post.title,
-      description: post.excerpt,
-      publishedTime: post.firstPublishedAt,
-      modifiedTime: post.updatedAt,
-      authors: [post.author.displayName],
-      // The article's own share image when it sets one, otherwise its cover —
-      // the same order the editor is shown.
-      ...(post.shareImage ?? post.cover.length > 0
-        ? { images: [(post.shareImage ?? post.cover.find((v) => v.kind === 'hero') ?? post.cover.at(-1))!.url] }
-        : {}),
-    },
-  };
+    path: `/blog/${post.slug}`,
+    keywords: [...tags, post.category.name, 'Melbourne'],
+    image: picture ? { url: picture.url, width: picture.width, height: picture.height, alt: post.coverAlt ?? post.title } : null,
+    og: { kind: 'post', key: post.slug },
+    article: { publishedTime: post.firstPublishedAt, modifiedTime: post.updatedAt, authors: [post.author.displayName], section: post.category.name, tags },
+  });
 }
 
 /**

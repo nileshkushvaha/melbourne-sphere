@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -43,12 +44,16 @@ export const dynamic = 'force-dynamic';
  */
 export async function generateMetadata(): Promise<Metadata> {
   const { name } = await fetchSiteSettings();
-  return routeMetadata('about', {
-    title: `About ${name}`,
-    description: `${name} is an independently edited guide to Melbourne’s local businesses, neighbourhoods and city life. Here is how it works.`,
-    alternates: { canonical: '/about' },
-    openGraph: { images: [PHOTOS.skyline.src] },
-  });
+  return routeMetadata(
+    'about',
+    await pageMetadata({
+      title: `About ${name}`,
+      description: `${name} is an independently edited guide to Melbourne’s local businesses, neighbourhoods and city life. Here is how it works.`,
+      path: '/about',
+      keywords: [`about ${name}`, 'Melbourne business directory', 'independent local directory', 'how listings are checked', 'Melbourne Victoria'],
+      og: { kind: 'route', key: 'about' },
+    }),
+  );
 }
 
 /** Licensed photographs held by the project (ABT 006); sources in `docs/content/about-photography.md`. */

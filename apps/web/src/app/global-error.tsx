@@ -16,7 +16,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
 
   return (
     <html lang="en-AU" className="h-full">
-      <body className="flex min-h-full flex-col items-center justify-center bg-surface-muted px-6 py-20 text-center font-sans text-text">
+      <body suppressHydrationWarning className="flex min-h-full flex-col items-center justify-center bg-surface-muted px-6 py-20 text-center font-sans text-text">
         <main role="alert" className="max-w-xl">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Error 500</p>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Melbourne Sphere is temporarily unavailable</h1>

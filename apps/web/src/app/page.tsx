@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { siteTitle } from '@/lib/site';
+import { pageMetadata } from '@/lib/seo';
 import { routeMetadata } from '@/lib/route-seo';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -20,8 +22,18 @@ import { usablePhrases } from '@/lib/hero';
 import { contactChannelFrom } from '@/lib/site';
 
 /** The front page's metadata, with any administrator overrides applied (SEO 001). */
-export function generateMetadata(): Promise<Metadata> {
-  return routeMetadata('home', { alternates: { canonical: '/' } });
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await fetchSiteSettings();
+  return routeMetadata(
+    'home',
+    await pageMetadata({
+      title: { absolute: siteTitle(settings) },
+      description: settings.metaDescription ?? `${settings.name} is an independently edited guide to local businesses, neighbourhoods and city life in Melbourne, Victoria.`,
+      path: '/',
+      keywords: [settings.name, 'Melbourne businesses', 'Melbourne business directory', 'local businesses Melbourne', 'Melbourne guides', 'Melbourne Victoria'],
+      og: { kind: 'route', key: 'home' },
+    }),
+  );
 }
 /** Rendered per request (data cached 300 s per fetch) so builds never depend on a live API (SRS CACHE 001). */
 export const dynamic = 'force-dynamic';

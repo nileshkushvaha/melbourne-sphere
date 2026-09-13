@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -27,12 +28,32 @@ export async function generateMetadata({ params }: PageProps<'/business/[slug]'>
   const { slug } = await params;
   const business = await fetchBusiness(slug);
   if (!business) return { title: 'Business not found', robots: { index: false } };
-  return {
-    title: `${business.name} — ${business.primaryCategory.name} in ${business.localArea.name}`,
-    description: business.description.slice(0, 160),
-    alternates: { canonical: `/business/${business.slug}` },
-    openGraph: { title: business.name, description: business.description.slice(0, 200), images: [business.image?.url ?? '/business-fallback.svg'] },
-  };
+  const where = `${business.primaryCategory.name} in ${business.localArea.name}`;
+  return pageMetadata({
+    title: business.seoTitle ?? `${business.name} — ${where}`,
+    description: business.seoDescription ?? business.description,
+    path: `/business/${business.slug}`,
+    keywords: business.seoKeywords
+      ? [business.seoKeywords]
+      : [
+      business.name,
+      business.primaryCategory.name,
+      where,
+      `${business.primaryCategory.name} Melbourne`,
+      business.localArea.name,
+      ...business.secondaryCategories.map((category) => category.name),
+      ...business.services.slice(0, 6).map((service) => service.name),
+    ],
+    // The share image an editor chose, then the listing's photograph; otherwise
+    // the site default or a generated card, never the SVG fallback, which
+    // social platforms reject.
+    image: business.shareImage
+      ? { url: business.shareImage.url, width: business.shareImage.width, height: business.shareImage.height, alt: business.shareImage.alt || business.name }
+      : business.image
+        ? { url: business.image.url, alt: business.image.alt || business.name }
+        : null,
+    og: { kind: 'business', key: business.slug },
+  });
 }
 
 /** Business detail (SRS BUS 001/003/004/005): omits missing optional fields, never fabricates. */

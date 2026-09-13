@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import { routeMetadata } from '@/lib/route-seo';
 import { ArticleCollection, BlogEmptyState } from '@/components/article-collection';
 import { BlogCategoryNav } from '@/components/blog-category-nav';
@@ -9,11 +10,16 @@ import { fetchBlogTerms, fetchPosts, type BlogTerm } from '@/lib/api';
 
 /** The page's own metadata, with any administrator overrides applied (SEO 001). */
 export async function generateMetadata(): Promise<Metadata> {
-  return routeMetadata('blog', {
-    title: 'Blog',
-    description: 'Guides, interviews and news about Melbourne businesses and neighbourhoods.',
-    alternates: { canonical: '/blog' },
-  });
+  return routeMetadata(
+    'blog',
+    await pageMetadata({
+      title: 'Blog',
+      description: 'Guides, local stories and practical advice about Melbourne’s businesses, neighbourhoods and city life, written by our editors.',
+      path: '/blog',
+      keywords: ['Melbourne blog', 'Melbourne guides', 'Melbourne neighbourhoods', 'local businesses Melbourne', 'things to do in Melbourne'],
+      og: { kind: 'route', key: 'blog' },
+    }),
+  );
 }
 
 /** Blog index (SRS BLOG 005): 12 per page, newest published first, server rendered. */

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import { ClockIcon, Link2Icon, ListChecksIcon, LockKeyholeIcon, MailIcon, MapPinIcon, MessageSquareTextIcon, PenLineIcon, PhoneIcon, RefreshCwIcon, ShieldCheckIcon, StoreIcon } from 'lucide-react';
 import { ContactForm } from '@/components/contact-form';
 import { InformationHero } from '@/components/information-page';
@@ -18,11 +19,16 @@ export const dynamic = 'force-dynamic';
  */
 export async function generateMetadata(): Promise<Metadata> {
   const { name } = await fetchSiteSettings();
-  return routeMetadata('contact', {
-    title: `Contact ${name}`,
-    description: `Contact ${name} for business listing requests, corrections, editorial enquiries and other questions.`,
-    alternates: { canonical: '/contact' },
-  });
+  return routeMetadata(
+    'contact',
+    await pageMetadata({
+      title: `Contact ${name}`,
+      description: `Contact ${name} for business listing requests, corrections, editorial enquiries and other questions.`,
+      path: '/contact',
+      keywords: [`contact ${name}`, 'add a business Melbourne', 'correct a business listing', 'business listing request', 'Melbourne business directory'],
+      og: { kind: 'route', key: 'contact' },
+    }),
+  );
 }
 
 /** What a message can be about. Each is a route that exists today; none promises self-service publication. */

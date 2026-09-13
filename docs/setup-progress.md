@@ -1579,3 +1579,102 @@ points and less copy; make Contact match and clean up the code.
   for tall cards such as the contact form.
 No SRS business rule was changed in the SRS; the About ownership rules above are
 superseded by client instruction and recorded here.
+
+## 13 September 2026 — Dashboard charts, metadata on every public route, business search appearance
+
+Client requests: an industry-standard dashboard with charts and colour; SEO
+title, description, keywords and share image on every public URL; and the
+"Search appearance" section businesses were missing.
+
+* **Dashboard.** `GET /admin/dashboard` keeps its metrics, scheduled posts and
+  activity, and adds permission-scoped counts only (ADM 003): a 30-day trend of
+  reviews, comments and enquiries bucketed by Melbourne calendar day (a UTC or
+  24-hour-step bucket moves submissions across days and repeats or skips a day at
+  daylight saving — `dashboard-trend.ts`), current and previous period totals,
+  headline figures, the approved-rating mean and spread, enquiry delivery states
+  for the period, listing status and the six largest primary categories. The
+  screen opens with a gradient overview banner, then the work queues, gradient-
+  accented KPI tiles whose change is stated in words, the submissions line chart,
+  stacked bars for delivery and listing status and bar lists for ratings and
+  categories. Charts are hand-built SVG (no library, so the bundle budget is
+  untouched) following the dataviz method: forms chosen by job, the reference
+  categorical slots 1–3 validated all-pairs against the admin card surfaces in
+  both themes, reserved status colours with icons and labels, a legend for two or
+  more series, a crosshair tooltip, arrow-key reading through a live region and a
+  table view. Refresh keeps the previous render dimmed (`useAsync#refresh`).
+* **Metadata.** `lib/seo.ts#pageMetadata` is now the one builder: a page that
+  sets `openGraph` replaces the root layout's object, so each route previously
+  lost the site name, locale and default image, and routes without an override
+  had no Open Graph title or X card at all. Share images: the page's own, then
+  the configured default, then a generated card (`/og/[kind]/[key]`), which takes
+  a kind and a slug rather than text and 404s for anything unpublished. Business
+  pages no longer offer the SVG fallback as a share image; blog category and tag
+  pages no longer hard-code the site name.
+* **Business search appearance.** Additive migration
+  `20260913100000_business_search_appearance` (`seoTitle`, `seoDescription`,
+  `seoKeywords`, `ogImageMediaId` with `ON DELETE RESTRICT`); the fields travel
+  through the create/update DTOs, the admin record (with a share-image preview),
+  the public detail (with the image's largest rendition and dimensions) and the
+  editor. A business share image is a media usage (`businessShareImageOf`), so
+  neither the library nor the retention task can treat it as unused.
+* **Found in verification:** a long media alt text was being used whole as
+  `og:image:alt` (now trimmed to 125 characters), and the keyword
+  "Melbourne, Victoria" was being split in two by the keyword parser.
+* **Verified**: `pnpm db:migrations:check`, migration applied to the local dev
+  database, `pnpm contracts:generate`; API tsc and oxlint, admin tsc and eslint,
+  web tsc and eslint clean. Runtime: public business detail carries the new
+  fields; business, blog tag and home pages emit the complete metadata set;
+  `/og/business/<slug>` returns a 1200×630 PNG with `noindex`, and an unknown
+  slug or kind returns 404. Not run: the unit and integration suites that were
+  written or updated (`dashboard-trend.spec.ts`, `dashboard.integration-spec.ts`,
+  `Dashboard.test.tsx`, `seo.test.ts`, `media-usage.spec.ts`). The dashboard
+  and the business editor were not seen in a browser: the admin session was
+  signed out. The test database has not been migrated.
+
+No SRS business-rule change was introduced.
+
+## 13 September 2026 — Search appearance data filled for every public record
+
+Client report: the admin SEO fields for businesses, local areas and categories
+were all empty. Correct — the previous change added the metadata builder, the
+generated share cards and the business SEO fields, but wrote no data; public
+page tags were composed from fallbacks. This entry records the data itself.
+
+* `apps/api/scripts/seed-search-appearance.ts` (dev/test/e2e databases only,
+  through the `seed-commons` guard) fills **empty fields only**, never an
+  editor's value, from each record's own data. Result, verified by query in
+  `melbourne_sphere_dev`: 174/174 businesses, 48/48 categories and 14/14 local
+  areas have a title (≤ 60 chars), description (≤ 160), keywords (≤ 255) and a
+  processed share image; 7/7 articles and the privacy, terms and review
+  guidelines pages likewise; the six route entries (home, businesses, blog,
+  FAQs, about, contact) in `website/seo` have title, description, keywords and
+  image. No stored text states a count or a rating.
+* Images: businesses use their first gallery photograph; categories their own
+  image; articles their cover; policy pages and routes existing project
+  photographs. Local areas had no photograph: 12 licence-checked Wikimedia
+  Commons photographs were uploaded and processed by the worker (Melbourne CBD
+  and Carlton reuse the Bourke Street and Lygon Street photographs), and set
+  as both the area image and its share image.
+* Local areas also had no introduction, which kept every area landing page
+  `noindex` (`landingRobots`). Each now has a short introduction limited to
+  established landmarks and streets.
+* Web: the title template uses the full site name (`· Melbourne Sphere`, was
+  `· Sphere`); stored route and policy titles leave the name out so it is not
+  repeated.
+* Wording defects caught in verification and regenerated: descriptions cut
+  mid-sentence before a suffix, "Compare cafes listings", and doubled place
+  names ("Melbourne CBD, Melbourne").
+* Four categories (Cafes, Restaurants, Bars, Independent shops) had no
+  description and were therefore `noindex`; each now has a one-sentence
+  description of what the category holds. The home page title carries the site
+  name (it is rendered without the template).
+* Verified on the running site (curl as a crawler user agent): title,
+  description, keywords, robots, canonical and `og:image` present and matching
+  the stored values on the home, businesses, business detail, category, area,
+  blog, about, contact, FAQs and privacy pages; an area share image answers
+  200 `image/webp`.
+* Known limits: several category photographs are generic stock rather than
+  Melbourne scenes (e.g. Shopping, Restaurants), so their share images are
+  equally generic; the North Melbourne and Kensington area photographs show
+  railway infrastructure; blog categories and tags have no SEO columns and use
+  composed text with a generated card; services have no public page.

@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 export default function GlobalNotFound() {
   return (
     <html lang="en-AU" className={`${bodyFont.variable} ${displayFont.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col font-sans">
+      <body suppressHydrationWarning className="flex min-h-full flex-col font-sans">
         <a className="ms-skip-link" href="#main-content">
           Skip to main content
         </a>

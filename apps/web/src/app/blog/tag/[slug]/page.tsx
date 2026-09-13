@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import { notFound } from 'next/navigation';
 import { ArticleCollection, BlogEmptyState } from '@/components/article-collection';
 import { CollectionHeader } from '@/components/collection-header';
@@ -13,13 +14,15 @@ export async function generateMetadata({ params }: PageProps<'/blog/tag/[slug]'>
   const { slug } = await params;
   const tag = await findTag(slug);
   if (!tag) return { title: 'Tag not found', robots: { index: false } };
-  return {
-    title: `${tag.name}`,
-    description: `Articles tagged ${tag.name.toLowerCase()} from the Melbourne Sphere blog.`,
-    alternates: { canonical: `/blog/tag/${tag.slug}` },
+  return pageMetadata({
+    title: `${tag.name} articles`,
+    description: `Articles tagged ${tag.name.toLowerCase()}: Melbourne guides, local stories and practical advice from our editors.`,
+    path: `/blog/tag/${tag.slug}`,
+    keywords: [tag.name, `${tag.name} Melbourne`, `${tag.name} articles`, 'Melbourne blog'],
     // A landing page without editorial content or articles is not worth indexing (SRS BLOG 005, SEO 003).
     robots: tag.landingContent || tag.postCount > 0 ? undefined : { index: false, follow: true },
-  };
+    og: { kind: 'tag', key: tag.slug },
+  });
 }
 
 export default async function BlogTagPage({ params, searchParams }: PageProps<'/blog/tag/[slug]'>) {

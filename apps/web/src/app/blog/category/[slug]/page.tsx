@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 import { notFound } from 'next/navigation';
 import { ArticleCollection, BlogEmptyState } from '@/components/article-collection';
 import { BlogCategoryNav } from '@/components/blog-category-nav';
@@ -14,13 +15,15 @@ export async function generateMetadata({ params }: PageProps<'/blog/category/[sl
   const { slug } = await params;
   const category = (await categories()).find((c) => c.slug === slug) ?? null;
   if (!category) return { title: 'Category not found', robots: { index: false } };
-  return {
+  return pageMetadata({
     title: `${category.name} articles`,
-    description: `Articles about ${category.name.toLowerCase()} from the Melbourne Sphere blog.`,
-    alternates: { canonical: `/blog/category/${category.slug}` },
+    description: `Articles about ${category.name.toLowerCase()} in Melbourne: guides, local stories and practical advice from our editors.`,
+    path: `/blog/category/${category.slug}`,
+    keywords: [category.name, `${category.name} Melbourne`, `${category.name} articles`, 'Melbourne blog'],
     // A landing page without editorial content or articles is not worth indexing (SRS BLOG 005, SEO 003).
     robots: category.landingContent || category.postCount > 0 ? undefined : { index: false, follow: true },
-  };
+    og: { kind: 'blog-category', key: category.slug },
+  });
 }
 
 export default async function BlogCategoryPage({ params, searchParams }: PageProps<'/blog/category/[slug]'>) {
