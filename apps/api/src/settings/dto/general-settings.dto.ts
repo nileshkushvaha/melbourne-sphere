@@ -44,6 +44,7 @@ export class GeneralSettingsDto {
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.address, description: 'At most four lines' }) @IsOptional() @IsString() @MaxLength(LIMITS.address) address?: string | null;
 
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.mediaId, description: 'Ready media asset used as the logo' }) @IsOptional() @IsString() @MaxLength(LIMITS.mediaId) logoMediaId?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.mediaId, description: 'Ready media asset used on dark backgrounds' }) @IsOptional() @IsString() @MaxLength(LIMITS.mediaId) darkLogoMediaId?: string | null;
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.mediaId, description: 'Ready media asset used as the browser icon' }) @IsOptional() @IsString() @MaxLength(LIMITS.mediaId) faviconMediaId?: string | null;
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.mediaId, description: 'Default social share image' }) @IsOptional() @IsString() @MaxLength(LIMITS.mediaId) shareImageMediaId?: string | null;
 
@@ -80,6 +81,7 @@ export class PublicPhoneNumberDto {
 export class GeneralSettingsRecordDto extends GeneralSettingsDto {
   @ApiProperty({ type: PublicPhoneNumberDto, nullable: true, description: 'Normalised phone; null when none is set' }) supportPhoneDisplay!: PublicPhoneNumberDto | null;
   @ApiProperty({ type: SettingsImageDto, nullable: true }) logo!: SettingsImageDto | null;
+  @ApiPropertyOptional({ type: SettingsImageDto, nullable: true }) darkLogo?: SettingsImageDto | null;
   @ApiProperty({ type: SettingsImageDto, nullable: true }) favicon!: SettingsImageDto | null;
   @ApiProperty({ type: SettingsImageDto, nullable: true }) shareImage!: SettingsImageDto | null;
   @ApiProperty() version!: number;
@@ -101,6 +103,7 @@ export class PublicSiteContactDto {
 
 export class PublicSiteBrandingDto {
   @ApiProperty({ type: SettingsImageDto, nullable: true }) logo!: SettingsImageDto | null;
+  @ApiPropertyOptional({ type: SettingsImageDto, nullable: true }) darkLogo?: SettingsImageDto | null;
   @ApiProperty({ type: SettingsImageDto, nullable: true, description: 'Smallest rendition, used as the browser icon' }) favicon!: SettingsImageDto | null;
   @ApiProperty({ type: SettingsImageDto, nullable: true, description: 'Default Open Graph image' }) shareImage!: SettingsImageDto | null;
 }

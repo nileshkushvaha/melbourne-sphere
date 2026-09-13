@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { MailIcon, PhoneIcon } from 'lucide-react';
 import { contactChannelFrom } from '@/lib/site';
 import { fetchSiteSettings } from '@/lib/api';
-import { BrandMark } from './brand-mark';
 import { SocialLinks } from './social-links';
 import { HeaderNav, type NavLink } from './header-nav';
 
@@ -65,25 +64,16 @@ export async function SiteHeader() {
       <header className="ms-site-header sticky top-0 z-40 border-b border-border bg-surface text-text shadow-sm">
         <div className="ms-container flex items-center py-3.5">
           <Link href="/" className="flex shrink-0 items-center gap-2.5 rounded-lg py-1 text-text">
-            {settings.branding.logo ? (
-              // Height-constrained, so any uploaded aspect ratio fits the bar.
+              <span className={settings.branding.logo ? "block w-[230px] max-w-full sm:w-[280px]" : "relative block aspect-[7.5/1] w-[230px] max-w-full overflow-hidden sm:w-[280px]"}>
               <Image
-                src={settings.branding.logo.url}
-                alt={settings.branding.logo.alt || settings.name}
-                width={settings.branding.logo.width}
-                height={settings.branding.logo.height}
+                src={settings.branding.logo?.url ?? '/Melbourne_Sphere_Light_Logo.png'}
+                alt={settings.name}
                 priority
-                className="h-9 w-auto object-contain"
+                width={settings.branding.logo?.width ?? 2172}
+                height={settings.branding.logo?.height ?? 724}
+                className={settings.branding.logo ? "h-auto w-full object-contain" : "absolute left-0 top-1/2 h-auto w-full -translate-y-1/2"}
               />
-            ) : (
-              <>
-                <BrandMark className="size-9" />
-                <span className="flex flex-col leading-none">
-                  <span className="font-display text-lg">{settings.name}</span>
-                  <span className="mt-0.5 text-[0.65rem] font-medium uppercase tracking-[0.16em] text-text-muted">Melbourne, Victoria</span>
-                </span>
-              </>
-            )}
+              </span>
           </Link>
           <HeaderNav links={links} action={action} />
         </div>

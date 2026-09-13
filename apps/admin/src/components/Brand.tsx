@@ -1,41 +1,46 @@
-import { brand } from '@/config/theme';
+import { useBranding } from './branding-context';
 
 interface BrandProps {
   compact?: boolean;
-  /** The rail is narrow and the top bar already says where you are. */
   showSuffix?: boolean;
+  /** The surface the logo sits on: the rail and the sign-in panel are dark, the phone top bar is light. */
+  tone?: 'dark' | 'light';
+  /** Rendered width of the full logo in CSS pixels; the height follows the artwork. */
+  width?: number;
 }
 
-/** Text wordmark; a licensed logo asset replaces the glyph in a later design pass (SRS UX 001). */
-export function Brand({ compact = false, showSuffix = true }: BrandProps) {
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 10,
-        color: '#FFFFFF',
-        fontWeight: 700,
-        fontSize: 17,
-        letterSpacing: 0.2,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      <span
-        aria-hidden="true"
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: '50%',
-          background: `linear-gradient(135deg, ${brand.primarySolidHover}, ${brand.primarySolid})`,
-          display: 'inline-block',
-          flexShrink: 0,
-        }}
+/**
+ * The brand logo. An uploaded logo (Configuration → General settings) wins;
+ * otherwise the bundled artwork is used. The bundled files are transparent and
+ * cropped to the artwork, so they sit on any background without a box and fill
+ * the width they are given instead of shrinking inside empty padding.
+ */
+export function Brand({ compact = false, showSuffix = true, tone = 'dark', width = 220 }: BrandProps) {
+  const settings = useBranding();
+  const name = settings?.name ?? 'Melbourne Sphere';
+  const base = import.meta.env.BASE_URL;
+
+  if (compact) {
+    return (
+      <img
+        src={settings?.branding.favicon?.url ?? `${base}brand-favicon.png`}
+        alt={name}
+        width={34}
+        height={34}
+        style={{ display: 'block', objectFit: 'contain' }}
       />
-      {compact ? <span className="sr-only">Melbourne Sphere</span> : <span>Melbourne Sphere</span>}
-      {!compact && showSuffix && (
-        <span style={{ fontWeight: 500, fontSize: 13, color: brand.navyMuted, marginLeft: 2 }}>Admin</span>
-      )}
+    );
+  }
+
+  const uploaded = tone === 'dark' ? settings?.branding.darkLogo : settings?.branding.logo;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, minWidth: 0, maxWidth: '100%' }}>
+      <img
+        src={uploaded?.url ?? `${base}brand-logo-${tone}.png`}
+        alt={name}
+        style={{ display: 'block', width, maxWidth: '100%', height: 'auto', maxHeight: Math.round(width / 3), objectFit: 'contain', objectPosition: 'left center' }}
+      />
+      {showSuffix && <span style={{ fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', color: tone === 'dark' ? '#c3dbe5' : '#526779' }}>Admin</span>}
     </span>
   );
 }

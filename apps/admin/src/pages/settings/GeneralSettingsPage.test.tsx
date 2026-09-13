@@ -95,11 +95,11 @@ describe('general settings page', () => {
     renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/settings/general'] });
     expect(await screen.findByRole('switch', { name: /show the contact bar/i })).toBeInTheDocument();
     expect(screen.getByText(/\{year\} and \{name\} stay up to date/i)).toBeInTheDocument();
-    // Branding is chosen from the media library rather than uploaded here, so
-    // every image is processed and carries alt text (SRS MED 003).
+    // Each branding slot supports picking a processed asset or uploading one.
     // By visible label rather than by role: a role-plus-name query computes an
     // accessible name for every button on the page, which under jsdom takes the
     // better part of a minute here and times the test out for no finding.
-    expect(screen.getAllByText('Choose image')).toHaveLength(3);
+    expect(screen.getAllByText('Choose image')).toHaveLength(4);
+    expect(screen.getAllByText('Upload image')).toHaveLength(4);
   });
 });

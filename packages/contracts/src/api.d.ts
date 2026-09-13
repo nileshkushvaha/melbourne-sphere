@@ -5047,6 +5047,7 @@ export interface components {
         };
         PublicSiteBrandingDto: {
             logo: components["schemas"]["SettingsImageDto"] | null;
+            darkLogo?: components["schemas"]["SettingsImageDto"] | null;
             /** @description Smallest rendition, used as the browser icon */
             favicon: components["schemas"]["SettingsImageDto"] | null;
             /** @description Default Open Graph image */
@@ -5144,6 +5145,8 @@ export interface components {
             address?: string | null;
             /** @description Ready media asset used as the logo */
             logoMediaId?: string | null;
+            /** @description Ready media asset used on dark backgrounds */
+            darkLogoMediaId?: string | null;
             /** @description Ready media asset used as the browser icon */
             faviconMediaId?: string | null;
             /** @description Default social share image */
@@ -5157,6 +5160,7 @@ export interface components {
             /** @description Normalised phone; null when none is set */
             supportPhoneDisplay: components["schemas"]["PublicPhoneNumberDto"] | null;
             logo: components["schemas"]["SettingsImageDto"] | null;
+            darkLogo?: components["schemas"]["SettingsImageDto"] | null;
             favicon: components["schemas"]["SettingsImageDto"] | null;
             shareImage: components["schemas"]["SettingsImageDto"] | null;
             version: number;
@@ -5183,6 +5187,8 @@ export interface components {
             address?: string | null;
             /** @description Ready media asset used as the logo */
             logoMediaId?: string | null;
+            /** @description Ready media asset used on dark backgrounds */
+            darkLogoMediaId?: string | null;
             /** @description Ready media asset used as the browser icon */
             faviconMediaId?: string | null;
             /** @description Default social share image */

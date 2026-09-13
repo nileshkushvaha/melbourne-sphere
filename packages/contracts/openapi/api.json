@@ -16278,6 +16278,15 @@
               }
             ]
           },
+          "darkLogo": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettingsImageDto"
+              }
+            ]
+          },
           "favicon": {
             "nullable": true,
             "description": "Smallest rendition, used as the browser icon",
@@ -16639,6 +16648,12 @@
             "maxLength": 64,
             "description": "Ready media asset used as the logo"
           },
+          "darkLogoMediaId": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64,
+            "description": "Ready media asset used on dark backgrounds"
+          },
           "faviconMediaId": {
             "type": "string",
             "nullable": true,
@@ -16680,6 +16695,15 @@
             ]
           },
           "logo": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettingsImageDto"
+              }
+            ]
+          },
+          "darkLogo": {
             "nullable": true,
             "type": "object",
             "allOf": [
@@ -16789,6 +16813,12 @@
             "nullable": true,
             "maxLength": 64,
             "description": "Ready media asset used as the logo"
+          },
+          "darkLogoMediaId": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64,
+            "description": "Ready media asset used on dark backgrounds"
           },
           "faviconMediaId": {
             "type": "string",

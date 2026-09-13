@@ -5,7 +5,6 @@ import { fetchAreas, fetchCategories, fetchSiteSettings, fetchStaticPages, fetch
 import { renderCopyright } from '@/lib/copyright';
 import { contactChannelFrom } from '@/lib/site';
 import { ConsentPreferencesLink } from './consent-banner';
-import { BrandMark } from './brand-mark';
 import { SocialLinks } from './social-links';
 
 /**
@@ -69,14 +68,15 @@ export async function SiteFooter() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_repeat(3,minmax(0,1fr))] lg:gap-10">
           <div className="ms-footer-brand ms-footer-section min-w-0 max-w-sm">
             <p className="ms-footer-heading flex flex-wrap items-center gap-2.5">
-              {settings.branding.logo ? (
-                <Image src={settings.branding.logo.url} alt={settings.branding.logo.alt || settings.name} width={settings.branding.logo.width} height={settings.branding.logo.height} className="h-8 w-auto object-contain" />
-              ) : (
-                <>
-                  <BrandMark className="size-9 shrink-0" />
-                  <span className="font-display text-2xl tracking-tight">{settings.name}</span>
-                </>
-              )}
+              <span className={settings.branding.darkLogo ? "block w-[230px] max-w-full sm:w-[280px]" : "relative block aspect-[7.5/1] w-[230px] max-w-full overflow-hidden sm:w-[280px]"}>
+              <Image
+                src={settings.branding.darkLogo?.url ?? '/Melbourne_Sphere_Dark_Logo.png'}
+                alt={settings.name}
+                width={settings.branding.darkLogo?.width ?? 2172}
+                height={settings.branding.darkLogo?.height ?? 724}
+                className={settings.branding.darkLogo ? "h-auto w-full object-contain" : "absolute left-0 top-1/2 h-auto w-full -translate-y-1/2"}
+              />
+              </span>
             </p>
             {/* `whitespace-pre-line`, because the field is a textarea: an editor
                 who writes two lines gets two lines, not one run-on sentence. */}

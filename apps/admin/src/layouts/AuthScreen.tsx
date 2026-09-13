@@ -46,7 +46,7 @@ export function AuthScreen({ title, description, children }: { title: string; de
         </div>
 
         <div className="ms-auth-intro">
-          <Brand />
+          <Brand width={320} />
           <p className="ms-auth-headline">
             <span>The workspace behind Melbourne Sphere.</span>
           </p>

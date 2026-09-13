@@ -1,3 +1,4 @@
+import { BrandingProvider } from '@/components/BrandingProvider';
 import { BrowserRouter } from 'react-router';
 import { ROUTER_BASENAME } from '@/config/app-config';
 import { AppProviders } from './AppProviders';
@@ -7,7 +8,7 @@ export function App() {
   return (
     <BrowserRouter basename={ROUTER_BASENAME}>
       <AppProviders>
-        <AppRoutes />
+        <BrandingProvider><AppRoutes /></BrandingProvider>
       </AppProviders>
     </BrowserRouter>
   );

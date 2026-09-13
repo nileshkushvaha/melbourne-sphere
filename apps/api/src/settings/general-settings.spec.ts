@@ -17,6 +17,14 @@ const complete = {
 };
 
 describe('validateGeneralSettings', () => {
+  it('keeps light and dark branding independent and validates both', () => {
+    const result = validateGeneralSettings({ ...complete, logoMediaId: 'light-asset', darkLogoMediaId: 'dark-asset' });
+    expect(result.errors).toEqual({});
+    expect(result.value.logoMediaId).toBe('light-asset');
+    expect(result.value.darkLogoMediaId).toBe('dark-asset');
+    expect(validateGeneralSettings({ ...complete, darkLogoMediaId: 'x'.repeat(65) }).errors.darkLogoMediaId).toBeDefined();
+    expect(validateGeneralSettings(complete).value.darkLogoMediaId).toBeNull();
+  });
   it('normalises a complete document', () => {
     const { errors, value } = validateGeneralSettings(complete);
     expect(errors).toEqual({});

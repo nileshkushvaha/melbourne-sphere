@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Button, Space, Typography } from 'antd';
+import { Alert, Button, Space, Typography, Upload } from 'antd';
 import { DeleteOutlined, PictureOutlined } from '@ant-design/icons';
-import { variantUrl, type MediaAsset } from '@/api/media';
+import { mediaApi, uploadImage, variantUrl, type MediaAsset } from '@/api/media';
 import { MediaPicker } from './MediaPicker';
 import { brand } from '@/config/theme';
 
@@ -18,6 +18,7 @@ interface Props {
   disabled?: boolean;
   /** Frame proportions; a logo is squarer than a share card. */
   aspectRatio?: string;
+  uploadAlt?: string;
 }
 
 /**
@@ -34,7 +35,9 @@ interface Props {
  * separately from what the API resolved, so the preview is right before the
  * form has been saved and reloaded.
  */
-export function MediaField({ value, onChange, current = null, emptyLabel = 'No image yet', clearLabel, disabled = false, aspectRatio = '16 / 9' }: Props) {
+export function MediaField({ value, onChange, current = null, emptyLabel = 'No image yet', clearLabel, disabled = false, aspectRatio = '16 / 9', uploadAlt }: Props) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [chosen, setChosen] = useState<{ url: string; alt: string } | null>(null);
   // Cleared in this session: `chosen` is null either way, so the difference
@@ -46,7 +49,7 @@ export function MediaField({ value, onChange, current = null, emptyLabel = 'No i
     <>
       <Space align="start" wrap size={16} className="ms-media-field">
         {shown ? (
-          <img src={shown.url} alt={shown.alt} style={{ width: 220, aspectRatio, objectFit: 'cover', borderRadius: 8, border: `1px solid ${brand.border}`, display: 'block' }} />
+          <img src={shown.url} alt={shown.alt} style={{ width: 220, aspectRatio, objectFit: uploadAlt ? 'contain' : 'cover', borderRadius: 8, border: `1px solid ${brand.border}`, display: 'block' }} />
         ) : (
           <div style={{ width: 220, aspectRatio, borderRadius: 8, border: `1px dashed ${brand.border}`, display: 'grid', placeItems: 'center', color: brand.textSubtle, fontSize: 13, textAlign: 'center', padding: 12 }}>
             <span>
@@ -59,6 +62,27 @@ export function MediaField({ value, onChange, current = null, emptyLabel = 'No i
           <Button icon={<PictureOutlined aria-hidden="true" />} onClick={() => setPicking(true)} disabled={disabled}>
             {shown ? 'Replace image' : 'Choose image'}
           </Button>
+          {uploadAlt && <Upload accept="image/png,image/jpeg,image/webp" showUploadList={false} disabled={disabled || uploading} beforeUpload={async (file) => {
+            setUploading(true);
+            setUploadError(null);
+            try {
+              const api = mediaApi();
+              let asset = await uploadImage(file, uploadAlt, api);
+              for (let attempt = 0; asset.status === 'quarantined' && attempt < 30; attempt++) {
+                await new Promise((resolve) => setTimeout(resolve, 2000));
+                asset = await api.get(asset.id);
+              }
+              const url = variantUrl(asset);
+              if (asset.status !== 'ready' || !url) throw new Error('Image is not ready yet. Check the media library, then choose it when processing finishes.');
+              setChosen({ url, alt: asset.altText ?? uploadAlt });
+              setCleared(false);
+              onChange?.(asset.id);
+            } catch (error) {
+              setUploadError(error instanceof Error ? error.message : 'Upload failed');
+            } finally { setUploading(false); }
+            return false;
+          }}><Button loading={uploading} disabled={disabled}>{uploading ? 'Processing image' : 'Upload image'}</Button></Upload>}
+          {uploadError && <Alert type="error" message={uploadError} />}
           {shown && (
             <Button
               icon={<DeleteOutlined aria-hidden="true" />}

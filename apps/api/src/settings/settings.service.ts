@@ -137,14 +137,15 @@ export class SettingsService {
     return { value, version: row.version, updatedAt: row.updatedAt, updatedByAdminId: row.updatedByAdminId };
   }
 
-  /** Resolves the three branding assets; an asset that is missing or unprocessed simply is not published (SRS MED 002). */
-  private async resolveBranding(value: GeneralSettings): Promise<{ logo: SettingsImageDto | null; favicon: SettingsImageDto | null; shareImage: SettingsImageDto | null }> {
-    const [logo, favicon, shareImage] = await Promise.all([
+  /** Resolves branding assets; an asset that is missing or unprocessed simply is not published (SRS MED 002). */
+  private async resolveBranding(value: GeneralSettings): Promise<{ darkLogo: SettingsImageDto | null; logo: SettingsImageDto | null; favicon: SettingsImageDto | null; shareImage: SettingsImageDto | null }> {
+    const [logo, darkLogo, favicon, shareImage] = await Promise.all([
       this.media.publicImageRefOfKind(value.logoMediaId, 'card'),
+      this.media.publicImageRefOfKind(value.darkLogoMediaId, 'card'),
       this.media.publicImageRefOfKind(value.faviconMediaId, 'thumbnail'),
       this.media.publicImageRefOfKind(value.shareImageMediaId, 'hero'),
     ]);
-    return { logo, favicon, shareImage };
+    return { logo, darkLogo, favicon, shareImage };
   }
 
   async generalSettings(): Promise<GeneralSettingsRecordDto> {
@@ -168,6 +169,7 @@ export class SettingsService {
     // shell would carry a broken image on every page.
     const mediaFields: [keyof GeneralSettings, string | null][] = [
       ['logoMediaId', value.logoMediaId],
+      ['darkLogoMediaId', value.darkLogoMediaId],
       ['faviconMediaId', value.faviconMediaId],
       ['shareImageMediaId', value.shareImageMediaId],
     ];
@@ -193,7 +195,7 @@ export class SettingsService {
           socialLinks: SOCIAL_PLATFORMS.filter((platform) => value.social[platform] !== null).length,
           hasSupportEmail: value.supportEmail !== null,
           hasSupportPhone: value.supportPhone !== null,
-          brandingAssets: [value.logoMediaId, value.faviconMediaId, value.shareImageMediaId].filter(Boolean).length,
+          brandingAssets: [value.logoMediaId, value.darkLogoMediaId, value.faviconMediaId, value.shareImageMediaId].filter(Boolean).length,
         },
       },
       // Every public page renders the shell, so the whole web tier is purged.

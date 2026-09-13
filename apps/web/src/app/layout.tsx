@@ -45,7 +45,7 @@ export async function generateMetadata(): Promise<Metadata> {
     // Declared explicitly rather than through the app-directory file convention:
     // the generated icon module is pulled into every render, including error and
     // not-found responses, where it prevented the HTML from being produced.
-    icons: { icon: favicon ? favicon.url : '/favicon.ico' },
+    icons: { icon: favicon ? favicon.url : '/brand-favicon.png' },
     // A verification tag proves ownership to Google; it loads nothing and sets
     // no cookie. The analytics identifiers beside it in the settings are
     // deliberately not rendered — see the note on the SEO settings screen.

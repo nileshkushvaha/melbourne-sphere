@@ -12,7 +12,7 @@ import { BrandIcon, BrandOptionLabel } from '@/components/BrandIcon';
 import { PageLoader, PageHeader, SectionCard, StickyActions, PageLoadError } from '@/components/ui';
 import { useUnsavedChanges } from '@/shared/useUnsavedChanges';
 
-type BrandingSlot = 'logoMediaId' | 'faviconMediaId' | 'shareImageMediaId';
+type BrandingSlot = 'logoMediaId' | 'darkLogoMediaId' | 'faviconMediaId' | 'shareImageMediaId';
 
 interface FormValues {
   applicationName: string;
@@ -25,6 +25,7 @@ interface FormValues {
   websiteUrl?: string | null;
   address?: string | null;
   logoMediaId?: string | null;
+  darkLogoMediaId?: string | null;
   faviconMediaId?: string | null;
   shareImageMediaId?: string | null;
   headerTopBarEnabled: boolean;
@@ -41,8 +42,9 @@ const SOCIAL_PLACEHOLDERS: Record<SocialPlatform, string> = {
   pinterest: 'https://www.pinterest.com/…',
 };
 
-const BRANDING: { slot: BrandingSlot; title: string; hint: string; recordKey: 'logo' | 'favicon' | 'shareImage' }[] = [
-  { slot: 'logoMediaId', title: 'Logo', hint: 'Shown in the public header and footer. A wide image on a transparent background works best; it is scaled to the bar height.', recordKey: 'logo' },
+const BRANDING: { slot: BrandingSlot; title: string; hint: string; recordKey: 'logo' | 'darkLogo' | 'favicon' | 'shareImage' }[] = [
+  { slot: 'logoMediaId', title: 'Logo for light backgrounds', hint: 'Shown in the public header. A wide image on a transparent background works best; it is scaled to the bar height.', recordKey: 'logo' },
+  { slot: 'darkLogoMediaId', title: 'Logo for dark backgrounds', hint: 'Shown in the footer and admin sidebar.', recordKey: 'darkLogo' },
   { slot: 'faviconMediaId', title: 'Browser icon', hint: 'Shown on the browser tab. Square images work best.', recordKey: 'favicon' },
   { slot: 'shareImageMediaId', title: 'Default share image', hint: 'Used when a page has no image of its own, for example on social cards. Landscape, at least 1200 × 630.', recordKey: 'shareImage' },
 ];
@@ -85,6 +87,7 @@ export function GeneralSettingsPage() {
       websiteUrl: record.websiteUrl ?? '',
       address: record.address ?? '',
       logoMediaId: record.logoMediaId ?? null,
+      darkLogoMediaId: record.darkLogoMediaId ?? null,
       faviconMediaId: record.faviconMediaId ?? null,
       shareImageMediaId: record.shareImageMediaId ?? null,
       headerTopBarEnabled: record.headerTopBarEnabled ?? false,
@@ -106,6 +109,7 @@ export function GeneralSettingsPage() {
         expectedVersion: record.version,
       });
       message.success('General settings saved');
+      window.dispatchEvent(new Event('ms-branding-updated'));
       setDirty(false);
       reload();
     } catch (err) {
@@ -188,6 +192,7 @@ export function GeneralSettingsPage() {
                   {/* One picker for every image field in the admin, so choosing
                       a logo works exactly like choosing a share image. */}
                   <MediaField
+                    uploadAlt={`${record?.applicationName ?? 'Melbourne Sphere'} ${entry.title.toLowerCase()}`}
                     current={record?.[entry.recordKey] ? { url: record[entry.recordKey]!.url, alt: record[entry.recordKey]!.alt } : null}
                     emptyLabel={`No ${entry.title.toLowerCase()} yet`}
                     clearLabel={`Remove ${entry.title.toLowerCase()}`}

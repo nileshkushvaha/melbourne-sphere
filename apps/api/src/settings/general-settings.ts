@@ -69,6 +69,7 @@ export interface GeneralSettings {
   address: string | null;
   /** Ready media assets used as the logo, the browser icon and the default share image. */
   logoMediaId: string | null;
+  darkLogoMediaId: string | null;
   faviconMediaId: string | null;
   shareImageMediaId: string | null;
   /** Contact strip above the public navigation. */
@@ -92,6 +93,7 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = Object.freeze({
   websiteUrl: null,
   address: null,
   logoMediaId: null,
+  darkLogoMediaId: null,
   faviconMediaId: null,
   shareImageMediaId: null,
   headerTopBarEnabled: false,
@@ -181,7 +183,7 @@ export function validateGeneralSettings(input: unknown): { errors: FieldErrors; 
     else value.address = address;
   }
 
-  for (const key of ['logoMediaId', 'faviconMediaId', 'shareImageMediaId'] as const) {
+  for (const key of ['logoMediaId', 'darkLogoMediaId', 'faviconMediaId', 'shareImageMediaId'] as const) {
     const mediaId = singleLine(raw[key]);
     if (mediaId === '') continue;
     if (mediaId.length > LIMITS.mediaId) errors[key] = ['Choose an image from the media library'];

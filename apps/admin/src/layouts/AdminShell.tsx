@@ -308,7 +308,7 @@ export function AdminShell({ children }: AdminShellProps) {
           // account button; the wordmark is the one thing that can go, and the
           // link keeps its accessible name either way.
           <Link to="/" aria-label="Melbourne Sphere Admin home" style={{ display: 'inline-flex', minWidth: 0, overflow: 'hidden' }}>
-            <Brand compact={isNarrow} />
+            <Brand compact={isNarrow} tone="light" width={168} showSuffix={false} />
           </Link>
         ) : (
           <Typography.Text style={{ fontWeight: 600, fontSize: 15, color: brand.text }}>{barTitle}</Typography.Text>
