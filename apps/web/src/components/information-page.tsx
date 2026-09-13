@@ -1,3 +1,4 @@
+import { MotionHeading } from './motion-heading';
 import type { ReactNode } from 'react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { JsonLdScript } from '@/components/json-ld';
@@ -39,7 +40,7 @@ export function InformationHero({ title, eyebrow, intro, updatedAt, className = 
         <div className="ms-container py-10 sm:py-14">
           <Breadcrumbs items={crumbs} tone="dark" />
           {eyebrow && <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-sky-400">{eyebrow}</p>}
-          <h1 className={`font-display ${eyebrow ? 'mt-3' : 'mt-6'} max-w-3xl text-[clamp(2.25rem,4.5vw,3.5rem)] leading-[1.08] tracking-tight`}>{title}</h1>
+          <h1 className={`font-display ${eyebrow ? 'mt-3' : 'mt-6'} max-w-3xl text-[clamp(2.25rem,4.5vw,3.5rem)] leading-[1.08] tracking-tight`}><MotionHeading text={title} /></h1>
           {intro && <p className="mt-4 max-w-2xl text-lg leading-relaxed text-band-muted">{intro}</p>}
           {updatedAt && (
             /* A pill rather than a line of grey text: on a policy the date is

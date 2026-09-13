@@ -941,3 +941,22 @@ p.ant-typography a,
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/*
+ * Pointer cursor for native controls. Ant Design sets it on its own buttons,
+ * switches and selects; plain <button> elements (the focal-point picker, the
+ * table expand toggle), <summary> and labelled checkboxes otherwise show the
+ * browser's default arrow. Disabled controls show that they are not available.
+ */
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']),
+summary,
+label[for],
+input:is([type='checkbox'], [type='radio'], [type='file']):not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled='true'] {
+  cursor: not-allowed;
+}

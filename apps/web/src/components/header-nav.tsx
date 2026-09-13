@@ -39,12 +39,9 @@ export function HeaderNav({ links, action }: Props) {
               key={link.href}
               href={link.href}
               aria-current={current ? 'page' : undefined}
-              className={`relative inline-flex min-h-11 items-center whitespace-nowrap rounded-lg px-3.5 text-sm font-medium transition-colors ${
-                current ? 'bg-white/10 text-white shadow-inner' : 'text-band-muted hover:bg-white/[0.06] hover:text-white'
-              }`}
+              className="ms-header-link relative inline-flex min-h-11 items-center whitespace-nowrap rounded-lg px-3 text-[0.9375rem] font-semibold"
             >
               {link.label}
-              {current && <span aria-hidden="true" className="absolute inset-x-3.5 bottom-1.5 h-0.5 rounded-full bg-sky-400" />}
             </Link>
           );
         })}
@@ -54,7 +51,7 @@ export function HeaderNav({ links, action }: Props) {
         {action && (
           <Link
             href={action.href}
-            className="hidden min-h-11 items-center rounded-full bg-gradient-to-r from-sky-400 to-sky-500 px-5 text-sm font-bold text-navy-950 shadow-[0_10px_28px_-14px_rgba(25,158,216,.85)] transition-transform hover:-translate-y-0.5 sm:inline-flex"
+            className="hidden min-h-11 items-center rounded-full ms-primary-action bg-sky-700 px-5 text-sm font-bold text-white shadow-sm hover:bg-sky-600 transition-transform hover:-translate-y-0.5 sm:inline-flex"
           >
             {action.label}
           </Link>
@@ -63,16 +60,16 @@ export function HeaderNav({ links, action }: Props) {
         <details className="group relative lg:hidden">
           <summary
             aria-label="Menu"
-            className="inline-flex size-11 cursor-pointer list-none items-center justify-center rounded-lg border border-white/20 text-white [&::-webkit-details-marker]:hidden"
+            className="inline-flex size-11 cursor-pointer list-none items-center justify-center rounded-lg border border-border-strong text-text [&::-webkit-details-marker]:hidden"
           >
             <MenuIcon aria-hidden="true" className="size-5 group-open:hidden" />
             <XIcon aria-hidden="true" className="hidden size-5 group-open:block" />
           </summary>
           <nav
             aria-label="Main (compact)"
-            className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-64 rounded-card border border-band-border bg-band-deep p-2 shadow-lg"
+            className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-64 rounded-card border border-border bg-surface p-2 shadow-lg"
           >
-            <ul className="flex flex-col">
+            <ul className="flex flex-col gap-1">
               {links.map((link) => {
                 const current = isCurrent(pathname, link.href);
                 return (
@@ -80,7 +77,7 @@ export function HeaderNav({ links, action }: Props) {
                     <Link
                       href={link.href}
                       aria-current={current ? 'page' : undefined}
-                      className={`flex min-h-11 items-center rounded-lg px-3 text-sm font-medium ${current ? 'bg-white/10 text-white shadow-inner' : 'text-band-muted hover:bg-white/[0.06] hover:text-white'}`}
+                      className="ms-header-link flex min-h-12 items-center rounded-lg px-3 text-base font-semibold"
                     >
                       {link.label}
                     </Link>
@@ -88,8 +85,8 @@ export function HeaderNav({ links, action }: Props) {
                 );
               })}
               {action && (
-                <li className="mt-1 border-t border-band-border pt-2">
-                  <Link href={action.href} className="flex min-h-11 items-center justify-center rounded-full bg-sky-500 px-4 text-sm font-semibold text-navy-950">
+                <li className="mt-1 border-t border-border pt-2">
+                  <Link href={action.href} className="flex min-h-11 items-center justify-center rounded-full ms-primary-action bg-sky-700 px-4 text-sm font-semibold text-white hover:bg-sky-600">
                     {action.label}
                   </Link>
                 </li>

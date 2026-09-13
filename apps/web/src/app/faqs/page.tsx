@@ -73,7 +73,7 @@ export default async function FaqsPage() {
 
   const { email } = contactChannelFrom(settings);
   const { phone } = settings.contact;
-  const contactLinkClass = 'flex min-h-11 items-center gap-2.5 break-words font-medium text-link underline-offset-4 hover:underline [overflow-wrap:anywhere]';
+  const contactLinkClass = 'flex min-h-11 items-center gap-2.5 break-words font-medium text-link underline-offset-4 ms-text-link [overflow-wrap:anywhere]';
 
   return (
     <article>

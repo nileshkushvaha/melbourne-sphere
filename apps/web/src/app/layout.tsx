@@ -1,19 +1,20 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { Manrope, Sora } from 'next/font/google';
+import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import { SiteAnalytics } from '@/components/site-analytics';
 import { SiteFooter } from '@/components/site-footer';
 import { ServiceAlertBar } from '@/components/service-alert-bar';
 import { SiteHeader } from '@/components/site-header';
+import { PageMotion } from '@/components/page-motion';
 import { RouteProgress } from '@/components/route-progress';
 import Script from 'next/script';
 import { siteOrigin, siteTitle, turnstileSiteKey } from '@/lib/site';
 import { fetchSiteSettings } from '@/lib/api';
 import './globals.css';
 
-const bodyFont = Manrope({ variable: '--font-body', subsets: ['latin'], display: 'swap' });
-/** Sora gives display copy a confident contemporary voice while remaining highly legible. */
-const displayFont = Sora({ variable: '--font-display', subsets: ['latin'], display: 'swap' });
+const bodyFont = Inter({ variable: '--font-body', subsets: ['latin'], display: 'swap' });
+/** Plus Jakarta Sans adds expressive headings alongside the neutral Inter body face. */
+const displayFont = Plus_Jakarta_Sans({ variable: '--font-display', subsets: ['latin'], display: 'swap' });
 
 /**
  * Site-wide metadata from the general settings (SRS CFG 001, SEO 001): the
@@ -73,6 +74,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
             indicator to client navigations and never gates the page itself. */}
         <Suspense fallback={null}>
           <RouteProgress />
+          <PageMotion />
         </Suspense>
         {/* Above the header on every public page (SRS 1.2 ALRT 002). Rendered
             in document order rather than inside a Suspense boundary: a streamed

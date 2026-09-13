@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { MailIcon } from 'lucide-react';
 import { fetchAreas, fetchCategories, fetchSiteSettings, fetchStaticPages, fetchFaqs } from '@/lib/api';
 import { renderCopyright } from '@/lib/copyright';
 import { contactChannelFrom } from '@/lib/site';
@@ -60,26 +61,26 @@ export async function SiteFooter() {
   const copyright = renderCopyright(settings.footer.copyrightText, { year: new Date().getFullYear(), name: settings.name });
 
   return (
-    <footer className="ms-on-dark border-t border-band-border bg-band-deep text-band-text [background-image:radial-gradient(circle_at_15%_10%,rgba(25,158,216,.12),transparent_32%)]">
+    <footer className="ms-site-footer ms-on-dark bg-band-deep text-band-text">
       <div className="ms-container py-16 sm:py-20">
         {/* Four columns: the brand, and three of links — the local areas and
             categories people actually browse by, then the pages. Six columns
             read as a wall of text at this width. */}
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_repeat(3,minmax(0,1fr))] lg:gap-10">
-          <div className="max-w-sm">
-            <p className="flex items-center gap-2.5">
+          <div className="ms-footer-brand ms-footer-section min-w-0 max-w-sm">
+            <p className="ms-footer-heading flex flex-wrap items-center gap-2.5">
               {settings.branding.logo ? (
                 <Image src={settings.branding.logo.url} alt={settings.branding.logo.alt || settings.name} width={settings.branding.logo.width} height={settings.branding.logo.height} className="h-8 w-auto object-contain" />
               ) : (
                 <>
-                  <BrandMark className="size-8" />
+                  <BrandMark className="size-9 shrink-0" />
                   <span className="font-display text-2xl tracking-tight">{settings.name}</span>
                 </>
               )}
             </p>
             {/* `whitespace-pre-line`, because the field is a textarea: an editor
                 who writes two lines gets two lines, not one run-on sentence. */}
-            <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-band-muted">
+            <p className="mt-5 whitespace-pre-line text-base leading-7 text-sky-100">
               {settings.footer.text ?? 'An independent directory and local blog for Melbourne, Victoria. Every listing is checked by our editors before it is published — one city, covered properly.'}
             </p>
             <div className="mt-5">
@@ -89,21 +90,22 @@ export async function SiteFooter() {
                 site refuses one on a development domain, so this is never a
                 mailto that goes nowhere. */}
             {channel.email && (
-              <a href={`mailto:${channel.email}`} className="mt-4 inline-flex min-h-9 items-center text-sm text-band-link underline-offset-4 hover:underline">
-                {channel.email}
+              <a href={`mailto:${channel.email}`} className="ms-footer-email ms-primary-action mt-5 inline-flex min-h-12 max-w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold text-white">
+                <MailIcon aria-hidden="true" className="size-5 shrink-0" />
+                <span className="min-w-0 [overflow-wrap:anywhere]">{channel.email}</span>
               </a>
             )}
           </div>
 
           {topAreas.length > 0 && (
-            <nav aria-labelledby="footer-areas" className="text-sm">
-              <h2 id="footer-areas" className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-400">
+            <nav aria-labelledby="footer-areas" className="ms-footer-section min-w-0">
+              <h2 id="footer-areas" className="ms-footer-heading font-display text-lg font-bold text-white">
                 Local areas
               </h2>
-              <ul className="mt-4 flex flex-col gap-1">
+              <ul className="mt-5 -ml-3 flex flex-col gap-1">
                 {topAreas.map((area) => (
                   <li key={area.slug}>
-                    <Link href={`/business/area/${area.slug}`} className="inline-flex min-h-9 items-center text-band-muted underline-offset-4 hover:text-white hover:underline">
+                    <Link href={`/business/area/${area.slug}`} className="ms-footer-link inline-flex min-h-11 items-center rounded-lg px-3 text-base font-medium">
                       {area.name}
                     </Link>
                   </li>
@@ -113,14 +115,14 @@ export async function SiteFooter() {
           )}
 
           {topCategories.length > 0 && (
-            <nav aria-labelledby="footer-categories" className="text-sm">
-              <h2 id="footer-categories" className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-400">
+            <nav aria-labelledby="footer-categories" className="ms-footer-section min-w-0">
+              <h2 id="footer-categories" className="ms-footer-heading font-display text-lg font-bold text-white">
                 Categories
               </h2>
-              <ul className="mt-4 flex flex-col gap-1">
+              <ul className="mt-5 -ml-3 flex flex-col gap-1">
                 {topCategories.map((category) => (
                   <li key={category.slug}>
-                    <Link href={`/business/category/${category.slug}`} className="inline-flex min-h-9 items-center text-band-muted underline-offset-4 hover:text-white hover:underline">
+                    <Link href={`/business/category/${category.slug}`} className="ms-footer-link inline-flex min-h-11 items-center rounded-lg px-3 text-base font-medium">
                       {category.name}
                     </Link>
                   </li>
@@ -129,14 +131,14 @@ export async function SiteFooter() {
             </nav>
           )}
 
-          <nav aria-labelledby="footer-information" className="text-sm">
-            <h2 id="footer-information" className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-400">
+          <nav aria-labelledby="footer-information" className="ms-footer-section min-w-0">
+            <h2 id="footer-information" className="ms-footer-heading font-display text-lg font-bold text-white">
               Information
             </h2>
-            <ul className="mt-4 flex flex-col gap-1">
+            <ul className="mt-5 -ml-3 flex flex-col gap-1">
               {INFORMATION_LINKS.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="inline-flex min-h-9 items-center text-band-muted underline-offset-4 hover:text-white hover:underline">
+                  <Link href={link.href} className="ms-footer-link inline-flex min-h-11 items-center rounded-lg px-3 text-base font-medium">
                     {link.label}
                   </Link>
                 </li>
@@ -145,21 +147,21 @@ export async function SiteFooter() {
                   rule as the information pages: no link ever points at a 404. */}
               {faqs.length > 0 && (
                 <li>
-                  <Link href="/faqs" className="inline-flex min-h-9 items-center text-band-muted underline-offset-4 hover:text-white hover:underline">
+                  <Link href="/faqs" className="ms-footer-link inline-flex min-h-11 items-center rounded-lg px-3 text-base font-medium">
                     FAQs
                   </Link>
                 </li>
               )}
               {pages.filter((page) => !POLICY_SLUGS.includes(page.slug)).map((page) => (
                 <li key={page.slug}>
-                  <Link href={`/${page.slug}`} className="inline-flex min-h-9 items-center text-band-muted underline-offset-4 hover:text-white hover:underline">
+                  <Link href={`/${page.slug}`} className="ms-footer-link inline-flex min-h-11 items-center rounded-lg px-3 text-base font-medium">
                     {page.title}
                   </Link>
                 </li>
               ))}
               {CONTACT_LINKS.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="inline-flex min-h-9 items-center text-band-muted underline-offset-4 hover:text-white hover:underline">
+                  <Link href={link.href} className="ms-footer-link inline-flex min-h-11 items-center rounded-lg px-3 text-base font-medium">
                     {link.label}
                   </Link>
                 </li>
@@ -168,7 +170,7 @@ export async function SiteFooter() {
           </nav>
         </div>
 
-        <div className="mt-12 flex flex-col gap-3 border-t border-band-border pt-6 text-xs text-band-muted sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-12 flex flex-col gap-3 border-t border-band-border pt-6 text-sm text-band-muted sm:flex-row sm:items-center sm:justify-between">
           {/* Exactly the line the editor wrote, with {year} and {name} filled
               in. It used to have the organisation name and ", Melbourne,
               Victoria, Australia" appended in code, so an editor who changed
@@ -180,7 +182,7 @@ export async function SiteFooter() {
                 to an empty page — an unpublished policy is a gap to fill in the
                 admin, not a 404 to ship. */}
             {policyLinks.map((page) => (
-              <Link key={page.slug} href={`/${page.slug}`} className="inline-flex min-h-9 items-center text-band-muted underline-offset-4 hover:text-white hover:underline">
+              <Link key={page.slug} href={`/${page.slug}`} className="ms-footer-link inline-flex min-h-11 items-center rounded-lg px-3 text-base font-medium">
                 {page.title}
               </Link>
             ))}

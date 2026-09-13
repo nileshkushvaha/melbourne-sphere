@@ -8,7 +8,7 @@ import { SocialLinks } from './social-links';
 import { HeaderNav, type NavLink } from './header-nav';
 
 /**
- * Public navigation (SRS UX 002): a full-width navy band above the hero,
+ * Public navigation (SRS UX 002): a white navigation bar above the hero,
  * keyboard reachable and usable without JavaScript. The name, logo, contact
  * strip and social profiles all come from the general settings an administrator
  * edits (CFG 001); anything unset is omitted rather than rendered blank, and the
@@ -62,9 +62,9 @@ export async function SiteHeader() {
           </div>
         </div>
       )}
-      <header className="ms-on-dark sticky top-0 z-40 border-b border-band-border bg-band-deep/92 text-band-text shadow-[0_12px_40px_-28px_rgba(0,0,0,.8)] backdrop-blur-xl supports-[backdrop-filter]:bg-band-deep/78">
+      <header className="ms-site-header sticky top-0 z-40 border-b border-border bg-surface text-text shadow-sm">
         <div className="ms-container flex items-center py-3.5">
-          <Link href="/" className="flex shrink-0 items-center gap-2.5 rounded-lg py-1 text-white">
+          <Link href="/" className="flex shrink-0 items-center gap-2.5 rounded-lg py-1 text-text">
             {settings.branding.logo ? (
               // Height-constrained, so any uploaded aspect ratio fits the bar.
               <Image
@@ -80,7 +80,7 @@ export async function SiteHeader() {
                 <BrandMark className="size-9" />
                 <span className="flex flex-col leading-none">
                   <span className="font-display text-lg">{settings.name}</span>
-                  <span className="mt-0.5 text-[0.65rem] font-medium uppercase tracking-[0.16em] text-band-muted">Melbourne, Victoria</span>
+                  <span className="mt-0.5 text-[0.65rem] font-medium uppercase tracking-[0.16em] text-text-muted">Melbourne, Victoria</span>
                 </span>
               </>
             )}

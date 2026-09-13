@@ -1,69 +1,59 @@
 /*
- * Melbourne Sphere public design tokens (SRS UX 001).
- *
- * The public site is a light-first editorial surface — warm off-white and
- * neutral page bands — with deep navy used deliberately as a *band* colour for
- * the header, the hero, the locality feature and the call to action. That is
- * what "balanced light and dark surfaces" means here: the rhythm alternates
- * between light and dark sections rather than following the operating system's
- * colour scheme. An OS-driven dark scheme is deliberately not offered, because
- * it turned every band into the same navy field and destroyed the hierarchy the
- * design depends on; `color-scheme: light` is declared in apps/web/globals.css.
- *
- * Contrast (WCAG 2.2 AA, NFR 006/011): text #16233c on #ffffff 14.4:1 and on
- * #faf8f4 13.4:1; muted #55637d on #ffffff 6.4:1; link #0b5f8f on #ffffff
- * 5.9:1; band text #ffffff on #0e2242 15.4:1; band muted #b9c9e2 on #0e2242
- * 9.6:1; band link #8ed0ff on #0e2242 10.0:1. `apps/web/src/lib/palette.test.ts`
- * fails the build if any of these regress.
+ * Melbourne Sphere public palette: Ocean Blue + Teal.
+ * White cards and cool light surfaces carry most content. Deep ocean bands
+ * frame the hero and footer; teal marks secondary accents and selections.
+ * Contrast, including translucent surfaces, is guarded by palette.test.ts.
  */
 :root {
   /* Brand */
-  --ms-navy-950: #071426;
-  --ms-navy-900: #0d2340;
-  --ms-navy-800: #15365f;
-  --ms-navy-700: #1d4c82;
-  --ms-sky-700: #075d9b;
-  --ms-sky-600: #087fc4;
-  --ms-sky-500: #199ed8;
-  --ms-sky-400: #5ec8f2;
-  --ms-sky-100: #dceffc;
-  --ms-sky-50: #eff8fe;
-  --ms-gold-500: #6889b5;
-  --ms-gold-100: #e8eef7;
+  --ms-navy-950: #102f42;
+  --ms-navy-900: #123549;
+  --ms-navy-800: #1c465b;
+  --ms-navy-700: #285d74;
+  --ms-sky-700: #0369a1;
+  --ms-sky-600: #075985;
+  --ms-sky-500: #38bdf8;
+  --ms-sky-400: #7dd3fc;
+  --ms-sky-100: #e0f2fe;
+  --ms-sky-50: #f0f9ff;
+  --ms-teal-700: #0f766e;
+  --ms-teal-100: #e6f5f2;
+  /* Legacy accent names retained for existing consumers. */
+  --ms-gold-500: #0f766e;
+  --ms-gold-100: #e6f5f2;
 
-  /* Light surfaces: white cards on a warm off-white page, with a cooler
-     neutral for the alternating "soft" band. */
+  /* Light surfaces: white cards on pale ocean backgrounds. */
   --ms-surface: #ffffff;
-  --ms-surface-muted: #f7f9fc;
+  --ms-surface-muted: #f4f9fb;
   --ms-surface-raised: #ffffff;
-  --ms-surface-sunken: #edf3f8;
-  --ms-border: #dce5ef;
-  --ms-border-strong: #bdcad9;
-  --ms-text: #13243a;
-  --ms-text-muted: #53657b;
+  --ms-surface-sunken: #eaf4f8;
+  --ms-border: #d3e3ea;
+  --ms-border-strong: #a5becb;
+  --ms-text: #163047;
+  --ms-text-muted: #526779;
   --ms-text-inverse: #ffffff;
-  --ms-link: #075d9b;
+  --ms-link: #0369a1;
 
-  /* Dark bands (hero, header, locality feature, call to action, footer). These
+  /* Dark bands (hero, call to action, footer). These
      never follow a colour scheme: they are a fixed part of the composition. */
-  --ms-band: #0d2848;
-  --ms-band-deep: #071426;
-  --ms-band-raised: #15375d;
+  --ms-band: #163d51;
+  --ms-band-deep: #123549;
+  --ms-band-raised: #1c465b;
   --ms-band-text: #ffffff;
-  --ms-band-muted: #bdcde0;
-  --ms-band-border: #28496f;
-  --ms-band-link: #8dd8f7;
+  --ms-band-muted: #c3dbe5;
+  --ms-band-border: #466779;
+  --ms-band-link: #7dd3fc;
 
   /* The hero search panel sits on photography, so it keeps its own light
      colours whatever the image looks like (#16233c on #ffffff 14.4:1). */
   --ms-panel: #ffffff;
-  --ms-panel-muted: #eef4f9;
-  --ms-panel-text: #13243a;
-  --ms-panel-text-muted: #53657b;
-  --ms-panel-border: #d7e1eb;
-  --ms-hero-text: #d6e2f0;
+  --ms-panel-muted: #eef6f9;
+  --ms-panel-text: #163047;
+  --ms-panel-text-muted: #526779;
+  --ms-panel-border: #d3e3ea;
+  --ms-hero-text: #deedf3;
 
-  --ms-focus: #9a5b12;
+  --ms-focus: #0369a1;
   --ms-success: #15803d;
   --ms-warning: #b45309;
   --ms-danger: #b91c1c;
@@ -96,10 +86,8 @@
 
   /* Premium glass surfaces: reserved for overlays and information panels. */
   --ms-glass-light: rgba(255, 255, 255, 0.78);
-  /* 0.8, not 0.72: a dark glass panel also sits on the *light* bands, where the
-     surface behind it composites through. At 0.72 the muted band text on that
-     composite measured 4.02:1 — below AA for body text (audit F-04). */
-  --ms-glass-dark: rgba(13, 35, 64, 0.8);
+  /* Preserve muted-text contrast even when dark glass sits over white. */
+  --ms-glass-dark: rgba(18, 53, 73, 0.9);
   --ms-glass-border-light: rgba(255, 255, 255, 0.72);
   --ms-glass-border-dark: rgba(141, 216, 247, 0.2);
 }
@@ -115,6 +103,8 @@
   --color-sky-400: var(--ms-sky-400);
   --color-sky-100: var(--ms-sky-100);
   --color-sky-50: var(--ms-sky-50);
+  --color-teal-700: var(--ms-teal-700);
+  --color-teal-100: var(--ms-teal-100);
   --color-gold-500: var(--ms-gold-500);
   --color-gold-100: var(--ms-gold-100);
   --color-surface: var(--ms-surface);
@@ -193,10 +183,10 @@
   border-radius: 4px;
 }
 
-/* On a dark band the amber focus ring is hard to see; the light ring keeps the
+/* On a dark band a light sky ring keeps the
    3:1 non-text contrast the focus indicator needs. */
 .ms-on-dark :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
-  outline-color: #ffd166;
+  outline-color: var(--ms-sky-400);
 }
 
 .ms-skip-link {

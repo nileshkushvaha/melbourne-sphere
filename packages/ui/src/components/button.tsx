@@ -8,11 +8,11 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-sky-700 text-text-inverse hover:bg-sky-600',
+        primary: 'ms-primary-action bg-sky-700 text-text-inverse hover:bg-sky-600',
         navy: 'bg-navy-800 text-text-inverse hover:bg-navy-700',
         outline: 'border border-border bg-surface text-text hover:bg-surface-muted',
         ghost: 'text-text hover:bg-surface-muted',
-        link: 'min-h-0 px-0 py-0 text-link underline-offset-4 hover:underline',
+        link: 'min-h-0 px-0 py-0 text-link ms-text-link',
       },
       size: {
         default: '',

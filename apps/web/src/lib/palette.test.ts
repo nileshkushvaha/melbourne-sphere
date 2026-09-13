@@ -139,3 +139,35 @@ it('does not reintroduce an operating-system dark scheme', () => {
   // that has to be made deliberately, not by editing a token block.
   expect(css).not.toContain('prefers-color-scheme');
 });
+
+
+describe('ocean actions and teal selections', () => {
+  it('keeps white button labels readable at rest and on hover', () => {
+    for (const background of ['ms-sky-700', 'ms-sky-600']) {
+      expect(contrast(token('ms-text-inverse'), token(background))).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('keeps teal labels and sky focus rings readable on their intended surfaces', () => {
+    expect(contrast(token('ms-teal-700'), token('ms-teal-100'))).toBeGreaterThanOrEqual(4.5);
+    for (const background of ['ms-surface', 'ms-surface-muted', 'ms-surface-sunken']) {
+      expect(contrast(token('ms-teal-700'), token(background))).toBeGreaterThanOrEqual(4.5);
+    }
+    for (const background of ['ms-band', 'ms-band-deep', 'ms-band-raised']) {
+      expect(contrast(token('ms-sky-400'), token(background))).toBeGreaterThanOrEqual(3);
+    }
+  });
+});
+
+
+it('keeps inverted area cards and gradient actions readable', () => {
+  expect(contrast(token('ms-text'), token('ms-sky-100'))).toBeGreaterThanOrEqual(4.5);
+  // Sample the full sRGB blue-to-teal gradient, not just its endpoints.
+  const rgb = (hex: string) => hex.slice(1).match(/.{2}/g)!.map((part) => parseInt(part, 16));
+  const start = rgb(token('ms-sky-700'));
+  const end = rgb(token('ms-teal-700'));
+  for (let step = 0; step <= 20; step++) {
+    const background = '#' + start.map((value, i) => Math.round(value + (end[i]! - value) * step / 20).toString(16).padStart(2, '0')).join('');
+    expect(contrast('#ffffff', background)).toBeGreaterThanOrEqual(4.5);
+  }
+});

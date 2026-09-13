@@ -1,3 +1,4 @@
+import { MotionHeading } from './motion-heading';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { ArrowRightIcon, type LucideIcon } from 'lucide-react';
@@ -13,7 +14,7 @@ import { ArrowRightIcon, type LucideIcon } from 'lucide-react';
 /** A gradient tile for an icon that supports scanning; the text beside it carries the meaning. */
 export function IconTile({ icon: Icon, className = '' }: { icon: LucideIcon; className?: string }) {
   return (
-    <span aria-hidden="true" className={`grid size-10 shrink-0 place-items-center rounded-card bg-linear-to-br from-sky-400 to-sky-700 text-white shadow-sm shadow-sky-700/25 ${className}`}>
+    <span aria-hidden="true" className={`ms-product-icon grid size-10 shrink-0 place-items-center rounded-card bg-linear-to-br from-sky-400 to-sky-700 text-white shadow-sm shadow-sky-700/25 ${className}`}>
       <Icon className="size-[1.125rem]" strokeWidth={1.9} />
     </span>
   );
@@ -35,7 +36,7 @@ export function IconPoints({ items, ordered = false, columns = 2 }: { items: Ico
   return (
     <List className={`grid gap-x-8 gap-y-4 ${columns === 2 ? 'sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2' : ''}`}>
       {items.map((item, index) => (
-        <li key={item.title} className={`flex gap-3.5 ${item.text ? 'items-start' : 'items-center'}`}>
+        <li key={item.title} className={`ms-icon-point flex gap-3.5 ${item.text ? 'items-start' : 'items-center'}`}>
           <span className="relative shrink-0">
             <IconTile icon={item.icon} />
             {ordered && (
@@ -57,9 +58,9 @@ export function IconPoints({ items, ordered = false, columns = 2 }: { items: Ico
 /** A titled section of the main column. */
 export function ContentSection({ id, title, intro, children }: { id: string; title: string; intro?: string; children: ReactNode }) {
   return (
-    <section aria-labelledby={id}>
+    <section aria-labelledby={id} className="ms-content-panel">
       <h2 id={id} className="font-display text-2xl tracking-tight sm:text-3xl">
-        {title}
+        <MotionHeading text={title} />
       </h2>
       {intro && <p className="mt-2 max-w-2xl leading-relaxed text-text-muted">{intro}</p>}
       <div className="mt-6">{children}</div>
@@ -108,14 +109,14 @@ export function AsideCard({ id, anchorId, icon, title, description, sticky = tru
     <section
       id={anchorId}
       aria-labelledby={id}
-      className={`relative overflow-hidden rounded-card-lg border border-border bg-surface-raised p-5 shadow-md sm:p-6 ${stickiness}`}
+      className={`ms-product-aside relative overflow-hidden rounded-card-lg border border-border bg-surface-raised p-5 shadow-md sm:p-6 ${stickiness}`}
     >
       <span aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-linear-to-r from-sky-400 to-sky-700" />
       <div className="flex items-start gap-3.5">
         <IconTile icon={icon} className="mt-0.5" />
         <div className="min-w-0">
           <h2 id={id} className="font-display text-2xl tracking-tight">
-            {title}
+            <MotionHeading text={title} />
           </h2>
           <p className="mt-1.5 text-sm leading-relaxed text-text-muted">{description}</p>
         </div>
@@ -128,9 +129,9 @@ export function AsideCard({ id, anchorId, icon, title, description, sticky = tru
 /** A quiet list of onward links, only ever to routes that answer. */
 export function LinkList({ id, title, links }: { id: string; title: string; links: { href: string; label: string }[] }) {
   return (
-    <nav aria-labelledby={id}>
+    <nav aria-labelledby={id} className="ms-product-links">
       <h2 id={id} className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
-        {title}
+        <MotionHeading text={title} />
       </h2>
       <ul className="mt-3 grid gap-x-8 sm:grid-cols-2">
         {links.map((link) => (

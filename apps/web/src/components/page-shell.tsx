@@ -1,3 +1,4 @@
+import { MotionHeading } from './motion-heading';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -12,7 +13,7 @@ export function PageShell({ children, width = 'wide', className = '' }: { childr
 
 /**
  * A full-bleed section. `tone` picks its place in the light/dark rhythm:
- * `page` (warm off-white), `plain` (white), `soft` (cool neutral) and the dark
+ * `page` (pale blue), `plain` (white), `soft` (cool neutral) and the dark
  * bands, which carry `.ms-on-dark` so focus rings stay visible on them.
  */
 export function Band({
@@ -25,7 +26,7 @@ export function Band({
     page: 'bg-surface-muted text-text',
     plain: 'bg-surface text-text',
     soft: 'ms-dot-grid bg-surface-sunken text-text',
-    dark: 'ms-on-dark bg-band text-band-text [background-image:radial-gradient(circle_at_85%_20%,rgba(25,158,216,.14),transparent_34%),linear-gradient(135deg,#0d2848,#071426)]',
+    dark: 'ms-on-dark ms-ocean-band bg-band text-band-text',
     deep: 'ms-on-dark bg-band-deep text-band-text [background-image:radial-gradient(circle_at_10%_10%,rgba(94,200,242,.1),transparent_32%)]',
   } as const;
   return (
@@ -54,12 +55,12 @@ export function SectionHeading({ id, eyebrow, title, description, href, linkLabe
       <div className="max-w-2xl">
         {eyebrow && <p className={`mb-3 text-xs font-bold uppercase tracking-[0.2em] ${tone === 'dark' ? 'text-sky-400' : 'text-sky-700'}`}>{eyebrow}</p>}
         <h2 id={id} className="font-display text-3xl leading-[1.08] sm:text-5xl">
-          {title}
+          <MotionHeading text={title} />
         </h2>
         {description && <p className={`mt-3 text-base leading-relaxed sm:text-lg ${muted}`}>{description}</p>}
       </div>
       {href && (
-        <Link href={href} className={`inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold underline-offset-4 hover:underline ${link}`}>
+        <Link href={href} className={`inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold underline-offset-4 ms-text-link ${link}`}>
           {linkLabel ?? 'See all'}
           <span aria-hidden="true">→</span>
         </Link>

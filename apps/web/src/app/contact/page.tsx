@@ -47,7 +47,7 @@ const GOOD_TO_KNOW: IconPoint[] = [
   { icon: LockKeyholeIcon, title: 'Never send passwords or payment details' },
 ];
 
-const linkClass = 'break-words text-link underline-offset-4 hover:underline [overflow-wrap:anywhere]';
+const linkClass = 'break-words text-link underline-offset-4 ms-text-link [overflow-wrap:anywhere]';
 
 export default async function ContactPage() {
   const [settings, faqs, privacyHref] = await Promise.all([fetchSiteSettings(), fetchFaqs(), privacyNoticeHref()]);
@@ -65,25 +65,25 @@ export default async function ContactPage() {
   ];
 
   return (
-    <article>
+    <article className="ms-product-page">
       <InformationHero
         title={`Contact ${settings.name}`}
         eyebrow="Get in touch"
         intro={`Questions about a listing, a correction or ${settings.name} itself? Our editorial team is here to help.`}
-        className="ms-editorial-band"
+        className="ms-editorial-band ms-ocean-band"
       />
 
       <ProductPageLayout
         lead={
-          <section aria-labelledby="contact-details-heading" className="flex flex-col gap-6">
+          <section aria-labelledby="contact-details-heading" className="ms-content-panel flex flex-col gap-6">
             <div>
               <h2 id="contact-details-heading" className="font-display text-2xl tracking-tight sm:text-3xl">
                 How to reach us
               </h2>
               <p className="mt-2 max-w-2xl leading-relaxed text-text-muted">No account needed — every request is read and checked by an editor.</p>
             </div>
-            <ul className="flex flex-col divide-y divide-border rounded-card-lg border border-border bg-surface-raised shadow-sm">
-              <li className="flex items-center gap-4 p-5">
+            <ul className="ms-contact-methods flex flex-col gap-3">
+              <li className="flex items-center gap-4 rounded-card border border-border bg-surface-muted p-4 sm:p-5">
                 <IconTile icon={MailIcon} />
                 <div className="min-w-0">
                   <p className="text-sm text-text-muted">Email</p>
@@ -97,7 +97,7 @@ export default async function ContactPage() {
                 </div>
               </li>
               {phone && (
-                <li className="flex items-center gap-4 p-5">
+                <li className="flex items-center gap-4 rounded-card border border-border bg-surface-muted p-4 sm:p-5">
                   <IconTile icon={PhoneIcon} />
                   <div className="min-w-0">
                     <p className="text-sm text-text-muted">Phone</p>
@@ -107,7 +107,7 @@ export default async function ContactPage() {
                   </div>
                 </li>
               )}
-              <li className="flex items-center gap-4 p-5">
+              <li className="flex items-center gap-4 rounded-card border border-border bg-surface-muted p-4 sm:p-5">
                 <IconTile icon={MapPinIcon} />
                 <div className="min-w-0">
                   <p className="text-sm text-text-muted">Coverage</p>

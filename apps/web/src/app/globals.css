@@ -17,12 +17,12 @@ body {
   color: var(--ms-text);
 }
 
-/* Display headings are set in the serif face (next/font supplies --font-display
+/* Display headings are set in Plus Jakarta Sans (next/font supplies --font-display
    on <html>; it is deliberately not a @theme entry, which would make the custom
    property reference itself). */
 .font-display {
   font-family: var(--font-display), var(--font-body), sans-serif;
-  font-weight: 650;
+  font-weight: 700;
   letter-spacing: -0.035em;
 }
 
@@ -43,16 +43,7 @@ body {
   .ms-glass-light, .ms-glass-dark { backdrop-filter: blur(18px) saturate(135%); }
 }
 
-/*
- * A light panel sitting inside a dark band takes the ordinary focus ring back.
- *
- * The band-level rule paints the ring amber so it can be seen against navy —
- * but the hero's search panel is near-white, where amber is both wrong to look
- * at and around 1.6:1, well under the 3:1 a focus indicator has to meet
- * (SRS NFR 011, WCAG 1.4.11). The panel's own accent is the sky blue of its
- * search button: 6.2:1 on the panel, and it reads as part of the design rather
- * than as a warning.
- */
+/* Light search panels use the darker ocean focus ring, even inside a dark hero. */
 .ms-on-dark .ms-glass-light :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
   outline-color: var(--ms-sky-700);
   outline-width: 2px;
@@ -63,7 +54,7 @@ body {
 }
 .ms-section-number {
   display: inline-flex; width: 2.5rem; height: 2.5rem; align-items: center; justify-content: center;
-  border-radius: 999px; background: var(--ms-gold-100); color: var(--ms-navy-900);
+  border-radius: 999px; background: var(--ms-teal-100); color: var(--ms-teal-700);
   font-size: .72rem; font-weight: 800; letter-spacing: .08em;
 }
 
@@ -94,7 +85,7 @@ body {
   background-image:
     radial-gradient(120% 95% at 85% -15%, color-mix(in srgb, var(--ms-sky-500) 26%, transparent), transparent 58%),
     radial-gradient(60% 55% at 4% 2%, color-mix(in srgb, var(--ms-sky-400) 8%, transparent), transparent 62%),
-    linear-gradient(180deg, #0e2a4d 0%, #071a30 100%);
+    linear-gradient(180deg, var(--ms-band) 0%, var(--ms-band-deep) 100%);
 }
 
 .ms-editorial-band::before {
@@ -118,16 +109,90 @@ body {
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ms-sky-400) 40%, transparent), transparent);
 }
 
-/* Card lift used by listing, category and article cards. One definition keeps
-   the hover/focus treatment identical everywhere without a utility soup. */
-.ms-card-lift {
-  transition: transform var(--ms-motion-fast) ease, box-shadow var(--ms-motion-fast) ease, border-color var(--ms-motion-fast) ease;
+/* Ocean gradients keep their lightest stop dark enough for white text. */
+.ms-ocean-band {
+  background-image: radial-gradient(ellipse at 95% 0%, #0f766e55, transparent 55%),
+    linear-gradient(125deg, var(--ms-band-deep), #103e53 55%, #134e4a);
 }
-.ms-card-lift:hover,
+.ms-primary-action {
+  background-image: linear-gradient(110deg, var(--ms-sky-700), var(--ms-teal-700));
+  transition: transform 320ms cubic-bezier(.22,1,.36,1), box-shadow 320ms ease, filter 200ms ease;
+}
+.ms-primary-action:focus-visible {
+  background-image: linear-gradient(110deg, var(--ms-sky-600), #115e59);
+  box-shadow: 0 0 0 2px var(--ms-surface), 0 0 0 4px var(--ms-sky-700);
+  transform: translateY(-2px);
+}
+
+/* Logimart-style lift and image shine, with keyboard and reduced-motion parity. */
+.ms-card-lift, .ms-area-chip {
+  transition: transform 320ms cubic-bezier(.22,1,.36,1), box-shadow 320ms ease, border-color 240ms ease;
+}
 .ms-card-lift:focus-within {
-  transform: translateY(-5px);
-  box-shadow: var(--ms-shadow-md);
-  border-color: var(--ms-border-strong);
+  transform: translateY(-6px);
+  box-shadow: 0 0 0 2px var(--ms-sky-700), var(--ms-shadow-lg);
+  border-color: var(--ms-sky-700);
+}
+.ms-area-card {
+  border: 1px solid var(--ms-band-border);
+  background: var(--ms-band-deep);
+  color: var(--ms-band-text);
+}
+.ms-area-card:focus-within {
+  background: var(--ms-sky-100);
+  color: var(--ms-text);
+  border-color: var(--ms-sky-400);
+  box-shadow: 0 0 0 2px var(--ms-sky-400), var(--ms-shadow-lg);
+}
+.ms-area-card:focus-within :is(.text-band-text, .text-band-muted, .text-band-link) { color: inherit; }
+.ms-area-chip:focus-within { transform: translateY(-3px); }
+.ms-area-card:focus-visible { outline-color: var(--ms-sky-700); border-radius: var(--ms-radius-lg); }
+.ms-area-chip:focus-visible { border-radius: var(--ms-radius); }
+.ms-media-shine { position: relative; overflow: hidden; isolation: isolate; }
+.ms-media-shine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, #ffffff55, transparent);
+  transform: translateX(-120%) skewX(-18deg);
+}
+.group:focus-within .ms-media-shine::after {
+  transform: translateX(120%) skewX(-18deg);
+  transition: transform 850ms cubic-bezier(.22,1,.36,1);
+}
+.ms-card-lift:focus-within img { transform: scale(1.05); }
+@media (hover: hover) {
+  .ms-primary-action:not(:disabled):hover {
+    background-image: linear-gradient(110deg, var(--ms-sky-600), #115e59);
+    transform: translateY(-2px);
+    box-shadow: 0 0 0 2px var(--ms-surface), 0 8px 24px -8px var(--ms-sky-700);
+  }
+  .ms-card-lift:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 0 0 2px var(--ms-sky-700), var(--ms-shadow-lg);
+    border-color: var(--ms-sky-700);
+  }
+  .ms-area-card:hover {
+    background: var(--ms-sky-100);
+    color: var(--ms-text);
+    border-color: var(--ms-sky-400);
+    box-shadow: 0 0 0 2px var(--ms-sky-400), var(--ms-shadow-lg);
+  }
+  .ms-area-card:hover :is(.text-band-text, .text-band-muted, .text-band-link) { color: inherit; }
+  .ms-area-chip:hover { transform: translateY(-3px); }
+  .group:hover .ms-media-shine::after {
+    transform: translateX(120%) skewX(-18deg);
+    transition: transform 850ms cubic-bezier(.22,1,.36,1);
+  }
+  .ms-card-lift:hover img { transform: scale(1.05); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ms-card-lift, .ms-area-chip, .ms-primary-action, .ms-card-lift img {
+    transform: none !important;
+    transition: none !important;
+  }
+  .ms-media-shine::after { display: none; }
 }
 
 /* Hero phrase transition (SRS HERO 002: 300 ms, no layout shift). */
@@ -448,4 +513,266 @@ body {
 .ms-prose-lead strong {
   color: var(--ms-text);
   font-weight: 640;
+}
+
+/*
+ * Tailwind v4's preflight gives <button> the default arrow cursor. The pointer
+ * is restored once here for every interactive control rather than with a
+ * `cursor-pointer` class on each element, so a control added later cannot miss
+ * it. In the base layer, so a component's own `cursor-*` utility still wins;
+ * disabled controls show that they are not available.
+ */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='tab']:not([aria-disabled='true']),
+  [role='option']:not([aria-disabled='true']),
+  [role='menuitem']:not([aria-disabled='true']),
+  summary,
+  select:not(:disabled),
+  label[for],
+  input:is([type='checkbox'], [type='radio'], [type='submit'], [type='button'], [type='reset'], [type='file'], [type='color'], [type='range']):not(:disabled) {
+    cursor: pointer;
+  }
+
+  /* On its own: a pseudo-element a browser does not know would otherwise
+     invalidate the whole selector list above. */
+  input[type='file']:not(:disabled)::file-selector-button {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled='true'],
+  select:disabled,
+  input:disabled {
+    cursor: not-allowed;
+  }
+}
+
+
+/* Keep carousel content inside its own scrollport. Layout containment also
+   prevents WebKit from including offscreen slides in the root scroll width. */
+.ms-gallery-strip {
+  min-width: 0;
+  contain: inline-size layout paint;
+}
+
+
+/* Navigation has the same ocean identity in both light and dark surfaces. */
+.ms-site-header::after, .ms-site-footer::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--ms-sky-700), var(--ms-sky-400), var(--ms-teal-700));
+  pointer-events: none;
+}
+.ms-site-header::after { bottom: -1px; }
+.ms-site-footer { position: relative; background-image: linear-gradient(120deg, #102f42, #123549 55%, #134e4a); }
+.ms-site-footer::before { top: 0; }
+.ms-header-link { color: var(--ms-text); transition: box-shadow 200ms ease, transform 200ms ease; }
+.ms-header-link[aria-current='page'], .ms-header-link:focus-visible {
+  color: white;
+  background: linear-gradient(110deg, var(--ms-sky-700), var(--ms-teal-700));
+  box-shadow: 0 4px 12px -5px var(--ms-sky-700);
+}
+.ms-footer-heading::after {
+  content: '';
+  display: block;
+  margin-top: 0.75rem;
+  width: 3rem;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--ms-sky-400), #5eead4);
+}
+.ms-footer-section { border-top: 1px solid var(--ms-band-border); padding-top: 1.25rem; }
+.ms-footer-link { color: var(--ms-band-muted); transition: transform 200ms ease, box-shadow 200ms ease; }
+.ms-footer-link:focus-visible {
+  color: white;
+  background: linear-gradient(110deg, var(--ms-sky-700), var(--ms-teal-700));
+  text-decoration: none;
+}
+@media (hover: hover) {
+  .ms-header-link:hover, .ms-footer-link:hover {
+    color: white;
+    background: linear-gradient(110deg, var(--ms-sky-700), var(--ms-teal-700));
+    box-shadow: 0 4px 12px -5px var(--ms-sky-700);
+  }
+  .ms-footer-link:hover { transform: translateX(3px); text-decoration: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ms-header-link, .ms-footer-link { transform: none !important; transition: none !important; }
+}
+
+
+/* Text links use a soft gradient tile that fills with ocean colour on intent.
+   Inline fragments clone their decoration when an address wraps to two lines. */
+.ms-text-link, .ms-prose a {
+  color: var(--ms-sky-700);
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 0.35em;
+  padding-inline: 0.25em;
+  background: linear-gradient(110deg, var(--ms-sky-50), var(--ms-teal-100));
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: box-shadow 220ms ease;
+}
+.ms-on-dark .ms-text-link {
+  color: var(--ms-band-link);
+  background: linear-gradient(110deg, #0369a133, #0f766e33);
+}
+.ms-text-link:focus-visible, .ms-prose a:focus-visible, .ms-social-link:focus-visible {
+  color: white;
+  text-decoration: none;
+  background: linear-gradient(110deg, var(--ms-sky-700), var(--ms-teal-700));
+  box-shadow: 0 3px 12px -5px var(--ms-sky-700);
+}
+.ms-footer-link {
+  background: linear-gradient(110deg, #0369a11a, #0f766e1a);
+  border: 1px solid transparent;
+}
+.ms-footer-link:focus-visible { border-color: var(--ms-sky-400); }
+.ms-header-link:not([aria-current='page']) {
+  background: linear-gradient(110deg, var(--ms-sky-50), #e6f5f280);
+}
+.ms-header-link:focus-visible { background: linear-gradient(110deg, var(--ms-sky-700), var(--ms-teal-700)); }
+.ms-social-link {
+  background: linear-gradient(135deg, #0369a11a, #0f766e22);
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+@media (hover: hover) {
+  .ms-text-link:hover, .ms-prose a:hover, .ms-social-link:hover {
+    color: white;
+    text-decoration: none;
+    background: linear-gradient(110deg, var(--ms-sky-700), var(--ms-teal-700));
+    box-shadow: 0 3px 12px -5px var(--ms-sky-700);
+  }
+  .ms-header-link:hover { background: linear-gradient(110deg, var(--ms-sky-700), var(--ms-teal-700)); }
+  .ms-footer-link:hover { border-color: var(--ms-sky-400); }
+  .ms-social-link:hover { transform: translateY(-3px) rotate(-6deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ms-text-link, .ms-prose a, .ms-social-link { transform: none !important; transition: none !important; }
+}
+
+/* Standalone text actions have more breathing room than inline article links. */
+.inline-flex.ms-text-link {
+  padding-inline: 0.75rem;
+  border-radius: 999px;
+}
+
+
+/* Give the footer introduction the same section rhythm as its menu columns. */
+.ms-footer-brand > .ms-footer-heading::after { flex-basis: 3rem; margin-right: calc(100% - 3rem); }
+.ms-footer-brand .ms-social-link {
+  width: 2.75rem;
+  height: 2.75rem;
+  color: var(--ms-sky-100);
+  border: 1px solid var(--ms-band-border);
+  background: linear-gradient(135deg, #0369a144, #0f766e44);
+}
+.ms-footer-brand .ms-social-link:is(:hover, :focus-visible) {
+  color: white;
+  border-color: var(--ms-sky-400);
+  background: linear-gradient(110deg, var(--ms-sky-700), var(--ms-teal-700));
+}
+.ms-footer-brand ul { gap: 0.5rem; }
+.ms-footer-email { border: 1px solid var(--ms-sky-400); }
+
+
+/* About and Contact share an editorial hierarchy without changing other pages. */
+.ms-product-page .ms-content-panel {
+  position: relative;
+  padding: clamp(1.25rem, 2.5vw, 2rem);
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-radius-lg);
+  background: linear-gradient(135deg, var(--ms-surface), #f0f9ff80);
+  box-shadow: var(--ms-shadow-sm);
+}
+.ms-product-page .ms-content-panel > h2::after,
+.ms-product-page .ms-content-panel > div > h2::after {
+  content: '';
+  display: block;
+  width: 3.5rem;
+  height: 3px;
+  margin-top: 1rem;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--ms-sky-700), var(--ms-teal-700));
+}
+.ms-product-page .ms-product-icon {
+  background: linear-gradient(135deg, var(--ms-sky-700), var(--ms-teal-700));
+  border-radius: 0.875rem;
+  width: 2.75rem;
+  height: 2.75rem;
+}
+.ms-product-page .ms-icon-point {
+  padding-block: 0.75rem;
+  border-bottom: 1px solid var(--ms-border);
+}
+.ms-product-page .ms-product-aside {
+  border-color: var(--ms-border-strong);
+  background: linear-gradient(160deg, var(--ms-sky-50), var(--ms-surface) 35%);
+  box-shadow: var(--ms-shadow-md);
+}
+.ms-product-page .ms-product-aside > span:first-child {
+  height: 5px;
+  background: linear-gradient(90deg, var(--ms-sky-700), var(--ms-teal-700), var(--ms-sky-400));
+}
+.ms-product-page .ms-product-links {
+  padding: 1.5rem;
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-radius-lg);
+  background: var(--ms-teal-100);
+}
+.ms-product-page .ms-product-links a { padding-inline: 0.5rem; border-radius: 0.5rem; }
+.ms-product-page .ms-product-links a:focus-visible { color: white; background: linear-gradient(110deg, var(--ms-sky-700), var(--ms-teal-700)); }
+.ms-product-page .ms-product-links a:focus-visible svg { color: inherit; }
+.ms-product-page #contact-form :is(input:not([type=checkbox]), select, textarea):not([aria-invalid=true]) {
+  border-color: var(--ms-border-strong);
+  background-color: var(--ms-surface);
+}
+.ms-product-page #contact-form :is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--ms-sky-700);
+  outline-offset: 3px;
+}
+@media (hover: hover) {
+  .ms-product-page .ms-product-links a:hover { color: white; background: linear-gradient(110deg, var(--ms-sky-700), var(--ms-teal-700)); }
+  .ms-product-page .ms-product-links a:hover svg { color: inherit; }
+}
+
+
+/* Inline words reflow naturally; clipping keeps heading entrances inside the page. */
+.ms-heading-fragments { display: block; overflow: clip; overflow-clip-margin: 0.12em; }
+.ms-heading-word { display: inline-block; white-space: nowrap; }
+.ms-heading-character { display: inline-block; }
+
+
+/* Light listing cards retain readable links and focus rings inside dark bands. */
+.ms-on-light { --ms-band-link: var(--ms-link); }
+.ms-on-dark .ms-on-light :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline-color: var(--ms-focus);
+}
+
+
+/* Opaque search surface keeps the banner photograph from competing with inputs. */
+.ms-hero-search {
+  border: 2px solid transparent;
+  background: linear-gradient(var(--ms-panel), var(--ms-panel)) padding-box,
+    linear-gradient(115deg, var(--ms-sky-400), var(--ms-teal-700), var(--ms-sky-100)) border-box;
+  box-shadow: 0 24px 64px -24px #07142699;
+}
+.ms-search-field { transition: border-color 180ms ease, box-shadow 180ms ease; }
+.ms-search-field:focus-within {
+  border-color: var(--ms-sky-700);
+  box-shadow: none;
+  background-color: var(--ms-panel);
+}
+.ms-hero-search label { color: var(--ms-sky-700); }
+
+
+/* The enclosing field supplies one focus boundary; avoid nested input rings. */
+.ms-hero-search .ms-search-field :is(input, select):focus-visible {
+  outline: none;
+  box-shadow: none;
 }

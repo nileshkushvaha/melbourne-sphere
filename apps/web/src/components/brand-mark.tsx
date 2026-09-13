@@ -4,8 +4,8 @@ export function BrandMark({ className = 'size-9' }: { className?: string }) {
     <svg viewBox="0 0 40 40" className={className} aria-hidden="true" focusable="false">
       <defs>
         <linearGradient id="ms-brand-gradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#38bdf8" />
-          <stop offset="1" stopColor="#0b5f8f" />
+          <stop offset="0" stopColor="var(--ms-sky-700)" />
+          <stop offset="1" stopColor="var(--ms-teal-700)" />
         </linearGradient>
       </defs>
       <circle cx="20" cy="20" r="19" fill="url(#ms-brand-gradient)" />

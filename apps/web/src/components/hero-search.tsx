@@ -1,17 +1,13 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { CategoryCombobox, type CategoryOption } from './category-combobox';
 import { useRouter } from 'next/navigation';
 import { ArrowRightIcon, LoaderIcon, MapPinIcon, SearchIcon, StoreIcon, TagIcon, WrenchIcon } from 'lucide-react';
 import { MIN_SUGGESTION_LENGTH, SUGGESTION_DEBOUNCE_MS, flattenSuggestions, highlightParts, moveActiveIndex, suggestionHref, type FlatSuggestion, type SuggestionGroups } from '@/lib/suggestions';
 
 /** What each kind of suggestion is, at a glance. The label says it too. */
 const KIND_ICON = { business: StoreIcon, category: TagIcon, service: WrenchIcon } as const;
-
-interface CategoryOption {
-  slug: string;
-  label: string;
-}
 
 /**
  * Hero search panel (SRS HERO 004–006). It is a real GET form to /business, so
@@ -120,20 +116,19 @@ export function HeroSearch({ categories }: { categories: CategoryOption[] }) {
       aria-label="Search Melbourne businesses"
       // Above the banner's own controls and photo credit, which come later in
       // the hero and were painting over the open suggestion list.
-      className="ms-glass-light relative z-30 mt-6 w-full max-w-5xl rounded-[1.75rem] p-2.5 text-panel-text"
+      className="ms-hero-search ms-glass-light relative z-30 mt-6 w-full max-w-5xl rounded-[1.75rem] p-4 text-panel-text sm:p-5"
     >
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-stretch lg:gap-0">
-        {/* Location is fixed text, never an input: the city is not client supplied (SRS HERO 004). */}
-        <p className="flex min-h-14 shrink-0 flex-col justify-center rounded-[1.15rem] bg-panel-muted/90 px-4 py-2 lg:rounded-none lg:rounded-l-card lg:pr-6">
-          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-panel-text-muted">Location</span>
-          <span className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold">
-            <MapPinIcon aria-hidden="true" className="size-4 text-sky-700" />
-            Melbourne, Australia
-          </span>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <p className="font-display text-base font-bold text-panel-text sm:text-lg">Find your next local favourite</p>
+        {/* Melbourne is fixed; this is a location label, not a filter. */}
+        <p className="inline-flex items-center gap-1.5 rounded-full border border-teal-700/20 bg-teal-100 px-3 py-1.5 text-xs font-semibold text-teal-700">
+          <MapPinIcon aria-hidden="true" className="size-3.5" />
+          <span className="sr-only">Location: </span>Melbourne, Australia
         </p>
-
-        <div ref={boxRef} className="relative min-w-0 flex-1 lg:border-l lg:border-panel-border">
-          <div className="flex min-h-14 flex-col justify-center px-4 py-2">
+      </div>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
+        <div ref={boxRef} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false); }} className="ms-search-field relative min-w-0 flex-1 rounded-2xl border border-panel-border bg-panel-muted/60">
+          <div className="flex min-h-20 flex-col justify-center px-4 py-3">
             <label htmlFor={inputId} className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-panel-text-muted">
               What are you looking for?
             </label>
@@ -221,28 +216,11 @@ export function HeroSearch({ categories }: { categories: CategoryOption[] }) {
           )}
         </div>
 
-        <div className="flex min-h-14 flex-col justify-center px-4 py-2 lg:w-60 lg:border-l lg:border-panel-border">
-          <label htmlFor={`${inputId}-category`} className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-panel-text-muted">
-            Category (optional)
-          </label>
-          <select
-            id={`${inputId}-category`}
-            name="category"
-            defaultValue=""
-            className="mt-0.5 w-full truncate border-0 bg-transparent p-0 text-base text-panel-text outline-none"
-          >
-            <option value="">All categories</option>
-            {categories.map((c) => (
-              <option key={c.slug} value={c.slug}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <CategoryCombobox categories={categories} />
 
         <button
           type="submit"
-          className="inline-flex min-h-14 shrink-0 items-center justify-center gap-2 rounded-[1.15rem] bg-navy-900 px-8 text-base font-semibold text-white transition-colors hover:bg-sky-700 lg:rounded-card-lg"
+          className="inline-flex min-h-16 shrink-0 items-center justify-center gap-2 rounded-2xl ms-primary-action bg-sky-700 px-8 text-base font-semibold text-white transition-colors hover:bg-sky-600 lg:min-h-20"
         >
           <SearchIcon aria-hidden="true" className="size-5" />
           Search

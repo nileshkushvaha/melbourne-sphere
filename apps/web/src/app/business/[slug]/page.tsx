@@ -104,12 +104,12 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
               </p>
               <h1 className="font-display mt-5 max-w-4xl text-[clamp(2.4rem,4.8vw,4.6rem)] leading-[1.02]">{business.name}</h1>
               <p className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-                <Link href={`/business/area/${business.localArea.slug}`} className="inline-flex items-center gap-1.5 text-band-muted underline-offset-4 hover:text-white hover:underline">
+                <Link href={`/business/area/${business.localArea.slug}`} className="inline-flex items-center gap-1.5 text-band-muted underline-offset-4 hover:text-white ms-text-link">
                   <MapPinIcon aria-hidden="true" className="size-4" />
                   {business.localArea.name}, Melbourne
                 </Link>
                 {business.rating ? (
-                  <a href="#reviews-heading" className="inline-flex items-center gap-2 text-band-muted underline-offset-4 hover:text-white hover:underline">
+                  <a href="#reviews-heading" className="inline-flex items-center gap-2 text-band-muted underline-offset-4 hover:text-white ms-text-link">
                     <RatingStars value={business.rating.average} size="sm" />
                     <span>
                       <span className="font-semibold text-white">{business.rating.average.toFixed(1)}</span>
@@ -230,7 +230,7 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
                 <div>
                   <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">Phone</dt>
                   <dd className="mt-1">
-                    <a href={contact.phone.telHref} className="text-link underline-offset-4 hover:underline">
+                    <a href={contact.phone.telHref} className="text-link underline-offset-4 ms-text-link">
                       {contact.phone.display}
                     </a>
                   </dd>
@@ -240,7 +240,7 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
                 <div>
                   <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">Email</dt>
                   <dd className="mt-1">
-                    <a href={`mailto:${contact.email}`} className="break-all text-link underline-offset-4 hover:underline">
+                    <a href={`mailto:${contact.email}`} className="break-all text-link underline-offset-4 ms-text-link">
                       {contact.email}
                     </a>
                   </dd>
@@ -250,7 +250,7 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
                 <div>
                   <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">Website</dt>
                   <dd className="mt-1">
-                    <a href={contact.website} target="_blank" rel="noopener noreferrer nofollow" className="break-all text-link underline-offset-4 hover:underline">
+                    <a href={contact.website} target="_blank" rel="noopener noreferrer nofollow" className="break-all text-link underline-offset-4 ms-text-link">
                       {contact.website.replace(/^https?:\/\//, '')}
                     </a>
                   </dd>

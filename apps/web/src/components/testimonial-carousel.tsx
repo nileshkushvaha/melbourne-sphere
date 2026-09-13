@@ -113,7 +113,7 @@ export function TestimonialCarousel({ testimonials }: { testimonials: PublicTest
                     {(testimonial.relationship || testimonial.business) && <span aria-hidden="true" className="text-border-strong">&middot;</span>}
                     {testimonial.relationship && <span className="italic text-text-muted">{testimonial.relationship}</span>}
                     {testimonial.business && (
-                      <Link href={`/business/${testimonial.business.slug}`} className="italic text-link underline-offset-4 hover:underline">
+                      <Link href={`/business/${testimonial.business.slug}`} className="italic text-link underline-offset-4 ms-text-link">
                         {testimonial.business.name}
                       </Link>
                     )}

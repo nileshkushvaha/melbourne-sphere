@@ -1,13 +1,13 @@
 import Link from 'next/link';
-import { Manrope, Sora } from 'next/font/google';
+import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import type { Metadata } from 'next';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { NotFoundContent } from '@/components/not-found-content';
 import './globals.css';
 
-const bodyFont = Manrope({ variable: '--font-body', subsets: ['latin'], display: 'swap' });
-const displayFont = Sora({ variable: '--font-display', subsets: ['latin'], display: 'swap' });
+const bodyFont = Inter({ variable: '--font-body', subsets: ['latin'], display: 'swap' });
+const displayFont = Plus_Jakarta_Sans({ variable: '--font-display', subsets: ['latin'], display: 'swap' });
 
 export const metadata: Metadata = {
   title: 'Page not found · Melbourne Sphere',

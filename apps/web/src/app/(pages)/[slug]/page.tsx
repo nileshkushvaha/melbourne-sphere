@@ -67,7 +67,7 @@ export default async function StaticPage({ params }: PageProps<'/[slug]'>) {
       <ol className="mt-4 flex flex-col gap-1 text-sm">
         {headings.map((heading) => (
           <li key={heading.id}>
-            <a href={`#${heading.id}`} className="inline-flex min-h-9 items-center text-text-muted underline-offset-4 hover:text-link hover:underline">
+            <a href={`#${heading.id}`} className="inline-flex min-h-9 items-center text-text-muted underline-offset-4 hover:text-link ms-text-link">
               {heading.text}
             </a>
           </li>
@@ -88,7 +88,7 @@ export default async function StaticPage({ params }: PageProps<'/[slug]'>) {
       <div className="rounded-card-lg border border-border bg-surface-raised p-6 shadow-sm">
         <h2 className="text-base font-semibold tracking-tight">Questions about this page?</h2>
         <p className="mt-3 text-sm leading-relaxed text-text-muted">The editors answer questions about our policies, and can correct anything on the site that is wrong.</p>
-        <Link href="/contact" className="mt-3 inline-flex min-h-11 items-center text-link underline-offset-4 hover:underline">
+        <Link href="/contact" className="mt-3 inline-flex min-h-11 items-center text-link underline-offset-4 ms-text-link">
           Contact the editors
         </Link>
       </div>

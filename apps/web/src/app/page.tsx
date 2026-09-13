@@ -104,7 +104,7 @@ export default async function HomePage() {
 
   const heroContent = home.ok ? home.data : { heroHeadline: 'Discover Melbourne businesses', heroPhrases: [], heroSlides: [], counters: undefined };
   const phrases = usablePhrases(heroContent.heroPhrases);
-  const categoryOptions = categories.ok ? flattenCategories(categories.data).map((c) => ({ slug: c.slug, label: c.parent ? `${c.parent.name} › ${c.name}` : c.name })) : [];
+  const categoryOptions = categories.ok ? flattenCategories(categories.data).map((c) => ({ slug: c.slug, label: c.parent ? c.name : `All ${c.name}`, group: c.parent?.name ?? c.name, child: Boolean(c.parent) })) : [];
   const featured = newest.ok ? (newest.data.meta.featured ?? []) : [];
   const channel = contactChannelFrom(settings);
   const areasWithIntro = areas.ok ? areas.data.filter((area) => (area.editorialIntro ?? '').trim().length > 0) : [];
@@ -175,7 +175,7 @@ export default async function HomePage() {
                       <Image src={category.image.url} alt="" fill sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
                     </span>
                   ) : (
-                    <span className="inline-flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-100 to-white text-sky-700 shadow-sm ring-1 ring-sky-500/10">
+                    <span className="inline-flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-100 to-white text-teal-700 shadow-sm ring-1 ring-sky-500/10">
                       <CategoryIcon slug={category.slug} className="size-6" />
                     </span>
                   )}
@@ -207,11 +207,11 @@ export default async function HomePage() {
         )}
       </Band>
 
-      {/* 3 — Listings, soft neutral */}
-      <Band tone="soft" aria-labelledby="newest-heading">
+      {/* 3 — Listings, dark ocean */}
+      <Band tone="dark" aria-labelledby="newest-heading">
         {featured.length > 0 && (
           <div className="mb-16">
-            <SectionHeading id="featured-heading" eyebrow="Featured" title="Featured Melbourne businesses" description="A small, clearly labelled set of placements. They never displace organic results." />
+            <SectionHeading tone="dark" id="featured-heading" eyebrow="Featured" title="Featured Melbourne businesses" description="A small, clearly labelled set of placements. They never displace organic results." />
             <ul className={`mt-10 grid gap-6 ${gridColumns(Math.min(featured.length, 3))}`}>
               {featured.slice(0, 3).map((business) => (
                 <li key={business.id}>
@@ -222,7 +222,7 @@ export default async function HomePage() {
           </div>
         )}
 
-        <SectionHeading
+        <SectionHeading tone="dark"
           id="newest-heading"
           eyebrow="Recently added"
           title="New on Melbourne Sphere"
@@ -231,9 +231,9 @@ export default async function HomePage() {
           linkLabel="All businesses"
         />
         {!newest.ok ? (
-          <SectionError what="the newest listings" />
+          <SectionError tone="dark" what="the newest listings" />
         ) : newest.data.data.length === 0 ? (
-          <SectionEmpty>No listings are published yet. Businesses are added as our editors verify them.</SectionEmpty>
+          <SectionEmpty tone="dark">No listings are published yet. Businesses are added as our editors verify them.</SectionEmpty>
         ) : (
           <ul className={`mt-10 grid gap-6 ${gridColumns(Math.min(newest.data.data.length, 8))}`}>
             {newest.data.data.slice(0, 8).map((business) => (
@@ -244,26 +244,28 @@ export default async function HomePage() {
           </ul>
         )}
 
-        {topRated.ok && topRated.data.data.length > 0 && (
-          <div className="mt-20">
-            <SectionHeading
-              id="rated-heading"
-              eyebrow="Reviewed by locals"
-              title="Highly rated in Melbourne"
-              description="Averages come from approved reviews only."
-              href="/business?sort=rating&minRating=4"
-              linkLabel="See highly rated"
-            />
-            <ul className={`mt-10 grid gap-6 ${gridColumns(Math.min(topRated.data.data.length, 4))}`}>
-              {topRated.data.data.slice(0, 4).map((business) => (
-                <li key={business.id}>
-                  <BusinessCard business={business} />
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </Band>
+
+      {/* Highly rated listings have their own light band between dark sections. */}
+      {topRated.ok && topRated.data.data.length > 0 && (
+        <Band tone="soft" aria-labelledby="rated-heading">
+          <SectionHeading
+            id="rated-heading"
+            eyebrow="Reviewed by locals"
+            title="Highly rated in Melbourne"
+            description="Averages come from approved reviews only."
+            href="/business?sort=rating&minRating=4"
+            linkLabel="See highly rated"
+          />
+          <ul className={`mt-10 grid gap-6 ${gridColumns(Math.min(topRated.data.data.length, 4))}`}>
+            {topRated.data.data.slice(0, 4).map((business) => (
+              <li key={business.id}>
+                <BusinessCard business={business} />
+              </li>
+            ))}
+          </ul>
+        </Band>
+      )}
 
       {/* 4 — Melbourne localities, dark */}
       <Band tone="dark" aria-labelledby="areas-heading">
@@ -284,13 +286,13 @@ export default async function HomePage() {
               <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {areasWithIntro.slice(0, 6).map((area) => (
                   <li key={area.id}>
-                    <Link href={`/business/area/${area.slug}`} className="ms-glass-dark group flex h-full flex-col overflow-hidden rounded-card-lg p-7 transition-all hover:-translate-y-1 hover:border-sky-400">
+                    <Link href={`/business/area/${area.slug}`} className="ms-area-card ms-card-lift group flex h-full flex-col overflow-hidden rounded-card-lg p-7">
                       {area.image && (
-                        <span className="relative -mx-7 -mt-7 mb-5 block aspect-[16/9] overflow-hidden bg-navy-950">
+                        <span className="ms-media-shine relative -mx-7 -mt-7 mb-5 block aspect-[16/9] overflow-hidden bg-navy-950">
                           <Image src={area.image.url} alt="" fill sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
                         </span>
                       )}
-                      <h3 className="font-display text-2xl text-white">{area.name}</h3>
+                      <h3 className="font-display text-2xl text-band-text">{area.name}</h3>
                       <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-band-muted">{area.editorialIntro}</p>
                       <span className="mt-auto inline-flex items-center gap-1.5 pt-6 text-sm font-semibold text-band-link">
                         See {area.name} businesses
@@ -306,9 +308,9 @@ export default async function HomePage() {
                 <li key={area.id}>
                   <Link
                     href={`/business/area/${area.slug}`}
-                    className="flex min-h-16 items-center gap-3 rounded-2xl border border-band-border bg-white/[0.05] px-5 text-sm font-semibold text-white backdrop-blur transition-all hover:-translate-y-0.5 hover:border-sky-400 hover:bg-white/10"
+                    className="ms-area-card ms-area-chip flex min-h-16 items-center gap-3 rounded-2xl px-5 text-sm font-semibold"
                   >
-                    <MapPinIcon aria-hidden="true" className="size-4 shrink-0 text-sky-400" />
+                    <MapPinIcon aria-hidden="true" className="size-4 shrink-0 text-band-link" />
                     <span className="truncate">{area.name}</span>
                   </Link>
                 </li>
@@ -373,7 +375,7 @@ export default async function HomePage() {
             {channel.listingMailto ? (
               <a
                 href={channel.listingMailto}
-                className="mt-8 inline-flex min-h-12 items-center gap-2 rounded-full bg-sky-500 px-7 text-base font-semibold text-navy-950 transition-colors hover:bg-sky-400"
+                className="mt-8 inline-flex min-h-12 items-center gap-2 rounded-full ms-primary-action bg-sky-700 px-7 text-base font-semibold text-white transition-colors hover:bg-sky-600"
               >
                 Add or update a business
                 <ArrowRightIcon aria-hidden="true" className="size-5" />

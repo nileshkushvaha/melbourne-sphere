@@ -81,10 +81,10 @@ export function HeroBanner({ slides, children }: Props) {
   return (
     <section
       aria-label="Melbourne Sphere"
-      className="ms-on-dark relative isolate flex min-h-[31rem] items-center overflow-hidden bg-navy-950 py-9 text-band-text sm:min-h-[33rem] sm:py-10 lg:min-h-[34rem]"
+      className="ms-on-dark relative z-10 isolate flex min-h-[31rem] items-center overflow-x-clip bg-navy-950 py-9 text-band-text sm:min-h-[33rem] sm:py-10 lg:min-h-[34rem]"
     >
       {/* Designed fallback: present whether or not a photograph loads (SRS HERO 001). */}
-      <div aria-hidden="true" className="absolute inset-0 -z-30 bg-[radial-gradient(120%_120%_at_10%_-10%,#1d4c82_0%,#0d2848_45%,#071426_100%)]" />
+      <div aria-hidden="true" className="absolute inset-0 -z-30 bg-[radial-gradient(120%_120%_at_10%_-10%,var(--ms-navy-700)_0%,var(--ms-band)_45%,var(--ms-band-deep)_100%)]" />
 
       {slides.map((slide, position) => (
         <div key={slide.url} aria-hidden={position !== index} className={`absolute inset-0 -z-20 transition-opacity duration-700 ${position === index ? 'opacity-100' : 'opacity-0'}`}>
@@ -111,7 +111,7 @@ export function HeroBanner({ slides, children }: Props) {
       <div aria-hidden="true" className="absolute inset-0 -z-10 bg-navy-950/80 sm:hidden" />
       <div
         aria-hidden="true"
-        className="absolute inset-0 -z-10 hidden bg-[linear-gradient(90deg,rgba(7,20,38,0.96)_0%,rgba(7,20,38,0.88)_30%,rgba(7,20,38,0.58)_55%,rgba(7,20,38,0.18)_82%,rgba(7,20,38,0.08)_100%)] sm:block"
+        className="absolute inset-0 -z-10 hidden bg-[linear-gradient(90deg,rgba(18,53,73,0.96)_0%,rgba(18,53,73,0.88)_30%,rgba(18,53,73,0.58)_55%,rgba(18,53,73,0.18)_82%,rgba(18,53,73,0.08)_100%)] sm:block"
       />
       <div aria-hidden="true" className="absolute inset-x-0 bottom-0 -z-10 h-1/2 bg-gradient-to-t from-navy-950/70 to-transparent" />
 

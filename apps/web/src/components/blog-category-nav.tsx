@@ -31,8 +31,8 @@ export function BlogCategoryNav({ categories, active, tone = 'dark' }: Props) {
   const base = 'inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors';
   const styles =
     tone === 'dark'
-      ? { idle: 'border-band-border bg-white/[0.06] text-white hover:border-sky-400 hover:bg-white/12', current: 'border-white bg-white text-navy-900', count: 'text-band-muted', currentCount: 'text-navy-700' }
-      : { idle: 'border-border bg-surface-raised text-text hover:border-border-strong hover:bg-sky-50', current: 'border-navy-900 bg-navy-900 text-text-inverse', count: 'text-text-muted', currentCount: 'text-white/70' };
+      ? { idle: 'border-band-border bg-white/[0.06] text-white hover:border-sky-400 hover:bg-white/12', current: 'border-teal-100 bg-teal-100 text-teal-700', count: 'text-band-muted', currentCount: 'text-teal-700' }
+      : { idle: 'border-border bg-surface-raised text-text hover:border-border-strong hover:bg-sky-50', current: 'border-teal-700 bg-teal-100 text-teal-700', count: 'text-text-muted', currentCount: 'text-teal-700' };
 
   const chip = (href: string, name: string, slug: string, count?: number) => {
     const current = active === slug;
