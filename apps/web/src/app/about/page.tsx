@@ -56,12 +56,7 @@ export async function generateMetadata(): Promise<Metadata> {
   );
 }
 
-/**
- * Licensed photographs held by the project (ABT 006); sources in
- * `docs/content/about-photography.md`. The credits are kept here as the record
- * of each licence but are not printed on the page (client instruction,
- * 13 Sep 2026).
- */
+/** Licensed photographs held by the project (ABT 006); sources in `docs/content/about-photography.md`. */
 const PHOTOS = {
   skyline: { src: '/about/melbourne-skyline-yarra.webp', alt: 'The Melbourne skyline along the Yarra River', credit: 'Jorge Láscar, CC BY 2.0, via Wikimedia Commons' },
   laneway: { src: '/about/degraves-street-laneway.webp', alt: 'A Melbourne laneway lined with cafés', credit: '-wuppertaler, CC BY 4.0, via Wikimedia Commons' },
@@ -112,6 +107,7 @@ function Photo({ photo, className, sizes, priority = false }: { photo: (typeof P
       <div className={`relative w-full overflow-hidden rounded-card-lg shadow-md ${className}`}>
         <Image src={photo.src} alt={photo.alt} fill sizes={sizes} priority={priority} className="object-cover" />
       </div>
+      <figcaption className="mt-2 text-xs text-text-muted">Photograph: {photo.credit}</figcaption>
     </figure>
   );
 }

@@ -109,8 +109,10 @@ export default async function ArticlePage({ params }: PageProps<'/blog/[slug]'>)
                 sizes="(min-width: 1024px) 768px, 100vw"
                 className="rounded-card-lg shadow-lg"
               />
-              {/* No caption: the photographer credit is kept with the media asset
-                  but not printed on the page (client instruction, 13 Sep 2026). */}
+              {/* The photographer credit, which a CC Attribution licence requires
+                  wherever the image appears. The alt text is not printed: it is
+                  already carried by the image, and the data model has no caption. */}
+              {post.coverCredit && <figcaption className="mt-3 text-sm text-text-muted">Photograph: {post.coverCredit}</figcaption>}
             </figure>
           )}
 

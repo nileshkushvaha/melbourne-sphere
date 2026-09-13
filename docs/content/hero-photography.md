@@ -13,11 +13,9 @@ BY‑SA and non-commercial candidates were rejected. Files are stored locally in
 WebP at quality 76 with EXIF removed, and served through the Next.js image
 optimiser with responsive `sizes`.
 
-The credits below are recorded here and on the media assets, but are not shown
-on the site: the banner caption names the place only (client instruction,
-13 September 2026). The CC BY licences ask for attribution where the image is
-used, so displaying the credits again — or replacing these photographs — is an
-open item before launch.
+The credit below is rendered with the banner (`caption` in
+`apps/web/src/lib/hero-assets.ts`), which is where the licence's attribution
+requirement is satisfied.
 
 These two files are the **fallback only**: the site shows them when no Home
 banner slide is configured. They are not in the media library.
@@ -29,7 +27,7 @@ Configuration → Home page settings, stored in the `website/home` settings
 document and managed there (reorder, focal point, caption, remove, replace). Five
 Melbourne photographs were added to the media library as those slides by
 `apps/api/scripts/seed-hero-slides.ts` on 13 September 2026. Credits are kept on
-each media asset and not shown on the site.
+each media asset.
 
 | Media asset | Caption | Author | Licence | Source |
 | --- | --- | --- | --- | --- |
