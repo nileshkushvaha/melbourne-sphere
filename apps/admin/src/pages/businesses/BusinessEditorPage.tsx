@@ -21,6 +21,7 @@ import { useUnsavedChanges } from '@/shared/useUnsavedChanges';
 import { useCapabilities } from '@/auth/access-control';
 import { PERMISSION } from '@/auth/permissions';
 import { FormSelect } from '@/components/FormSelect';
+import { MediaField } from '@/components/MediaField';
 
 const ACTION_LABELS: Record<BusinessAction, { label: string; title: string; hint: string; danger?: boolean }> = {
   publish: {
@@ -63,6 +64,10 @@ const FIELD_LABELS: Record<string, string> = {
   privateEnquiryEmail: 'the enquiry address',
   links: 'the social links',
   slug: 'the web address',
+  seoTitle: 'the SEO title',
+  seoDescription: 'the meta description',
+  seoKeywords: 'the keywords',
+  ogImageMediaId: 'the share image',
 };
 
 const toForm = (b: BusinessRecord): FormValues => ({
@@ -70,6 +75,10 @@ const toForm = (b: BusinessRecord): FormValues => ({
   slug: b.slug,
   description: b.description,
   establishedYear: b.establishedYear,
+  seoTitle: b.seoTitle,
+  seoDescription: b.seoDescription,
+  seoKeywords: b.seoKeywords,
+  ogImageMediaId: b.ogImageMediaId,
   primaryCategoryId: b.primaryCategoryId,
   secondaryCategoryIds: b.secondaryCategoryIds,
   serviceIds: b.serviceIds,
@@ -93,6 +102,10 @@ const toBody = (v: FormValues, existing: BusinessRecord | null): CreateBusinessI
     name: v.name,
     description: v.description,
     establishedYear: v.establishedYear ?? null,
+    seoTitle: nullable(v.seoTitle) ?? null,
+    seoDescription: nullable(v.seoDescription) ?? null,
+    seoKeywords: nullable(v.seoKeywords) ?? null,
+    ogImageMediaId: v.ogImageMediaId ?? null,
     primaryCategoryId: v.primaryCategoryId,
     localAreaId: v.localAreaId,
     secondaryCategoryIds: v.secondaryCategoryIds ?? [],
@@ -425,6 +438,24 @@ export function BusinessEditorPage() {
                   inputMode="email"
                   placeholder={business?.hasPrivateEnquiryEmail ? 'An address is set — type a new one to replace it' : 'owner@example.com.au'}
                 />
+              </Form.Item>
+            </SectionCard>
+
+            <SectionCard
+              title="Search appearance"
+              description="How this listing appears in search results and when it is shared. Each field falls back to the business name, description and cover photograph when empty."
+            >
+              <Form.Item label="SEO title" name="seoTitle" extra="About 60 characters shows in full in search results.">
+                <Input maxLength={180} showCount placeholder="e.g. Carlton Corner Bakery — sourdough bakery in Carlton, Melbourne" />
+              </Form.Item>
+              <Form.Item label="Meta description" name="seoDescription" extra="The summary under the title in search results; about 155 characters shows in full.">
+                <Input.TextArea rows={3} maxLength={300} showCount placeholder="What the business does and where, in a sentence or two" />
+              </Form.Item>
+              <Form.Item label="Keywords" name="seoKeywords" extra="Comma separated. Search engines ignore this tag; it will not affect ranking.">
+                <Input maxLength={255} placeholder="e.g. bakery, sourdough, carlton, melbourne" />
+              </Form.Item>
+              <Form.Item label="Share image" name="ogImageMediaId" extra="Used when the listing is shared. Empty uses the cover photograph, then the site image." style={{ marginBottom: 0 }}>
+                <MediaField current={business?.ogImage ?? null} emptyLabel="The cover photograph is used" clearLabel="Use the cover photograph" aspectRatio="1.91 / 1" />
               </Form.Item>
             </SectionCard>
           </Col>
