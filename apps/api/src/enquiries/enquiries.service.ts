@@ -1,3 +1,4 @@
+import { canChangeEnquiryHandling } from '@melbourne-sphere/domain';
 import { maskEmail } from '@melbourne-sphere/mail';
 import { createHmac } from 'node:crypto';
 import { ConflictException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
@@ -157,6 +158,10 @@ export class EnquiriesService {
     const current = await db.enquiry.findUnique({ where: { id }, select: { version: true, handlingStatus: true } });
     if (!current) throw notFound();
     if (current.version !== input.expectedVersion) throw stale();
+    // Start, close and reopen only: never back to `new`, never to the same status (ENQ 004).
+    if (!canChangeEnquiryHandling(current.handlingStatus, input.handlingStatus)) {
+      throw new ConflictException({ code: 'INVALID_TRANSITION', message: `An enquiry that is ${current.handlingStatus === 'inProgress' ? 'in progress' : current.handlingStatus} cannot be marked ${input.handlingStatus === 'inProgress' ? 'in progress' : input.handlingStatus}.` });
+    }
     const updated = await db.enquiry.updateMany({ where: { id, version: input.expectedVersion }, data: { handlingStatus: input.handlingStatus, handledByAdminId: actor.id, version: { increment: 1 } } });
     if (updated.count !== 1) throw stale();
     await this.audit.record({ action: 'enquiry.handling', actorAdminId: actor.id, targetType: 'enquiry', targetId: id, metadata: { from: current.handlingStatus, to: input.handlingStatus }, requestId: ctx.requestId, ipAddress: ctx.ip });

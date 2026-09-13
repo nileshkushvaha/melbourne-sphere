@@ -40,3 +40,4 @@ export {
   parseHeartbeat,
   type WorkerHeartbeat,
 } from './worker-heartbeat.js';
+export { ENQUIRY_HANDLING_ACTIONS, ENQUIRY_HANDLING_STATUSES, canChangeEnquiryHandling, type EnquiryHandlingAction, type EnquiryHandlingStatus } from './enquiry-handling.js';

@@ -40,7 +40,7 @@ describe('enquiries page', () => {
     expect(within(row).getByText('new')).toBeInTheDocument();
     // The business picker also fetches, so find the queue's own request.
     expect(calls.map((c) => c.url)).toContain('/api/v1/admin/enquiries?deliveryStatus=failed&page=1&pageSize=20');
-    await ue.click(within(row).getByRole('button', { name: 'Start' }));
+    await ue.click(within(row).getByRole('button', { name: /^Start handling/ }));
     expect(JSON.parse(calls.find((c) => c.method === 'PATCH')!.body!)).toEqual({ expectedVersion: 1, handlingStatus: 'inProgress' });
   });
 
@@ -61,6 +61,8 @@ describe('enquiries page', () => {
     renderWithProviders(<EnquiriesPage />, { initialEntries: ['/admin/enquiries'], authProvider: provider });
     const row = (await screen.findByText('Enquiry Test Bakery')).closest('tr')!;
     expect(within(row).queryByRole('button', { name: /retry delivery/i })).not.toBeInTheDocument();
-    expect(within(row).queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
+    // The accessible names carry the subject ("Close: Catering…"), so match the verb.
+    expect(within(row).queryByRole('button', { name: /^Close/ })).not.toBeInTheDocument();
+    expect(within(row).queryByRole('button', { name: /^Start handling/ })).not.toBeInTheDocument();
   });
 });

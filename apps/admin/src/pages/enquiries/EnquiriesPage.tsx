@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Alert, App, Button, Form, Input, Modal, Select, Space, Table, Typography } from 'antd';
+import { Alert, App, Button, Form, Input, Modal, Select, Space, Table, Tooltip, Typography } from 'antd';
+import { ENQUIRY_HANDLING_ACTIONS } from '@melbourne-sphere/domain';
 import { useOnError } from '@refinedev/core';
 import { DELIVERY_STATUSES, HANDLING_STATUSES, enquiriesApi, type AdminEnquiry, type DeliveryStatus, type HandlingStatus } from '@/api/enquiries';
 import { isApiError } from '@/api/errors';
@@ -37,7 +38,7 @@ const FILTERS = ['deliveryStatus', 'handlingStatus', 'businessId'] as const;
 export function EnquiriesPage() {
   useDocumentTitle('Enquiries');
   const api = enquiriesApi();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const { mutate: onAuthError } = useOnError();
   const { can } = useCapabilities();
   const canManage = can(PERMISSION.enquiriesManage);
@@ -52,17 +53,43 @@ export function EnquiriesPage() {
   // Confirming twice sent the decision twice; one at a time.
   const [busy, run] = useBusy();
   const [form] = Form.useForm<{ reason: string }>();
+  // The enquiry whose handling is being changed, so its buttons cannot send the change twice.
+  const [changingId, setChangingId] = useState<string | null>(null);
 
-
+  /**
+   * Start handling, close or reopen — the only changes the API accepts (shared
+   * rule in `@melbourne-sphere/domain`). Handling is the team's workflow; it
+   * never sends, retries or confirms the email.
+   */
   const changeHandling = async (enquiry: AdminEnquiry, next: HandlingStatus) => {
+    setChangingId(enquiry.id);
     try {
       await api.setHandling(enquiry.id, { expectedVersion: enquiry.version, handlingStatus: next });
-      message.success(`Marked ${HANDLING_LABELS[next]}`);
+      message.success(next === 'closed' ? 'Enquiry closed' : enquiry.handlingStatus === 'closed' ? 'Enquiry reopened' : 'Handling started');
       reload();
     } catch (error) {
       if (isApiError(error) && error.kind === 'unauthorized') onAuthError(error);
-      else message.error(errorMessage(error));
+      else {
+        message.error(errorMessage(error));
+        // A stale version or a change someone else already made: show what is true now.
+        reload();
+      }
+    } finally {
+      setChangingId(null);
     }
+  };
+
+  /** Closing asks first, and says plainly when the email has not been confirmed as delivered (ENQ 006). */
+  const confirmClose = (enquiry: AdminEnquiry) => {
+    const delivered = enquiry.deliveryStatus === 'delivered' || enquiry.deliveryStatus === 'providerAccepted';
+    modal.confirm({
+      title: 'Close this enquiry?',
+      content: delivered
+        ? 'It is marked as finished for your team. You can reopen it later.'
+        : `The email has not been confirmed as delivered (delivery is ${DELIVERY_LABELS[enquiry.deliveryStatus]}). Closing only records that your team is finished — it does not send or retry the email.`,
+      okText: 'Close enquiry',
+      onOk: () => changeHandling(enquiry, 'closed'),
+    });
   };
 
   const submitRetry = () =>
@@ -162,8 +189,19 @@ export function EnquiriesPage() {
             render: (_: unknown, enquiry) =>
               canManage ? (
                 <Space wrap>
-                  {enquiry.handlingStatus !== 'inProgress' && <Button size="small" onClick={() => void changeHandling(enquiry, 'inProgress')}>Start</Button>}
-                  {enquiry.handlingStatus !== 'closed' && <Button size="small" onClick={() => void changeHandling(enquiry, 'closed')}>Close</Button>}
+                  {ENQUIRY_HANDLING_ACTIONS[enquiry.handlingStatus].map((action) => (
+                    <Tooltip key={action.to} title={action.description}>
+                      <Button
+                        size="small"
+                        loading={changingId === enquiry.id}
+                        disabled={changingId !== null && changingId !== enquiry.id}
+                        aria-label={`${action.label}: ${enquiry.subject}`}
+                        onClick={() => (action.to === 'closed' ? confirmClose(enquiry) : void changeHandling(enquiry, action.to))}
+                      >
+                        {action.label}
+                      </Button>
+                    </Tooltip>
+                  ))}
                   {(enquiry.deliveryStatus === 'failed' || enquiry.deliveryStatus === 'suppressed') && (
                     <Button size="small" type="primary" onClick={() => { setDialogError(null); form.resetFields(); setRetrying(enquiry); }}>
                       Retry delivery
