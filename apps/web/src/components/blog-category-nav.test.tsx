@@ -6,8 +6,8 @@ import type { BlogTerm } from '@/lib/api';
 import { BlogCategoryNav } from './blog-category-nav';
 
 const terms: BlogTerm[] = [
-  { name: 'City guides', slug: 'city-guides', landingContent: null, postCount: 1 },
-  { name: 'Interviews', slug: 'interviews', landingContent: null, postCount: 4 },
+  { name: 'City guides', slug: 'city-guides', landingContent: null, seoTitle: null, seoDescription: null, seoKeywords: null, shareImage: null, postCount: 1 },
+  { name: 'Interviews', slug: 'interviews', landingContent: null, seoTitle: null, seoDescription: null, seoKeywords: null, shareImage: null, postCount: 4 },
 ];
 
 describe('BlogCategoryNav', () => {

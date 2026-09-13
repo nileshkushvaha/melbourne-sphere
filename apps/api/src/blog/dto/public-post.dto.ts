@@ -85,4 +85,8 @@ export class PublicBlogTermDto {
   @ApiProperty() slug!: string;
   @ApiProperty({ type: String, nullable: true, description: 'Sanitised landing content; without it the page is noindex (SRS BLOG 005)' }) landingContent!: string | null;
   @ApiProperty() postCount!: number;
+  @ApiProperty({ type: String, nullable: true, description: 'Search-result title set by an editor (categories only); null means the page composes one' }) seoTitle!: string | null;
+  @ApiProperty({ type: String, nullable: true, description: 'Meta description set by an editor (categories only)' }) seoDescription!: string | null;
+  @ApiProperty({ type: String, nullable: true, description: 'Comma-separated keywords (categories only)' }) seoKeywords!: string | null;
+  @ApiProperty({ type: PublicImageVariantDto, nullable: true, description: 'The largest processed rendition of the share image (categories only)' }) shareImage!: PublicImageVariantDto | null;
 }

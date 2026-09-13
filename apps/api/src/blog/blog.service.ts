@@ -215,7 +215,7 @@ export class BlogService {
     };
     if (kind === 'category') {
       const rows = await db.blogCategory.findMany({ where, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }], include: { _count: { select: { posts: true } } } });
-      return rows.map((row) => this.toTermDto(row, row._count.posts));
+      return Promise.all(rows.map(async (row) => this.toTermDto(row, row._count.posts, await this.termImage(row.ogImageMediaId))));
     }
     const rows = await db.blogTag.findMany({ where, orderBy: [{ name: 'asc' }], include: { _count: { select: { posts: true } } } });
     return rows.map((row) => this.toTermDto(row, row._count.posts));
@@ -226,11 +226,14 @@ export class BlogService {
     const slug = input.slug ?? slugify(input.name);
     if (!isValidSlug(slug)) throw validation('slug', 'Slug must be lowercase letters, numbers and single hyphens');
     const landingContent = input.landingContent ? renderSanitisedBody(input.landingContent) : null;
+    await this.assertTermSeo(kind, input);
     if (kind === 'category') {
       if (await db.blogCategory.findUnique({ where: { slug } })) throw slugTaken();
-      const row = await db.blogCategory.create({ data: { name: input.name, slug, landingContent } });
+      const row = await db.blogCategory.create({
+        data: { name: input.name, slug, landingContent, seoTitle: input.seoTitle ?? null, seoDescription: input.seoDescription ?? null, seoKeywords: input.seoKeywords ?? null, ogImageMediaId: input.ogImageMediaId ?? null },
+      });
       await this.audit.record({ action: 'blog.category.create', actorAdminId: actor.id, targetType: 'blog_category', targetId: row.id, requestId: ctx.requestId, ipAddress: ctx.ip });
-      return this.toTermDto(row, 0);
+      return this.toTermDto(row, 0, await this.termImage(row.ogImageMediaId));
     }
     if (await db.blogTag.findUnique({ where: { slug } })) throw slugTaken();
     const row = await db.blogTag.create({ data: { name: input.name, slug, landingContent } });
@@ -249,7 +252,18 @@ export class BlogService {
       const clash = await (model as typeof db.blogTag).findUnique({ where: { slug: input.slug } });
       if (clash) throw slugTaken();
     }
-    const data = { name: input.name, ...(input.slug ? { slug: input.slug } : {}), landingContent: input.landingContent ? renderSanitisedBody(input.landingContent) : null, version: { increment: 1 } };
+    await this.assertTermSeo(kind, input);
+    // Search appearance exists on categories only; a field left out keeps its stored value.
+    const seo =
+      kind === 'category'
+        ? {
+            ...(input.seoTitle !== undefined ? { seoTitle: input.seoTitle } : {}),
+            ...(input.seoDescription !== undefined ? { seoDescription: input.seoDescription } : {}),
+            ...(input.seoKeywords !== undefined ? { seoKeywords: input.seoKeywords } : {}),
+            ...(input.ogImageMediaId !== undefined ? { ogImageMediaId: input.ogImageMediaId } : {}),
+          }
+        : {};
+    const data = { name: input.name, ...(input.slug ? { slug: input.slug } : {}), landingContent: input.landingContent ? renderSanitisedBody(input.landingContent) : null, ...seo, version: { increment: 1 } };
     const movedTo = input.slug && input.slug !== current.slug ? input.slug : null;
     await db.$transaction(async (tx) => {
       const table = kind === 'category' ? tx.blogCategory : tx.blogTag;
@@ -604,8 +618,45 @@ export class BlogService {
     };
   }
 
-  private toTermDto(row: BlogCategory | BlogTag, postCount: number): BlogTermDto {
-    return { id: row.id, name: row.name, slug: row.slug, landingContent: row.landingContent, active: row.active, postCount, version: row.version, updatedAt: row.updatedAt.toISOString() };
+  private toTermDto(row: BlogCategory | BlogTag, postCount: number, ogImage: BlogTermDto['ogImage'] = null): BlogTermDto {
+    const category = 'seoTitle' in row ? row : null;
+    return {
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      landingContent: row.landingContent,
+      seoTitle: category?.seoTitle ?? null,
+      seoDescription: category?.seoDescription ?? null,
+      seoKeywords: category?.seoKeywords ?? null,
+      ogImageMediaId: category?.ogImageMediaId ?? null,
+      ogImage,
+      active: row.active,
+      postCount,
+      version: row.version,
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  /** The share image preview for the editor; null when unset or not processed. */
+  private async termImage(mediaId: string | null): Promise<BlogTermDto['ogImage']> {
+    const ref = await this.media.publicImageRefOfKind(mediaId, 'hero');
+    return ref ? { id: ref.id, url: ref.url, alt: ref.alt } : null;
+  }
+
+  /**
+   * A tag has no search appearance of its own, so a request that sets one is
+   * refused rather than silently dropped; a category's share image must exist
+   * and be processed, or the page would advertise a broken image when shared.
+   */
+  private async assertTermSeo(kind: TermKind, input: BlogTermInputDto): Promise<void> {
+    if (kind === 'tag') {
+      const field = (['seoTitle', 'seoDescription', 'seoKeywords', 'ogImageMediaId'] as const).find((key) => input[key]);
+      if (field) throw validation(field, 'Search appearance can be set on categories only');
+      return;
+    }
+    if (input.ogImageMediaId && !(await this.media.publicImageRefOfKind(input.ogImageMediaId, 'hero'))) {
+      throw validation('ogImageMediaId', 'Choose a processed image from the media library');
+    }
   }
 
   private toSummary(row: PostRow): PostSummaryDto {

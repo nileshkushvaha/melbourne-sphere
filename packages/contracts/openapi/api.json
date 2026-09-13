@@ -10924,6 +10924,7 @@
               "partner",
               "category",
               "area",
+              "blogCategory",
               "setting"
             ]
           },
@@ -14093,6 +14094,25 @@
           "expectedVersion"
         ]
       },
+      "BlogTermImageDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "alt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "alt"
+        ]
+      },
       "BlogTermDto": {
         "type": "object",
         "properties": {
@@ -14109,6 +14129,33 @@
             "type": "string",
             "nullable": true,
             "description": "Sanitised HTML rendered on the landing page"
+          },
+          "seoTitle": {
+            "type": "string",
+            "nullable": true,
+            "description": "Always null for a tag"
+          },
+          "seoDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "ogImage": {
+            "nullable": true,
+            "description": "The share image, for the editor preview",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BlogTermImageDto"
+              }
+            ]
           },
           "active": {
             "type": "boolean"
@@ -14129,6 +14176,11 @@
           "name",
           "slug",
           "landingContent",
+          "seoTitle",
+          "seoDescription",
+          "seoKeywords",
+          "ogImageMediaId",
+          "ogImage",
           "active",
           "postCount",
           "version",
@@ -14152,6 +14204,30 @@
             "nullable": true,
             "maxLength": 5000,
             "description": "Editorial landing content (Markdown); a tag without it is noindex (SRS BLOG 005)"
+          },
+          "seoTitle": {
+            "type": "string",
+            "maxLength": 180,
+            "nullable": true,
+            "description": "Categories only. Search-result title; the composed one is used when empty"
+          },
+          "seoDescription": {
+            "type": "string",
+            "maxLength": 300,
+            "nullable": true,
+            "description": "Categories only. Meta description; the composed one is used when empty"
+          },
+          "seoKeywords": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true,
+            "description": "Categories only. Comma-separated keywords"
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "maxLength": 64,
+            "nullable": true,
+            "description": "Categories only. A processed media asset used when the landing page is shared"
           }
         },
         "required": [
@@ -14175,6 +14251,30 @@
             "nullable": true,
             "maxLength": 5000,
             "description": "Editorial landing content (Markdown); a tag without it is noindex (SRS BLOG 005)"
+          },
+          "seoTitle": {
+            "type": "string",
+            "maxLength": 180,
+            "nullable": true,
+            "description": "Categories only. Search-result title; the composed one is used when empty"
+          },
+          "seoDescription": {
+            "type": "string",
+            "maxLength": 300,
+            "nullable": true,
+            "description": "Categories only. Meta description; the composed one is used when empty"
+          },
+          "seoKeywords": {
+            "type": "string",
+            "maxLength": 255,
+            "nullable": true,
+            "description": "Categories only. Comma-separated keywords"
+          },
+          "ogImageMediaId": {
+            "type": "string",
+            "maxLength": 64,
+            "nullable": true,
+            "description": "Categories only. A processed media asset used when the landing page is shared"
           },
           "expectedVersion": {
             "type": "number"
@@ -14978,13 +15078,42 @@
           },
           "postCount": {
             "type": "number"
+          },
+          "seoTitle": {
+            "type": "string",
+            "nullable": true,
+            "description": "Search-result title set by an editor (categories only); null means the page composes one"
+          },
+          "seoDescription": {
+            "type": "string",
+            "nullable": true,
+            "description": "Meta description set by an editor (categories only)"
+          },
+          "seoKeywords": {
+            "type": "string",
+            "nullable": true,
+            "description": "Comma-separated keywords (categories only)"
+          },
+          "shareImage": {
+            "nullable": true,
+            "description": "The largest processed rendition of the share image (categories only)",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicImageVariantDto"
+              }
+            ]
           }
         },
         "required": [
           "name",
           "slug",
           "landingContent",
-          "postCount"
+          "postCount",
+          "seoTitle",
+          "seoDescription",
+          "seoKeywords",
+          "shareImage"
         ]
       },
       "PublicCommentDto": {

@@ -1031,13 +1031,20 @@ model BlogCategory {
   name           String   @db.VarChar(80)
   slug           String   @unique @db.VarChar(100)
   landingContent String?  @db.Text
+  /// Search appearance (SRS SEO 001): each is optional and falls back to the
+  /// category name, its composed description and the site image when empty.
+  seoTitle       String?  @db.VarChar(180)
+  seoDescription String?  @db.VarChar(300)
+  seoKeywords    String?  @db.VarChar(255)
+  ogImageMediaId String?
   active         Boolean  @default(true)
   sortOrder      Int      @default(0)
   version        Int      @default(1)
   createdAt      DateTime @default(now()) @db.DateTime(3)
   updatedAt      DateTime @updatedAt @db.DateTime(3)
 
-  posts Post[]
+  posts   Post[]
+  ogImage MediaAsset? @relation("BlogCategoryShareImage", fields: [ogImageMediaId], references: [id], onDelete: Restrict)
 
   @@index([active, sortOrder])
   @@map("blog_categories")
@@ -1229,6 +1236,7 @@ model MediaAsset {
   areaImageOf      LocalArea[]  @relation("LocalAreaImage")
   areaShareImageOf LocalArea[]  @relation("LocalAreaShareImage")
   businessShareImageOf Business[] @relation("BusinessShareImage")
+  blogCategoryShareImageOf BlogCategory[] @relation("BlogCategoryShareImage")
   testimonials Testimonial[]  @relation("TestimonialMedia")
   partners   PartnerOrganisation[] @relation("PartnerMedia")
   authorOf   Author[]        @relation("AuthorImage")

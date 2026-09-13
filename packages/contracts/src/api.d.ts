@@ -3570,7 +3570,7 @@ export interface components {
         };
         MediaUsageDto: {
             /** @enum {string} */
-            kind: "business" | "post" | "page" | "author" | "testimonial" | "partner" | "category" | "area" | "setting";
+            kind: "business" | "post" | "page" | "author" | "testimonial" | "partner" | "category" | "area" | "blogCategory" | "setting";
             id: string;
             label: string;
         };
@@ -4432,12 +4432,24 @@ export interface components {
             expectedVersion: number;
             reason?: string;
         };
+        BlogTermImageDto: {
+            id: string;
+            url: string;
+            alt: string;
+        };
         BlogTermDto: {
             id: string;
             name: string;
             slug: string;
             /** @description Sanitised HTML rendered on the landing page */
             landingContent: string | null;
+            /** @description Always null for a tag */
+            seoTitle: string | null;
+            seoDescription: string | null;
+            seoKeywords: string | null;
+            ogImageMediaId: string | null;
+            /** @description The share image, for the editor preview */
+            ogImage: components["schemas"]["BlogTermImageDto"] | null;
             active: boolean;
             postCount: number;
             version: number;
@@ -4449,12 +4461,28 @@ export interface components {
             slug?: string;
             /** @description Editorial landing content (Markdown); a tag without it is noindex (SRS BLOG 005) */
             landingContent?: string | null;
+            /** @description Categories only. Search-result title; the composed one is used when empty */
+            seoTitle?: string | null;
+            /** @description Categories only. Meta description; the composed one is used when empty */
+            seoDescription?: string | null;
+            /** @description Categories only. Comma-separated keywords */
+            seoKeywords?: string | null;
+            /** @description Categories only. A processed media asset used when the landing page is shared */
+            ogImageMediaId?: string | null;
         };
         UpdateBlogTermDto: {
             name: string;
             slug?: string;
             /** @description Editorial landing content (Markdown); a tag without it is noindex (SRS BLOG 005) */
             landingContent?: string | null;
+            /** @description Categories only. Search-result title; the composed one is used when empty */
+            seoTitle?: string | null;
+            /** @description Categories only. Meta description; the composed one is used when empty */
+            seoDescription?: string | null;
+            /** @description Categories only. Comma-separated keywords */
+            seoKeywords?: string | null;
+            /** @description Categories only. A processed media asset used when the landing page is shared */
+            ogImageMediaId?: string | null;
             expectedVersion: number;
         };
         PostSummaryDto: {
@@ -4678,6 +4706,14 @@ export interface components {
             /** @description Sanitised landing content; without it the page is noindex (SRS BLOG 005) */
             landingContent: string | null;
             postCount: number;
+            /** @description Search-result title set by an editor (categories only); null means the page composes one */
+            seoTitle: string | null;
+            /** @description Meta description set by an editor (categories only) */
+            seoDescription: string | null;
+            /** @description Comma-separated keywords (categories only) */
+            seoKeywords: string | null;
+            /** @description The largest processed rendition of the share image (categories only) */
+            shareImage: components["schemas"]["PublicImageVariantDto"] | null;
         };
         PublicCommentDto: {
             id: string;

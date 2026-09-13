@@ -92,11 +92,26 @@ export class BlogPublicService {
 
   async terms(kind: 'category' | 'tag'): Promise<PublicBlogTermDto[]> {
     const db = await this.database.client();
-    const rows =
-      kind === 'category'
-        ? await db.blogCategory.findMany({ where: { active: true }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }], include: { _count: { select: { posts: { where: { status: 'published' } } } } } })
-        : await db.blogTag.findMany({ where: { active: true }, orderBy: [{ name: 'asc' }], include: { _count: { select: { posts: { where: { post: { status: 'published' } } } } } } });
-    return rows.map((row) => ({ name: row.name, slug: row.slug, landingContent: row.landingContent, postCount: row._count.posts }));
+    if (kind === 'category') {
+      const categories = await db.blogCategory.findMany({
+        where: { active: true },
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        include: { _count: { select: { posts: { where: { status: 'published' } } } }, ogImage: { include: { variants: true } } },
+      });
+      return categories.map((row) => ({
+        name: row.name,
+        slug: row.slug,
+        landingContent: row.landingContent,
+        postCount: row._count.posts,
+        seoTitle: row.seoTitle,
+        seoDescription: row.seoDescription,
+        seoKeywords: row.seoKeywords,
+        shareImage: this.renditions(row.ogImage).at(-1) ?? null,
+      }));
+    }
+    // A tag has no search appearance of its own (SRS BLOG 005).
+    const tags = await db.blogTag.findMany({ where: { active: true }, orderBy: [{ name: 'asc' }], include: { _count: { select: { posts: { where: { post: { status: 'published' } } } } } } });
+    return tags.map((row) => ({ name: row.name, slug: row.slug, landingContent: row.landingContent, postCount: row._count.posts, seoTitle: null, seoDescription: null, seoKeywords: null, shareImage: null }));
   }
 
   /** Byline data only; nothing private and nothing an editor has not published. */

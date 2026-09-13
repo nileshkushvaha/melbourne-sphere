@@ -15,11 +15,13 @@ export async function generateMetadata({ params }: PageProps<'/blog/category/[sl
   const { slug } = await params;
   const category = (await categories()).find((c) => c.slug === slug) ?? null;
   if (!category) return { title: 'Category not found', robots: { index: false } };
+  // The editor's search appearance first; each empty field falls back to the composed text.
   return pageMetadata({
-    title: `${category.name} articles`,
-    description: `Articles about ${category.name.toLowerCase()} in Melbourne: guides, local stories and practical advice from our editors.`,
+    title: category.seoTitle ?? `${category.name} articles`,
+    description: category.seoDescription ?? `Articles about ${category.name.toLowerCase()} in Melbourne: guides, local stories and practical advice from our editors.`,
     path: `/blog/category/${category.slug}`,
-    keywords: [category.name, `${category.name} Melbourne`, `${category.name} articles`, 'Melbourne blog'],
+    keywords: category.seoKeywords ? [category.seoKeywords] : [category.name, `${category.name} Melbourne`, `${category.name} articles`, 'Melbourne blog'],
+    image: category.shareImage ? { url: category.shareImage.url, width: category.shareImage.width, height: category.shareImage.height, alt: `${category.name} articles` } : null,
     // A landing page without editorial content or articles is not worth indexing (SRS BLOG 005, SEO 003).
     robots: category.landingContent || category.postCount > 0 ? undefined : { index: false, follow: true },
     og: { kind: 'blog-category', key: category.slug },

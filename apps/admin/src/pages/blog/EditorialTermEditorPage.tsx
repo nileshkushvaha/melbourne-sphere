@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { App, Form, Input } from 'antd';
+import { MediaField } from '@/components/MediaField';
 import { useNavigate, useParams } from 'react-router';
 import { blogApi, type BlogTerm } from '@/api/blog';
 import { RecordEditorPage } from '@/components/ui';
@@ -14,6 +15,10 @@ interface Values {
   name: string;
   slug?: string;
   landingContent?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
+  ogImageMediaId?: string | null;
 }
 
 /**
@@ -32,6 +37,8 @@ export function EditorialTermEditorPage({ config }: { config: EditorialTermsConf
   // What the address will be if one has not been chosen, shown before saving.
   const typedName = Form.useWatch('name', form) ?? '';
   const listHref = `/${config.kind}`;
+  // Tags have no search appearance of their own: an untitled tag page is noindex (SRS BLOG 005).
+  const hasSearchAppearance = config.kind === 'blog-categories';
 
   // The API lists terms rather than serving one, which is the cheaper contract
   // for a set this small; the record is picked out of that list.
@@ -42,12 +49,27 @@ export function EditorialTermEditorPage({ config }: { config: EditorialTermsConf
 
   useEffect(() => {
     if (!term) return;
-    form.setFieldsValue({ name: term.name, slug: term.slug, landingContent: term.landingContent ?? '' });
+    form.setFieldsValue({
+      name: term.name,
+      slug: term.slug,
+      landingContent: term.landingContent ?? '',
+      seoTitle: term.seoTitle ?? '',
+      seoDescription: term.seoDescription ?? '',
+      seoKeywords: term.seoKeywords ?? '',
+      ogImageMediaId: term.ogImageMediaId,
+    });
   }, [term, form]);
 
   const save = () =>
     submit(async (values) => {
-      const body = { name: values.name, ...(values.slug ? { slug: values.slug } : {}), landingContent: values.landingContent || null };
+      const body = {
+        name: values.name,
+        ...(values.slug ? { slug: values.slug } : {}),
+        landingContent: values.landingContent || null,
+        ...(hasSearchAppearance
+          ? { seoTitle: values.seoTitle || null, seoDescription: values.seoDescription || null, seoKeywords: values.seoKeywords || null, ogImageMediaId: values.ogImageMediaId || null }
+          : {}),
+      };
       if (creating) {
         await api.createTerm(config.kind, body);
         message.success(`${config.singular} created`);
@@ -91,6 +113,27 @@ export function EditorialTermEditorPage({ config }: { config: EditorialTermsConf
       <Form.Item label="Landing content (Markdown)" name="landingContent" extra="Shown on the landing page. Without it the page is not indexed.">
         <Input.TextArea rows={10} maxLength={5000} showCount />
       </Form.Item>
+      {hasSearchAppearance && (
+        <>
+          {/* A real heading, so the group is announced as one — the same section the directory categories use. */}
+          <div className="ms-form-section">
+            <h3>Search appearance</h3>
+            <p>How this category appears in search results and when shared. Each falls back to the composed title and description, and the site image, when empty.</p>
+          </div>
+          <Form.Item label="SEO title" name="seoTitle">
+            <Input maxLength={180} showCount placeholder="e.g. Melbourne city guides — walks, markets and laneways" />
+          </Form.Item>
+          <Form.Item label="Meta description" name="seoDescription">
+            <Input.TextArea rows={3} maxLength={300} showCount placeholder="The summary shown under the title in search results" />
+          </Form.Item>
+          <Form.Item label="Keywords" name="seoKeywords" extra="Comma separated. Search engines ignore this tag; it will not affect ranking.">
+            <Input maxLength={255} placeholder="e.g. melbourne guides, walking tours, laneways" />
+          </Form.Item>
+          <Form.Item label="Share image" name="ogImageMediaId" extra="Used when the landing page is shared. Empty uses the site image.">
+            <MediaField current={term?.ogImage ?? null} emptyLabel="The site image is used" clearLabel="Use the site image" aspectRatio="1.91 / 1" />
+          </Form.Item>
+        </>
+      )}
     </RecordEditorPage>
   );
 }
