@@ -52,6 +52,9 @@ export interface CreateStaticPage {
   bodyFormat?: 'html' | 'markdown';
   seoTitle?: string | null;
   seoDescription?: string | null;
+  seoKeywords?: string | null;
+  /** A processed media asset; the API refuses one that is not ready. */
+  ogImageMediaId?: string | null;
   layout?: StaticPage['layout'];
 }
 

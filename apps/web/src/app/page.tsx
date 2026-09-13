@@ -113,7 +113,8 @@ export default async function HomePage() {
   const testimonials = testimonialsResult.status === 'fulfilled' ? testimonialsResult.value : [];
   const partners = partnersResult.status === 'fulfilled' ? partnersResult.value : [];
   const leadPost = posts.ok ? posts.data.data[0] : undefined;
-  const supportingPosts = posts.ok ? posts.data.data.slice(1, 4) : [];
+  // Four beside the lead, one full row of the four-column card grid.
+  const supportingPosts = posts.ok ? posts.data.data.slice(1, 5) : [];
 
   return (
     <>
