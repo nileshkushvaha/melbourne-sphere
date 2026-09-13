@@ -1678,3 +1678,74 @@ page tags were composed from fallbacks. This entry records the data itself.
   equally generic; the North Melbourne and Kensington area photographs show
   railway infrastructure; blog categories and tags have no SEO columns and use
   composed text with a generated card; services have no public page.
+
+## 13 September 2026 — Search appearance for blog categories
+
+Client request: blog categories had no Search appearance and no SEO data.
+
+* Additive migration `20260913120000_blog_category_search_appearance`:
+  `seoTitle`, `seoDescription`, `seoKeywords`, `ogImageMediaId` (FK restrict)
+  on `blog_categories`, applied to the local dev database; migration policy
+  check passes. The test database has not been migrated.
+* API: the term input accepts the four fields for categories and refuses them
+  for tags with a field error; a share image must be a processed asset. The
+  admin term and the public `GET /blog-categories` expose them (public share
+  image as its largest rendition). The image counts as a media use
+  (`blogCategoryShareImageOf`), so the library blocks its deletion and the
+  retention task keeps it; the media screen links it to the category.
+  Contracts regenerated.
+* Admin: the blog category editor has a Search appearance section (title,
+  meta description, keywords, share image); tags do not.
+* Web: `/blog/category/[slug]` uses the stored values and share image, each
+  falling back to the composed text.
+* Data: `seed-search-appearance.ts` now fills blog categories too (empty
+  fields only), written from the articles each category holds, with one of its
+  own article covers as the share image: 3 of 3 updated.
+* Checks: API, admin and web `tsc` clean; eslint/oxlint clean on changed files.
+  No test suites run. Note: "City guides" landing content is still the
+  placeholder-like "Our guides." and should be rewritten by an editor.
+
+## 13 September 2026 — robots.txt and sitemap coverage
+
+Client request: "generate robots.txt and sitemap.xml". Both already existed as
+dynamic routes (`app/robots.ts`, `app/sitemap.xml/route.ts`,
+`app/sitemaps/[section]/route.ts` over `GET /seo/sitemap/:section`); the audit
+found coverage gaps and one SRS deviation rather than missing files.
+
+* Pages section now also lists `/` and `/business` (when a listing is
+  published) and `/faqs` (only while a question is published — it answers 404
+  otherwise), with last-modified times from the newest published row.
+* Blog categories are listed once they hold a published article, the same rule
+  their page applies; they previously required landing content, so two
+  indexable categories were missing from the sitemap.
+* Tag pages now follow SRS BLOG 005 — `noindex` unless the tag has landing
+  content and at least one article (the page indexed any tag with articles),
+  matching the sitemap rule that already existed.
+* robots.txt: the non-standard `Host:` line is removed. `/og/` is deliberately
+  not disallowed: Twitterbot honours robots.txt and would lose share cards.
+* Verified: API sections return the new entries (pages: `/privacy`,
+  `/review-guidelines`, `/terms`, `/`, `/business`, `/faqs`, `/about`,
+  `/contact`; taxonomies include all three blog categories); robots.txt served
+  without `Host`; tag pages without landing content render `noindex, follow`.
+  `seo.integration-spec.ts` expectations updated, not run.
+
+## 13 September 2026 — Enquiry handling: Start, Close and Reopen
+
+Client question: what Start and Close do. They set the handling status — the
+team's workflow (`new`, `inProgress`, `closed`) — which is separate from email
+delivery (SRS ENQ 004/006). Defects found: a closed enquiry was offered
+"Start" (which silently reopened it), Close had no confirmation and did not
+warn that closing never confirms delivery, and the API accepted any change,
+including a change to the same status and a return to `new`.
+
+* One rule, `packages/domain/src/enquiry-handling.ts`: new → in progress or
+  closed; in progress → closed; closed → in progress (Reopen). The API refuses
+  anything else with 409 `INVALID_TRANSITION` (after the version check); the
+  admin renders exactly the allowed actions from the same table.
+* Admin: buttons "Start handling", "Close", "Reopen" with a description tooltip
+  and the subject in the accessible name; Close asks first and says so when
+  delivery is not confirmed; buttons are locked while a change is in flight; a
+  refused change reloads the list.
+* Checks: domain, API and admin `tsc` clean; eslint/oxlint clean; the built rule
+  checked for all nine from→to pairs. New `enquiry-handling.spec.ts`; admin test
+  labels updated. No suites run.

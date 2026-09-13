@@ -17,9 +17,12 @@
  *
  *   pnpm --filter api exec tsx --env-file=.env scripts/seed-search-appearance.ts
  *
+ * Blog categories are included since they gained search appearance: each
+ * takes the cover of one of its own published articles as its share image.
+ *
  * The worker must be running (`pnpm dev:worker`) for the area photographs.
  */
-import Redis from 'ioredis';
+import { Redis } from 'ioredis';
 import { SEO_ROUTES } from '@melbourne-sphere/domain';
 import { DEFAULT_SEO_SETTINGS, EMPTY_ROUTE_SEO, SEO_SETTINGS_KEY, validateSeoSettings, type RouteSeo } from '../src/settings/seo-settings.js';
 import { databaseName, db, resolveCommonsFile, uploadImage, waitUntilReady } from './seed-commons.js';
@@ -134,6 +137,12 @@ async function areaPhotos(): Promise<Map<string, string>> {
   const bySlug = new Map<string, string>();
   const pending: string[] = [];
   for (const [slug, photo] of Object.entries(AREA_PHOTOS)) {
+    // Already uploaded by an earlier run: no need to ask Commons again.
+    const uploaded = await db.mediaAsset.findFirst({ where: { sourceName: `area-${slug}.jpg`, status: 'ready' }, select: { id: true } });
+    if (uploaded) {
+      bySlug.set(slug, uploaded.id);
+      continue;
+    }
     if (photo.existingSourceName) {
       const asset = await db.mediaAsset.findFirst({ where: { sourceName: photo.existingSourceName, status: 'ready' }, select: { id: true } });
       if (asset) bySlug.set(slug, asset.id);
@@ -291,6 +300,54 @@ async function seedPosts() {
   console.log(`  articles: ${written} of ${posts.length} updated`);
 }
 
+/**
+ * Blog categories, written from the articles each one actually holds. The share
+ * image is the cover of one of those articles, by its stored file name.
+ */
+const BLOG_CATEGORY_SEO: Record<string, { title: string; description: string; keywords: string[]; image: string }> = {
+  'city-guides': {
+    title: 'Melbourne City Guides: Walks, Parks & Laneways',
+    description: 'Walking routes, parks and laneways across Melbourne, from the streets of Fitzroy to the Royal Botanic Gardens and Hosier Lane, written by our editors.',
+    keywords: ['Melbourne city guides', 'Melbourne walking routes', 'Fitzroy walk', 'Royal Botanic Gardens Melbourne', 'Hosier Lane', 'Melbourne street art', 'Melbourne parks'],
+    image: 'first-timers-guide-to-hosier-lane.jpg',
+  },
+  'food-and-drink': {
+    title: 'Melbourne Food & Drink Guides: Markets & Dining',
+    description: 'Where to eat, drink and shop for food in Melbourne, from the Italian restaurants of Lygon Street in Carlton to the produce sheds of Queen Victoria Market.',
+    keywords: ['Melbourne food guide', 'Melbourne dining', 'Lygon Street Carlton', 'Queen Victoria Market', 'Melbourne markets', 'where to eat in Melbourne'],
+    image: 'queen-victoria-market-without-the-queue.jpg',
+  },
+  'getting-around': {
+    title: 'Getting Around Melbourne: Trams & Transport Tips',
+    description: 'Practical guides to getting around Melbourne by tram: the Free Tram Zone, the routes that go where you want, and the habits that make the network simple.',
+    keywords: ['getting around Melbourne', 'Melbourne trams', 'Free Tram Zone', 'Melbourne public transport', 'Melbourne travel tips'],
+    image: 'using-melbourne-trams.jpg',
+  },
+};
+
+async function seedBlogCategories() {
+  const categories = await db.blogCategory.findMany({ select: { id: true, name: true, slug: true, seoTitle: true, seoDescription: true, seoKeywords: true, ogImageMediaId: true } });
+  let written = 0;
+  for (const category of categories) {
+    const seo = BLOG_CATEGORY_SEO[category.slug];
+    if (!seo) {
+      console.log(`  blog category ${category.slug}: no copy written for it; left as it is`);
+      continue;
+    }
+    const image = category.ogImageMediaId ? null : await db.mediaAsset.findFirst({ where: { sourceName: seo.image, status: 'ready' }, select: { id: true } });
+    const data = {
+      ...(category.seoTitle ? {} : { seoTitle: clip(seo.title, TITLE_MAX) }),
+      ...(category.seoDescription ? {} : { seoDescription: clip(seo.description, DESCRIPTION_MAX) }),
+      ...(category.seoKeywords ? {} : { seoKeywords: keywords(seo.keywords) }),
+      ...(image ? { ogImageMediaId: image.id } : {}),
+    };
+    if (Object.keys(data).length === 0) continue;
+    await db.blogCategory.update({ where: { id: category.id }, data: { ...data, version: { increment: 1 } } });
+    written += 1;
+  }
+  console.log(`  blog categories: ${written} of ${categories.length} updated`);
+}
+
 const POLICY_SEO: Record<string, { title: string; description: string; keywords: string[] }> = {
   privacy: {
     title: 'Privacy Policy',
@@ -424,6 +481,7 @@ async function main() {
   await seedCategories();
   await seedBusinesses();
   await seedPosts();
+  await seedBlogCategories();
   const skyline = await db.mediaAsset.findFirst({ where: { sourceName: 'about-hero.jpg', status: 'ready' }, select: { id: true } });
   await seedPages(skyline?.id ?? null);
   await seedRoutes();
