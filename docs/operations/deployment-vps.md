@@ -1408,82 +1408,48 @@ Record the on-call responder in `docs/operations/runbook.md` §5 before launch.
 
 ## 17. Releasing an update
 
-Every release follows the same order: fetch → install → build → **back up** →
-migrate → switch → restart API → worker → web → verify. Save this script once:
+For the existing server running as `deploy`, use the checked-in
+[`scripts/deploy-vps.sh`](../../scripts/deploy-vps.sh). It matches the current
+`/srv/melbourne-sphere` layout, NVM installation, systemd units and production
+`shared/*.env` files. Do not run it as root or from the Mac.
+
+After pushing the script to `master`, install it once on the VPS:
 
 ```bash
-sudo -iu ms bash -c 'cat > /srv/melbourne-sphere/deploy.sh <<"EOF"
-#!/usr/bin/env bash
-# Usage: ./deploy.sh [git-ref]   (default: master)
-set -Eeuo pipefail
-REF="${1:-master}"
-ROOT=/srv/melbourne-sphere
-
-git --git-dir=$ROOT/repo.git fetch --prune origin
-SHA=$(git --git-dir=$ROOT/repo.git rev-parse "$REF")
-DIR=$ROOT/releases/$SHA
-echo "==> Deploying $SHA"
-
-if [[ ! -d $DIR ]]; then
-  git --git-dir=$ROOT/repo.git worktree add --detach "$DIR" "$SHA"
-fi
-cd "$DIR"
-
-echo "==> Install";              pnpm install --frozen-lockfile
-echo "==> Shared packages";      pnpm db:build && pnpm domain:build && pnpm mail:build
-echo "==> Migration policy";     pnpm db:migrations:check
-echo "==> API, worker, admin";   pnpm --filter api build && pnpm --filter worker build && pnpm --filter admin build
-echo "==> Web";                  ( set -a; . $ROOT/shared/web.env; set +a; pnpm --filter web build )
-echo "$SHA" > "$DIR/REVISION"
-
-echo "==> Backup before migrating"; $ROOT/backup-daily.sh
-echo "==> Migrate"
-( set -a; . $ROOT/shared/api.env; set +a; pnpm db:migrate:deploy )
-
-PREVIOUS=$(readlink -f $ROOT/current || true)
-echo "$PREVIOUS" > $ROOT/previous-release
-ln -sfn "$DIR" $ROOT/current
-sed -i "/^APP_VERSION=/d" $ROOT/shared/worker.env && echo "APP_VERSION=$SHA" >> $ROOT/shared/worker.env
-
-echo "==> Restart API";    sudo /usr/bin/systemctl restart ms-api
-for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3001/api/v1/health/ready >/dev/null && break; sleep 2; done
-curl -fsS http://127.0.0.1:3001/api/v1/health/ready >/dev/null
-echo "==> Restart worker"; sudo /usr/bin/systemctl restart ms-worker
-echo "==> Restart web";    sudo /usr/bin/systemctl restart ms-web
-for i in $(seq 1 30); do curl -fsS -o /dev/null http://127.0.0.1:3000/robots.txt && break; sleep 2; done
-curl -fsS -o /dev/null http://127.0.0.1:3000/robots.txt
-sudo /usr/bin/systemctl reload nginx
-sudo /usr/bin/systemctl is-active ms-api ms-worker ms-web
-
-echo "==> Keep the five newest releases"
-ls -1dt $ROOT/releases/*/ | tail -n +6 | while read -r old; do
-  [[ "$(readlink -f $ROOT/current)/" == "$old" ]] && continue
-  git --git-dir=$ROOT/repo.git worktree remove --force "$old"
-done
-echo "==> Done: $SHA"
-EOF
-chmod 700 /srv/melbourne-sphere/deploy.sh'
+git --git-dir=/srv/melbourne-sphere/repo.git fetch origin
+git --git-dir=/srv/melbourne-sphere/repo.git show master:scripts/deploy-vps.sh > /srv/melbourne-sphere/deploy.sh.new &&
+  bash -n /srv/melbourne-sphere/deploy.sh.new &&
+  mv /srv/melbourne-sphere/deploy.sh.new /srv/melbourne-sphere/deploy.sh
 ```
 
-To release:
+Deploy with one command (sudo may request your password):
 
-1. Merge to `master` with CI green (`.github/workflows/ci.yml`).
-2. Read the new migrations in `packages/database/prisma/migrations/`. Any
-   destructive statement carries a `-- reviewed:` note; plan a maintenance
-   window if one drops or rewrites data.
-3. Run:
+```bash
+bash /srv/melbourne-sphere/deploy.sh
+```
 
-   ```bash
-   sudo -iu ms /srv/melbourne-sphere/deploy.sh
-   ```
+An optional branch or commit argument selects another revision. Only deploy
+reviewed code with passing CI. Repeat the installation block when the deployment
+script itself changes.
 
-4. Repeat the checks in section 14 (at least the curl loop, an admin sign-in and
-   the Workers card showing the new SHA).
+The script locks concurrent deployments, fetches Git, builds in a fresh worktree
+with pinned Node/pnpm, checks migration status, checks Nginx read permissions,
+and creates a compressed database backup. Build or backup failures leave the
+running release unchanged. It atomically switches `current`, restarts the three
+Melbourne Sphere services and checks API, worker, web and Nginx routes. Startup
+failures trigger application rollback to the previous release. The restart can
+cause a brief interruption; this is not zero-downtime deployment.
 
-The restart gap is a few seconds per service. Because the API stays compatible
-with the previous client build (runbook §2), the order API → worker → web never
-shows visitors a broken page. Building happens **before** anything restarts, so
-a failed build leaves the live site untouched.
+Pending or failed migrations stop the script before switching. Schema changes
+need a reviewed backup/migration plan before retrying; this script never rolls
+back a database or runs seeders. It retains releases and backups for recovery
+and does not change Docker, TLS, Nginx configuration, shared secrets or Siri
+Education services. The existing static Nginx error page remains in place.
+
+After success, check admin sign-in, logo settings, a media upload and the public
+site. HTTP health checks do not replace these browser checks. Failed build
+worktrees are retained for inspection; clean them up separately when no longer
+needed.
 
 ---
 
