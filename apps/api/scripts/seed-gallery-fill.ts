@@ -26,6 +26,14 @@ import { TRADES, TRADE_PARENTS } from './trade-seed-content.js';
 
 const TARGET = 4;
 
+/**
+ * Commons files that pass the licence and "not artwork" checks but are still
+ * not photographs of a working business: scanned book and catalogue pages,
+ * museum collection objects and paintings. Checked against the title and the
+ * description before a file is chosen.
+ */
+const NOT_A_BUSINESS_PHOTO = /\b(dpla|book no|\(page \d+\)|catalog(ue)?|museum|collection|painter|painting|portrait|engraving|chair seat|\bam \d{4}\b|\bch \d{6,}\b|19th century|18\d\d|17\d\d|article|newspaper|daily news|earth room)\b/i;
+
 function queriesFor(business: { slug: string; primaryCategory: { slug: string; name: string; parent: { slug: string } | null }; services: { service: { name: string } }[] }): string[] {
   const category = business.primaryCategory;
   const own = SEED_BUSINESSES.find((seed) => seed.slug === business.slug)?.images ?? [];
@@ -45,7 +53,15 @@ async function findFiles(queries: string[], count: number): Promise<CommonsFile[
       const words = query.split(' ');
       // The query as written, then shorter, down to two words (or one for a single-word query).
       for (let length = words.length; length >= Math.min(2, words.length); length -= 1) {
-        const files = await searchCommons(words.slice(0, length).join(' '), passSize, usedTitles);
+        let files: CommonsFile[];
+        try {
+          files = (await searchCommons(words.slice(0, length).join(' '), passSize + 2, usedTitles)).filter((file) => !NOT_A_BUSINESS_PHOTO.test(`${file.title} ${file.description}`));
+        } catch (error) {
+          // A dropped connection to Commons skips this search rather than ending the run.
+          console.log(`  search failed (${(error as Error).message}); skipped`);
+          await sleep(5_000);
+          continue;
+        }
         await sleep(500);
         if (files.length === 0) continue;
         for (const file of files) {
@@ -93,7 +109,12 @@ async function main(): Promise<void> {
       take: missing,
     });
     const ids = earlier.map((row) => row.id);
-    const files = ids.length < missing ? await findFiles(queriesFor(business), missing - ids.length) : [];
+    let files: CommonsFile[] = [];
+    try {
+      files = ids.length < missing ? await findFiles(queriesFor(business), missing - ids.length) : [];
+    } catch (error) {
+      console.log(`  searching failed (${(error as Error).message}); left for the next run`);
+    }
     for (const file of files) {
       const index = (await db.mediaAsset.count({ where: { sourceName: { startsWith: `${business.slug}-g` } } })) + 1;
       try {
@@ -102,12 +123,14 @@ async function main(): Promise<void> {
             file,
             sourceName: `${business.slug}-g${index}.jpg`,
             alt: (file.description || file.title.replace(/^File:|\.\w+$/g, '')).slice(0, 240),
-            credit: file.artist ? `${file.artist} via Wikimedia Commons` : 'Wikimedia Commons',
+            // `credit` is VARCHAR(255); some Commons artist fields are far longer.
+            credit: (file.artist ? `${file.artist} via Wikimedia Commons` : 'Wikimedia Commons').slice(0, 255),
             rightsNote: `${file.licence} — ${file.pageUrl}`,
           }),
         );
       } catch (error) {
-        console.log(`  upload failed: ${(error as Error).message}`);
+        // The first line is enough to act on; Prisma's full invocation text is not.
+        console.log(`  upload failed: ${String((error as Error).message).split('\n').map((line) => line.trim()).filter(Boolean).at(-1)}`);
       }
       await sleep(800);
     }
