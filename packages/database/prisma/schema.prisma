@@ -68,6 +68,10 @@ model AdminUser {
   /// status, and by any change to a role they hold. It scopes the effective-permission
   /// cache key, so a withdrawn permission cannot survive to a TTL (SRS RBAC 009).
   authzVersion               Int             @default(1)
+  /// The author profile this administrator's new articles are credited to by
+  /// default (SRS 1.10 BLOG 001). A private preference: never part of any
+  /// public output, so a login never becomes a public identity.
+  defaultAuthorId            String?
   createdAt                  DateTime        @default(now()) @db.DateTime(3)
   updatedAt                  DateTime        @updatedAt @db.DateTime(3)
 
@@ -97,14 +101,21 @@ model AdminUser {
   handledEnquiries   Enquiry[]             @relation("EnquiryHandler")
   uploadedMedia      MediaAsset[]          @relation("MediaUploader")
   moderatedComments  Comment[]             @relation("CommentModerator")
+  staffComments Comment[] @relation("CommentStaffAuthor")
   moderatedReports   AbuseReport[]         @relation("AbuseReportModerator")
   redirects          Redirect[]            @relation("RedirectAuthor")
   staticPages        StaticPage[]          @relation("StaticPageEditor")
   featuredPlacements FeaturedPlacement[]   @relation("FeaturedPlacementAuthor")
   scheduledTaskRuns  ScheduledTaskRun[]
   scheduledTaskStates ScheduledTaskState[] @relation("ScheduledTaskStateUpdatedBy")
+  menusCreated       Menu[]                @relation("MenuCreatedBy")
+  menusUpdated       Menu[]                @relation("MenuUpdatedBy")
+  menuLocationsUpdated MenuLocation[]      @relation("MenuLocationUpdatedBy")
+  postAutosaves      PostAutosave[]
+  defaultAuthor      Author?               @relation("AdminDefaultAuthor", fields: [defaultAuthorId], references: [id], onDelete: SetNull)
 
   @@index([status])
+  @@index([defaultAuthorId])
   @@map("admin_users")
 }
 
@@ -337,6 +348,7 @@ model Category {
   ogImage    MediaAsset?        @relation("CategoryShareImage", fields: [ogImageMediaId], references: [id], onDelete: Restrict)
   primaryOf  Business[]         @relation("BusinessPrimaryCategory")
   businesses BusinessCategory[]
+  menuItems  MenuItem[]
 
   @@index([parentId, active, sortOrder])
   @@index([active])
@@ -399,6 +411,7 @@ model LocalArea {
   updatedAt             DateTime  @updatedAt @db.DateTime(3)
 
   businesses Business[]
+  menuItems  MenuItem[]
   image      MediaAsset? @relation("LocalAreaImage", fields: [imageMediaId], references: [id], onDelete: Restrict)
   ogImage    MediaAsset? @relation("LocalAreaShareImage", fields: [ogImageMediaId], references: [id], onDelete: Restrict)
 
@@ -478,6 +491,7 @@ model Business {
   hoursExceptions    HoursException[]
   links              BusinessLink[]
   featuredPlacements FeaturedPlacement[]
+  menuItems          MenuItem[]
 
   @@index([status, primaryCategoryId])
   @@index([status, localAreaId])
@@ -990,6 +1004,7 @@ model Author {
   image MediaAsset?  @relation("AuthorImage", fields: [imageMediaId], references: [id], onDelete: Restrict)
   posts Post[]
   links AuthorLink[]
+  defaultForAdmins AdminUser[] @relation("AdminDefaultAuthor")
 
   @@index([active])
   @@map("authors")
@@ -1043,8 +1058,9 @@ model BlogCategory {
   createdAt      DateTime @default(now()) @db.DateTime(3)
   updatedAt      DateTime @updatedAt @db.DateTime(3)
 
-  posts   Post[]
-  ogImage MediaAsset? @relation("BlogCategoryShareImage", fields: [ogImageMediaId], references: [id], onDelete: Restrict)
+  posts     Post[]
+  menuItems MenuItem[]
+  ogImage   MediaAsset? @relation("BlogCategoryShareImage", fields: [ogImageMediaId], references: [id], onDelete: Restrict)
 
   @@index([active, sortOrder])
   @@map("blog_categories")
@@ -1060,7 +1076,8 @@ model BlogTag {
   createdAt      DateTime @default(now()) @db.DateTime(3)
   updatedAt      DateTime @updatedAt @db.DateTime(3)
 
-  posts PostTag[]
+  posts     PostTag[]
+  menuItems MenuItem[]
 
   @@index([active])
   @@map("blog_tags")
@@ -1092,6 +1109,8 @@ model Post {
   bodyMarkdown     String         @db.MediumText
   /// Allowlist-sanitised HTML rendered publicly and in admin preview (SRS SEC 001).
   sanitizedBody    String         @db.MediumText
+  /// Plain text of the sanitised body, for full-text search only (SRS 1.10 BLOG 005); never rendered.
+  searchText       String?        @db.MediumText
   status           PostStatus     @default(draft)
   authorId         String
   categoryId       String
@@ -1106,9 +1125,15 @@ model Post {
   commentsEnabled  Boolean        @default(true)
   /// UTC instant; the admin picks it in Australia/Melbourne (SRS BLOG 002).
   scheduledAt      DateTime?      @db.DateTime(3)
+  /// Why a scheduled publication was refused at its time (the article went back
+  /// to draft); cleared by the next publish, schedule, unpublish or restore.
+  publishFailure   String?        @db.VarChar(500)
   firstPublishedAt DateTime?      @db.DateTime(3)
   publishedAt      DateTime?      @db.DateTime(3)
   archivedAt       DateTime?      @db.DateTime(3)
+  /// When an editor featured the article on the home page and blog index (at most
+  /// three at once, SRS 1.10 BLOG 005); cleared when it is unpublished or archived.
+  featuredAt       DateTime?      @db.DateTime(3)
   version          Int            @default(1)
   createdAt        DateTime       @default(now()) @db.DateTime(3)
   updatedAt        DateTime       @updatedAt @db.DateTime(3)
@@ -1117,14 +1142,43 @@ model Post {
   cover    MediaAsset?  @relation("PostCover", fields: [coverMediaId], references: [id], onDelete: Restrict)
   ogImage  MediaAsset?  @relation("PostShareImage", fields: [ogImageMediaId], references: [id], onDelete: Restrict)
   category BlogCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  tags     PostTag[]
-  comments Comment[]
+  tags      PostTag[]
+  comments  Comment[]
+  menuItems MenuItem[]
+  autosaves PostAutosave[]
 
   @@index([status, publishedAt])
   @@index([status, scheduledAt])
   @@index([categoryId, status, publishedAt])
+  @@fulltext([title, excerpt, searchText], map: "posts_search_idx")
+  @@index([featuredAt])
   @@index([authorId, status])
   @@map("posts")
+}
+
+/// An administrator's unsaved work on an article (SRS 1.10 BLOG 003), kept so a
+/// closed tab or a crash loses nothing. Private to that administrator, never
+/// published, never a revision, and not audited per write; it never changes
+/// the article or its version.
+model PostAutosave {
+  id          String         @id @default(cuid())
+  postId      String
+  adminId     String
+  title       String         @db.VarChar(180)
+  excerpt     String         @db.VarChar(500)
+  bodyFormat  PostBodyFormat
+  bodySource  String         @db.MediumText
+  /// The article version the writer was editing; older than the article means
+  /// someone saved since, which the editor points out before restoring.
+  baseVersion Int
+  savedAt     DateTime       @default(now()) @updatedAt @db.DateTime(3)
+
+  post  Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, adminId])
+  @@index([adminId])
+  @@map("post_autosaves")
 }
 
 model PostTag {
@@ -1147,6 +1201,11 @@ model ContentRevision {
   version           Int
   /// The sanitised body as it stood before this change.
   sanitizedSnapshot String   @db.MediumText
+  /// The editable source and its format, so a restored version is editable as
+  /// it was written; null for revisions recorded before 1.10 (restored from HTML).
+  bodySource        String?  @db.MediumText
+  bodyFormat        PostBodyFormat?
+  excerpt           String?  @db.VarChar(500)
   title             String?  @db.VarChar(200)
   reason            String?  @db.VarChar(500)
   actorAdminId      String?
@@ -1160,13 +1219,14 @@ model ContentRevision {
 }
 
 /// Visitor comment on an article (SRS COM 001–002). Same moderation rules as
-/// reviews; flat list, no visitor accounts, private email encrypted at rest.
+/// reviews; two levels (a comment and its replies), no visitor accounts, private email encrypted at rest.
 model Comment {
   id                    String       @id @default(cuid())
   postId                String
   displayName           String       @db.VarChar(80)
-  privateEmailEncrypted String       @db.VarChar(500)
-  emailHash             String       @db.Char(64)
+  /// Null only for a reply written by the Melbourne Sphere team.
+  privateEmailEncrypted String?      @db.VarChar(500)
+  emailHash             String?      @db.Char(64)
   originalText          String       @db.Text
   publicText            String?      @db.Text
   redactionReason       String?      @db.VarChar(500)
@@ -1174,8 +1234,14 @@ model Comment {
   moderationReason      String?      @db.VarChar(500)
   moderatorAdminId      String?
   decidedAt             DateTime?    @db.DateTime(3)
-  acknowledgedVersion   String       @db.VarChar(32)
-  acknowledgedAt        DateTime     @db.DateTime(3)
+  acknowledgedVersion   String?      @db.VarChar(32)
+  acknowledgedAt        DateTime?    @db.DateTime(3)
+  /// The top-level comment this replies to; comments have two levels (SRS 1.10 COM 001).
+  parentId              String?
+  /// Written by the Melbourne Sphere team from moderation; published without review.
+  staff                 Boolean      @default(false)
+  /// The administrator who wrote a team reply; never public.
+  authorAdminId         String?
   submitterIpHash       String?      @db.Char(64)
   version               Int          @default(1)
   createdAt             DateTime     @default(now()) @db.DateTime(3)
@@ -1184,8 +1250,12 @@ model Comment {
   post      Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
   moderator AdminUser?    @relation("CommentModerator", fields: [moderatorAdminId], references: [id], onDelete: SetNull)
   reports   AbuseReport[]
+  parent      Comment?   @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Comment[]  @relation("CommentReplies")
+  staffAuthor AdminUser? @relation("CommentStaffAuthor", fields: [authorAdminId], references: [id], onDelete: SetNull)
 
   @@index([postId, status, createdAt])
+  @@index([parentId, status, createdAt])
   @@index([status, createdAt])
   @@map("comments")
 }
@@ -1240,6 +1310,8 @@ model MediaAsset {
   testimonials Testimonial[]  @relation("TestimonialMedia")
   partners   PartnerOrganisation[] @relation("PartnerMedia")
   authorOf   Author[]        @relation("AuthorImage")
+  /// Images shown inside rich content (article and page bodies, bios, answers, landing text).
+  bodyReferences ContentMediaReference[] @relation("ContentBodyMedia")
 
   @@index([status, createdAt])
   @@map("media_assets")
@@ -1252,6 +1324,25 @@ enum MediaVariantKind {
 }
 
 /// Re-encoded rendition in the public bucket; EXIF is stripped on generation.
+/// An image used inside a rich text field (SRS MED 004, DAT 003). A body refers
+/// to an image by its URL, where no foreign key can reach it, so the saved HTML
+/// is read on every save and its images are recorded here. Without this row the
+/// media library would allow deleting the image and the retention task would
+/// remove it as unused, leaving a broken picture in a published article.
+model ContentMediaReference {
+  /// post | static_page | author | faq | blog_category | blog_tag
+  resourceType String   @db.VarChar(40)
+  resourceId   String   @db.VarChar(191)
+  mediaId      String
+  createdAt    DateTime @default(now()) @db.DateTime(3)
+
+  media MediaAsset @relation("ContentBodyMedia", fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@id([resourceType, resourceId, mediaId])
+  @@index([mediaId])
+  @@map("content_media_references")
+}
+
 model MediaVariant {
   id        String           @id @default(cuid())
   assetId   String
@@ -1477,6 +1568,127 @@ model PartnerOrganisation {
   @@map("partner_organisations")
 }
 
+// ---------------------------------------------------------------------------
+// Navigation menus (SRS 1.9 MENU 001-006)
+// ---------------------------------------------------------------------------
+
+/// Where on the public site a menu can be shown. The set is fixed in code
+/// (packages/domain/src/menus.ts); each location shows at most one menu.
+enum MenuLocationKey {
+  primary
+  secondary
+  footer
+  footer_bottom
+}
+
+/// What a menu item points at. Referenced kinds keep a typed foreign key, so a
+/// deleted record leaves the item in place with its reference cleared, which
+/// the admin shows as "Missing" and the public site hides.
+enum MenuItemType {
+  custom
+  heading
+  route
+  page
+  post
+  blog_category
+  blog_tag
+  business_category
+  area
+  business
+}
+
+enum MenuItemStyle {
+  link
+  button
+}
+
+/// A named navigation menu (MENU 001), edited as a whole tree.
+model Menu {
+  id               String   @id @default(cuid())
+  name             String   @unique @db.VarChar(80)
+  version          Int      @default(1)
+  createdByAdminId String?
+  updatedByAdminId String?
+  createdAt        DateTime @default(now()) @db.DateTime(3)
+  updatedAt        DateTime @updatedAt @db.DateTime(3)
+
+  items     MenuItem[]
+  locations MenuLocation[]
+  createdBy AdminUser?     @relation("MenuCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  updatedBy AdminUser?     @relation("MenuUpdatedBy", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
+
+  @@map("menus")
+}
+
+/// One row per location; the primary key makes "one menu per location" a
+/// database fact. Deleting an assigned menu is refused (Restrict).
+model MenuLocation {
+  location         MenuLocationKey @id
+  menuId           String?
+  version          Int             @default(1)
+  updatedByAdminId String?
+  updatedAt        DateTime        @updatedAt @db.DateTime(3)
+
+  menu      Menu?      @relation(fields: [menuId], references: [id], onDelete: Restrict)
+  updatedBy AdminUser? @relation("MenuLocationUpdatedBy", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([menuId])
+  @@map("menu_locations")
+}
+
+/// One entry of a menu (MENU 001). `position` orders siblings under `parentId`.
+model MenuItem {
+  id             String        @id @db.VarChar(191)
+  menuId         String
+  parentId       String?       @db.VarChar(191)
+  position       Int           @default(0)
+  type           MenuItemType
+  pageId         String?
+  postId         String?
+  blogCategoryId String?
+  blogTagId      String?
+  categoryId     String?
+  localAreaId    String?
+  businessId     String?
+  /// Key from SEO_ROUTES for a `route` item.
+  routeKey       String?       @db.VarChar(32)
+  /// Validated destination of a `custom` item (MENU 004).
+  url            String?       @db.VarChar(300)
+  /// Null means "use the linked record's own title".
+  label          String?       @db.VarChar(80)
+  titleAttribute String?       @db.VarChar(100)
+  description    String?       @db.VarChar(120)
+  /// Key from MENU_ICON_LIBRARY.
+  icon           String?       @db.VarChar(40)
+  style          MenuItemStyle @default(link)
+  openInNewTab   Boolean       @default(false)
+  relNofollow    Boolean       @default(false)
+  createdAt      DateTime      @default(now()) @db.DateTime(3)
+  updatedAt      DateTime      @updatedAt @db.DateTime(3)
+
+  menu         Menu          @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  parent       MenuItem?     @relation("MenuItemParent", fields: [parentId], references: [id], onDelete: Cascade)
+  children     MenuItem[]    @relation("MenuItemParent")
+  page         StaticPage?   @relation(fields: [pageId], references: [id], onDelete: SetNull)
+  post         Post?         @relation(fields: [postId], references: [id], onDelete: SetNull)
+  blogCategory BlogCategory? @relation(fields: [blogCategoryId], references: [id], onDelete: SetNull)
+  blogTag      BlogTag?      @relation(fields: [blogTagId], references: [id], onDelete: SetNull)
+  category     Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  localArea    LocalArea?    @relation(fields: [localAreaId], references: [id], onDelete: SetNull)
+  business     Business?     @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  @@index([menuId, parentId, position])
+  @@index([parentId])
+  @@index([pageId])
+  @@index([postId])
+  @@index([blogCategoryId])
+  @@index([blogTagId])
+  @@index([categoryId])
+  @@index([localAreaId])
+  @@index([businessId])
+  @@map("menu_items")
+}
+
 /// Previous password hashes for an administrator (SRS 1.2 SECS 003).
 /// Only hashes are kept, and only as many as the configured history depth needs;
 /// the rows exist to refuse reuse, never to reveal anything about the password.
@@ -1540,6 +1752,7 @@ model StaticPage {
 
   updatedBy AdminUser?  @relation("StaticPageEditor", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
   ogImage   MediaAsset? @relation("StaticPageShareImage", fields: [ogImageMediaId], references: [id], onDelete: Restrict)
+  menuItems MenuItem[]
 
   @@index([status])
   @@map("static_pages")

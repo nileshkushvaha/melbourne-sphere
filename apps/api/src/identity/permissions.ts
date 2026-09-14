@@ -118,6 +118,9 @@ export const PERMISSIONS = {
   'website.clients.approve': { label: 'Authorise logo display', description: "Record written authorisation to display an organisation's mark; publication is refused without it", module: 'Website' },
   'website.clients.publish': { label: 'Publish client and partner logos', description: 'Publish and unpublish authorised client and partner organisations', module: 'Website' },
   'website.clients.delete': { label: 'Delete client and partner logos', description: 'Delete client and partner organisation records', module: 'Website' },
+  // Navigation menus (SRS 1.9 MENU 002). Viewing and acting are separate (RBAC 013).
+  'website.menus.view': { label: 'View menus', description: 'View navigation menus and which locations they are shown in', module: 'Website' },
+  'website.menus.manage': { label: 'Manage menus', description: 'Create, edit, assign and delete the header, top bar and footer navigation menus', module: 'Website' },
 } as const satisfies Record<string, PermissionDefinition>;
 
 export type PermissionKey = keyof typeof PERMISSIONS;

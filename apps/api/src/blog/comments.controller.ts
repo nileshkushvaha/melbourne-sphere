@@ -5,7 +5,7 @@ import { CurrentAdmin, RequirePermissions, type AuthenticatedRequest } from '../
 import { getRequestId } from '../common/request-id.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import { CommentsService } from './comments.service.js';
-import { AdminCommentDto, ListAdminCommentsQueryDto, ModerateCommentDto, RedactCommentDto } from './dto/comment.dto.js';
+import { AdminCommentDto, ListAdminCommentsQueryDto, ModerateCommentDto, RedactCommentDto, StaffReplyDto } from './dto/comment.dto.js';
 
 const ctxOf = (req: AuthenticatedRequest): RequestContext => ({ ip: req.ip ?? 'unknown', userAgent: req.headers['user-agent'], requestId: getRequestId(req) });
 
@@ -75,5 +75,15 @@ export class CommentsAdminController {
   @ApiOkResponse({ type: AdminCommentDto })
   async redact(@Param('id') id: string, @Body() body: RedactCommentDto, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest) {
     return { data: await this.comments.redact(id, body, actor, ctxOf(req)) };
+  }
+
+  @RequirePermissions('comments.moderate')
+  @Post(':id/reply')
+  @HttpCode(201)
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Reply as the Melbourne Sphere team; published at once and recorded' })
+  @ApiOkResponse({ type: AdminCommentDto })
+  async reply(@Param('id') id: string, @Body() body: StaffReplyDto, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest) {
+    return { data: await this.comments.staffReply(id, body, actor, ctxOf(req)) };
   }
 }

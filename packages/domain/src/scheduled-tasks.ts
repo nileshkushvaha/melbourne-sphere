@@ -49,9 +49,9 @@ export const SCHEDULED_TASKS: ScheduledTaskDefinition[] = [
   {
     code: 'content.publish-scheduled',
     label: 'Publish scheduled articles',
-    description: 'Publishes articles whose scheduled time has passed, and refreshes the public pages that show them.',
-    scheduleLabel: 'Every five minutes',
-    cron: '*/5 * * * *',
+    description: 'Publishes articles whose scheduled time has passed and refreshes the pages that show them. An article that no longer meets the publication requirements goes back to draft with the reason.',
+    scheduleLabel: 'Every minute',
+    cron: '* * * * *',
     timezone: 'Australia/Melbourne',
     // A missed window must be caught up: an article scheduled while the worker
     // was down is late, not cancelled.

@@ -1,3 +1,4 @@
+import { clearAllLocalDrafts } from '@/shared/postDrafts';
 import type { AuthProvider } from '@refinedev/core';
 import { isApiError } from '@/api/errors';
 import { authApi, type Authenticated, type LoginChallenge } from '@/api/auth';
@@ -63,6 +64,8 @@ export function createAuthProvider(deps: { api?: typeof authApi; now?: () => num
       } catch {
         // The server may already consider the session gone; either way the client forgets it.
       }
+      // Unsaved article copies stay on this computer only while someone is signed in.
+      clearAllLocalDrafts();
       current = null;
       inflightMe = null;
       return { success: true, redirectTo: '/login' };

@@ -91,10 +91,32 @@ test.describe('Public accessibility', () => {
     await page.goto('/');
     const compact = page.getByRole('navigation', { name: /main \(compact\)/i });
     await expect(compact.getByRole('link', { name: 'Businesses' })).toBeHidden();
-    // Native <summary> disclosure: it opens on click and on Enter/Space.
-    await page.locator('summary[aria-label="Menu"]').click();
+    // A native modal <dialog> drawer (SRS 1.9 MENU 006): it opens from the
+    // button, Escape closes it and focus returns to the button.
+    const trigger = page.locator('button[aria-label="Menu"]');
+    await trigger.click();
     await expect(compact.getByRole('link', { name: 'Businesses' })).toBeVisible();
     expect(await axeViolations(page)).toEqual([]);
+    await page.keyboard.press('Escape');
+    await expect(compact.getByRole('link', { name: 'Businesses' })).toBeHidden();
+    await expect(trigger).toBeFocused();
+  });
+
+  test('desktop submenus open from their button and close with Escape', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/');
+    const main = page.getByRole('navigation', { name: 'Main' });
+    const toggle = main.locator('button[aria-controls]').first();
+    // Only a primary menu with children has submenus; the seeded default has none.
+    test.skip((await toggle.count()) === 0, 'the primary menu has no submenus');
+    await toggle.focus();
+    await page.keyboard.press('Enter');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator(`#${await toggle.getAttribute('aria-controls')}`)).toBeVisible();
+    expect(await axeViolations(page)).toEqual([]);
+    await page.keyboard.press('Escape');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(toggle).toBeFocused();
   });
 
   test('the contact bar scrolls away while the navigation stays pinned', async ({ page }) => {
@@ -113,11 +135,11 @@ test.describe('Public accessibility', () => {
       expect(top).toBeLessThan(0);
     }
     // The navigation is still usable from anywhere on the page. Below the
-    // `lg` breakpoint it lives inside a <details> disclosure, so "usable" means
-    // the control is there and opening it reveals the links — asserting the
+    // `lg` breakpoint it lives inside the menu drawer, so "usable" means the
+    // control is there and opening it reveals the links — asserting the
     // desktop link at 320 px asserted the wrong thing and failed for a reason
     // that was never a defect (audit F-07).
-    const menu = header.locator('summary[aria-label="Menu"]');
+    const menu = header.locator('button[aria-label="Menu"]');
     if ((await menu.count()) > 0 && (await menu.first().isVisible())) {
       await menu.first().click();
     }

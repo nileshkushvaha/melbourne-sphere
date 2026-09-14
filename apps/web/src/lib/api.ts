@@ -1,7 +1,10 @@
 import 'server-only';
 import type { components } from '@melbourne-sphere/contracts';
 import type { SearchState } from './search-params';
+import { DEFAULT_MENUS } from './default-menus';
 
+export type PublicMenuItem = components['schemas']['PublicMenuItemDto'];
+export type PublicMenus = components['schemas']['PublicMenusDto'];
 export type PublicCategory = components['schemas']['PublicCategoryDto'];
 export type BusinessCard = components['schemas']['PublicBusinessCardDto'];
 export type BusinessDetail = components['schemas']['PublicBusinessDetailDto'];
@@ -13,6 +16,7 @@ export type PostCard = components['schemas']['PublicPostCardDto'];
 export type PostDetail = components['schemas']['PublicPostDto'];
 export type BlogTerm = components['schemas']['PublicBlogTermDto'];
 export type PublicComment = components['schemas']['PublicCommentDto'];
+export type PublicAuthorPage = components['schemas']['PublicAuthorPageDto'];
 export type PublicArea = components['schemas']['PublicLocalAreaDto'];
 
 const apiOrigin = (process.env.API_ORIGIN ?? 'http://127.0.0.1:3001').replace(/\/+$/, '');
@@ -99,6 +103,25 @@ export async function fetchSiteSettings(): Promise<SiteSettings> {
     return (await apiGet<{ data: SiteSettings }>('/site/settings', { revalidate: 300, tags: ['settings'] })).data;
   } catch {
     return DEFAULT_SITE_SETTINGS;
+  }
+}
+
+/**
+ * Navigation for the header, contact strip and footer (SRS 1.9 MENU 005),
+ * resolved by the API so a link to unpublished content never reaches a page.
+ *
+ * Tagged with every content tag a menu can link to as well as its own: when a
+ * page is unpublished or a category retired, the purge that refreshes that
+ * page also refreshes the menus that pointed at it. A failure falls back to
+ * the navigation the site shipped with, because every page renders the shell.
+ */
+export async function fetchMenus(): Promise<PublicMenus> {
+  try {
+    const menus = (await apiGet<{ data: PublicMenus }>('/site/menus', { revalidate: 300, tags: ['menus', 'pages', 'posts', 'taxonomy', 'businesses', 'faqs'] })).data;
+    // No header menu assigned yet (before `menus:seed`, for example): keep the navigation the site shipped with.
+    return menus.primary.length > 0 ? menus : { ...menus, primary: DEFAULT_MENUS.primary };
+  } catch {
+    return DEFAULT_MENUS;
   }
 }
 
@@ -217,18 +240,44 @@ export async function fetchReviews(businessId: string, page = 1): Promise<{ data
   return apiGet('/businesses/' + encodeURIComponent(businessId) + '/reviews', { revalidate: 60, tags: ['reviews', `reviews:${businessId}`], query: { page, pageSize: 10 } });
 }
 
-export async function fetchPosts(params: { page?: number; category?: string; tag?: string; q?: string } = {}): Promise<{ data: PostCard[]; meta: { page: number; pageSize: number; total: number; pageCount: number } }> {
-  return apiGet('/posts', { revalidate: 60, tags: ['posts'], query: { page: params.page ?? 1, category: params.category, tag: params.tag, q: params.q } });
+export async function fetchPosts(params: { page?: number; pageSize?: number; category?: string; tag?: string; author?: string; q?: string; featured?: boolean } = {}): Promise<{ data: PostCard[]; meta: { page: number; pageSize: number; total: number; pageCount: number } }> {
+  return apiGet('/posts', { revalidate: 60, tags: ['posts'], query: { page: params.page ?? 1, pageSize: params.pageSize, featured: params.featured ? 'true' : undefined, author: params.author, category: params.category, tag: params.tag, q: params.q } });
 }
 
 export async function fetchBlogTerms(kind: 'blog-categories' | 'tags'): Promise<BlogTerm[]> {
   return (await apiGet<{ data: BlogTerm[] }>(`/${kind}`, { revalidate: 300, tags: ['posts', 'taxonomy'] })).data;
 }
 
+/**
+ * The draft behind a private preview link (SRS BLOG 003). Never cached — the
+ * token and the editor's session are checked on every request — and null for
+ * anything the API refuses, so the page answers 404.
+ */
+export async function fetchPostPreview(token: string): Promise<PostDetail | null> {
+  if (!/^[A-Za-z0-9_-]{32}$/.test(token)) return null;
+  try {
+    const response = await fetch(`${apiOrigin}/api/v1/preview/posts/${encodeURIComponent(token)}`, { headers: { accept: 'application/json' }, cache: 'no-store' });
+    if (!response.ok) return null;
+    return ((await response.json()) as { data: PostDetail }).data;
+  } catch {
+    return null;
+  }
+}
+
 /** null for 404 (draft/unknown) so the page renders not-found (SRS BLOG 003). */
 export async function fetchPost(slug: string): Promise<PostDetail | null> {
   try {
     return (await apiGet<{ data: PostDetail }>(`/posts/${encodeURIComponent(slug)}`, { revalidate: 60, tags: ['posts', `post:${slug}`] })).data;
+  } catch (error) {
+    if (error instanceof ApiRequestError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+/** An author page, or null when the author has none (inactive or nothing published) — SRS 1.10 BLOG 005. */
+export async function fetchAuthor(slug: string): Promise<PublicAuthorPage | null> {
+  try {
+    return (await apiGet<{ data: PublicAuthorPage }>(`/authors/${encodeURIComponent(slug)}`, { revalidate: 60, tags: ['posts', `author:${slug}`] })).data;
   } catch (error) {
     if (error instanceof ApiRequestError && error.status === 404) return null;
     throw error;

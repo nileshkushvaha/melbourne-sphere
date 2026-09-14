@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import { SiteAnalytics } from '@/components/site-analytics';
+import { AnalyticsEvents } from '@/components/analytics-events';
 import { SiteFooter } from '@/components/site-footer';
 import { ServiceAlertBar } from '@/components/service-alert-bar';
 import { SiteHeader } from '@/components/site-header';
@@ -32,6 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { default: siteTitle(settings), template: `%s · ${settings.name}` },
     description: settings.metaDescription ?? undefined,
     applicationName: settings.name,
+    alternates: { types: { 'application/rss+xml': [{ url: '/blog/feed.xml', title: `${settings.name} blog` }] } },
     // Pages built with `pageMetadata` replace these with their own complete set;
     // they stand only for a route that declares nothing (SRS SEO 001).
     robots: { index: true, follow: true, googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 } },
@@ -91,8 +93,9 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
             use the whole site first. */}
         <Suspense fallback={null}>
           <SiteAnalytics />
+          <AnalyticsEvents />
         </Suspense>
-        {/* Loaded only when a site key is configured; the widget renders itself into .cf-turnstile (SRS SEC 002). */}
+        {/* Loaded only when a site key is configured; every form renders its challenge explicitly through TurnstileWidget, so a form reached by client-side navigation gets one too (SRS SEC 002). */}
         {turnstileSiteKey() && <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="lazyOnload" />}
       </body>
     </html>

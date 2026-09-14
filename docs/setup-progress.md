@@ -1749,3 +1749,227 @@ including a change to the same status and a return to `new`.
 * Checks: domain, API and admin `tsc` clean; eslint/oxlint clean; the built rule
   checked for all nine from→to pairs. New `enquiry-handling.spec.ts`; admin test
   labels updated. No suites run.
+
+## 14 September 2026 — WordPress-style navigation menus (SRS 1.9, MENU 001–006)
+
+Client instruction: manage the Primary, Secondary and Footer menus from the admin the way WordPress does — drag and drop, parent/child, custom links, icons, and lists of pages, posts and categories to add from. Client choices: the secondary menu sits on the right of the contact strip; the footer is one menu whose top-level items are columns, plus a separate footer-bottom location for the policies; primary goes to three levels; mobile uses a slide-in drawer.
+
+* **SRS.** Recorded as revision 1.9: UX 002 amended (its items become the shipped defaults), new MENU 001–006 in section 26, section 14 entity rows, T17 and the section 26 acceptance extended. `docs/ai/srs-index.md` refreshed.
+* **Domain** (`packages/domain/src/menus.ts`, subpath `/menus`): the four locations and their depth/count caps, limits (20 menus, 60 items, field lengths), item kinds, a 32-icon library, `validateMenuTree` (cycles, orphans, order, depth against the strictest assigned location, caps, required fields, icons) and `validateMenuLink` (ALRT 005 rules plus one `mailto:` address and a `tel:` number).
+* **Database.** Migration `20260914120000_website_menus`, additive: `menus`, `menu_locations` (location primary key; the four rows inserted by the migration; menu reference RESTRICT) and `menu_items` (self-parent CASCADE, typed nullable foreign keys to pages, posts, blog categories/tags, categories, areas and businesses, all SET NULL so a deleted record leaves a "Missing" item). Applied to dev. Integration harness truncation list extended.
+* **API** (`apps/api/src/website/menu*.ts`). Whole-tree save in one transaction (version claim inside the transaction, reference existence check, level-by-level insert, activity record, `menus` purge when assigned); location assignment validated against the location's rules, primary cannot be cleared, assigned menus cannot be deleted; `link-sources` for the admin panels under the menu permission only (published businesses only); public `GET /site/menus` resolved by the pure `menu-resolver.ts` (unpublished/scheduled/inactive/missing targets hidden with their subtree, empty headings dropped, FAQ route only while published). Permissions `website.menus.view|manage` seeded; `menus` registered in the cache manager; contracts regenerated (nullable DTO fields needed an explicit `type: String` or the generated types became `Record<string, never>`).
+* **Seed.** `pnpm --filter api menus:seed` (idempotent, never replaces an assignment) created Main navigation (Home, Businesses, Blog, About, Contact, "Add a business" as a button), Footer (Local areas ×6, Categories ×6, Information) and Footer legal (the three policy pages) on dev — the public header and footer render exactly what they did before. Deployment order: `migrate deploy` → `admin:seed-rbac` → `menus:seed`.
+* **Admin** (`pages/website/menus/`, dnd-kit 6.3.1/10.0.0/3.2.2): content panels with most recent / view all / search and checkboxes, custom link and heading panel, nested sortable tree with horizontal-drag nesting clamped to the location depth, screen-reader announcements, WordPress Move links, per-item fields (label, URL, title attribute, description, icon, link/button style, new tab, nofollow), state badges, client-side validation mirroring the API, 409 reload alert, unsaved-changes guard, read-only mode, Manage locations tab.
+* **Web** (`components/navigation/*`): disclosure dropdowns and level-3 flyouts (parent stays a link, separate `aria-expanded` button, Escape returns focus, CSS fallback without JavaScript), modal `<dialog>` drawer with accordions, secondary links in the strip, footer columns and legal row; `fetchMenus` tagged with every linked content tag and falling back to product routes only. `header-nav.tsx` removed.
+
+**Decisions and conflicts.** Secondary is one level (a dropdown in a strip that scrolls away would open under the pinned header). The item cap of 60 keeps a worst-case whole-tree save inside the 64 KB body limit. **Behaviour change:** a newly published page no longer appears in the footer automatically. Existing gap noted, not changed: `TaxonomyService` emits no cache purge, so category/area changes reach menus at the 300 s expiry.
+
+**Verification.** `tsc`/eslint/oxlint clean in domain, API, admin, web and e2e; `db:migrations:check` and `contracts:check` pass. Runtime: public menus shape and `max-age=300`; anonymous admin 401 and origin-less writes 403; seeded header, footer columns and legal links identical to the previous navigation; with a temporary nested menu written directly to dev (then restored and deleted): dropdown and third-level flyout render and position correctly, active trail marked, draft page absent, Tab traversal into submenus, Escape closes the innermost menu and returns focus; drawer at 375 and 320 px (modal, background scroll locked, current branch expanded, no horizontal overflow, focus returns on close). The browser pane's automated Enter/Space produced trusted key events but no synthesised click, so button activation by keyboard is covered by the new Playwright journey rather than this pass. **Not verified in the browser:** the admin Menus screen, which needs an administrator sign-in. Tests written, not run: `menus.spec.ts`, `menu-resolver.spec.ts`, `menus.integration-spec.ts`, admin `menu-tree.test.ts`, web `active-trail.test.ts` and rewritten `site-header.test.tsx`, e2e drawer/submenu journeys.
+
+## 14 September 2026 — Articles, slice A0–A1: body images protected, editor fixes and plain language
+
+Client request: make articles easy for a non-technical writer and help the blog grow. The plan (easy writing A0–A7, growth B1–B8, SRS 1.10 before B1 ships) is in the session plan; this record covers the first two slices.
+
+**A0 — defect: images inside rich text could be deleted (MED 004, DAT 003).** The editor inserted library images by URL only. `MEDIA_USAGE_RELATIONS` listed covers, share images and the like but nothing inside a body, so the media library offered to delete an image a published article showed, and the worker's `media.retention` task would have removed it once past the unused-image window. The same applied to page bodies, author bios, FAQ answers and blog category/tag landing text.
+
+* One table rather than one per resource: migration `20260914150000_content_media_references` (resource type, resource id, media id; media FK RESTRICT). `apps/api/src/media/content-media.ts` `syncContentMedia` runs inside the save transaction of articles, pages, author bios, FAQs and blog categories/tags; deletions of pages and FAQs clear their rows.
+* `extractMediaIds` (`packages/domain/src/media-usage.ts`) reads `data-media-id` and, for content inserted earlier, the rendition address (`media/<assetId>/…`). `bodyReferences` joined the shared usage list, so the library's delete refusal, its "unused" filter and the retention task all see these uses; the media detail page names the record ("… (inside the article)") and links FAQs and blog tags.
+* The editor now writes `data-media-id`; the sanitiser keeps it only when it is id-shaped.
+* `pnpm --filter api media:backfill-content [--dry-run]` recorded 2 references in 1 article on dev and found **no stored content pointing at a missing image** — nothing had been lost here. Run it on every environment after the migration, before the next retention run.
+
+**A1 — editor bugs and wording.**
+* Fixed: "Article restoreed" (messages from a map); choosing or removing a featured/share image no longer saves the whole form (it previews immediately and saves with the article); "Discard changes" restores the saved article in place, body included (`RichTextEditor` `resetKey`); "Remove link" removes the link.
+* Formatting no longer vanishes silently: the sanitiser maps `s`/`strike`→`del`, `b`→`strong`, `i`→`em`, `h1`→`h2`, `h5`/`h6`→`h4`; the underline shortcut is disabled (underline reads as a link and has no published style).
+* A taken article address now suggests the next free one ("Try “best-cafes-2”").
+* Plain language: Summary (was Excerpt), Title/Description in search results (was SEO title/Meta description), Image description (was "Caption or alt override"), Heading/Subheading/Minor heading, "Note about this change" (was the audit-log reason), no "Markdown", "sanitises", "slug" or "301" in the editor or list; the unused Keywords field is hidden (it becomes the focus phrase of the SEO helper); "incomplete" became "Not ready to publish".
+* Deferred to A3: the date-picker replacement (the existing schedule test types into the native field).
+
+**Checks.** `tsc`/eslint/oxlint clean in domain, database, API, admin and worker; `db:migrations:check`; migration applied to dev; contracts regenerated (media usage kinds `faq`, `blogTag`); compiled sanitiser checked for the tag mapping and `data-media-id` handling; `extractMediaIds` checked against rendition URLs and plain-text mentions. Tests written, not run: domain `media-usage.spec.ts`, `sanitise.spec.ts` (formatting mapping, media id), `media.integration-spec.ts` (an article's body image is in use, not unused, and freed when removed from the text); `Blog.test.tsx` wording updated. **Not verified in the browser:** the admin editor, which needs an administrator sign-in.
+
+## 14 September 2026 — Articles, slices A2 and B1: live checklist, save-then-publish, auto summary, one scheduled publisher (SRS 1.10)
+
+**A2.** The publication rules moved to `packages/domain/src/posts.ts` (subpath `/posts`): transitions, the six requirements as a checklist `{code, field, met, message}` with counts ("Write at least 200 characters in the article — 143 so far"), schedule rules and `deriveExcerpt`. `apps/api/src/blog/post-rules.ts` adapts them to stored rows, so API and admin apply identical rules in identical words.
+* Editor: a live "Ready to publish / Not ready to publish" checklist in the Publishing card (`aria-live`, icon plus text, unmet items focus their field); the server-only "Not ready" banner is gone. Publish/Schedule save unsaved edits first (`persist()` → transition with the saved version), also from a brand-new article; a refusal after saving keeps the dialog and refreshes the saved version in place. Writers without `posts.publish` see a plain note instead of silently missing buttons.
+* An empty summary is written from the opening text on create, and when emptied on edit; the editor says so after saving.
+
+**B1.** Two publishers used to run: the API's 60-second timer and the worker task, recording publication differently (the worker skipped the version, `firstPublishedAt`, `scheduledAt` and the audit entry). `ScheduledPublishingService` and `BlogService.publishDueScheduled` are removed; the worker's `content.publish-scheduled` now runs every minute, re-checks the requirements, publishes under the version guard with `firstPublishedAt`, audit and cache invalidation, and returns an article that no longer qualifies to draft with `posts.publishFailure` (migration `20260914160000_post_publish_failure`, cleared by any later transition). The editor shows the reason, the list marks "Couldn’t publish on schedule", and the dashboard adds "Scheduled articles that could not publish". **Operational consequence:** scheduled articles need the worker running (already a documented requirement).
+
+**SRS 1.10** recorded (BLOG 002 amended, plus the A0 defect fix noted); index refreshed.
+
+**Checks.** `tsc` and eslint/oxlint clean in domain, worker, API and admin; migration applied to dev; contracts regenerated (`publishFailure`); compiled rules checked for summary boundaries and messages. Tests written, not run: `packages/domain/src/posts.spec.ts`, worker `scheduled-tasks.spec.ts` (publish, refuse to draft, concurrent change, plain-text count), `post-rules.spec.ts` and `blog.integration-spec.ts` expectations (new wording, summary derivation, address suggestion, `publishFailure` cleared on reschedule). Not verified in the browser: the admin editor (administrator sign-in needed).
+
+**Next slices:** A3 layout and date picker → A7 my author profile → A5 preview → A4 autosave and revisions → A6 images/links/embeds → B2–B8.
+
+## 14 September 2026 — Articles, slice A3: WordPress-style editor layout
+
+The article editor (`apps/admin/src/pages/blog/PostEditorPage.tsx`) is split into a writing column and sidebar boxes under `pages/blog/editor/`:
+* **Writing column:** a large borderless title, the web address line under it, the text editor (older Markdown articles get a plain notice with "Switch to the normal editor"), the summary (its placeholder shows the summary that would be written automatically), then a folded **Search results and sharing** panel (`SearchSharingPanel`: search preview, title/description with length meters, share image and social preview; rendered while folded so previews stay current) and the saved-version preview.
+* **Sidebar:** `PublishBox` (status, scheduled/first-published dates, live checklist, comments switch, change note once published, Save draft / Update, Publish and Schedule, and Unpublish/Archive under "More"), `DetailsBox` (category, tags with **"Add tag “…”" inline**, author, and a link to create an author when none exist) and `FeaturedImageBox` (library or **in-place upload** through `MediaField`, image description first).
+* **Responsive order** (`.ms-post-editor` grid): at ≥ 1200 px writing beside the boxes; below that Publish and Details come *before* the writing and the images after it, so the buttons and required choices are never scrolled out of reach.
+* Publish/Schedule moved from the page header into the Publish box; the header keeps All articles and View on site.
+* **Schedule picker:** antd `DatePicker` (typed `YYYY-MM-DD HH:mm` or calendar, 5-minute steps, past days disabled) holding the Melbourne wall-clock time independent of the browser's zone, with a sentence confirming the exact time and offset (AEST/AEDT).
+* Image choices go through `MediaField` inside the form, so the earlier preview-override state is gone; "Discard changes" remounts the pickers and the editor.
+* Copy-length rule: three over-long hints shortened (editor summary, link dialog, Menus page). **Pre-existing** over-limit descriptions remain in `DashboardPage.tsx`, `SiteSettingsPage.tsx` (two), `BusinessEditorPage.tsx` and `PageCreatePage.tsx` — `copy-length.test.ts` will flag them; not changed here.
+
+**Checks.** Admin `tsc` and eslint clean; the running Vite dev server compiled every new module. `Blog.test.tsx` schedule step updated for the calendar picker (types the value and confirms). Not run: admin tests. **Not verified in the browser** (administrator sign-in needed): layout at 1440/992/320 px, inline tag creation, upload in place, the date picker.
+
+## 14 September 2026 — Articles, slice A7: my default author profile
+
+Authors stay public profiles separate from logins (BLOG 001), but a writer no longer has to pick themselves on every article.
+* Migration `20260914170000_admin_default_author`: `admin_users.defaultAuthorId` (nullable, FK to `authors` SET NULL, indexed).
+* API: `GET /admin/authors/mine` and `PUT /admin/authors/mine {authorId|null}` under `posts.write`, declared before `:id`. Only the signed-in administrator's own preference changes, so no `expectedVersion` is asked for (nobody else can edit it); unknown or inactive authors are refused with a field error; each change writes `blog.author.default.set`. The link is on the administrator record and appears in no public or author response.
+* Admin: a new article pre-selects the default author when it is active; under the Author field the Details box says "Your default author for new articles" or offers "Use this author for all my new articles". Deviation from the plan: the control lives next to the author choice rather than on the account page, where writers actually make that choice.
+* SRS 1.10 extended to BLOG 001 (same revision, same day); index refreshed.
+
+**Checks.** API and admin `tsc`/lint clean; migration applied to dev; contracts regenerated. Test written, not run: `authors.integration-spec.ts` default-author case. Not verified in the browser (sign-in needed).
+
+## 14 September 2026 — Articles, slice A5: preview before publishing
+
+**In the editor.** A "Preview" button in the Publish box opens a drawer showing what is typed right now, saved or not. `POST /admin/posts/preview-render` (`posts.write`, `no-store, private`, `noindex`) runs the content through the same sanitiser and summary rule a save uses and stores nothing; the drawer shows category, title, summary (noting when it was written automatically), byline, reading time, the processed featured image and the body. The old "Preview of the last save" card is gone.
+
+**On the website.** "Open on the website" saves outstanding edits (a new article then moves to its own page), asks `POST /admin/posts/:id/preview-link` for a private link and opens it in a new tab. The token is 32 random URL-safe characters in Redis for ten minutes, bound to the editor's session; the public `GET /preview/posts/:token` answers the draft only while the token exists and that session is neither revoked nor expired, and one identical 404 otherwise (archived articles excluded). Headers: `no-store, private`, `X-Robots-Tag: noindex, nofollow`, `Referrer-Policy: no-referrer`. The web route `/preview/article/[token]` is dynamic, noindex/nofollow with a no-referrer meta, carries a "Preview — not published" banner, and is disallowed in `robots.txt`.
+
+**One article design.** `apps/web/src/components/article-view.tsx` now holds the article header, body and sidebar, used by both `/blog/[slug]` (which keeps JSON-LD, related articles and comments) and the preview (which hides share links and shows "Publishes when you publish it"), so the preview is the real page rather than an imitation.
+
+**Configuration.** `apps/admin/.env.example` gains `VITE_PUBLIC_SITE_ORIGIN` (the public site's origin for opening previews; unset in production, where the admin is under `/admin/` on the site's origin). For local use set it to `http://localhost:3000` in the admin's own env file.
+
+**BLOG 003** is met as recorded in SRS 1.10's scope for this programme: authenticated, short-lived, noindex, private no-store, unauthenticated draft lookups still 404.
+
+**Checks.** API, admin and web `tsc` (web with route typegen) and lint clean; contracts regenerated; Vite compiled the editor modules. Runtime: unknown token → 404 from API and web with the three headers; anonymous `preview-render` → 401; `robots.txt` disallows `/preview/`; `/blog/fitzroy-on-foot` still renders fully after the refactor (header, body, sidebar, comments). `Blog.test.tsx` updated to open the drawer and assert the rendered request (not run). **Not verified:** the drawer and a working preview link in the browser, which need an administrator sign-in.
+
+## 14 September 2026 — Articles, slice A4: autosave and version history
+
+**Autosave.** While there are unsaved changes the editor keeps two copies: this browser's (`localStorage`, every 2 s, `apps/admin/src/shared/postDrafts.ts`; the only copy for an article never saved) and, for an existing article, a private server copy every 20 s (`PUT /admin/posts/:id/autosave`, table `post_autosaves`, one row per article per administrator). Neither touches the article, its version or its revisions, and writes are not audited; the save bar says when a copy was kept, or that it is kept only in the browser if the server could not be reached. An explicit save or "Discard changes" clears both; discarding the server copy is audited. Signing out clears every browser copy. Autosave routes are not metered by the sensitive-mutation ceiling (it is opt-in), so an hour of writing cannot exhaust the per-administrator limit.
+
+**Recovery.** Opening an article (or a new one) with a copy newer than the saved article and different from it shows "You have unsaved changes from …" with Restore / Discard, and warns when the article was saved since the copy began.
+
+**History.** A version is now kept whenever a save changes the title or text — drafts included, not only published articles — and always on published edits, with the editable source, format and summary (`content_revisions.bodySource/bodyFormat/excerpt`), capped at the latest 50 per article. The Publish box's **History** opens a drawer listing versions (when, who, note); choosing one shows a word-by-word comparison of title, summary and text with what is in the editor now (`diff` 9.0.0; removed text struck through, added text underlined, both labelled for screen readers). **Restore this version** (`POST /admin/posts/:id/revisions/:revisionId/restore` with `expectedVersion`) keeps the current text as a version first, re-sanitises the restored text, refreshes a published article's pages, clears the writer's autosave and is audited. Revisions from before this change restore from their HTML.
+
+**Migration** `20260914180000_post_autosave_and_revision_source` (additive; applied to dev). Integration harness truncates `post_autosaves`.
+
+**Checks.** API and admin `tsc`/lint clean; contracts regenerated; Vite compiled the new modules; anonymous calls to the autosave and revision routes refused (401, and 403 without a trusted origin). Integration test written, not run (autosave keeps the version, private per administrator, a draft save keeps a version and clears the autosave, stale restore 409, restore keeps the current text as a version, audited). Not verified in the browser (sign-in needed).
+
+## 14 September 2026 — Articles, slice A6: images, tables, links, videos, maps and business cards
+
+**Images.** The editor's **Add an image** (toolbar, or dropping/pasting a picture into the text) opens one dialog: the image description comes first and is required; the picture is uploaded there with progress and waits for processing (or is chosen from the media library); an optional caption and Normal / Full width size are set before inserting. The result is a `<figure class="ms-figure[ ms-figure--wide]">` with `data-media-id`, so the image counts as in use (A0). Selecting an image shows **Image settings** and **Remove**. Nodes: `apps/admin/src/components/editor/nodes.ts` (`ArticleFigure`), dialog `editor/InsertImageDialog.tsx`.
+
+**Tables, links, paste.** Inside a table a second toolbar offers add/remove row and column, header row and delete table. The link box (toolbar or Ctrl/Cmd+K) has **Find on this site**: articles, pages, businesses, business categories, local areas and blog categories by name, via new `GET /api/v1/admin/editor/link-sources` (`posts.write`, reuses `MenuLinkSourcesService`; 401 anonymous). HTML pasted from Word or Google Docs is tidied (styles, classes, fonts, spans, Office tags, comments) and the writer is told once.
+
+**Videos, maps, business cards.** `packages/domain/src/embeds.ts` (`@melbourne-sphere/domain/embeds`) reads YouTube watch/youtu.be/shorts/embed links and Google Maps "Embed a map" HTML or address, and explains what to paste for share links; a title is required. The body stores an inert marker `<div class="ms-embed" data-embed="youtube|map|business" …>`, never an iframe. The sanitiser keeps a marker only when its id, map address (`https://www.google.com/maps/embed?pb=` + token) or business id validates; any other `div` is unwrapped with its text kept. Business cards are resolved on each public read: `PublicPostDto.businesses` lists only **published** businesses referenced by the body, so an unpublished business's card disappears when the article's pages refresh (≤ 60 s revalidate) — the planned `post_businesses` table was not needed. On the site `components/article-body.tsx` splits the body, re-checks each marker, and `embed-placeholder.tsx` shows a placeholder that loads nothing from Google until **Play video** / **Show map** (youtube-nocookie, reserved aspect ratio, titled frame) or the reader's "Always load videos and maps" choice (`localStorage` `ms.consent.embeds`, this browser only).
+
+**No migration.** Contracts regenerated (`PublicEmbeddedBusinessDto`, editor link-sources path).
+
+**Checks.** API, admin and web `tsc`/eslint clean; the compiled sanitiser keeps figure classes and valid markers and drops invalid markers, handlers and iframes; the running API refuses the new route anonymously and returns `businesses` on articles; the public article renders unchanged with no console errors. Tests written, not run: `packages/domain/src/embeds.spec.ts`, `sanitise.spec.ts` figure/marker cases, web `article-body.test.ts`. Not verified in the browser editor (sign-in needed), and no article with an embed exists yet to check the placeholder at 320 px.
+
+## 14 September 2026 — Articles, slices B2 and B5: crawlable blog pages and RSS feed
+
+**B2 Crawlable pagination.** `robots.ts` no longer disallows `/blog?`, so numbered blog pages can be crawled (searches, `?q=` and tracking parameters stay disallowed). `apps/web/src/lib/pagination.ts` (`readPageParam`, `pagedPath`, `pagedTitle`, `isPastLastPage`) is shared by the blog index, category and tag pages: page 1 (including `?page=1` and malformed values) is canonical on the plain address; later pages are self-canonical with "— page N" in the title; a page past the last is not found. The blog index now also shows numbered page links under the articles, because the scroll loader removes its own "More articles" link once it hydrates.
+
+**Known behaviour.** Category and tag pages past the last return HTTP 404. The blog index has a `loading.tsx` skeleton, so its response is already streaming when the check runs: Next.js then sends 200 with the not-found page and `<meta name="robots" content="noindex">` (documented in `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/loading.md`, "Status Codes"). Search engines do not index it; removing the skeleton would give a hard 404 if ever required.
+
+**B5 RSS.** `GET /blog/feed.xml` (`app/blog/feed.xml/route.ts`, `lib/rss.ts`): RSS 2.0 with the newest 20 published articles — title, canonical link and permalink guid, RFC 822 date, author display name, category and summary (never the full text) — with an atom self link, `application/rss+xml`, a five-minute public cache, and XML-escaped text with forbidden control characters removed. Every page advertises it with `<link rel="alternate" type="application/rss+xml">` (root layout and `pageMetadata`). `fetchPosts` accepts `pageSize`.
+
+**Checks.** Web `tsc`/eslint clean. At runtime: robots without `/blog?`; the feed returns 200 with the right headers, validates with `xmllint` and lists the 6 published articles; `/blog?page=1` canonical is `/blog`; `/blog/category/city-guides?page=5` is 404 and `/blog?page=999` is the noindex not-found page; the feed link is in the head of the index and an article. Tests written, not run: `lib/pagination.test.ts`, `lib/rss.test.ts`. No category yet has more than one page, so a self-canonical page 2 was checked only by reading the code.
+
+## 14 September 2026 — Articles, slice B3: table of contents
+
+**What.** An article with three or more sections and subsections (h2/h3) shows **In this article**: a card at the top of the sticky sidebar from `lg`, and a folded `<details>` block above the text on smaller screens (only one is displayed at a time). Links are plain anchors, so it works without JavaScript; subsections are nested under their section; a linked heading lands below the sticky header (`scroll-margin-top`), with smooth scrolling only when reduced motion is not requested. Files: `apps/web/src/lib/headings.ts` (`articleOutline`, `SECTION_ID_PREFIX`), `components/article-toc.tsx`, `components/article-view.tsx` (shared by the article and its preview), `components/article-body.tsx` (`body` prop), `globals.css` (`.ms-toc`).
+
+**Change from the plan.** Section ids are added when the page is rendered, not stored by the sanitiser, so there is no `blog:rerender` command, no body rewrite, no backup step and nothing to migrate: every existing article and every preview gets anchors immediately. Ids are `section-<slug>`, unique per article, and never collide with the page's own ids (the sanitiser keeps no `id` attributes, and any found are replaced).
+
+**Checks.** Web `tsc`/eslint clean. On `/blog/fitzroy-on-foot` the four h2 headings carry `section-…` ids and both contents lists link to them; checked in the browser at 1440 px (sidebar card) and 375 px (folded block, no horizontal scroll, link lands below the header). Tests written, not run: `lib/headings.test.ts` outline cases (order, nesting levels, duplicates, stripped ids, empty headings).
+
+## 14 September 2026 — Articles, slice B4: blog search
+
+**Search.** `/blog/search?q=…` (`apps/web/src/app/blog/search/page.tsx`) finds published articles whose title, summary or text contain every searched word (prefix match, so "galler" finds "galleries"), most relevant first and newest first among equals. The page is `noindex, follow`; the result count is announced (`role="status"`); results are paged like the rest of the blog (a page past the last is a 404); with no query or no match it suggests the blog categories. A plain GET search form (`components/blog-search-form.tsx`, works without JavaScript) sits on the search page and in the blog index header. `robots.ts` already keeps `?q=` out of crawling.
+
+**API.** The public `GET /api/v1/posts?q=` now uses MySQL FULLTEXT in boolean mode. `apps/api/src/blog/search-query.ts` reduces what was typed to words of letters and digits (no boolean operator or quote can reach the query), drops words under 3 characters and InnoDB's default stopwords (a required stopword would match nothing), caps it at 8 words and requires each as `+word*`; the string is a bound parameter. MySQL ranks up to 500 candidates, category/tag filters apply to those, and only the requested page is loaded. When nothing indexable is left (e.g. "St"), titles and summaries are matched directly, as before. No contract change.
+
+**Data.** Migration `20260914190000_post_search_text` (additive; applied to dev): `posts.searchText` (plain text of the sanitised body, never rendered) and FULLTEXT index `posts_search_idx` on title, excerpt and searchText. The API writes `searchText` whenever the body is saved (create, update, restore). Existing articles: `pnpm --filter api blog:backfill-search-text [--dry-run]` (`src/cli/backfill-search-text.ts`; idempotent, leaves `updatedAt` and the version alone, one audit entry). The backfill is a command rather than SQL in the migration because `REGEXP_REPLACE` over long bodies can hit MySQL's regex time limit. Run on dev: 7 of 7 updated, a second dry run 0. **Deployments must run it once after the migration.** Seed scripts that insert posts directly leave `searchText` null until the next save or backfill; those articles are still found by title and summary.
+
+**Checks.** API `tsc`/oxlint and web `tsc`/eslint clean. At runtime: "galleries" (body only) → 1, "Gertrude galler" → 1, "tram" → 5 ranked, operator and injection-looking input → 0 without error, stopwords only → title/summary fallback, "St" → fallback matches, category filter combined with search, web search page 200 with and without a query, past-the-end 404, `noindex, follow`, search form on `/blog`; browser at 375 px with results and with no match (no horizontal scroll). Tests written, not run: `search-query.spec.ts`, web `blog-search.test.ts`. No integration test yet against real FULLTEXT.
+
+## 15 September 2026 — Articles, slice B6: featured articles and search advice
+
+**Featured articles.** A publisher can feature a published article from the editor's Publish box ("Feature on the home page"; disabled while there are unsaved edits, since featuring is a separate, versioned action). At most three are featured at once (`MAX_FEATURED_POSTS`, `@melbourne-sphere/domain/posts`). `POST /api/v1/admin/posts/:id/feature` and `/unfeature` (`posts.publish`, `expectedVersion`, 409 `STALE_VERSION`/`INVALID_STATE`, 409 `FEATURED_LIMIT` naming the featured articles) lock the featured rows while the limit is checked, bump the version, refresh the post caches and are audited (`blog.post.feature` / `blog.post.unfeature`). Unpublishing or archiving clears it. The article list shows a "Featured" pill. Public `GET /api/v1/posts?featured=true` lists them, most recently featured first. The home page's blog band leads with featured articles, then the newest not already shown; page 1 of `/blog` shows an "Editor's picks" band and leaves those articles out of its own list. Both treat the featured list as optional: if it cannot be read, the latest articles still show.
+
+**Search advice.** The Search results and sharing panel now has a visible **Focus phrase** (stored in the existing `seoKeywords`) and a **Search advice** list (`apps/admin/src/pages/blog/editor/seoChecks.ts`), worked out in the browser as the writer types: focus phrase in the title, summary, opening and web address (whole words, ignoring case, accents and punctuation; the search title and description are checked when set); length (300 words); headings once the text is long; image descriptions; links to other pages on the site; share of sentences over 25 words. Advice only — it never blocks saving or publishing.
+
+**Migration** `20260914200000_post_featured` (additive; applied to dev): `posts.featuredAt` and index `posts_featuredAt_idx`.
+
+**Checks.** API, admin and web `tsc`; API oxlint, admin and web eslint clean; contracts regenerated. The API was checked on a temporary instance of the compiled build (port 3099, stopped afterwards): anonymous feature/unfeature 401; `featured=yes` 400; with one article featured directly in the dev database, `featured=true` returned exactly it while the unfiltered list kept all 6; the value was cleared again. **Not yet checked at runtime:** the home page and `/blog` picks band (the API watch process on port 3001 had stopped serving, see below), the feature limit and concurrency (integration test not written), and the admin switch, pill and advice list in the browser (sign-in needed). Tests written, not run: admin `seoChecks.test.ts`.
+
+**Environment note.** During this slice the user-started `nest start --watch` (API, port 3001) stopped listening, most likely after a recompile while the domain package was being rebuilt. The compiled build starts cleanly, so restarting that watch process restores it; it was left for the user to restart.
+
+## 15 September 2026 — Articles, slice B7 (author pages) and two-level comment replies (client instruction)
+
+**Author pages (SRS 1.10 BLOG 005 amended).** `/blog/author/[slug]` (`apps/web/src/app/blog/author/[slug]/page.tsx`) shows the author's published profile — photo, role, pronouns, location, bio, topics, links — and their articles, newest first, 12 per page (later pages self-canonical, past the last 404). It exists only for an active author with at least one published article (`GET /api/v1/authors/:slug`, `BlogPublicService.author`, 404 otherwise), so there is never an empty archive; nothing private is returned (no public email field, no admin link). `ProfilePage` + `Person` JSON-LD and breadcrumbs; the editorial sitemap lists author pages. `GET /api/v1/posts?author=<slug>` filters articles. Every public author object now carries `profilePath` (null for an inactive author); the article byline and author card link to it ("More articles by …"), and the article's `BlogPosting` author URL points at it.
+
+**Comment replies (SRS 1.10 COM 001–002 amended; two levels, as the client asked).** A reader can reply to an approved comment from the article page (Reply opens a form under the thread, focused, with Cancel); replying to a reply adds to the same thread, so conversations never nest deeper than one indent (`replyParentId`, `@melbourne-sphere/domain`). Replies are moderated exactly like comments and use the same limits, captcha, honeypot and acknowledgement; the API checks that the target is an approved comment on the same published, open article. The public list pages top-level comments (20 per page, oldest first) with their approved replies; a reply is hidden, and not counted, while the comment it answers is not approved. Moderators can **Reply as the Melbourne Sphere team** (`POST /api/v1/admin/comments/:id/reply`, `comments.moderate`): published at once under "Melbourne Sphere team" with a Team badge, the writing administrator recorded privately (`authorAdminId`) and audited (`comment.staff_reply`). The moderation list shows what each comment replies to and marks team replies. No notification emails are sent.
+
+**Migration** `20260915090000_comment_replies` (additive; applied to dev): `comments.parentId` (cascade with its parent), `staff`, `authorAdminId` (set null if the administrator is deleted), index `(parentId, status, createdAt)`; the visitor contact and acknowledgement columns become nullable, for team replies only — the API still requires them for every visitor comment.
+
+**Checks.** API `tsc`/oxlint, worker `tsc`, admin `tsc`/eslint, web `tsc`/eslint clean; contracts regenerated; the web post fixture gained `profilePath`. Runtime: author page 200 with 6 articles, unknown author and page 9 → 404, canonical, `ProfilePage` JSON-LD, 375 px without horizontal scroll; API sitemap lists the author page; `posts?author=` 6; anonymous team reply 401. With temporary rows in the dev database (removed afterwards): a team reply nests under its comment in the API and on the article page with the Team badge; rejecting the parent hides the reply and the count drops from 6 to 4; the article byline links to the author page. The B6 check left open earlier was completed the same way: `/blog` shows Editor's picks without repeating the article, and the home page leads with it. Tests written, not run: domain `comments.spec.ts`. Not verified: the reply form submission in the browser (needs a real Turnstile token) and the admin Reply dialog (sign-in needed).
+
+## 15 September 2026 — Articles, slice B8: blog analytics events behind consent (programme complete)
+
+**What is counted.** Eight events, from a fixed list (`apps/web/src/lib/track.ts` `ANALYTICS_EVENTS`): `share` (network), `copy_link`, `article_read_75` (article slug, once per page view), `related_click` and `business_card_click` (link path), `toc_click` (section id), `embed_load` (youtube or map), `blog_search` (result count only — never the words searched for).
+
+**How.** `track()` sends nothing unless the visitor has accepted analytics (`ms.consent.analytics` = accepted), and then only to Google Analytics (`gtag`) or Tag Manager (`dataLayer`) if one is on the page; nothing goes to the Meta pixel. Parameters are cleaned: simple names, at most 8, short strings without `@` or `?`, finite numbers. Failures are swallowed so analytics can never affect the page (NFR 012). Server components stay server-rendered: they carry `data-track="<event>"` markers (table of contents, related articles, business cards, share links) and one client component in the layout (`components/analytics-events.tsx`) listens for link clicks inside them and measures reading depth on `[data-track-read]` (the article body; absent on private previews). Copy link and video/map loads call `track` directly; the search page uses `TrackOnView`. Reading depth keeps checking until an event is actually sent, so a reader who accepts part-way through is still counted once.
+
+**Checks.** Web `tsc`/eslint clean. In the browser on `/blog/fitzroy-on-foot` with a stub `gtag` and navigation blocked: no consent → nothing sent; consent accepted → `toc_click {section}`, `related_click {link_path}`, `share {method: email}`; scrolling through the article → exactly one `article_read_75 {article: fitzroy-on-foot}`; no Google or Meta scripts were loaded; consent and stub removed afterwards. A first attempt exposed that reading depth stopped listening before consent existed; fixed as above. Tests written, not run: `lib/track.test.ts`. Not verified in the browser: `copy_link` (clipboard permission in the pane), `embed_load` (no article has an embed yet) and `blog_search` (needs the stub before hydration).
+
+**For the client.** The privacy notice (an editor-managed page) should say that, with consent, the blog counts shares, reading to 75%, clicks on related articles, business cards and the table of contents, video and map loads, and the number of search results.
+
+**Articles programme.** A0–A7 and B1–B8 are complete. Outstanding: the admin browser pass (sign-in needed), the written-but-unrun test suites, running `blog:backfill-search-text` on each environment, and the integration tests noted in traceability.
+
+## 15 September 2026 — Review fixes: navigation menus and the articles programme
+
+A read-only review of the menus and articles work (three reviewers: menus; articles API; articles admin and web) found 42 items. Fixed:
+
+**Menus.**
+- The site header keeps its built-in navigation while no primary menu is assigned (before `menus:seed`); previously it rendered empty.
+- Tree errors without a field of their own (place, heading without children, deleted target) are listed on the item card.
+- A click on a submenu that hover had just opened no longer closes it.
+- Custom links are stored in their validated, normalised form.
+- `save` re-reads where the menu is shown after locking it; `assignLocation` locks the menu and re-validates its items inside the transaction; `menus:seed` validates an existing menu and assigns only an empty, unchanged location.
+- A top bar holding only the secondary menu is hidden below `md`.
+- The drawer re-opens the current page's branch after client-side navigation.
+- Removed the unused `buildMenuTree`/`flattenMenuTree`; typed `titled` and the controller's source states.
+
+**Articles, API.**
+- One plain-text conversion (`htmlToPlainText`, `@melbourne-sphere/domain`) for the API and the worker: block elements are word breaks and entities are decoded, so search text, derived summaries and the 200-character rule agree. Re-run `blog:backfill-search-text` after deploying.
+- A reply (visitor or team) must belong to a shown thread.
+- Comment moderation, redaction and team replies, published article edits, and author edits and activation now purge the web cache (`comments`, `comments:<post>`, `post:<slug>`, new `author:<slug>`).
+- `restoreRevision` checks the version before recording the revision (409, not a duplicate-key error).
+- No preview link for an archived article.
+- One `visibleCommentsWhere` shared by the count and the list.
+- The preview key prefix is shared.
+- Unused domain exports were removed and stale docs corrected.
+
+**Articles, admin.**
+- Restoring a version replaces the text on screen.
+- Reloads never overwrite unsaved edits.
+- A published article's address cannot be changed while there are unsaved edits.
+- Switching an old article to the rich editor counts as an edit.
+- The action dialog cannot be submitted twice.
+- Embeds may only sit at the top level of the document.
+- The image dialog no longer leaks object URLs and uses the right rendition when an existing image changes size.
+- Live regions announce the publish headline, not every keystroke.
+
+**Articles, web.**
+- "Show more comments" loads further pages of threads (20 each).
+- Analytics never load or send on `/preview/*` (the address carries the token).
+- Reading depth is also checked when the page opens.
+- The comment email hint is linked to its field.
+- Embed markers are checked with the domain rules.
+- Removed the unused dark share-links variant, duplicated grid and breadcrumb code, and a contradictory comment.
+
+**Left as they are (recorded).**
+- Menus duplication refactors: shared address/state helper for the resolver and link sources; one reference lookup; the icon map copied in admin and web.
+- The unreachable "Missing" label in the sources panel.
+- Double-submit protection for team replies beyond the dialog's loading state.
+- The RSS alternate link declared in both the layout and `pageMetadata`, which are both needed.
+- The preview-session finding was checked and is not a defect: links are bound to the creating session in the API.
+
+**Checks.** Domain build; API `tsc` and oxlint; worker, admin and web `tsc`; admin and web eslint on every changed area — all clean. Dev runtime: API and public pages respond, and the search text was re-backfilled with the new conversion. Test suites still not run.

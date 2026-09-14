@@ -33,6 +33,8 @@ const USAGE_LABELS: Record<string, { what: string; href: (id: string) => string 
   category: { what: 'Business category', href: (id) => `/categories/${encodeURIComponent(id)}` },
   area: { what: 'Local area', href: (id) => `/areas/${encodeURIComponent(id)}` },
   blogCategory: { what: 'Blog category', href: (id) => `/blog-categories/${encodeURIComponent(id)}` },
+  blogTag: { what: 'Blog tag', href: (id) => `/blog-tags/${encodeURIComponent(id)}` },
+  faq: { what: 'FAQ', href: (id) => `/website/faqs/${encodeURIComponent(id)}` },
   // A settings document, identified as `group.key`; the two that hold images
   // each have their own screen.
   setting: { what: 'Site settings', href: (id) => (id === 'website.home' ? '/settings' : '/settings/general') },

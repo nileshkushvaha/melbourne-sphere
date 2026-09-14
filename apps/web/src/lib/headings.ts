@@ -58,3 +58,37 @@ export function withHeadingAnchors(body: string): { html: string; headings: Head
   });
   return { html, headings };
 }
+
+export interface OutlineHeading extends Heading {
+  level: 2 | 3;
+}
+
+const OUTLINE_HEADING = /<(h[23])(\s[^>]*)?>([\s\S]*?)<\/\1>/gi;
+
+/** The prefix on article section ids, so a heading can never take an id the page itself uses (e.g. `comments-heading`). */
+export const SECTION_ID_PREFIX = 'section-';
+
+/**
+ * Sections and subsections of an article, for its table of contents (SRS 1.10
+ * BLOG 004). Ids are added when the page is rendered, never stored, so every
+ * existing article gets them without rewriting its body. The sanitiser does not
+ * keep `id` attributes, so every id here is generated, prefixed and unique.
+ */
+export function articleOutline(body: string): { html: string; headings: OutlineHeading[] } {
+  const headings: OutlineHeading[] = [];
+  const used = new Set<string>();
+  const html = body.replace(OUTLINE_HEADING, (match, tag: string, attributes: string | undefined, inner: string) => {
+    const label = text(inner);
+    const slug = slugify(label);
+    if (!label || !slug) return match;
+    const base = `${SECTION_ID_PREFIX}${slug}`;
+    let id = base;
+    for (let n = 2; used.has(id); n += 1) id = `${base}-${n}`;
+    used.add(id);
+    const level = tag.toLowerCase() === 'h3' ? 3 : 2;
+    headings.push({ id, text: label, level });
+    const kept = (attributes ?? '').replace(/\s+id\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+    return `<${tag}${kept} id="${id}">${inner}</${tag}>`;
+  });
+  return { html, headings };
+}

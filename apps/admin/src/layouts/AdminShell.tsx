@@ -115,6 +115,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Website',
     items: [
       { key: '/website/pages', label: 'Pages', icon: <FileTextOutlined aria-hidden="true" />, permission: 'settings.manage' },
+      { key: '/website/menus', label: 'Menus', icon: <MenuOutlined aria-hidden="true" />, permission: 'website.menus.view' },
       { key: '/website/faqs', label: 'FAQs', icon: <QuestionCircleOutlined aria-hidden="true" />, permission: 'website.faqs.view' },
       { key: '/website/service-alerts', label: 'Service alerts', icon: <AlertOutlined aria-hidden="true" />, permission: 'website.alerts.view' },
       { key: '/website/testimonials', label: 'Testimonials', icon: <CommentOutlined aria-hidden="true" />, permission: 'website.testimonials.view' },

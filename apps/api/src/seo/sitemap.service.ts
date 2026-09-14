@@ -92,6 +92,16 @@ export class SitemapService {
     const entries = rows.map((row) => ({ path: `/blog/${row.slug}`, lastModified: row.updatedAt.toISOString() }));
     // The blog index is only listed once it has something to show.
     if (rows.length > 0) entries.unshift({ path: '/blog', lastModified: latest(rows[0]?.updatedAt).toISOString() });
+    // Author pages exist only for active authors with a published article (SRS 1.10 BLOG 005).
+    const authors = await db.author.findMany({
+      where: { active: true, posts: { some: { status: 'published' } } },
+      select: { slug: true, updatedAt: true, posts: { where: { status: 'published' }, orderBy: { updatedAt: 'desc' }, take: 1, select: { updatedAt: true } } },
+      take: MAX_ENTRIES,
+    });
+    for (const author of authors) {
+      const changed = Math.max(author.updatedAt.getTime(), author.posts[0]?.updatedAt.getTime() ?? 0);
+      entries.push({ path: `/blog/author/${author.slug}`, lastModified: new Date(changed).toISOString() });
+    }
     return entries;
   }
 

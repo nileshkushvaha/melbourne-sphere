@@ -18,7 +18,7 @@
  * `MediaAsset` relations that make an image in use. The names are the Prisma
  * relation fields, so a query can be built from them directly.
  */
-export const MEDIA_USAGE_RELATIONS = ['businesses', 'coverOf', 'shareImageOf', 'pageShareImageOf', 'authorOf', 'testimonials', 'partners', 'categoryImageOf', 'categoryShareImageOf', 'areaImageOf', 'areaShareImageOf', 'businessShareImageOf', 'blogCategoryShareImageOf'] as const;
+export const MEDIA_USAGE_RELATIONS = ['businesses', 'coverOf', 'shareImageOf', 'pageShareImageOf', 'authorOf', 'testimonials', 'partners', 'categoryImageOf', 'categoryShareImageOf', 'areaImageOf', 'areaShareImageOf', 'businessShareImageOf', 'blogCategoryShareImageOf', 'bodyReferences'] as const;
 
 export type MediaUsageRelation = (typeof MEDIA_USAGE_RELATIONS)[number];
 
@@ -68,3 +68,34 @@ export const MEDIA_SETTING_REFERENCES: readonly MediaSettingReference[] = [
     },
   },
 ];
+
+/**
+ * Rich text fields that can show images inside their HTML, by the resource type
+ * recorded in `content_media_references`.
+ */
+export const CONTENT_MEDIA_RESOURCES = ['post', 'static_page', 'author', 'faq', 'blog_category', 'blog_tag'] as const;
+export type ContentMediaResource = (typeof CONTENT_MEDIA_RESOURCES)[number];
+
+const MEDIA_ID = '[a-z0-9]{20,40}';
+/** `data-media-id="…"`, written by the editor on every image it inserts. */
+const DATA_ATTRIBUTE = new RegExp(`data-media-id=["'](${MEDIA_ID})["']`, 'gi');
+/**
+ * A published rendition's address. Every variant key is `media/<assetId>/…`
+ * (`objectKeyFor`), so an image inserted before the editor recorded ids is still
+ * recognised from the URL it was inserted with.
+ */
+const VARIANT_PATH = new RegExp(`\\bsrc=["'][^"']*/media/(${MEDIA_ID})/[^"']*["']`, 'gi');
+
+/**
+ * Image ids referenced by stored HTML, de-duplicated. Ids that no longer exist
+ * are the caller's to filter: this only reads the markup.
+ */
+export function extractMediaIds(...htmls: readonly (string | null | undefined)[]): string[] {
+  const ids = new Set<string>();
+  for (const html of htmls) {
+    if (!html) continue;
+    for (const match of html.matchAll(DATA_ATTRIBUTE)) ids.add(match[1]!.toLowerCase());
+    for (const match of html.matchAll(VARIANT_PATH)) ids.add(match[1]!.toLowerCase());
+  }
+  return [...ids];
+}

@@ -1,8 +1,9 @@
 'use client';
 
-import { useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Button, Input, Label } from '@melbourne-sphere/ui';
-import { COMMENT_LIMITS, newIdempotencyKey, submissionFailureMessage, validateCommentForm, type CommentFormValues, type FieldErrors } from '@/lib/submissions';
+import { COMMENT_LIMITS, newIdempotencyKey, submissionFailureMessage, validateCommentForm, withoutCaptchaError, type CommentFormValues, type FieldErrors } from '@/lib/submissions';
+import { TurnstileWidget, type TurnstileWidgetHandle } from './turnstile-widget';
 
 const EMPTY: CommentFormValues = { displayName: '', email: '', text: '', acknowledged: false };
 
@@ -12,6 +13,11 @@ interface Props {
   /** Linked only once an editor has published the page, so the form never points at a 404. */
   guidelinesHref: string | null;
   privacyHref: string | null;
+  /** Set when this form replies to a comment (SRS 1.10 COM 001: two levels). */
+  parentId?: string;
+  /** The name of the person being replied to. */
+  replyingTo?: string;
+  onCancel?: () => void;
 }
 
 function Required() {
@@ -31,7 +37,7 @@ function Required() {
  * decided. Nothing here relaxes validation, the honeypot, the captcha or the
  * acknowledgement — the box is never pre-ticked.
  */
-export function CommentForm({ postId, turnstileSiteKey, guidelinesHref, privacyHref }: Props) {
+export function CommentForm({ postId, turnstileSiteKey, guidelinesHref, privacyHref, parentId, replyingTo, onCancel }: Props) {
   const [values, setValues] = useState<CommentFormValues>(EMPTY);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -39,9 +45,20 @@ export function CommentForm({ postId, turnstileSiteKey, guidelinesHref, privacyH
   const [submitting, setSubmitting] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(() => newIdempotencyKey());
   const alertRef = useRef<HTMLParagraphElement | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstile = useRef<TurnstileWidgetHandle | null>(null);
+  const onToken = useCallback((token: string | null) => {
+    setCaptchaToken(token);
+    if (token) setErrors((current) => withoutCaptchaError(current));
+  }, []);
   // One prefix per instance, so ids stay unique if a page ever shows two forms.
   const uid = useId();
   const id = (name: string) => `${uid}-${name}`;
+  const textRef = useRef<HTMLTextAreaElement | null>(null);
+  // A reply form opens where the reader pressed Reply, so their typing goes straight into it.
+  useEffect(() => {
+    if (parentId) textRef.current?.focus();
+  }, [parentId]);
 
   if (!turnstileSiteKey) {
     return (
@@ -79,6 +96,7 @@ export function CommentForm({ postId, turnstileSiteKey, guidelinesHref, privacyH
     if (submitting) return;
     setFormError(null);
     const found = validateCommentForm(values);
+    if (!captchaToken) found.captchaToken = ['Please complete the security check'];
     setErrors(found);
     if (Object.keys(found).length > 0) {
       failWith('Please check the highlighted fields and try again.', found);
@@ -94,14 +112,17 @@ export function CommentForm({ postId, turnstileSiteKey, guidelinesHref, privacyH
           displayName: values.displayName.trim(),
           email: values.email.trim(),
           text: values.text.trim(),
+          parentId: parentId || undefined,
           acknowledged: values.acknowledged,
-          captchaToken: (data.get('cf-turnstile-response') as string | null) ?? undefined,
+          captchaToken,
           website: (data.get('website') as string | null) || undefined,
         }),
       });
       const payload = (await response.json().catch(() => null)) as { data?: { receiptId: string }; error?: { code?: string; fields?: FieldErrors } } | null;
       if (!response.ok) {
         failWith(submissionFailureMessage(response.status, payload?.error?.code), payload?.error?.fields ?? {});
+        // A token is single use: once the API has seen it, a retry needs a new one.
+        turnstile.current?.reset();
         return;
       }
       setReceipt(payload?.data?.receiptId ?? null);
@@ -110,6 +131,7 @@ export function CommentForm({ postId, turnstileSiteKey, guidelinesHref, privacyH
       setIdempotencyKey(newIdempotencyKey());
     } catch {
       failWith(submissionFailureMessage(0));
+      turnstile.current?.reset();
     } finally {
       setSubmitting(false);
     }
@@ -118,7 +140,7 @@ export function CommentForm({ postId, turnstileSiteKey, guidelinesHref, privacyH
   if (receipt) {
     return (
       <div role="status" className="rounded-card border border-success/30 bg-success/5 p-5">
-        <p className="font-semibold">Thanks — your comment has been submitted for review.</p>
+        <p className="font-semibold">Thanks — your {parentId ? 'reply' : 'comment'} has been submitted for review.</p>
         <p className="mt-1.5 text-sm text-text-muted">A moderator reads every comment before it appears, so it will not show on the page straight away. Your reference is {receipt}.</p>
       </div>
     );
@@ -148,8 +170,8 @@ export function CommentForm({ postId, turnstileSiteKey, guidelinesHref, privacyH
           <Label htmlFor={id('email')}>
             Email<Required />
           </Label>
-          <Input {...field('email', 'email')} value={values.email} onChange={(e) => set('email', e.target.value)} type="email" inputMode="email" maxLength={COMMENT_LIMITS.email.max} autoComplete="email" required />
-          <p className="mt-1.5 text-xs text-text-muted">Never published. Used only to contact you about this comment.</p>
+          <Input {...field('email', 'email')} aria-describedby={[`${id('email')}-hint`, fieldError('email') ? `${id('email')}-error` : null].filter(Boolean).join(' ')} value={values.email} onChange={(e) => set('email', e.target.value)} type="email" inputMode="email" maxLength={COMMENT_LIMITS.email.max} autoComplete="email" required />
+          <p id={`${id('email')}-hint`} className="mt-1.5 text-xs text-text-muted">Never published. Used only to contact you about this comment.</p>
           {fieldError('email') && (
             <p id={`${id('email')}-error`} className="mt-1.5 text-sm text-danger">
               {fieldError('email')}
@@ -160,10 +182,11 @@ export function CommentForm({ postId, turnstileSiteKey, guidelinesHref, privacyH
 
       <div>
         <Label htmlFor={id('text')}>
-          Your comment<Required />
+          {replyingTo ? `Your reply to ${replyingTo}` : 'Your comment'}<Required />
         </Label>
         <textarea
           {...field('text', 'text')}
+          ref={textRef}
           value={values.text}
           onChange={(e) => set('text', e.target.value)}
           rows={6}
@@ -221,13 +244,18 @@ export function CommentForm({ postId, turnstileSiteKey, guidelinesHref, privacyH
         )}
       </div>
 
-      <div className="cf-turnstile" data-sitekey={turnstileSiteKey} data-action="comment" />
+      <TurnstileWidget ref={turnstile} siteKey={turnstileSiteKey} action="comment" onToken={onToken} />
       {fieldError('captchaToken') && <p className="text-sm text-danger">{fieldError('captchaToken')}</p>}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <Button type="submit" disabled={submitting}>
-          {submitting ? 'Posting…' : 'Post comment'}
+          {submitting ? 'Posting…' : parentId ? 'Post reply' : 'Post comment'}
         </Button>
+        {onCancel && (
+          <button type="button" onClick={onCancel} className="inline-flex min-h-11 items-center rounded-full border border-border px-5 text-sm font-semibold transition-colors hover:border-border-strong hover:bg-sky-50">
+            Cancel
+          </button>
+        )}
         <p className="text-xs text-text-muted">Comments are moderated before publication.</p>
       </div>
     </form>

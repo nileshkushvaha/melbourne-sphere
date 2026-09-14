@@ -12,7 +12,7 @@ export function post(overrides: Partial<PostCardData> = {}): PostCardData {
     slug: 'where-to-find-laneway-coffee',
     excerpt: 'The lanes off Flinders Lane hold more roasters than any block in the city.',
     category: { name: 'City guides', slug: 'city-guides' },
-    author: { displayName: 'Dev Editor', slug: 'dev-editor', role: 'Editor', shortBio: null, bio: null, pronouns: null, location: null, websiteUrl: null, expertise: [], links: [], image: null },
+    author: { displayName: 'Dev Editor', slug: 'dev-editor', role: 'Editor', shortBio: null, bio: null, pronouns: null, location: null, websiteUrl: null, expertise: [], links: [], image: null, profilePath: null },
     tags: [],
     publishedAt: '2026-09-07T01:00:00.000Z',
     coverAlt: null,

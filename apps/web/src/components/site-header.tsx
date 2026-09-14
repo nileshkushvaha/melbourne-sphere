@@ -2,16 +2,18 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { MailIcon, PhoneIcon } from 'lucide-react';
 import { contactChannelFrom } from '@/lib/site';
-import { fetchSiteSettings } from '@/lib/api';
+import { fetchMenus, fetchSiteSettings } from '@/lib/api';
 import { SocialLinks } from './social-links';
-import { HeaderNav, type NavLink } from './header-nav';
+import { PrimaryNav } from './navigation/primary-nav';
+import { SecondaryNav } from './navigation/secondary-nav';
 
 /**
- * Public navigation (SRS UX 002): a white navigation bar above the hero,
- * keyboard reachable and usable without JavaScript. The name, logo, contact
- * strip and social profiles all come from the general settings an administrator
- * edits (CFG 001); anything unset is omitted rather than rendered blank, and the
- * listing action is always offered but never points at a dead address.
+ * Public navigation (SRS UX 002, 1.9 MENU 003–006): a white navigation bar
+ * above the hero, keyboard reachable and usable without JavaScript. The name,
+ * logo, contact strip and social profiles come from the general settings
+ * (CFG 001); the primary and secondary menus come from Website → Menus, already
+ * filtered by the API to what a visitor can open. Anything unset is omitted
+ * rather than rendered blank.
  *
  * The contact strip scrolls away and the navigation stays pinned (client
  * instruction, 7 Sep 2026). They are siblings rather than one sticky block
@@ -20,28 +22,18 @@ import { HeaderNav, type NavLink } from './header-nav';
  * scroll listener is involved, so there is nothing to jank on a slow device.
  */
 export async function SiteHeader() {
-  const settings = await fetchSiteSettings();
-  // About and Contact are product routes that always resolve (About became one
-  // at client instruction, 13 Sep 2026), so neither depends on what has been
-  // published (SRS UX 002/003).
-  const links: NavLink[] = [
-    { href: '/', label: 'Home' },
-    { href: '/business', label: 'Businesses' },
-    { href: '/blog', label: 'Blog' },
-    { href: '/about', label: 'About' },
-    { href: '/contact', label: 'Contact' },
-  ];
+  const [settings, menus] = await Promise.all([fetchSiteSettings(), fetchMenus()]);
   const channel = contactChannelFrom(settings);
-  // The contact page rather than a mail client: the form is the route that
-  // works for everybody, and it is where the same words in the footer lead.
-  const action = { href: '/contact', label: 'Add a business' };
   const { phone } = settings.contact;
-  const topBar = settings.headerTopBarEnabled && (phone !== null || channel.email !== null || settings.social.length > 0);
+  const contactDetails = phone !== null || channel.email !== null || settings.social.length > 0;
+  // The secondary menu is hidden below the tablet breakpoint (it lives in the drawer there),
+  // so a strip holding only that menu is hidden there too.
+  const topBar = settings.headerTopBarEnabled && (contactDetails || menus.secondary.length > 0);
 
   return (
     <>
       {topBar && (
-        <div aria-label="Contact details" className="ms-on-dark border-b border-white/10 bg-band-deep text-band-text">
+        <div aria-label="Contact details" className={`ms-on-dark border-b border-white/10 bg-band-deep text-band-text ${contactDetails ? '' : 'hidden md:block'}`}>
           <div className="ms-container flex flex-wrap items-center justify-between gap-x-6 gap-y-1 py-1 text-xs">
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
               {phone && (
@@ -57,7 +49,10 @@ export async function SiteHeader() {
                 </a>
               )}
             </div>
-            <SocialLinks links={settings.social} label={`${settings.name} on social media`} tone="dark" />
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+              <SecondaryNav items={menus.secondary} />
+              <SocialLinks links={settings.social} label={`${settings.name} on social media`} tone="dark" />
+            </div>
           </div>
         </div>
       )}
@@ -75,7 +70,7 @@ export async function SiteHeader() {
               />
               </span>
           </Link>
-          <HeaderNav links={links} action={action} />
+          <PrimaryNav primary={menus.primary} secondary={menus.secondary} />
         </div>
       </header>
     </>

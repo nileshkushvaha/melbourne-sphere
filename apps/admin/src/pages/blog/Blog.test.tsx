@@ -36,11 +36,10 @@ describe('blog admin screens', () => {
         return jsonResponse(201, { data: { ...post, id: 'p2' } });
       }
       if (url === '/api/v1/admin/posts/p1' && method === 'GET') return jsonResponse(200, { data: post });
-      // The preview is the server's rendering of the saved draft, not the
-      // editor's own — so the screen asks for it rather than rendering the
-      // stored HTML itself.
-      if (url === '/api/v1/admin/posts/p1/preview' && method === 'GET') {
-        return jsonResponse(200, { data: { id: 'p1', title: post.title, excerpt: post.excerpt, sanitizedBody: post.sanitizedBody, authorName: 'Priya Raman', categoryName: 'City life', status: post.status, noindex: true } });
+      // The preview is the server's rendering of what is typed — the same
+      // sanitiser a save uses — not the editor's own HTML.
+      if (url === '/api/v1/admin/posts/preview-render' && method === 'POST') {
+        return jsonResponse(200, { data: { title: post.title, excerpt: post.excerpt, excerptGenerated: false, sanitizedBody: post.sanitizedBody, authorName: 'Priya Raman', categoryName: 'City life', cover: null, readingMinutes: 1, noindex: true } });
       }
       if (url === '/api/v1/admin/posts/p1/publish') {
         publishAttempts += 1;
@@ -65,7 +64,7 @@ describe('blog admin screens', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Articles' })).toBeInTheDocument();
     const row = (await screen.findByRole('link', { name: 'Best laneway coffee' })).closest('tr')!;
     expect(within(row).getByText('draft')).toBeInTheDocument();
-    expect(within(row).getByText('incomplete')).toBeInTheDocument();
+    expect(within(row).getByText('Not ready to publish')).toBeInTheDocument();
     expect(calls[0]?.url).toBe('/api/v1/admin/posts?status=draft&page=1&pageSize=20');
   });
 
@@ -74,11 +73,16 @@ describe('blog admin screens', () => {
     renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/posts/p1'] });
     expect(await screen.findByRole('heading', { level: 1, name: 'Best laneway coffee' })).toBeInTheDocument();
     expect(await screen.findByText('Not ready to publish')).toBeInTheDocument();
+    await ue.click(screen.getByRole('button', { name: /^preview$/i }));
     const preview = await screen.findByTestId('post-preview');
     expect(preview.innerHTML).toBe('<h2>Coffee</h2><p>Body text.</p>');
+    // It renders what is in the form, unsaved or not, through the API.
+    const rendered = calls.find((c) => c.url === '/api/v1/admin/posts/preview-render');
+    expect(JSON.parse(rendered!.body!)).toMatchObject({ title: 'Best laneway coffee', bodyFormat: 'markdown' });
     // The preview says whose article it is and that it is never public.
     expect(screen.getByText(/By Priya Raman in City life/)).toBeInTheDocument();
     expect(screen.getByText(/never shown publicly and is never indexed/i)).toBeInTheDocument();
+    await ue.click(screen.getByRole('button', { name: /close/i }));
 
     await ue.click(screen.getByRole('button', { name: /^publish article$/i }));
     const dialog = await screen.findByRole('dialog');
@@ -96,9 +100,11 @@ describe('blog admin screens', () => {
     await screen.findByRole('heading', { level: 1, name: 'Best laneway coffee' });
     await ue.click(screen.getByRole('button', { name: /^schedule article$/i }));
     const dialog = await screen.findByRole('dialog');
+    // A calendar picker that also accepts typing, in the Melbourne wall-clock time.
     const picker = within(dialog).getByLabelText(/publish at \(melbourne time/i);
+    await ue.click(picker);
     await ue.clear(picker);
-    await ue.type(picker, '2026-10-04T10:00');
+    await ue.type(picker, '2026-10-04 10:00{Enter}');
     await ue.click(within(dialog).getByRole('button', { name: /^schedule article$/i }));
     const scheduled = calls.find((c) => c.url.endsWith('/schedule'))!;
     // 10:00 on 2026-10-04 is AEDT (UTC+11), so 23:00Z the previous day.

@@ -15,6 +15,14 @@ export interface ReviewFormValues {
 
 export type FieldErrors = Record<string, string[]>;
 
+/** Drops a stale security-check message once the visitor has completed the challenge. */
+export function withoutCaptchaError(errors: FieldErrors): FieldErrors {
+  if (!errors.captchaToken) return errors;
+  const next = { ...errors };
+  delete next.captchaToken;
+  return next;
+}
+
 /** Client-side pre-check mirroring the API's rules; the API remains the authority. */
 export function validateReviewForm(values: ReviewFormValues): FieldErrors {
   const errors: FieldErrors = {};

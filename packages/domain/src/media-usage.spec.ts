@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MEDIA_SETTING_REFERENCES, MEDIA_USAGE_RELATIONS, unusedMediaRelations } from './media-usage.js';
+import { MEDIA_SETTING_REFERENCES, MEDIA_USAGE_RELATIONS, extractMediaIds, unusedMediaRelations } from './media-usage.js';
 
 describe('media usage', () => {
   it('counts every place an image can appear, not only listings, articles and authors', () => {
@@ -7,7 +7,7 @@ describe('media usage', () => {
     // and show another, so dropping the cover must not make the share image
     // look unused and collectable.
     expect(MEDIA_USAGE_RELATIONS).toEqual(
-      expect.arrayContaining(['businesses', 'coverOf', 'shareImageOf', 'pageShareImageOf', 'authorOf', 'testimonials', 'partners', 'categoryImageOf', 'categoryShareImageOf', 'areaImageOf', 'areaShareImageOf', 'businessShareImageOf', 'blogCategoryShareImageOf']),
+      expect.arrayContaining(['businesses', 'coverOf', 'shareImageOf', 'pageShareImageOf', 'authorOf', 'testimonials', 'partners', 'categoryImageOf', 'categoryShareImageOf', 'areaImageOf', 'areaShareImageOf', 'businessShareImageOf', 'blogCategoryShareImageOf', 'bodyReferences']),
     );
     expect(unusedMediaRelations()).toEqual({
       businesses: { none: {} },
@@ -23,6 +23,7 @@ describe('media usage', () => {
       areaShareImageOf: { none: {} },
       businessShareImageOf: { none: {} },
       blogCategoryShareImageOf: { none: {} },
+      bodyReferences: { none: {} },
     });
   });
 
@@ -39,5 +40,15 @@ describe('media usage', () => {
       expect(ref.mediaIds('text')).toEqual([]);
       expect(ref.mediaIds({ heroSlides: 'not a list' })).toEqual([]);
     }
+  });
+
+  it('finds images inside rich text by recorded id and by rendition address', () => {
+    const id = 'cmf0abcdefghijklmnopqrstu';
+    const other = 'cmf0zyxwvutsrqponmlkjihgf';
+    const html = `<p>Hi</p><img src="https://cdn.example.com/media/${id}/k2j3h4.webp" alt="A"><figure><img data-media-id="${other}" src="https://cdn.example.com/media/${other}/x.webp" alt="B"></figure><img src="https://elsewhere.example/photo.jpg" alt="C">`;
+    expect(extractMediaIds(html, null, `<img src="/media/${id}/again.webp">`).sort()).toEqual([id, other].sort());
+    expect(extractMediaIds('<p>No pictures</p>', undefined, '')).toEqual([]);
+    // Text that merely mentions a path is not an image.
+    expect(extractMediaIds(`<p>see /media/${id}/x.webp</p>`)).toEqual([]);
   });
 });

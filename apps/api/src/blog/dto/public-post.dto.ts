@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
 import { MAX_PAGE_SIZE } from '../../common/pagination.js';
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -11,6 +11,8 @@ export const BLOG_PAGE_SIZE = 12;
 export class ListPublicPostsQueryDto {
   @ApiPropertyOptional({ description: 'Blog category slug' }) @IsOptional() @IsString() @MaxLength(100) @Matches(SLUG, { message: 'category must be a slug' }) category?: string;
   @ApiPropertyOptional({ description: 'Tag slug' }) @IsOptional() @IsString() @MaxLength(100) @Matches(SLUG, { message: 'tag must be a slug' }) tag?: string;
+  @ApiPropertyOptional({ description: 'Author slug' }) @IsOptional() @IsString() @MaxLength(100) @Matches(SLUG, { message: 'author must be a slug' }) author?: string;
+  @ApiPropertyOptional({ enum: ['true'], description: 'Only featured articles, most recently featured first (SRS 1.10 BLOG 005)' }) @IsOptional() @IsIn(['true']) featured?: 'true';
   @ApiPropertyOptional({ maxLength: 120 }) @IsOptional() @Transform(({ value }) => (typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : value)) @IsString() @MaxLength(120) q?: string;
   @ApiPropertyOptional({ minimum: 1, default: 1 }) @IsOptional() @Type(() => Number) @IsInt() @Min(1) page = 1;
   @ApiPropertyOptional({ minimum: 1, maximum: MAX_PAGE_SIZE, default: BLOG_PAGE_SIZE }) @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(MAX_PAGE_SIZE) pageSize = BLOG_PAGE_SIZE;
@@ -40,6 +42,15 @@ export class PublicAuthorDto {
   @ApiProperty({ type: [String] }) expertise!: string[];
   @ApiProperty({ type: [PublicAuthorLinkDto] }) links!: PublicAuthorLinkDto[];
   @ApiProperty({ type: PublicAuthorImageDto, nullable: true }) image!: PublicAuthorImageDto | null;
+  @ApiProperty({ type: String, nullable: true, description: 'The public author page, when the author has one (SRS 1.10 BLOG 005)' }) profilePath!: string | null;
+}
+
+/** A public author page (SRS 1.10 BLOG 005): an active author with at least one published article. */
+export class PublicAuthorPageDto extends PublicAuthorDto {
+  @ApiProperty({ type: String, nullable: true }) seoTitle!: string | null;
+  @ApiProperty({ type: String, nullable: true }) seoDescription!: string | null;
+  @ApiProperty() postCount!: number;
+  @ApiProperty({ format: 'date-time' }) updatedAt!: string;
 }
 
 export class PublicTermRefDto {
@@ -69,6 +80,15 @@ export class PublicPostCardDto {
   @ApiProperty({ type: String, nullable: true, description: 'Photographer credit recorded with the cover image. Several licences require it to be shown.' }) coverCredit!: string | null;
 }
 
+/** A published business shown as a card inside an article (SRS 1.10 BLOG 004). */
+export class PublicEmbeddedBusinessDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() slug!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ type: String, nullable: true }) categoryName!: string | null;
+  @ApiProperty({ type: String, nullable: true }) areaName!: string | null;
+}
+
 export class PublicPostDto extends PublicPostCardDto {
   @ApiProperty({ description: 'Allowlist-sanitised HTML' }) body!: string;
   @ApiProperty({ type: String, nullable: true }) seoTitle!: string | null;
@@ -78,6 +98,7 @@ export class PublicPostDto extends PublicPostCardDto {
   @ApiProperty({ format: 'date-time' }) firstPublishedAt!: string;
   @ApiProperty({ format: 'date-time' }) updatedAt!: string;
   @ApiProperty({ type: [PublicPostCardDto], description: 'Up to four related articles (SRS BLOG 004)' }) related!: PublicPostCardDto[];
+  @ApiProperty({ type: [PublicEmbeddedBusinessDto], description: 'Published businesses the body shows as cards; a card whose business is not here is not shown' }) businesses!: PublicEmbeddedBusinessDto[];
 }
 
 export class PublicBlogTermDto {

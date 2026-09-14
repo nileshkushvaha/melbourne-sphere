@@ -7,7 +7,7 @@ import { IDEMPOTENCY_HEADER, IdempotencyService } from '../common/idempotency.se
 import { getRequestId } from '../common/request-id.js';
 import { CommentsService } from './comments.service.js';
 import { CommentReceiptDto, ListPublicCommentsQueryDto, PublicCommentDto, SubmitCommentDto } from './dto/comment.dto.js';
-import { ListPublicPostsQueryDto, PublicBlogTermDto, PublicPostCardDto, PublicPostDto } from './dto/public-post.dto.js';
+import { ListPublicPostsQueryDto, PublicAuthorPageDto, PublicBlogTermDto, PublicPostCardDto, PublicPostDto } from './dto/public-post.dto.js';
 import { BlogPublicService } from './blog-public.service.js';
 
 const ctxOf = (req: Request): RequestContext => ({ ip: req.ip ?? 'unknown', userAgent: req.headers['user-agent'], requestId: getRequestId(req as AuthenticatedRequest) });
@@ -25,7 +25,7 @@ export class BlogPublicController {
 
   @Get('posts')
   @Header('Cache-Control', 'public, max-age=60')
-  @ApiOperation({ summary: 'Published articles, newest first (category, tag, q, page, pageSize)' })
+  @ApiOperation({ summary: 'Published articles, newest first (category, tag, author, featured, q, page, pageSize)' })
   @ApiOkResponse({ type: [PublicPostCardDto] })
   list(@Query() query: ListPublicPostsQueryDto) {
     return this.blog.list(query);
@@ -43,6 +43,14 @@ export class BlogPublicController {
   @ApiOkResponse({ type: [PublicBlogTermDto] })
   async tags() {
     return { data: await this.blog.terms('tag') };
+  }
+
+  @Get('authors/:slug')
+  @Header('Cache-Control', 'public, max-age=60')
+  @ApiOperation({ summary: 'An author page: active authors with at least one published article only (404 otherwise)' })
+  @ApiOkResponse({ type: PublicAuthorPageDto })
+  async author(@Param('slug') slug: string) {
+    return { data: await this.blog.author(slug) };
   }
 
   @Get('posts/:id/comments')
@@ -73,6 +81,16 @@ export class BlogPublicController {
     const payload = { data } as Record<string, unknown>;
     await this.idempotency.remember(scope, key, body, { status: 201, body: payload });
     return payload;
+  }
+
+  @Get('preview/posts/:token')
+  @Header('Cache-Control', 'no-store, private')
+  @Header('X-Robots-Tag', 'noindex, nofollow')
+  @Header('Referrer-Policy', 'no-referrer')
+  @ApiOperation({ summary: 'A draft article behind a private preview link issued to a signed-in editor (SRS BLOG 003); 404 once expired' })
+  @ApiOkResponse({ type: PublicPostDto })
+  async previewPost(@Param('token') token: string) {
+    return { data: await this.blog.previewByToken(token) };
   }
 
   @Get('posts/:slug')

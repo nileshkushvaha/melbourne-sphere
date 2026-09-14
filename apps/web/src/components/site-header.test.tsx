@@ -1,64 +1,126 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_SITE_SETTINGS } from '@/lib/api';
+import { DEFAULT_SITE_SETTINGS, type PublicMenuItem, type PublicMenus, type SiteSettings } from '@/lib/api';
+import { DEFAULT_MENUS } from '@/lib/default-menus';
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/' }));
+vi.mock('next/navigation', () => ({ usePathname: () => '/blog/a-long-read' }));
 
-const fetchStaticPages = vi.fn<() => Promise<{ slug: string; title: string }[]>>();
+const fetchMenus = vi.fn<() => Promise<PublicMenus>>();
+const fetchSiteSettings = vi.fn<() => Promise<SiteSettings>>();
 vi.mock('@/lib/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api')>();
-  return {
-    ...actual,
-    fetchStaticPages: () => fetchStaticPages(),
-    fetchSiteSettings: async () => DEFAULT_SITE_SETTINGS,
-    fetchFaqs: async () => [],
-  };
+  return { ...actual, fetchMenus: () => fetchMenus(), fetchSiteSettings: () => fetchSiteSettings() };
 });
 
 const loadHeader = async () => (await import('./site-header')).SiteHeader;
 const loadFooter = async () => (await import('./site-footer')).SiteFooter;
 
-/**
- * Publication-aware navigation (SRS UX 002, CFG 002): a link appears only for a
- * page a visitor can actually open, so the navigation never points at a 404.
- */
-// Each case re-imports the header after resetting the module registry, so the
-// first assertion in a cold run waits on a real compile. The default 5 s is
-// enough on an idle machine and not enough on a busy one; this is about the
-// compile, not about the behaviour under test.
+const item = (id: string, label: string, href: string | null, extra: Partial<PublicMenuItem> = {}): PublicMenuItem => ({
+  id,
+  label,
+  href,
+  external: false,
+  newTab: false,
+  rel: null,
+  title: null,
+  description: null,
+  icon: null,
+  style: 'link',
+  children: [],
+  ...extra,
+});
+
+const MENUS: PublicMenus = {
+  primary: [
+    item('home', 'Home', '/'),
+    item('businesses', 'Businesses', '/business', { children: [item('cbd', 'Melbourne CBD', '/business/area/melbourne-cbd', { description: 'The city centre' })] }),
+    item('blog', 'Blog', '/blog'),
+    item('add', 'Add a business', '/contact', { style: 'button' }),
+  ],
+  secondary: [item('help', 'Help', '/faqs')],
+  footer: [
+    item('areas', 'Local areas', null, { children: [item('carlton', 'Carlton', '/business/area/carlton')] }),
+    item('info', 'Information', null, { children: [item('partner', 'Partner site', 'https://example.com', { external: true, newTab: true, rel: 'noopener noreferrer' })] }),
+  ],
+  footer_bottom: [item('privacy', 'Privacy Policy', '/privacy')],
+};
+
+// Each case re-imports the component after resetting the module registry, so
+// the first assertion in a cold run waits on a real compile.
 const MODULE_LOAD_TIMEOUT_MS = 20_000;
 
-describe('Navigation to the About page', () => {
+/**
+ * Menu-driven navigation (SRS 1.9 MENU 005–006): the shell renders exactly
+ * what the API resolved, so it never keeps a list of its own.
+ */
+describe('Header navigation from menus', () => {
   beforeEach(() => {
     vi.resetModules();
-    fetchStaticPages.mockResolvedValue([]);
+    fetchMenus.mockResolvedValue(MENUS);
+    fetchSiteSettings.mockResolvedValue(DEFAULT_SITE_SETTINGS);
   });
 
-  it('always links About from the header, because it is a product route like Contact', async () => {
+  it('renders the primary menu, marks the section of the current page and shows button items as the call to action', async () => {
     const SiteHeader = await loadHeader();
     render(await SiteHeader());
-    // The header renders a desktop and a mobile navigation; each carries one
-    // About link, and both point at the same address.
-    const links = screen.getAllByRole('link', { name: 'About' });
-    expect(links.length).toBeGreaterThan(0);
-    for (const link of links) expect(link).toHaveAttribute('href', '/about');
-    expect(screen.getAllByRole('link', { name: 'Contact' }).length).toBeGreaterThan(0);
+    const main = screen.getByRole('navigation', { name: 'Main' });
+    expect(within(main).getByRole('link', { name: 'Blog' })).toHaveAttribute('aria-current', 'page');
+    expect(within(main).queryByRole('link', { name: 'Add a business' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Add a business' })).toHaveAttribute('href', '/contact');
   }, MODULE_LOAD_TIMEOUT_MS);
 
-  it('links About in the footer, then the published pages, and nothing that is still a draft', async () => {
-    fetchStaticPages.mockResolvedValue([
-      { slug: 'privacy', title: 'Privacy Policy' },
-      // A page created after this code was written needs no change here to
-      // appear (SRS 1.7).
-      { slug: 'community-guidelines', title: 'Community guidelines' },
-    ]);
+  it('opens a submenu with its own button, keeps the parent a link, and closes it with Escape', async () => {
+    const SiteHeader = await loadHeader();
+    render(await SiteHeader());
+    const main = screen.getByRole('navigation', { name: 'Main' });
+    expect(within(main).getByRole('link', { name: 'Businesses' })).toHaveAttribute('href', '/business');
+    const toggle = within(main).getByRole('button', { name: 'Businesses submenu' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(document.getElementById(toggle.getAttribute('aria-controls')!)).toHaveAttribute('data-open');
+
+    fireEvent.keyDown(toggle, { key: 'Escape' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveFocus();
+  }, MODULE_LOAD_TIMEOUT_MS);
+
+  it('shows the contact strip for a secondary menu even when no contact details are set', async () => {
+    fetchSiteSettings.mockResolvedValue({ ...DEFAULT_SITE_SETTINGS, headerTopBarEnabled: true });
+    const SiteHeader = await loadHeader();
+    render(await SiteHeader());
+    const secondary = screen.getByRole('navigation', { name: 'Secondary' });
+    expect(within(secondary).getByRole('link', { name: 'Help' })).toHaveAttribute('href', '/faqs');
+  }, MODULE_LOAD_TIMEOUT_MS);
+
+  it('falls back to product routes only, so a failed menu read never links to a 404', () => {
+    const hrefs = [...DEFAULT_MENUS.primary, ...DEFAULT_MENUS.footer.flatMap((column) => column.children)].map((entry) => entry.href);
+    expect(new Set(hrefs)).toEqual(new Set(['/', '/business', '/blog', '/about', '/contact']));
+    expect(DEFAULT_MENUS.footer_bottom).toEqual([]);
+  });
+});
+
+describe('Footer navigation from menus', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    fetchMenus.mockResolvedValue(MENUS);
+    fetchSiteSettings.mockResolvedValue(DEFAULT_SITE_SETTINGS);
+  });
+
+  it('renders one labelled column per top-level item, the bottom links, and says when a link opens a new tab', async () => {
     const SiteFooter = await loadFooter();
     const { container } = render(await SiteFooter());
     const footer = within(container);
-    expect(footer.getByRole('link', { name: 'About us' })).toHaveAttribute('href', '/about');
-    expect(footer.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy');
-    expect(footer.getByRole('link', { name: 'Community guidelines' })).toHaveAttribute('href', '/community-guidelines');
-    expect(footer.queryByRole('link', { name: /terms/i })).not.toBeInTheDocument();
+    const areas = footer.getByRole('navigation', { name: 'Local areas' });
+    expect(within(areas).getByRole('link', { name: 'Carlton' })).toHaveAttribute('href', '/business/area/carlton');
+    const partner = footer.getByRole('link', { name: /Partner site/ });
+    expect(partner).toHaveAttribute('target', '_blank');
+    expect(partner).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(partner).toHaveTextContent('(opens in a new tab)');
+    expect(within(footer.getByRole('navigation', { name: 'Legal' })).getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy');
+    // Nothing is hard-coded any more: a link the menu does not hold is not rendered.
+    expect(footer.queryByRole('link', { name: 'Latest articles' })).not.toBeInTheDocument();
   }, MODULE_LOAD_TIMEOUT_MS);
 });

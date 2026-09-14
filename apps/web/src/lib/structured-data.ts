@@ -211,7 +211,7 @@ export function blogPostingJsonLd(post: PostDetail): JsonLd {
       description: post.author.shortBio ?? undefined,
       image: post.author.image?.url ?? undefined,
       sameAs: post.author.links.map((link) => link.url),
-      url: post.author.websiteUrl ?? undefined,
+      url: post.author.profilePath ? absoluteUrl(post.author.profilePath) : (post.author.websiteUrl ?? undefined),
     }),
     publisher: { '@id': `${siteOrigin()}/#organization` },
   });
@@ -270,5 +270,28 @@ export function aboutPageJsonLd(options: { name: string; description?: string | 
     isPartOf: { '@id': `${siteOrigin()}/#website` },
     about: { '@id': `${siteOrigin()}/#organization` },
     publisher: { '@id': `${siteOrigin()}/#organization` },
+  });
+}
+
+/**
+ * `ProfilePage` for an author page (SRS 1.10 BLOG 005), describing only what
+ * the page shows: the author as a `Person` with their published profile.
+ */
+export function profilePageJsonLd(author: PostDetail['author'] & { updatedAt: string }): JsonLd {
+  const url = absoluteUrl(`/blog/author/${author.slug}`);
+  return compact({
+    '@context': 'https://schema.org',
+    '@type': 'ProfilePage',
+    url,
+    dateModified: author.updatedAt,
+    mainEntity: compact({
+      '@type': 'Person',
+      '@id': `${url}#person`,
+      name: author.displayName,
+      jobTitle: author.role ?? undefined,
+      description: author.shortBio ?? undefined,
+      image: author.image?.url ?? undefined,
+      sameAs: [...author.links.map((link) => link.url), ...(author.websiteUrl ? [author.websiteUrl] : [])],
+    }),
   });
 }

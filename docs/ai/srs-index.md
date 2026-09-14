@@ -1,6 +1,6 @@
 # SRS navigation index
 
-Index into `docs/Melbourne_Sphere_Technical_SRS_v1.md` (889 lines, MD5 `c444e13d22d55e83a63f152714a354c1` on 2026-09-08; SRS revision 1.7). It maps implementation areas to the SRS's own headings and requirement IDs so a session reads the complete relevant sections instead of the whole document. It is not a specification: when in doubt, open the section. Line numbers are approximate anchors for `sed -n`; headings are exact.
+Index into `docs/Melbourne_Sphere_Technical_SRS_v1.md` (912 lines, MD5 `c918ac23b126e8f8f9f4f6a749583830` on 2026-09-14; SRS revision 1.10). It maps implementation areas to the SRS's own headings and requirement IDs so a session reads the complete relevant sections instead of the whole document. It is not a specification: when in doubt, open the section. Line numbers are approximate anchors for `sed -n`; headings are exact.
 
 | Area | SRS heading (exact) | IDs | Approx. lines |
 | --- | --- | --- | --- |
@@ -13,7 +13,7 @@ Index into `docs/Melbourne_Sphere_Technical_SRS_v1.md` (889 lines, MD5 `c444e13d
 | Business listings, hours, publication, duplicates | `# 6 Business listings and local areas` | BUS 001–008 | 204–223 |
 | Reviews, ratings, abuse reports, moderation | `# 7 Ratings reviews and abuse reporting` | REV 001–005, REP 001–002 | 224–241 |
 | Enquiries and contact handling | `# 8 Business enquiries and contact handling` | ENQ 001–007 | 242–259 |
-| Blog, editorial, comments | `# 9 Blog and editorial content` | BLOG 001–005, COM 001–002 | 260–277 |
+| Blog, editorial, comments | `# 9 Blog and editorial content` | BLOG 001–005 (006 in the 1.10 change log), COM 001–002 | 260–277 |
 | Admin auth, accounts, admin UX | `# 10 Administration and permissions` | ADM 001–003, AUTH 001–003 | 278–317 |
 | **Roles, permissions, effective access, permission-aware admin UI** | `# 10 Administration and permissions` (RBAC block, revision 1.1) | RBAC 001–012 | 278–317 |
 | Media pipeline and site configuration/pages | `# 11 Media and site configuration` | MED 001–004, CFG 001–003 | 318–335 |
@@ -38,6 +38,7 @@ Index into `docs/Melbourne_Sphere_Technical_SRS_v1.md` (889 lines, MD5 `c444e13d
 | **Queue monitor (BullMQ surfaces, redaction, bounded actions)** | `# 25 Operational administration modules` (`## Queue monitor`) | QMON 001–005 | 780–791 |
 | **Scheduled tasks (code registry, locking, run now)** | `# 25 Operational administration modules` (`## Scheduled tasks`) | TASK 001–006 | 792–805 |
 | **Permission catalogue for the new modules** | `# 25 Operational administration modules` (`## Permissions for the operational modules`) | RBAC 013 | 806–811 |
+| **Navigation menus (WordPress-style menus, locations, link safety, public rendering)** | `# 26 Website content modules` (`## Navigation menus`); UX 002 amended in 1.9 | MENU 001–006, UX 002 | 894–908 |
 | **About page** | `# 26 Website content modules` (`## About page`) | ABT 001–006 | 821–833 |
 | **FAQs** | `# 26 Website content modules` (`## Frequently asked questions`) | FAQ 001–005 | 835–846 |
 | **Service alerts above the public header** | `# 26 Website content modules` (`## Service alerts`) | ALRT 001–007 | 847–862 |

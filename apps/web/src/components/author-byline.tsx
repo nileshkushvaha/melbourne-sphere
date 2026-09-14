@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import type { PostDetail } from '@/lib/api';
 import { formatArticleDate } from '@/lib/share';
 
@@ -35,7 +36,13 @@ export function AuthorByline({ author, publishedAt, updatedAt, readingMinutes, t
       )}
       <div className="min-w-0 text-sm">
         <p className={muted}>
-          <span className={`font-semibold ${strong}`}>{author.displayName}</span>
+          {author.profilePath ? (
+            <Link href={author.profilePath} className={`font-semibold ${strong} underline-offset-2 hover:underline`}>
+              {author.displayName}
+            </Link>
+          ) : (
+            <span className={`font-semibold ${strong}`}>{author.displayName}</span>
+          )}
           {author.role && <span> · {author.role}</span>}
         </p>
         {/* One dot-separated line, so the dates and the reading estimate read as

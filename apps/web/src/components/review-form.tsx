@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { StarIcon } from 'lucide-react';
 import { Button, Input, Label } from '@melbourne-sphere/ui';
-import { newIdempotencyKey, validateReviewForm, type FieldErrors, type ReviewFormValues } from '@/lib/submissions';
+import { newIdempotencyKey, validateReviewForm, withoutCaptchaError, type FieldErrors, type ReviewFormValues } from '@/lib/submissions';
+import { TurnstileWidget, type TurnstileWidgetHandle } from './turnstile-widget';
 
 interface Props {
   businessId: string;
@@ -28,6 +29,12 @@ export function ReviewForm({ businessId, businessName, turnstileSiteKey, guideli
   const [receipt, setReceipt] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(() => newIdempotencyKey());
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstile = useRef<TurnstileWidgetHandle | null>(null);
+  const onToken = useCallback((token: string | null) => {
+    setCaptchaToken(token);
+    if (token) setErrors((current) => withoutCaptchaError(current));
+  }, []);
 
   if (!turnstileSiteKey) {
     return (
@@ -43,10 +50,10 @@ export function ReviewForm({ businessId, businessName, turnstileSiteKey, guideli
     event.preventDefault();
     setFormError(null);
     const found = validateReviewForm(values);
+    if (!captchaToken) found.captchaToken = ['Please complete the security check'];
     setErrors(found);
     if (Object.keys(found).length > 0) return;
     const form = event.currentTarget;
-    const captchaToken = (new FormData(form).get('cf-turnstile-response') as string | null) ?? undefined;
     const honeypot = (new FormData(form).get('website') as string | null) ?? '';
     setSubmitting(true);
     try {
@@ -59,6 +66,8 @@ export function ReviewForm({ businessId, businessName, turnstileSiteKey, guideli
       if (!response.ok) {
         setErrors(body?.error?.fields ?? {});
         setFormError(body?.error?.message ?? 'Your review could not be submitted. Please try again.');
+        // A token is single use: once the API has seen it, a retry needs a new one.
+        turnstile.current?.reset();
         return;
       }
       setReceipt(body?.data?.receiptId ?? null);
@@ -66,6 +75,7 @@ export function ReviewForm({ businessId, businessName, turnstileSiteKey, guideli
       setIdempotencyKey(newIdempotencyKey());
     } catch {
       setFormError('We could not reach the server. Please try again.');
+      turnstile.current?.reset();
     } finally {
       setSubmitting(false);
     }
@@ -160,7 +170,7 @@ export function ReviewForm({ businessId, businessName, turnstileSiteKey, guideli
         </label>
         {fieldError('acknowledged') && <p id="review-ack-error" className="mt-1 text-sm text-danger">{fieldError('acknowledged')}</p>}
       </div>
-      <div className="cf-turnstile" data-sitekey={turnstileSiteKey} data-action="review" />
+      <TurnstileWidget ref={turnstile} siteKey={turnstileSiteKey} action="review" onToken={onToken} />
       {fieldError('captchaToken') && <p className="text-sm text-danger">{fieldError('captchaToken')}</p>}
       <div>
         <Button type="submit" disabled={submitting}>

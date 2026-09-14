@@ -44,6 +44,8 @@ src/
   test/                 Vitest setup (matchMedia/ResizeObserver stubs), render helper, fetch fakes
 ```
 
+Website → Menus (`pages/website/menus/`, SRS 1.9 MENU 002): the WordPress arrangement — content panels on the left (pages, posts, blog categories and tags, business categories, areas, published businesses, site routes, custom links and headings; most recent / view all / search, checkboxes, Add to menu), the menu structure on the right as a nested `@dnd-kit` sortable list (drag right to nest, clamped to the depth of the menu's locations; Move links as the keyboard alternative), a whole-tree save with `expectedVersion`, and a Manage locations tab. Tree operations are pure functions in `menu-tree.ts`; the structural rules are the shared `@melbourne-sphere/domain/menus`, re-checked by the API.
+
 Screens (Phase 10): `pages/admins/AdministratorsPage` (paginated list, search/status filters via URL params, create dialog), `pages/admins/AdminDetailPage` (edit with `expectedVersion`, disable/enable with confirmation, setup-link resend, session revocation), `pages/account/AccountSecurityPage` (change password, sessions, TOTP enrol with `qrcode.react` QR + manual key, recovery codes shown once, disable), `pages/AuditLogPage`, `pages/AcceptSetupPage`; the login page gains the TOTP step (202 challenge → code). Navigation entries are hidden without the matching permission, purely as a courtesy.
 
 ## Permission-aware interface (SRS RBAC 010)

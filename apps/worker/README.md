@@ -49,3 +49,7 @@ Transports: `console` prints the message (development only); `smtp` sends throug
 `pnpm dev:worker` (watch) · `pnpm --filter worker build` · `pnpm --filter worker test` · `pnpm --filter worker lint` · `pnpm --filter worker typecheck`.
 
 Message construction and validation (header injection, address shape, subject and body bounds) live in `@melbourne-sphere/mail`; mail composition and queue policy live in `packages/domain` so the API and the worker apply the same rules (SRS ARC 002).
+
+## Scheduled article publication
+
+`content.publish-scheduled` (every minute) is the **only** scheduled publisher since 14 Sep 2026 (SRS 1.10 BLOG 002); the API no longer runs a timer. For each due article it checks the publication requirements again (`@melbourne-sphere/domain/posts`). A qualifying article is published under its version guard, with `firstPublishedAt`, an audit entry (`blog.post.publish`, system actor) and a `cache.invalidate` event. One that no longer qualifies — for example its author was deactivated after scheduling — returns to draft with `posts.publishFailure` set and a `blog.post.schedule_blocked` audit entry; the editor, the article list and the dashboard show the reason. Without a running worker, scheduled articles wait, and the dashboard's "Scheduled articles past their time" says so.

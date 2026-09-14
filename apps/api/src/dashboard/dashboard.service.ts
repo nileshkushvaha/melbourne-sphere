@@ -54,7 +54,7 @@ export class DashboardService {
     const mayTaxonomy = can('taxonomy.manage') || mayListings;
     const metrics: DashboardMetricDto[] = [];
 
-    const [pendingReviews, pendingComments, openReports, failedEnquiries, newEnquiries, draftListings, quarantinedMedia, duePosts] = await Promise.all([
+    const [pendingReviews, pendingComments, openReports, failedEnquiries, newEnquiries, draftListings, quarantinedMedia, duePosts, refusedScheduledPosts] = await Promise.all([
       mayReviews ? db.review.count({ where: { status: 'pending' } }) : Promise.resolve(0),
       mayComments ? db.comment.count({ where: { status: 'pending' } }) : Promise.resolve(0),
       can('reports.manage') ? db.abuseReport.count({ where: { status: 'open' } }) : Promise.resolve(0),
@@ -63,6 +63,7 @@ export class DashboardService {
       mayListings ? db.business.count({ where: { status: 'draft' } }) : Promise.resolve(0),
       can('media.manage') ? db.mediaAsset.count({ where: { status: 'quarantined' } }) : Promise.resolve(0),
       can('posts.publish') ? db.post.count({ where: { status: 'scheduled', scheduledAt: { lte: now } } }) : Promise.resolve(0),
+      mayPosts ? db.post.count({ where: { status: 'draft', publishFailure: { not: null } } }) : Promise.resolve(0),
     ]);
 
     const add = (key: string, label: string, value: number, href: string, tone: DashboardMetricDto['tone'], allowed: boolean) => {
@@ -76,6 +77,7 @@ export class DashboardService {
     add('draftListings', 'Listings in draft', draftListings, '/businesses', 'neutral', mayListings);
     add('quarantinedMedia', 'Uploads still processing', quarantinedMedia, '/media', 'neutral', can('media.manage'));
     add('duePosts', 'Scheduled articles past their time', duePosts, '/posts', 'critical', can('posts.publish'));
+    add('refusedScheduledPosts', 'Scheduled articles that could not publish', refusedScheduledPosts, '/posts?status=draft', 'critical', mayPosts);
 
     // ---- trend: submissions per Melbourne day, with the previous period -----
     const days = trailingDays(now);

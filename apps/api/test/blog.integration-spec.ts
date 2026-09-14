@@ -1,13 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { SESSION_COOKIE_NAME } from '../src/auth/session.service.js';
-import { ScheduledPublishingService } from '../src/blog/scheduled-publishing.service.js';
 import { ORIGIN, TEST_ADMIN, clearThrottleKeys, seedSuperAdmin } from './integration/auth-fixtures.js';
 import { closeTestDatabase, createIntegrationApp, testDatabase, truncateApplicationTables } from './integration/harness.js';
 
 describe('Blog editorial core (integration)', () => {
   let app: INestApplication;
-  let scheduler: ScheduledPublishingService;
   let cookie: string;
   let writerCookie: string;
   let authorId: string;
@@ -24,7 +22,6 @@ describe('Blog editorial core (integration)', () => {
   beforeAll(async () => {
     await truncateApplicationTables();
     app = await createIntegrationApp();
-    scheduler = app.get(ScheduledPublishingService);
     await clearThrottleKeys(app);
     await seedSuperAdmin(app);
     cookie = await login(TEST_ADMIN.email, TEST_ADMIN.password, '203.0.113.190');
@@ -78,11 +75,26 @@ describe('Blog editorial core (integration)', () => {
     await admin(agent().post('/api/v1/admin/posts')).send({ title: 'Unknown author', authorId: 'nope', categoryId }).expect(400);
   });
 
+  it('writes a summary from the opening text when the writer leaves it empty, and suggests a free address', async () => {
+    const opening = 'Carlton has more independent cafés per street than anywhere else in the city.';
+    const created = await admin(agent().post('/api/v1/admin/posts'))
+      .send({ title: 'Cafés of Carlton', excerpt: '', bodyFormat: 'html', bodyMarkdown: `<p>${opening} ${'Each one roasts its own beans and bakes every morning. '.repeat(6)}</p>`, authorId, categoryId })
+      .expect(201);
+    expect(created.body.data.excerpt).toBe(opening);
+    // Emptying it again on an edit rewrites it from the current text.
+    const cleared = await admin(agent().patch(`/api/v1/admin/posts/${created.body.data.id}`)).send({ expectedVersion: created.body.data.version, excerpt: '' }).expect(200);
+    expect(cleared.body.data.excerpt).toBe(opening);
+    const clash = await admin(agent().post('/api/v1/admin/posts')).send({ title: 'Cafés of Carlton', slug: created.body.data.slug, authorId, categoryId }).expect(409);
+    expect(clash.body.error.fields.slug[0]).toContain(`${created.body.data.slug}-2`);
+  });
+
   it('blocks publication until every requirement is met and locks the slug afterwards', async () => {
     const thin = (await admin(agent().post('/api/v1/admin/posts')).send({ title: 'Thin article', excerpt: 'short', bodyMarkdown: 'tiny', authorId, categoryId }).expect(201)).body.data;
     const blocked = await admin(agent().post(`/api/v1/admin/posts/${thin.id}/publish`)).send({ expectedVersion: thin.version }).expect(409);
     expect(blocked.body.error.code).toBe('PUBLICATION_BLOCKED');
-    expect(blocked.body.error.fields.publication).toEqual(expect.arrayContaining(['Excerpt must be at least 20 characters', 'Article body must be at least 200 characters']));
+    expect(blocked.body.error.fields.publication).toEqual(
+      expect.arrayContaining(['Write a summary of at least 20 characters — 5 characters so far', 'Write at least 200 characters in the article — 4 characters so far']),
+    );
 
     await admin(agent().post(`/api/v1/admin/posts/${postId}/publish`), writerCookie).send({ expectedVersion: version }).expect(403);
     const published = await admin(agent().post(`/api/v1/admin/posts/${postId}/publish`)).send({ expectedVersion: version }).expect(200);
@@ -112,6 +124,72 @@ describe('Blog editorial core (integration)', () => {
     expect(await db.outboxEvent.count({ where: { resourceId: postId, type: 'post.updated' } })).toBe(1);
   });
 
+  it('renders unsaved content without storing it, and serves a draft only through a live preview link', async () => {
+    const db = testDatabase();
+    const rendered = await admin(agent().post('/api/v1/admin/posts/preview-render'))
+      .send({ title: 'Not saved yet', bodyFormat: 'html', bodyMarkdown: `<p>${'Unsaved words about Melbourne laneways. '.repeat(4)}</p><script>alert(1)</script>`, authorId, categoryId })
+      .expect(200);
+    expect(rendered.headers['x-robots-tag']).toContain('noindex');
+    expect(rendered.body.data).toMatchObject({ title: 'Not saved yet', excerptGenerated: true, authorName: 'Alex Editor', noindex: true });
+    expect(rendered.body.data.sanitizedBody).not.toContain('<script');
+    expect(await db.post.count({ where: { title: 'Not saved yet' } })).toBe(0);
+    await agent().post('/api/v1/admin/posts/preview-render').set('Origin', ORIGIN).send({}).expect(401);
+
+    const draft = (await admin(agent().post('/api/v1/admin/posts')).send({ title: 'Draft for preview link', excerpt: 'A draft that only a preview link can show.', bodyMarkdown: body, authorId, categoryId }).expect(201)).body.data;
+    const link = await admin(agent().post(`/api/v1/admin/posts/${draft.id}/preview-link`)).send({}).expect(201);
+    const token = String(link.body.data.path).split('/').pop()!;
+    expect(token).toMatch(/^[A-Za-z0-9_-]{32}$/);
+    const shown = await agent().get(`/api/v1/preview/posts/${token}`).expect(200);
+    expect(shown.body.data).toMatchObject({ id: draft.id, title: 'Draft for preview link', related: [] });
+    expect(shown.headers['x-robots-tag']).toContain('noindex');
+    expect(shown.headers['cache-control']).toContain('no-store');
+    // The ordinary public read still refuses the draft.
+    await agent().get(`/api/v1/posts/${draft.slug}`).expect(404);
+    await agent().get('/api/v1/preview/posts/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA').expect(404);
+    await agent().get('/api/v1/preview/posts/not-a-token').expect(404);
+
+    // Ending the editor's session ends the link.
+    const editor = await db.adminUser.findUniqueOrThrow({ where: { email: TEST_ADMIN.email } });
+    await db.adminSession.updateMany({ where: { adminId: editor.id, revokedAt: null }, data: { revokedAt: new Date(), revokedReason: 'test' } });
+    await agent().get(`/api/v1/preview/posts/${token}`).expect(404);
+    cookie = await login(TEST_ADMIN.email, TEST_ADMIN.password, '203.0.113.192');
+  });
+
+  it('keeps autosaved work without touching the article, and restores an earlier version as a new one', async () => {
+    const db = testDatabase();
+    const draft = (await admin(agent().post('/api/v1/admin/posts')).send({ title: 'History article', excerpt: 'An article whose history is kept.', bodyFormat: 'html', bodyMarkdown: '<p>First words.</p>', authorId, categoryId }).expect(201)).body.data;
+
+    // Autosave: private, repeatable, never a version change.
+    await admin(agent().put(`/api/v1/admin/posts/${draft.id}/autosave`)).send({ title: 'History article', excerpt: 'x', bodyMarkdown: '<p>Typing…</p>', bodyFormat: 'html', baseVersion: draft.version }).expect(200);
+    await admin(agent().put(`/api/v1/admin/posts/${draft.id}/autosave`)).send({ title: 'History article', excerpt: 'x', bodyMarkdown: '<p>Typing more…</p>', bodyFormat: 'html', baseVersion: draft.version }).expect(200);
+    const kept = (await admin(agent().get(`/api/v1/admin/posts/${draft.id}/autosave`)).expect(200)).body.data;
+    expect(kept).toMatchObject({ bodyMarkdown: '<p>Typing more…</p>', stale: false });
+    expect((await db.post.findUniqueOrThrow({ where: { id: draft.id } })).version).toBe(draft.version);
+    expect(await db.postAutosave.count({ where: { postId: draft.id } })).toBe(1);
+    expect((await admin(agent().get(`/api/v1/admin/posts/${draft.id}/autosave`), writerCookie).expect(200)).body.data).toBeNull();
+
+    // A save of changed text keeps the previous version (drafts too) and supersedes the autosave.
+    const saved = (await admin(agent().patch(`/api/v1/admin/posts/${draft.id}`)).send({ expectedVersion: draft.version, bodyFormat: 'html', bodyMarkdown: '<p>Second words.</p>' }).expect(200)).body.data;
+    expect(await db.postAutosave.count({ where: { postId: draft.id } })).toBe(0);
+    const history = (await admin(agent().get(`/api/v1/admin/posts/${draft.id}/revisions`)).expect(200)).body.data;
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({ version: draft.version, actorName: expect.any(String) });
+    const first = (await admin(agent().get(`/api/v1/admin/posts/${draft.id}/revisions/${history[0].id}`)).expect(200)).body.data;
+    expect(first).toMatchObject({ bodySource: '<p>First words.</p>', bodyFormat: 'html', title: 'History article' });
+
+    // Restore: stale versions refused; the current text becomes a version first.
+    await admin(agent().post(`/api/v1/admin/posts/${draft.id}/revisions/${first.id}/restore`)).send({ expectedVersion: draft.version }).expect(409);
+    const restored = (await admin(agent().post(`/api/v1/admin/posts/${draft.id}/revisions/${first.id}/restore`)).send({ expectedVersion: saved.version }).expect(200)).body.data;
+    expect(restored.bodyMarkdown).toBe('<p>First words.</p>');
+    expect(restored.version).toBe(saved.version + 1);
+    const after = (await admin(agent().get(`/api/v1/admin/posts/${draft.id}/revisions`)).expect(200)).body.data;
+    expect(after.map((r: { version: number }) => r.version)).toEqual([saved.version, draft.version]);
+    expect(await db.auditLog.count({ where: { action: 'blog.post.revision.restore', targetId: draft.id } })).toBe(1);
+
+    await admin(agent().delete(`/api/v1/admin/posts/${draft.id}/autosave`)).expect(204);
+    await agent().get(`/api/v1/admin/posts/${draft.id}/autosave`).expect(401);
+  });
+
   it('previews only for authorised admins and never publicly', async () => {
     const preview = await admin(agent().get(`/api/v1/admin/posts/${postId}/preview`)).expect(200);
     expect(preview.body.data).toMatchObject({ noindex: true, authorName: 'Alex Editor' });
@@ -121,24 +199,24 @@ describe('Blog editorial core (integration)', () => {
     await agent().get(`/api/v1/posts/${postId}`).expect(404); // no public blog route exists yet
   });
 
-  it('schedules in UTC, refuses past times and publishes due posts idempotently on catch-up', async () => {
+  // Publication at the scheduled time is the worker's task; its behaviour is covered in apps/worker/src/scheduled-tasks.spec.ts.
+  it('schedules in UTC and refuses past times', async () => {
     const db = testDatabase();
     const draft = (await admin(agent().post('/api/v1/admin/posts')).send({ title: 'Spring festival guide', excerpt: 'What is on across the city this spring.', bodyMarkdown: body, authorId, categoryId }).expect(201)).body.data;
     const past = await admin(agent().post(`/api/v1/admin/posts/${draft.id}/schedule`)).send({ expectedVersion: draft.version, scheduledAt: '2020-01-01T00:00:00.000Z' }).expect(409);
-    expect(past.body.error.fields.publication).toEqual(['The scheduled time must be in the future']);
+    expect(past.body.error.fields.publication).toEqual(['Choose a time in the future']);
     // 2026-10-04 is the AEDT transition; 10:00 Melbourne is 23:00Z on the 3rd.
     const scheduledAt = '2026-10-03T23:00:00.000Z';
     const scheduled = await admin(agent().post(`/api/v1/admin/posts/${draft.id}/schedule`)).send({ expectedVersion: draft.version, scheduledAt }).expect(200);
-    expect(scheduled.body.data).toMatchObject({ status: 'scheduled', scheduledAt });
-
-    expect(await scheduler.runOnce(new Date('2026-10-03T22:59:00Z'))).toBe(0); // not due yet
+    expect(scheduled.body.data).toMatchObject({ status: 'scheduled', scheduledAt, publishFailure: null });
+    // The API itself publishes nothing on a timer any more.
     expect((await db.post.findUniqueOrThrow({ where: { id: draft.id } })).status).toBe('scheduled');
-    // A catch-up run long after the due time still publishes it exactly once.
-    expect(await scheduler.runOnce(new Date('2026-10-04T06:00:00Z'))).toBe(1);
-    const afterFirst = await db.post.findUniqueOrThrow({ where: { id: draft.id } });
-    expect(afterFirst).toMatchObject({ status: 'published', scheduledAt: null });
-    expect(await scheduler.runOnce(new Date('2026-10-04T06:05:00Z'))).toBe(0); // idempotent
-    expect(await db.outboxEvent.count({ where: { resourceId: draft.id, type: 'post.published' } })).toBe(1);
+    // A refused scheduled publication is cleared by the next deliberate change.
+    await db.post.update({ where: { id: draft.id }, data: { status: 'draft', scheduledAt: null, publishFailure: 'Choose an author', version: { increment: 1 } } });
+    const refused = (await admin(agent().get(`/api/v1/admin/posts/${draft.id}`)).expect(200)).body.data;
+    expect(refused.publishFailure).toBe('Choose an author');
+    const rescheduled = await admin(agent().post(`/api/v1/admin/posts/${draft.id}/schedule`)).send({ expectedVersion: refused.version, scheduledAt }).expect(200);
+    expect(rescheduled.body.data.publishFailure).toBeNull();
   });
 
   it('leaves a permanent redirect behind when a category or tag moves address', async () => {

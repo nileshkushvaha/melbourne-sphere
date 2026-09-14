@@ -264,6 +264,41 @@ describe('Media pipeline (integration)', () => {
     await db.setting.delete({ where: { group_key: { group: 'website', key: 'general' } } });
   });
 
+  it('counts an image inside an article, page or answer as a use, and lets it go once the text no longer shows it', async () => {
+    const db = testDatabase();
+    const { assetId: bodyImage } = await upload(pngBytes(640, 400));
+    await db.mediaAsset.update({ where: { id: bodyImage }, data: { status: 'ready', readyAt: new Date(Date.now() - 400 * 86_400_000), altText: 'A tram on Swanston Street' } });
+    const author = await db.author.create({ data: { displayName: 'Body Image Author', slug: 'body-image-author' } });
+    const category = await db.blogCategory.create({ data: { name: 'Body images', slug: 'body-images' } });
+    // Inserted before the editor recorded ids: recognised from the rendition address.
+    const legacyHtml = `<p>Before</p><img src="https://cdn.test/media/${bodyImage}/rendition.webp" alt="A tram">`;
+    const created = await admin(agent().post('/api/v1/admin/posts'))
+      .send({ title: 'An article with a picture', authorId: author.id, categoryId: category.id, bodyFormat: 'html', bodyMarkdown: legacyHtml })
+      .expect(201);
+    const postId = created.body.data.id as string;
+
+    const refused = await admin(agent().delete(`/api/v1/admin/media/${bodyImage}`)).expect(409);
+    expect(refused.body.error.code).toBe('MEDIA_IN_USE');
+    expect(refused.body.error.message).toContain('An article with a picture (inside the article)');
+    const detail = await admin(agent().get(`/api/v1/admin/media/${bodyImage}`)).expect(200);
+    expect(detail.body.data.usages).toEqual([{ kind: 'post', id: postId, label: 'An article with a picture (inside the article)' }]);
+    // The retention task and the library's "unused" filter use the same definition.
+    const unused = (await admin(agent().get('/api/v1/admin/media?unused=true&pageSize=50')).expect(200)).body.data as { id: string }[];
+    expect(unused.some((asset) => asset.id === bodyImage)).toBe(false);
+
+    // The editor's own markup names the image explicitly; an invalid id is dropped by the sanitiser.
+    const tagged = await admin(agent().patch(`/api/v1/admin/posts/${postId}`))
+      .send({ expectedVersion: created.body.data.version, bodyFormat: 'html', bodyMarkdown: `<img data-media-id="${bodyImage}" src="https://cdn.test/other/path.webp" alt="A tram"><img data-media-id="not an id" src="https://cdn.test/x.webp" alt="">` })
+      .expect(200);
+    expect(tagged.body.data.sanitizedBody).toContain(`data-media-id="${bodyImage}"`);
+    expect(tagged.body.data.sanitizedBody).not.toContain('not an id');
+    expect(await db.contentMediaReference.count({ where: { resourceType: 'post', resourceId: postId } })).toBe(1);
+
+    await admin(agent().patch(`/api/v1/admin/posts/${postId}`)).send({ expectedVersion: tagged.body.data.version, bodyFormat: 'html', bodyMarkdown: '<p>No picture any more.</p>' }).expect(200);
+    expect(await db.contentMediaReference.count({ where: { mediaId: bodyImage } })).toBe(0);
+    await admin(agent().delete(`/api/v1/admin/media/${bodyImage}`)).expect(204);
+  });
+
   it('edits alt text, credit and focal point with the record version', async () => {
     const current = (await admin(agent().get(`/api/v1/admin/media/${assetId}`)).expect(200)).body.data;
     const updated = await admin(agent().patch(`/api/v1/admin/media/${assetId}`)).send({ expectedVersion: current.version, altText: 'Front window of the cafe', credit: 'Photo: Alex', rightsNote: 'Licensed from the owner', focalX: 0.4, focalY: 0.6 }).expect(200);

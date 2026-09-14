@@ -52,6 +52,7 @@ const FaqEditorPage = lazy(() => import('@/pages/website/FaqEditorPage').then((m
 const ServiceAlertsPage = lazy(() => import('@/pages/website/ServiceAlertsPage').then((m) => ({ default: m.ServiceAlertsPage })));
 const ServiceAlertEditorPage = lazy(() => import('@/pages/website/ServiceAlertEditorPage').then((m) => ({ default: m.ServiceAlertEditorPage })));
 const TestimonialsPage = lazy(() => import('@/pages/website/TestimonialsPage').then((m) => ({ default: m.TestimonialsPage })));
+const MenusPage = lazy(() => import('@/pages/website/menus/MenusPage').then((m) => ({ default: m.MenusPage })));
 const PartnersPage = lazy(() => import('@/pages/website/PartnersPage').then((m) => ({ default: m.PartnersPage })));
 const CacheManagerPage = lazy(() => import('@/pages/system/CacheManagerPage').then((m) => ({ default: m.CacheManagerPage })));
 const QueueMonitorPage = lazy(() => import('@/pages/system/QueueMonitorPage').then((m) => ({ default: m.QueueMonitorPage })));
@@ -160,6 +161,7 @@ export function AppRoutes() {
         <Route path="/website/partners" element={<PartnersPage />} />
         <Route path="/website/partners/new" element={<PartnerEditorPage />} />
         <Route path="/website/partners/:id" element={<PartnerEditorPage />} />
+        <Route path="/website/menus" element={<MenusPage />} />
         <Route path="/security/settings" element={<SecuritySettingsPage />} />
         <Route path="/system/cache" element={<CacheManagerPage />} />
         <Route path="/system/queues" element={<QueueMonitorPage />} />

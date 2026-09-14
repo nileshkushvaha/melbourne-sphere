@@ -60,10 +60,12 @@ export function CommentsPage() {
   const [state, reload] = useAsync((signal) => api.listComments({ id, status, reported: reported || undefined, postId, page, pageSize: list.pageSize }, signal), [id, status, reported, postId, page, list.pageSize]);
   const [pending, setPending] = useState<{ comment: AdminComment; decision: ReviewDecision } | null>(null);
   const [redacting, setRedacting] = useState<AdminComment | null>(null);
+  const [replying, setReplying] = useState<AdminComment | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [busy, run] = useBusy();
   const [decisionForm] = Form.useForm<{ reason?: string }>();
   const [redactForm] = Form.useForm<{ publicText: string; reason: string }>();
+  const [replyForm] = Form.useForm<{ text: string }>();
 
   const handleError = (error: unknown) => {
     if (isApiError(error) && error.kind === 'unauthorized') onAuthError(error);
@@ -99,6 +101,23 @@ export function CommentsPage() {
         message.success('Published text updated.');
         setRedacting(null);
         redactForm.resetFields();
+        reload();
+      } catch (error) {
+        handleError(error);
+      }
+    });
+
+  const submitReply = () =>
+    run(async () => {
+      if (!replying) return;
+      setDialogError(null);
+      const values = await replyForm.validateFields().catch(() => null);
+      if (!values) return;
+      try {
+        await api.replyToComment(replying.id, values.text);
+        message.success('Reply published under the article.');
+        setReplying(null);
+        replyForm.resetFields();
         reload();
       } catch (error) {
         handleError(error);
@@ -148,7 +167,13 @@ export function CommentsPage() {
                 />
               )}
               <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
-                Contact: <RevealContact masked={comment.email} reveal={() => api.revealCommentEmail(comment.id)} /> · acknowledged {comment.acknowledgedVersion}
+                {comment.email ? (
+                  <>
+                    Contact: <RevealContact masked={comment.email} reveal={() => api.revealCommentEmail(comment.id)} /> · acknowledged {comment.acknowledgedVersion}
+                  </>
+                ) : (
+                  'Written by the Melbourne Sphere team'
+                )}
                 {comment.moderationReason ? ` · reason: ${comment.moderationReason}` : ''}
               </Typography.Paragraph>
             </div>
@@ -161,9 +186,15 @@ export function CommentsPage() {
             dataIndex: 'originalText',
             render: (value: string, comment) => (
               <span>
+                {comment.parentId && (
+                  <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+                    ↳ Reply to {comment.parentDisplayName ?? 'a comment'}: “{excerpt(comment.parentExcerpt ?? '', 60)}”
+                  </Typography.Text>
+                )}
                 {excerpt(value)}
                 <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
                   {comment.displayName}
+                  {comment.staff ? ' · team reply' : ''}
                 </Typography.Text>
               </span>
             ),
@@ -191,6 +222,7 @@ export function CommentsPage() {
                 {comment.status !== 'approved' && <Button size="small" type="primary" onClick={() => { setDialogError(null); decisionForm.resetFields(); setPending({ comment, decision: 'approve' }); }}>Publish</Button>}
                 {comment.status !== 'rejected' && <Button size="small" danger onClick={() => { setDialogError(null); decisionForm.resetFields(); setPending({ comment, decision: 'reject' }); }}>Reject</Button>}
                 {comment.status !== 'spam' && <Button size="small" onClick={() => { setDialogError(null); decisionForm.resetFields(); setPending({ comment, decision: 'spam' }); }}>Spam</Button>}
+                {comment.status === 'approved' && <Button size="small" onClick={() => { setDialogError(null); replyForm.resetFields(); setReplying(comment); }}>Reply</Button>}
                 <Button size="small" onClick={() => { setDialogError(null); redactForm.setFieldsValue({ publicText: comment.publicText ?? comment.originalText, reason: '' }); setRedacting(comment); }}>Redact</Button>
               </Space>
             ),
@@ -215,6 +247,20 @@ export function CommentsPage() {
         <Form form={decisionForm} layout="vertical" requiredMark={false}>
           <Form.Item label="Reason (recorded in the audit log)" name="reason" rules={pending && DECISIONS[pending.decision].reasonRequired ? [{ required: true, message: 'A reason is required' }] : undefined}>
             <Input.TextArea rows={3} maxLength={500} />
+          </Form.Item>
+        </Form>
+      </Modal>
+      <Modal open={replying !== null} title="Reply as the Melbourne Sphere team" okText="Publish reply" confirmLoading={busy} onOk={() => void submitReply()} onCancel={() => setReplying(null)} destroyOnHidden>
+        {replying && (
+          <Typography.Paragraph type="secondary" style={{ whiteSpace: 'pre-line' }}>
+            {replying.displayName}: “{excerpt(replying.publicText ?? replying.originalText, 240)}”
+          </Typography.Paragraph>
+        )}
+        <Typography.Paragraph>The reply appears under this comment straight away, signed “Melbourne Sphere team”. You can edit its published text later.</Typography.Paragraph>
+        {dialogError && <Alert type="error" showIcon role="alert" message={dialogError} style={{ marginBottom: 12 }} />}
+        <Form form={replyForm} layout="vertical" requiredMark={false}>
+          <Form.Item label="Your reply" name="text" rules={[{ required: true, min: 2, message: 'Write a reply of at least 2 characters' }]}>
+            <Input.TextArea rows={5} maxLength={2000} showCount />
           </Form.Item>
         </Form>
       </Modal>

@@ -191,6 +191,8 @@ export class PostSummaryDto {
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) scheduledAt!: string | null;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) publishedAt!: string | null;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) firstPublishedAt!: string | null;
+  @ApiProperty({ type: String, format: 'date-time', nullable: true, description: 'When the article was featured on the home page and blog index, or null (SRS 1.10 BLOG 005)' }) featuredAt!: string | null;
+  @ApiProperty({ type: String, nullable: true, description: 'Why the scheduled publication was refused at its time; the article went back to draft' }) publishFailure!: string | null;
   @ApiProperty({ type: [String], description: 'Unmet publication requirements (SRS BLOG 002)' }) publicationBlockers!: string[];
   @ApiProperty() version!: number;
   @ApiProperty({ format: 'date-time' }) updatedAt!: string;
@@ -237,6 +239,7 @@ export class PostRevisionDto {
   @ApiProperty({ type: String, nullable: true }) title!: string | null;
   @ApiProperty({ type: String, nullable: true }) reason!: string | null;
   @ApiProperty({ type: String, nullable: true }) actorAdminId!: string | null;
+  @ApiProperty({ type: String, nullable: true }) actorName!: string | null;
   @ApiProperty({ format: 'date-time' }) createdAt!: string;
 }
 

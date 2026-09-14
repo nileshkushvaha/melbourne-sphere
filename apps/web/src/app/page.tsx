@@ -83,7 +83,7 @@ export default async function HomePage() {
   // Started first so it runs alongside the band data; it never rejects, because
   // the shell must render even when the settings endpoint is unavailable.
   const settingsPromise = fetchSiteSettings();
-  const [homeResult, categoriesResult, areasResult, newestResult, topRatedResult, postsResult, testimonialsResult, partnersResult] = await Promise.allSettled([
+  const [homeResult, categoriesResult, areasResult, newestResult, topRatedResult, postsResult, testimonialsResult, partnersResult, featuredPostsResult] = await Promise.allSettled([
     fetchHome(),
     fetchCategories(),
     fetchAreas(),
@@ -92,6 +92,7 @@ export default async function HomePage() {
     fetchPosts({ page: 1 }),
     fetchTestimonials(),
     fetchPartners(),
+    fetchPosts({ page: 1, pageSize: 3, featured: true }),
   ]);
   const settings = await settingsPromise;
 
@@ -112,9 +113,15 @@ export default async function HomePage() {
   // omits the band rather than failing the page.
   const testimonials = testimonialsResult.status === 'fulfilled' ? testimonialsResult.value : [];
   const partners = partnersResult.status === 'fulfilled' ? partnersResult.value : [];
-  const leadPost = posts.ok ? posts.data.data[0] : undefined;
+  // Featured articles lead (SRS 1.10 BLOG 005), then the newest ones not already
+  // shown. Featuring is an addition: if that list cannot be read, the band
+  // still shows the latest articles.
+  const featuredPosts = featuredPostsResult.status === 'fulfilled' ? featuredPostsResult.value.data : [];
+  const featuredIds = new Set(featuredPosts.map((post) => post.id));
+  const orderedPosts = posts.ok ? [...featuredPosts, ...posts.data.data.filter((post) => !featuredIds.has(post.id))] : [];
+  const leadPost = orderedPosts[0];
   // Four beside the lead, one full row of the four-column card grid.
-  const supportingPosts = posts.ok ? posts.data.data.slice(1, 5) : [];
+  const supportingPosts = orderedPosts.slice(1, 5);
 
   return (
     <>

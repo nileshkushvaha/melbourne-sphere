@@ -63,6 +63,58 @@ describe('renderSanitisedBody (rich-editor HTML)', () => {
     expect(html).not.toContain('iframe');
   });
 
+  it('keeps pasted and shortcut formatting in its nearest allowed form instead of dropping it', () => {
+    const html = renderSanitisedBody('<h1>Title</h1><h5>Small</h5><h6>Smaller</h6><p><s>old</s> <strike>older</strike> <b>bold</b> <i>italic</i> <u>under</u></p>', 'html');
+    expect(html).toContain('<h2>Title</h2>');
+    expect(html).toContain('<h4>Small</h4>');
+    expect(html).toContain('<h4>Smaller</h4>');
+    expect(html).toContain('<del>old</del>');
+    expect(html).toContain('<del>older</del>');
+    expect(html).toContain('<strong>bold</strong>');
+    expect(html).toContain('<em>italic</em>');
+    // Underline has no published style; its text survives without the tag.
+    expect(html).toContain(' under</p>');
+    expect(html).not.toContain('<u>');
+  });
+
+  it('keeps an id-shaped data-media-id on images and removes anything else in it', () => {
+    const id = 'cmf0abcdefghijklmnopqrstu';
+    expect(renderSanitisedBody(`<img data-media-id="${id}" src="https://cdn.example/a.webp" alt="A">`, 'html')).toContain(`data-media-id="${id}"`);
+    for (const bad of ['"><script>', 'javascript:alert(1)', 'short', 'UPPER-CASE-NOT-AN-ID-AT-ALL']) {
+      expect(renderSanitisedBody(`<img data-media-id='${bad}' src="https://cdn.example/a.webp" alt="A">`, 'html')).not.toContain('data-media-id');
+    }
+    expect(renderSanitisedBody(`<p data-media-id="${id}">not an image</p>`, 'html')).not.toContain('data-media-id');
+  });
+
+  it('keeps figures with captions and only the editor figure classes', () => {
+    const html = renderSanitisedBody('<figure class="ms-figure ms-figure--wide evil"><img src="https://cdn.example/a.webp" alt="A tram"><figcaption>Swanston Street</figcaption></figure>', 'html');
+    expect(html).toContain('<figure class="ms-figure ms-figure--wide">');
+    expect(html).toContain('<figcaption>Swanston Street</figcaption>');
+    expect(html).not.toContain('evil');
+  });
+
+  it('keeps valid embed and business markers, and never stores an iframe', () => {
+    const youtube = renderSanitisedBody('<div class="ms-embed" data-embed="youtube" data-embed-id="dQw4w9WgXcQ" data-embed-title="Laneway tour" onclick="x()">YouTube video</div>', 'html');
+    expect(youtube).toContain('data-embed="youtube"');
+    expect(youtube).toContain('data-embed-id="dQw4w9WgXcQ"');
+    expect(youtube).not.toContain('onclick');
+    const business = renderSanitisedBody('<div data-embed="business" data-business-id="cmf0abcdefghijklmnopqrstu" data-embed-title="Bean There">Business card</div>', 'html');
+    expect(business).toContain('data-business-id="cmf0abcdefghijklmnopqrstu"');
+    for (const bad of [
+      '<div data-embed="youtube" data-embed-id="javascript:x" data-embed-title="t">text kept</div>',
+      '<div data-embed="map" data-embed-src="https://evil.example/maps/embed?pb=!1m2" data-embed-title="t">text kept</div>',
+      '<div data-embed="youtube" data-embed-id="dQw4w9WgXcQ">text kept</div>',
+      '<div data-embed="iframe">text kept</div>',
+      '<div style="color:red">text kept</div>',
+    ]) {
+      const out = renderSanitisedBody(bad, 'html');
+      expect(out, bad).not.toContain('data-embed');
+      expect(out, bad).not.toContain('<div');
+      expect(out, bad).toContain('text kept');
+    }
+    expect(renderSanitisedBody('<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"></iframe>', 'html')).not.toContain('iframe');
+  });
+
   it('applies the same link and image rules as the Markdown path', () => {
     const html = renderSanitisedBody('<p><a href="https://example.com">Out</a> <a href="javascript:alert(1)">Bad</a></p><p><img src="https://cdn.example/a.webp"></p>', 'html');
     expect(html).toContain('rel="noopener noreferrer nofollow"');

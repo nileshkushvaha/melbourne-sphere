@@ -8,6 +8,7 @@ import { renderSanitisedBody, toPlainText } from '../blog/sanitise.js';
 import type { RequestContext } from '../auth/auth.service.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import { assertVersion, publicVisibilityChanged, recordContentActivity } from './content-support.js';
+import { clearContentMedia, syncContentMedia } from '../media/content-media.js';
 
 /** Documented maximum lengths (SRS 1.2 FAQ 001): an unbounded answer is an unbounded page. */
 export const FAQ_LIMITS = { question: 300, answer: 8000, group: 80 } as const;
@@ -96,6 +97,7 @@ export class FaqService {
       const created = await tx.faq.create({
         data: { ...value, createdByAdminId: actor.id, updatedByAdminId: actor.id },
       });
+      await syncContentMedia(tx, 'faq', created.id, created.answerHtml);
       await recordContentActivity(tx, this.audit, {
         action: 'website.faq.create',
         targetType: 'faq',
@@ -120,6 +122,7 @@ export class FaqService {
         where: { id },
         data: { ...value, version: { increment: 1 }, updatedByAdminId: actor.id },
       });
+      await syncContentMedia(tx, 'faq', id, updated.answerHtml);
       await recordContentActivity(tx, this.audit, {
         action: 'website.faq.update',
         targetType: 'faq',
@@ -195,6 +198,7 @@ export class FaqService {
     const current = await this.get(id);
     const db = await this.database.client();
     await db.$transaction(async (tx) => {
+      await clearContentMedia(tx, 'faq', id);
       await tx.faq.delete({ where: { id } });
       await recordContentActivity(tx, this.audit, {
         action: 'website.faq.delete',

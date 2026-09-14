@@ -106,4 +106,29 @@ describe('Author profiles (integration)', () => {
     const actions = (await db.auditLog.findMany({ where: { targetId: id }, orderBy: { createdAt: 'asc' } })).map((entry) => entry.action);
     expect(actions).toEqual(['blog.author.create', 'blog.author.update']);
   });
+
+  it('remembers an administrator’s own default author, refuses an inactive one, and never exposes the link publicly', async () => {
+    const put = (body: Record<string, unknown>) => agent().put('/api/v1/admin/authors/mine').set('Origin', ORIGIN).set('Cookie', cookie).send(body);
+    expect((await agent().get('/api/v1/admin/authors/mine').set('Cookie', cookie).expect(200)).body.data).toEqual({ authorId: null, author: null });
+    await agent().get('/api/v1/admin/authors/mine').expect(401);
+
+    const mine = (await post('/api/v1/admin/authors').send({ displayName: 'House Byline' }).expect(201)).body.data;
+    const chosen = await put({ authorId: mine.id }).expect(200);
+    expect(chosen.body.data).toMatchObject({ authorId: mine.id, author: { id: mine.id, displayName: 'House Byline', active: true } });
+    expect((await agent().get('/api/v1/admin/authors/mine').set('Cookie', cookie).expect(200)).body.data.authorId).toBe(mine.id);
+
+    const retired = (await post('/api/v1/admin/authors').send({ displayName: 'Retired Byline' }).expect(201)).body.data;
+    await post(`/api/v1/admin/authors/${retired.id}/deactivate`).send({ expectedVersion: retired.version }).expect(200);
+    expect((await put({ authorId: retired.id }).expect(400)).body.error.fields.authorId).toBeTruthy();
+    await put({ authorId: 'does-not-exist' }).expect(400);
+
+    // The preference lives on the administrator; nothing about it reaches public author output.
+    const publicPosts = await agent().get('/api/v1/posts').expect(200);
+    expect(JSON.stringify(publicPosts.body)).not.toMatch(/defaultAuthor|adminUser/i);
+    const adminAuthor = await agent().get(`/api/v1/admin/authors/${mine.id}`).set('Cookie', cookie).expect(200);
+    expect(JSON.stringify(adminAuthor.body)).not.toMatch(/defaultAuthor|adminUser/i);
+    expect(await testDatabase().auditLog.count({ where: { action: 'blog.author.default.set' } })).toBe(1);
+
+    expect((await put({ authorId: null }).expect(200)).body.data).toEqual({ authorId: null, author: null });
+  });
 });

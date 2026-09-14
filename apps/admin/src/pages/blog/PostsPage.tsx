@@ -48,7 +48,7 @@ export function PostsPage() {
       <PageHeader
         crumbs={[{ label: 'Editorial' }, { label: 'Articles' }]}
         title="Articles"
-        description={<>Articles are written in Markdown and stored with sanitised HTML. Publishing and scheduling need the publish permission.</>}
+        description="Write, schedule and publish blog articles. Drafts stay private until you publish them."
         actions={
           <>
             {canWrite && (
@@ -65,7 +65,7 @@ export function PostsPage() {
         toolbar={
           <>
             <Input.Search aria-label="Search articles" placeholder="Search by title" allowClear defaultValue={q} onSearch={(v) => list.set('q', v.trim() || undefined)} style={{ width: 260 }} />
-            <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => list.set('status', v)} style={{ width: 160 }} options={POST_STATUSES.map((s) => ({ value: s, label: s }))} />
+            <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => list.set('status', v)} style={{ width: 160 }} options={POST_STATUSES.map((s) => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) }))} />
             <Select
               aria-label="Filter by author"
               allowClear
@@ -122,7 +122,9 @@ export function PostsPage() {
             render: (v: PostStatus, post) => (
               <Space size={4}>
                 <StatusTag status={v} />
-                {v === 'draft' && post.publicationBlockers.length > 0 && <Pill tone="attention">incomplete</Pill>}
+                {v === 'published' && post.featuredAt && <Pill tone="positive">Featured</Pill>}
+                {v === 'draft' && post.publishFailure && <Pill tone="critical">Couldn’t publish on schedule</Pill>}
+                {v === 'draft' && !post.publishFailure && post.publicationBlockers.length > 0 && <Pill tone="attention">Not ready to publish</Pill>}
                 {v === 'scheduled' && post.scheduledAt && <span>{formatDateTime(post.scheduledAt)}</span>}
               </Space>
             ),

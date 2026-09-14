@@ -6,11 +6,23 @@ import {
   QUARANTINE_MAX_AGE_HOURS,
   SCHEDULED_RUN_RETENTION_DAYS,
   UNUSED_READY_MAX_AGE_DAYS,
+  postPublicationBlockers,
   scheduledTask,
   scheduledTaskLockKey,
   unusedMediaRelations,
+  htmlToPlainText,
   type ScheduledTaskDefinition,
 } from '@melbourne-sphere/domain';
+
+/**
+ * The text of stored article HTML, for the length requirement — the same
+ * conversion the API uses (`htmlToPlainText`), so both apply the publication
+ * rules to the same text.
+ */
+export function plainTextOf(html: string): string {
+  // The same conversion the API uses, so both apply the publication rules to the same text.
+  return htmlToPlainText(html);
+}
 
 export interface ScheduledTaskJobData {
   taskCode?: string;
@@ -54,32 +66,74 @@ const daysAgo = (now: Date, days: number) => new Date(now.getTime() - days * 86_
  */
 export const TASK_IMPLEMENTATIONS: Record<string, (ctx: TaskContext) => Promise<TaskResult>> = {
   /**
-   * Publishes articles whose scheduled time has passed (SRS BLOG 004). Late is
-   * not cancelled: a run picks up everything due, however long the worker was
-   * down. Each article is published in its own transaction with the cache
+   * Publishes articles whose scheduled time has passed (SRS BLOG 002). This is
+   * the only scheduled publisher: the API no longer runs its own timer, so the
+   * two can never disagree about what publishing records.
+   *
+   * Late is not cancelled: a run picks up everything due, however long the
+   * worker was down. The publication requirements are checked again at the
+   * scheduled time, because an author or category can be retired after an
+   * article is scheduled; an article that no longer qualifies goes back to
+   * draft with the reason recorded, rather than going live broken.
+   *
+   * Each article changes in its own transaction guarded by its version — the
+   * same guard an editor's save uses — with its audit entry and the cache
    * invalidation that makes it visible, so a failure part-way leaves published
-   * articles visible rather than published-but-hidden.
+   * articles visible rather than published-but-hidden, and an editor with the
+   * article open gets a conflict instead of silently overwriting it.
    */
   'content.publish-scheduled': async ({ db, now }) => {
-    const due = await db.post.findMany({ where: { status: 'scheduled', scheduledAt: { lte: now } }, select: { id: true, slug: true }, take: 200 });
+    const due = await db.post.findMany({
+      where: { status: 'scheduled', scheduledAt: { lte: now } },
+      select: { id: true, slug: true, version: true, title: true, excerpt: true, sanitizedBody: true, firstPublishedAt: true, author: { select: { active: true } }, category: { select: { active: true } } },
+      orderBy: { scheduledAt: 'asc' },
+      take: 200,
+    });
     let published = 0;
+    let returned = 0;
     for (const post of due) {
+      const blockers = postPublicationBlockers({
+        title: post.title,
+        slug: post.slug,
+        excerpt: post.excerpt,
+        plainBody: plainTextOf(post.sanitizedBody),
+        authorActive: post.author.active,
+        categoryActive: post.category.active,
+      });
       await db.$transaction(async (tx) => {
-        const updated = await tx.post.updateMany({ where: { id: post.id, status: 'scheduled' }, data: { status: 'published', publishedAt: now } });
-        // Another replica may have taken it between the read and here.
+        if (blockers.length > 0) {
+          const updated = await tx.post.updateMany({
+            where: { id: post.id, status: 'scheduled', version: post.version },
+            data: { status: 'draft', scheduledAt: null, publishFailure: blockers.join(' ').slice(0, 500), version: { increment: 1 } },
+          });
+          if (updated.count === 0) return;
+          await tx.auditLog.create({ data: { action: 'blog.post.schedule_blocked', targetType: 'post', targetId: post.id, metadata: { blockers } } });
+          returned += 1;
+          return;
+        }
+        const updated = await tx.post.updateMany({
+          where: { id: post.id, status: 'scheduled', version: post.version },
+          data: { status: 'published', publishedAt: now, firstPublishedAt: post.firstPublishedAt ?? now, scheduledAt: null, publishFailure: null, version: { increment: 1 } },
+        });
+        // Another replica, or an editor's change, got there first.
         if (updated.count === 0) return;
         await tx.outboxEvent.create({
           data: {
             type: 'cache.invalidate',
             resourceType: 'post',
             resourceId: post.id,
-            payload: { tags: [CACHE_TAGS.posts, CACHE_TAGS.post(post.slug), CACHE_TAGS.sitemap].join(',') },
+            payload: { tags: [CACHE_TAGS.posts, CACHE_TAGS.post(post.slug), CACHE_TAGS.sitemap, CACHE_TAGS.taxonomy].join(',') },
           },
         });
+        await tx.auditLog.create({ data: { action: 'blog.post.publish', targetType: 'post', targetId: post.id, metadata: { from: 'scheduled', to: 'published', scheduled: true } } });
         published += 1;
       });
     }
-    return published === 0 ? 'Nothing was due' : `Published ${published} article${published === 1 ? '' : 's'}`;
+    const parts = [
+      published > 0 ? `Published ${published} article${published === 1 ? '' : 's'}` : null,
+      returned > 0 ? `returned ${returned} to draft because ${returned === 1 ? 'it no longer meets' : 'they no longer meet'} the publication requirements` : null,
+    ].filter(Boolean);
+    return parts.length === 0 ? 'Nothing was due' : parts.join('; ');
   },
 
   /** Activity retention (ACT 006, PRIV 001). */

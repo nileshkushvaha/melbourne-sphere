@@ -54,5 +54,8 @@ export function moderationApi(client: HttpClient = httpClient) {
       client.request<{ data: AdminComment }>(`/admin/comments/${encodeURIComponent(id)}/${decision}`, { method: 'POST', body }).then((r) => r.data.data),
     redactComment: (id: string, body: { expectedVersion: number; publicText: string | null; reason: string }) =>
       client.request<{ data: AdminComment }>(`/admin/comments/${encodeURIComponent(id)}/redaction`, { method: 'PATCH', body }).then((r) => r.data.data),
+    /** Replies as the Melbourne Sphere team; published at once and recorded. */
+    replyToComment: (id: string, text: string) =>
+      client.request<{ data: AdminComment }>(`/admin/comments/${encodeURIComponent(id)}/reply`, { method: 'POST', body: { text } }).then((r) => r.data.data),
   };
 }

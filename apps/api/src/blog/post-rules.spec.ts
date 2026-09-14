@@ -12,19 +12,19 @@ describe('post publication rules (SRS BLOG 002)', () => {
     expect(
       postPublicationBlockers({ title: 'Hi', slug: 'Not A Slug', excerpt: 'short', sanitizedBody: renderSanitisedBody('tiny'), authorActive: false, categoryActive: false }),
     ).toEqual([
-      'Title must be at least 3 characters',
-      'A valid slug is required',
-      'Excerpt must be at least 20 characters',
-      'Article body must be at least 200 characters',
-      'An active author is required',
-      'An active category is required',
+      'Add a title of at least 3 characters',
+      'Write at least 200 characters in the article — 4 characters so far',
+      'Write a summary of at least 20 characters — 5 characters so far',
+      'Choose a category',
+      'Choose an author',
+      'Fix the web address: use lowercase letters, numbers and single hyphens',
     ]);
   });
 
   it('requires a future schedule', () => {
     const now = new Date('2026-09-06T00:00:00Z');
     expect(scheduleBlockers(new Date('2026-09-07T00:00:00Z'), now)).toEqual([]);
-    expect(scheduleBlockers(new Date('2026-09-05T00:00:00Z'), now)).toEqual(['The scheduled time must be in the future']);
+    expect(scheduleBlockers(new Date('2026-09-05T00:00:00Z'), now)).toEqual(['Choose a time in the future']);
     expect(scheduleBlockers(null, now)).toEqual(['Choose a date and time to publish']);
     expect(scheduleBlockers(new Date('nonsense'), now)).toEqual(['The scheduled time is not a valid date']);
   });

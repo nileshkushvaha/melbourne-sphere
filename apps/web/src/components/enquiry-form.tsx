@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Button, Input, Label } from '@melbourne-sphere/ui';
-import { newIdempotencyKey, type FieldErrors } from '@/lib/submissions';
+import { newIdempotencyKey, withoutCaptchaError, type FieldErrors } from '@/lib/submissions';
+import { TurnstileWidget, type TurnstileWidgetHandle } from './turnstile-widget';
 
 interface Props {
   businessId: string;
@@ -49,6 +50,12 @@ export function EnquiryForm({ businessId, businessName, turnstileSiteKey, compac
   const [receipt, setReceipt] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(() => newIdempotencyKey());
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstile = useRef<TurnstileWidgetHandle | null>(null);
+  const onToken = useCallback((token: string | null) => {
+    setCaptchaToken(token);
+    if (token) setErrors((current) => withoutCaptchaError(current));
+  }, []);
 
   if (!turnstileSiteKey) {
     return <p className="rounded-card border border-border bg-surface-muted p-4 text-sm text-text-muted">The contact form is temporarily unavailable. Please use the phone number or website above.</p>;
@@ -61,6 +68,7 @@ export function EnquiryForm({ businessId, businessName, turnstileSiteKey, compac
     event.preventDefault();
     setFormError(null);
     const found = validate(values);
+    if (!captchaToken) found.captchaToken = ['Please complete the security check'];
     setErrors(found);
     if (Object.keys(found).length > 0) return;
     const data = new FormData(event.currentTarget);
@@ -76,7 +84,7 @@ export function EnquiryForm({ businessId, businessName, turnstileSiteKey, compac
           subject: values.subject.trim(),
           message: values.message.trim(),
           acknowledged: values.acknowledged,
-          captchaToken: (data.get('cf-turnstile-response') as string | null) ?? undefined,
+          captchaToken,
           website: (data.get('website') as string | null) || undefined,
         }),
       });
@@ -84,6 +92,8 @@ export function EnquiryForm({ businessId, businessName, turnstileSiteKey, compac
       if (!response.ok) {
         setErrors(body?.error?.fields ?? {});
         setFormError(body?.error?.message ?? 'Your message could not be sent. Please try again.');
+        // A token is single use: once the API has seen it, a retry needs a new one.
+        turnstile.current?.reset();
         return;
       }
       setReceipt(body?.data?.receiptId ?? null);
@@ -91,6 +101,7 @@ export function EnquiryForm({ businessId, businessName, turnstileSiteKey, compac
       setIdempotencyKey(newIdempotencyKey());
     } catch {
       setFormError('We could not reach the server. Please try again.');
+      turnstile.current?.reset();
     } finally {
       setSubmitting(false);
     }
@@ -149,7 +160,7 @@ export function EnquiryForm({ businessId, businessName, turnstileSiteKey, compac
         </label>
         {fieldError('acknowledged') && <p className="mt-1 text-sm text-danger">{fieldError('acknowledged')}</p>}
       </div>
-      <div className="cf-turnstile" data-sitekey={turnstileSiteKey} data-action="enquiry" />
+      <TurnstileWidget ref={turnstile} siteKey={turnstileSiteKey} action="enquiry" onToken={onToken} />
       {fieldError('captchaToken') && <p className="text-sm text-danger">{fieldError('captchaToken')}</p>}
       <div>
         <Button type="submit" disabled={submitting}>

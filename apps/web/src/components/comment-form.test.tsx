@@ -1,10 +1,36 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import axe from 'axe-core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CommentForm } from './comment-form';
 
 const SITE_KEY = '1x00000000000000000000AA';
+
+interface RenderedWidget {
+  callback: (token: string) => void;
+}
+
+/** A stand-in for the Cloudflare script: records the widget and lets a test complete the challenge. */
+function installTurnstile() {
+  const widgets: RenderedWidget[] = [];
+  const api = {
+    render: vi.fn((_element: HTMLElement, options: RenderedWidget) => {
+      widgets.push(options);
+      return `widget-${widgets.length}`;
+    }),
+    reset: vi.fn(),
+    remove: vi.fn(),
+  };
+  vi.stubGlobal('turnstile', api);
+  return {
+    api,
+    /** Completes the challenge, as a visitor would. */
+    pass: async (token = 'test-token') => {
+      await waitFor(() => expect(api.render).toHaveBeenCalled());
+      act(() => widgets.at(-1)!.callback(token));
+    },
+  };
+}
 
 const renderForm = (props: Partial<React.ComponentProps<typeof CommentForm>> = {}) =>
   render(<CommentForm postId="p1" turnstileSiteKey={SITE_KEY} guidelinesHref="/review-guidelines" privacyHref="/privacy" {...props} />);
@@ -24,10 +50,12 @@ const answer = (status: number, body: unknown) =>
   Promise.resolve({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(body) } as Response);
 
 let fetchMock: ReturnType<typeof vi.fn>;
+let turnstile: ReturnType<typeof installTurnstile>;
 
 beforeEach(() => {
   fetchMock = vi.fn();
   vi.stubGlobal('fetch', fetchMock);
+  turnstile = installTurnstile();
   // `crypto.randomUUID` backs the idempotency key.
   if (!globalThis.crypto?.randomUUID) vi.stubGlobal('crypto', { ...globalThis.crypto, randomUUID: () => '00000000-0000-4000-8000-000000000000' });
 });
@@ -68,11 +96,39 @@ describe('CommentForm validation (SRS COM 001)', () => {
   });
 });
 
+describe('CommentForm security check (SRS SEC 002)', () => {
+  it('renders the challenge itself, so a form reached by client-side navigation still gets one', async () => {
+    renderForm();
+    await waitFor(() => expect(turnstile.api.render).toHaveBeenCalledWith(expect.any(HTMLElement), expect.objectContaining({ sitekey: SITE_KEY, action: 'comment' })));
+  });
+
+  it('refuses to send before the challenge is complete', () => {
+    renderForm();
+    fillIn();
+    submit();
+    expect(screen.getByText('Please complete the security check')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('sends the token and asks for a new challenge once the API has used it', async () => {
+    fetchMock.mockReturnValue(answer(400, { error: { code: 'CAPTCHA_FAILED', fields: { captchaToken: ['Verification failed'] } } }));
+    renderForm();
+    fillIn();
+    await turnstile.pass('token-1');
+    submit();
+
+    await waitFor(() => expect(turnstile.api.reset).toHaveBeenCalledWith('widget-1'));
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toMatchObject({ captchaToken: 'token-1' });
+  });
+});
+
 describe('CommentForm submission (SRS COM 001, API 003)', () => {
   it('sends the trimmed values with an idempotency key and confirms moderation, not publication', async () => {
     fetchMock.mockReturnValue(answer(201, { data: { receiptId: 'rcpt-1', status: 'pending' } }));
     renderForm();
     fillIn();
+    await turnstile.pass();
     submit();
 
     await screen.findByText(/submitted for review/i);
@@ -91,6 +147,7 @@ describe('CommentForm submission (SRS COM 001, API 003)', () => {
     fetchMock.mockReturnValue(new Promise<Response>((resolve) => (settle = resolve)));
     renderForm();
     fillIn();
+    await turnstile.pass();
     const button = screen.getByRole('button', { name: /post comment/i });
     fireEvent.click(button);
 
@@ -111,6 +168,7 @@ describe('CommentForm failures (SRS API 002)', () => {
     fetchMock.mockReturnValue(answer(400, { error: { code: 'BAD_REQUEST', message: 'displayName must be 2–80 characters (DTO SubmitCommentDto)', fields: { displayName: ['Name must be 2–80 characters'] } } }));
     renderForm();
     fillIn();
+    await turnstile.pass();
     submit();
 
     await screen.findByText('Name must be 2–80 characters');
@@ -123,6 +181,7 @@ describe('CommentForm failures (SRS API 002)', () => {
     fetchMock.mockReturnValue(answer(429, { error: { code: 'RATE_LIMITED', message: 'Too many requests', fields: {} } }));
     renderForm();
     fillIn();
+    await turnstile.pass();
     submit();
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/too quickly/i));
   });
@@ -131,15 +190,19 @@ describe('CommentForm failures (SRS API 002)', () => {
     renderForm();
     fillIn();
 
+    // Each attempt uses up its token, so the visitor completes a fresh challenge before retrying.
     fetchMock.mockReturnValue(answer(500, { error: { code: 'INTERNAL_ERROR', message: 'Unexpected error', fields: {} } }));
+    await turnstile.pass('token-1');
     submit();
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/at our end/i));
 
     fetchMock.mockReturnValue(answer(503, { error: { code: 'SERVICE_UNAVAILABLE', message: 'x', fields: {} } }));
+    await turnstile.pass('token-2');
     submit();
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/temporarily unavailable/i));
 
     fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+    await turnstile.pass('token-3');
     submit();
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/could not reach the server/i));
   });
@@ -148,6 +211,7 @@ describe('CommentForm failures (SRS API 002)', () => {
     fetchMock.mockReturnValue(answer(500, { error: { code: 'INTERNAL_ERROR', message: 'x', fields: {} } }));
     renderForm();
     fillIn();
+    await turnstile.pass();
     submit();
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
     expect(screen.getByLabelText(/your comment/i)).toHaveValue('A useful thought about this article.');

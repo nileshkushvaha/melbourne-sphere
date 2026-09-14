@@ -1,6 +1,7 @@
 'use client';
 
 import Script from 'next/script';
+import { usePathname } from 'next/navigation';
 import type { AnalyticsIds } from '@/lib/analytics';
 import { useConsent } from '@/lib/use-consent';
 
@@ -19,7 +20,9 @@ import { useConsent } from '@/lib/use-consent';
  */
 export function Analytics({ ids }: { ids: AnalyticsIds }) {
   const choice = useConsent();
-  if (choice !== 'accepted') return null;
+  const pathname = usePathname();
+  // A private preview's address carries its token, so analytics never load there and it cannot reach Google.
+  if (choice !== 'accepted' || pathname?.startsWith('/preview/')) return null;
 
   return (
     <>

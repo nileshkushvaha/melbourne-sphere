@@ -1430,6 +1430,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/authors/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in administrator’s default author for new articles */
+        get: operations["AuthorsAdminController_mine"];
+        /** Choose, or clear, the signed-in administrator’s default author */
+        put: operations["AuthorsAdminController_setMine"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/authors/{id}": {
         parameters: {
             query?: never;
@@ -1640,6 +1658,40 @@ export interface paths {
         patch: operations["PostsAdminController_update"];
         trace?: never;
     };
+    "/api/v1/admin/posts/preview-render": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Render unsaved article content for the editor without storing it (SRS BLOG 003) */
+        post: operations["PostsAdminController_renderPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/posts/{id}/preview-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A private ten-minute link to see the saved article on the public site, bound to this session */
+        post: operations["PostsAdminController_previewLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/posts/{id}/preview": {
         parameters: {
             query?: never;
@@ -1668,6 +1720,58 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/posts/{id}/revisions/{revisionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One earlier version of the article, as written, for comparison */
+        get: operations["PostsAdminController_revision"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/posts/{id}/revisions/{revisionId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bring back an earlier version; the current one is kept as a revision first (SRS BLOG 003) */
+        post: operations["PostsAdminController_restoreRevision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/posts/{id}/autosave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in editor’s own unsaved work on this article, or null */
+        get: operations["PostsAdminController_autosave"];
+        /** Keep unsaved work while writing; never changes the article */
+        put: operations["PostsAdminController_saveAutosave"];
+        post?: never;
+        delete: operations["PostsAdminController_discardAutosave"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1771,6 +1875,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/posts/{id}/feature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Feature a published article on the home page and blog index (at most three) */
+        post: operations["PostsAdminController_feature"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/posts/{id}/unfeature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop featuring an article */
+        post: operations["PostsAdminController_unfeature"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/posts": {
         parameters: {
             query?: never;
@@ -1820,6 +1958,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/authors/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** An author page: active authors with at least one published article only (404 otherwise) */
+        get: operations["BlogPublicController_author"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/posts/{id}/comments": {
         parameters: {
             query?: never;
@@ -1832,6 +1987,23 @@ export interface paths {
         put?: never;
         /** Submit a comment for moderation (Idempotency-Key required) */
         post: operations["BlogPublicController_submitComment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/preview/posts/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A draft article behind a private preview link issued to a signed-in editor (SRS BLOG 003); 404 once expired */
+        get: operations["BlogPublicController_previewPost"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1968,6 +2140,23 @@ export interface paths {
         head?: never;
         /** Replace or restore the published text; the original is always kept */
         patch: operations["CommentsAdminController_redact"];
+        trace?: never;
+    };
+    "/api/v1/admin/comments/{id}/reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reply as the Melbourne Sphere team; published at once and recorded */
+        post: operations["CommentsAdminController_reply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/admin/dashboard": {
@@ -2808,6 +2997,123 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/site/menus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Visible navigation for the header, top bar and footer */
+        get: operations["MenuPublicController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/menus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MenuAdminController_list"];
+        put?: never;
+        post: operations["MenuAdminController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/menus/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MenuAdminController_locations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/menus/locations/{location}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Show a menu in a location, or clear it */
+        put: operations["MenuAdminController_assign"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/menus/link-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Content a menu item can link to, for the add-items panels */
+        get: operations["MenuAdminController_linkSources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/menus/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MenuAdminController_get"];
+        /** Save the whole menu tree in one transaction */
+        put: operations["MenuAdminController_save"];
+        post?: never;
+        delete: operations["MenuAdminController_remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/editor/link-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Content an article can link to or show as a card */
+        get: operations["EditorLinkSourcesController_search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/system/queues/workers": {
         parameters: {
             query?: never;
@@ -3570,7 +3876,7 @@ export interface components {
         };
         MediaUsageDto: {
             /** @enum {string} */
-            kind: "business" | "post" | "page" | "author" | "testimonial" | "partner" | "category" | "area" | "blogCategory" | "setting";
+            kind: "business" | "post" | "page" | "author" | "testimonial" | "partner" | "category" | "area" | "blogCategory" | "blogTag" | "faq" | "setting";
             id: string;
             label: string;
         };
@@ -4371,6 +4677,19 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        DefaultAuthorSummaryDto: {
+            id: string;
+            displayName: string;
+            active: boolean;
+        };
+        DefaultAuthorDto: {
+            authorId: string | null;
+            author: components["schemas"]["DefaultAuthorSummaryDto"] | null;
+        };
+        SetDefaultAuthorDto: {
+            /** @description An active author profile, or null to clear the preference */
+            authorId: string | null;
+        };
         AuthorInputDto: {
             displayName: string;
             /** @description Generated from the display name when omitted */
@@ -4503,6 +4822,13 @@ export interface components {
             publishedAt: string | null;
             /** Format: date-time */
             firstPublishedAt: string | null;
+            /**
+             * Format: date-time
+             * @description When the article was featured on the home page and blog index, or null (SRS 1.10 BLOG 005)
+             */
+            featuredAt: string | null;
+            /** @description Why the scheduled publication was refused at its time; the article went back to draft */
+            publishFailure: string | null;
             /** @description Unmet publication requirements (SRS BLOG 002) */
             publicationBlockers: string[];
             version: number;
@@ -4560,6 +4886,13 @@ export interface components {
             publishedAt: string | null;
             /** Format: date-time */
             firstPublishedAt: string | null;
+            /**
+             * Format: date-time
+             * @description When the article was featured on the home page and blog index, or null (SRS 1.10 BLOG 005)
+             */
+            featuredAt: string | null;
+            /** @description Why the scheduled publication was refused at its time; the article went back to draft */
+            publishFailure: string | null;
             /** @description Unmet publication requirements (SRS BLOG 002) */
             publicationBlockers: string[];
             version: number;
@@ -4587,6 +4920,44 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        RenderPostPreviewDto: {
+            title?: string;
+            excerpt?: string;
+            bodyMarkdown?: string;
+            /**
+             * @default html
+             * @enum {string}
+             */
+            bodyFormat: "markdown" | "html";
+            authorId?: string | null;
+            categoryId?: string | null;
+            coverMediaId?: string | null;
+        };
+        PreviewImageDto: {
+            url: string;
+            alt: string;
+        };
+        RenderedPostPreviewDto: {
+            title: string;
+            excerpt: string;
+            /** @description True when the summary was written from the opening text because none was typed */
+            excerptGenerated: boolean;
+            /** @description Sanitised HTML, exactly as a save would store it */
+            sanitizedBody: string;
+            authorName: string | null;
+            categoryName: string | null;
+            /** @description Null until the chosen image has been processed */
+            cover: components["schemas"]["PreviewImageDto"] | null;
+            readingMinutes: number;
+            /** @description Always true: previews are never indexable (SRS BLOG 003) */
+            noindex: boolean;
+        };
+        PostPreviewLinkDto: {
+            /** @description Path on the public site, e.g. /preview/article/<token> */
+            path: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
         PostPreviewDto: {
             id: string;
             title: string;
@@ -4606,8 +4977,54 @@ export interface components {
             title: string | null;
             reason: string | null;
             actorAdminId: string | null;
+            actorName: string | null;
             /** Format: date-time */
             createdAt: string;
+        };
+        PostRevisionDetailDto: {
+            id: string;
+            /** @description The article version this snapshot was taken from */
+            version: number;
+            title: string | null;
+            excerpt: string | null;
+            /** @description The text as written; the sanitised HTML for revisions recorded before 1.10 */
+            bodySource: string;
+            /** @enum {string} */
+            bodyFormat: "markdown" | "html";
+            sanitizedSnapshot: string;
+            reason: string | null;
+            actorName: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        RestorePostRevisionDto: {
+            /** @description The article version last read; a concurrent change is refused with 409 */
+            expectedVersion: number;
+        };
+        PostAutosaveDto: {
+            title: string;
+            excerpt: string;
+            bodyMarkdown: string;
+            /** @enum {string} */
+            bodyFormat: "markdown" | "html";
+            baseVersion: number;
+            /** Format: date-time */
+            savedAt: string;
+            /** @description True when the article has been saved by anyone since this work began */
+            stale: boolean;
+        };
+        SavePostAutosaveDto: {
+            title: string;
+            excerpt: string;
+            bodyMarkdown: string;
+            /** @enum {string} */
+            bodyFormat: "markdown" | "html";
+            /** @description The article version being edited */
+            baseVersion: number;
+        };
+        PostAutosaveReceiptDto: {
+            /** Format: date-time */
+            savedAt: string;
         };
         UpdatePostDto: {
             title?: string;
@@ -4681,6 +5098,8 @@ export interface components {
             expertise: string[];
             links: components["schemas"]["PublicAuthorLinkDto"][];
             image: components["schemas"]["PublicAuthorImageDto"] | null;
+            /** @description The public author page, when the author has one (SRS 1.10 BLOG 005) */
+            profilePath: string | null;
         };
         PublicPostCardDto: {
             id: string;
@@ -4715,6 +5134,29 @@ export interface components {
             /** @description The largest processed rendition of the share image (categories only) */
             shareImage: components["schemas"]["PublicImageVariantDto"] | null;
         };
+        PublicAuthorPageDto: {
+            displayName: string;
+            slug: string;
+            /** @description Editorial role shown under the byline */
+            role: string | null;
+            /** @description Short card biography */
+            shortBio: string | null;
+            /** @description Sanitised HTML profile */
+            bio: string | null;
+            pronouns: string | null;
+            location: string | null;
+            websiteUrl: string | null;
+            expertise: string[];
+            links: components["schemas"]["PublicAuthorLinkDto"][];
+            image: components["schemas"]["PublicAuthorImageDto"] | null;
+            /** @description The public author page, when the author has one (SRS 1.10 BLOG 005) */
+            profilePath: string | null;
+            seoTitle: string | null;
+            seoDescription: string | null;
+            postCount: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         PublicCommentDto: {
             id: string;
             displayName: string;
@@ -4722,6 +5164,12 @@ export interface components {
             redacted: boolean;
             /** Format: date-time */
             createdAt: string;
+            /** @description The top-level comment this replies to */
+            parentId: string | null;
+            /** @description Written by the Melbourne Sphere team */
+            staff: boolean;
+            /** @description Approved replies, oldest first; always empty on a reply */
+            replies: components["schemas"]["PublicCommentDto"][];
         };
         SubmitCommentDto: {
             displayName: string;
@@ -4732,12 +5180,21 @@ export interface components {
             acknowledged: boolean;
             captchaToken?: string;
             website?: string;
+            /** @description The approved comment being replied to; a reply to a reply joins the same thread (two levels) */
+            parentId?: string;
         };
         CommentReceiptDto: {
             receiptId: string;
             /** @enum {string} */
             status: "pending";
             message: string;
+        };
+        PublicEmbeddedBusinessDto: {
+            id: string;
+            slug: string;
+            name: string;
+            categoryName: string | null;
+            areaName: string | null;
         };
         PublicPostDto: {
             id: string;
@@ -4769,14 +5226,16 @@ export interface components {
             updatedAt: string;
             /** @description Up to four related articles (SRS BLOG 004) */
             related: components["schemas"]["PublicPostCardDto"][];
+            /** @description Published businesses the body shows as cards; a card whose business is not here is not shown */
+            businesses: components["schemas"]["PublicEmbeddedBusinessDto"][];
         };
         AdminCommentDto: {
             id: string;
             postId: string;
             postTitle: string;
             displayName: string;
-            /** @description Visible to moderators only */
-            email: string;
+            /** @description Masked; visible to moderators only; null on a team reply */
+            email: string | null;
             originalText: string;
             publicText: string | null;
             redactionReason: string | null;
@@ -4787,7 +5246,14 @@ export interface components {
             /** Format: date-time */
             decidedAt: string | null;
             openReportCount: number;
-            acknowledgedVersion: string;
+            acknowledgedVersion: string | null;
+            /** @description The top-level comment this replies to */
+            parentId: string | null;
+            parentDisplayName: string | null;
+            /** @description The start of the comment being replied to */
+            parentExcerpt: string | null;
+            /** @description A reply written by the team from moderation */
+            staff: boolean;
             version: number;
             /** Format: date-time */
             createdAt: string;
@@ -4801,6 +5267,9 @@ export interface components {
             expectedVersion: number;
             publicText: string | null;
             reason: string;
+        };
+        StaffReplyDto: {
+            text: string;
         };
         DashboardMetricDto: {
             /** @description Stable key the UI maps to a route and label */
@@ -5719,6 +6188,122 @@ export interface components {
             expectedVersion: number;
             /** @description How the consent or authorisation was obtained, for the record. */
             note?: Record<string, never> | null;
+        };
+        PublicMenuItemDto: {
+            id: string;
+            label: string;
+            /** @description Null for a heading that only groups its children. */
+            href?: string | null;
+            external: boolean;
+            newTab: boolean;
+            rel?: string | null;
+            title?: string | null;
+            description?: string | null;
+            icon?: string | null;
+            /** @enum {string} */
+            style: "link" | "button";
+            children: components["schemas"]["PublicMenuItemDto"][];
+        };
+        PublicMenusDto: {
+            primary: components["schemas"]["PublicMenuItemDto"][];
+            secondary: components["schemas"]["PublicMenuItemDto"][];
+            footer: components["schemas"]["PublicMenuItemDto"][];
+            footer_bottom: components["schemas"]["PublicMenuItemDto"][];
+        };
+        AdminMenuSummaryDto: {
+            id: string;
+            name: string;
+            version: number;
+            itemCount: number;
+            locations: ("primary" | "secondary" | "footer" | "footer_bottom")[];
+            updatedAt: string;
+        };
+        AdminMenuLocationDto: {
+            /** @enum {string} */
+            location: "primary" | "secondary" | "footer" | "footer_bottom";
+            label: string;
+            description: string;
+            maxDepth: number;
+            menuId?: string | null;
+            menuName?: string | null;
+            version: number;
+            updatedAt: string;
+        };
+        AssignMenuLocationDto: {
+            /** @description The menu to show here, or null to show none. */
+            menuId?: string | null;
+            expectedVersion: number;
+        };
+        MenuLinkSourceDto: {
+            id: string;
+            title: string;
+            href: string;
+            /** @enum {string} */
+            state: "ok" | "unpublished" | "scheduled" | "inactive" | "missing";
+            hint?: string | null;
+        };
+        MenuSourceDto: {
+            /**
+             * @description Whether the public can see what the item links to.
+             * @enum {string}
+             */
+            state: "ok" | "unpublished" | "scheduled" | "inactive" | "missing";
+            title?: string | null;
+            href?: string | null;
+        };
+        AdminMenuItemDto: {
+            key: string;
+            parentKey?: string | null;
+            /** @enum {string} */
+            type: "custom" | "heading" | "route" | "page" | "post" | "blog_category" | "blog_tag" | "business_category" | "area" | "business";
+            refId?: string | null;
+            routeKey?: string | null;
+            url?: string | null;
+            label?: string | null;
+            titleAttribute?: string | null;
+            description?: string | null;
+            icon?: string | null;
+            /** @enum {string} */
+            style: "link" | "button";
+            openInNewTab: boolean;
+            relNofollow: boolean;
+            source: components["schemas"]["MenuSourceDto"];
+        };
+        AdminMenuDetailDto: {
+            id: string;
+            name: string;
+            version: number;
+            itemCount: number;
+            locations: ("primary" | "secondary" | "footer" | "footer_bottom")[];
+            updatedAt: string;
+            items: components["schemas"]["AdminMenuItemDto"][];
+        };
+        CreateMenuDto: {
+            name: string;
+        };
+        MenuItemInputDto: {
+            key: string;
+            parentKey?: string | null;
+            /** @enum {string} */
+            type: "custom" | "heading" | "route" | "page" | "post" | "blog_category" | "blog_tag" | "business_category" | "area" | "business";
+            refId?: string | null;
+            routeKey?: string | null;
+            url?: string | null;
+            label?: string | null;
+            titleAttribute?: string | null;
+            description?: string | null;
+            icon?: string | null;
+            /** @enum {string} */
+            style?: "link" | "button";
+            openInNewTab?: boolean;
+            relNofollow?: boolean;
+        };
+        SaveMenuDto: {
+            name: string;
+            /** @description Version last read; a concurrent change is refused with 409. */
+            expectedVersion: number;
+            /** @description The whole tree, flat, in display order, parents before children. */
+            items: components["schemas"]["MenuItemInputDto"][];
         };
         WorkerLivenessDto: {
             /** @description True only when a worker has checked in recently and the required schedule is running. */
@@ -8364,6 +8949,48 @@ export interface operations {
             };
         };
     };
+    AuthorsAdminController_mine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefaultAuthorDto"];
+                };
+            };
+        };
+    };
+    AuthorsAdminController_setMine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetDefaultAuthorDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefaultAuthorDto"];
+                };
+            };
+        };
+    };
     AuthorsAdminController_getAuthor: {
         parameters: {
             query?: never;
@@ -8781,6 +9408,50 @@ export interface operations {
             };
         };
     };
+    PostsAdminController_renderPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenderPostPreviewDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenderedPostPreviewDto"];
+                };
+            };
+        };
+    };
+    PostsAdminController_previewLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostPreviewLinkDto"];
+                };
+            };
+        };
+    };
     PostsAdminController_preview: {
         parameters: {
             query?: never;
@@ -8820,6 +9491,119 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PostRevisionDto"][];
                 };
+            };
+        };
+    };
+    PostsAdminController_revision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                revisionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostRevisionDetailDto"];
+                };
+            };
+        };
+    };
+    PostsAdminController_restoreRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                revisionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestorePostRevisionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostDto"];
+                };
+            };
+        };
+    };
+    PostsAdminController_autosave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostAutosaveDto"];
+                };
+            };
+        };
+    };
+    PostsAdminController_saveAutosave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavePostAutosaveDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostAutosaveReceiptDto"];
+                };
+            };
+        };
+    };
+    PostsAdminController_discardAutosave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -8973,6 +9757,56 @@ export interface operations {
             };
         };
     };
+    PostsAdminController_feature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PostStateDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostDto"];
+                };
+            };
+        };
+    };
+    PostsAdminController_unfeature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PostStateDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostDto"];
+                };
+            };
+        };
+    };
     BlogPublicController_list: {
         parameters: {
             query?: {
@@ -8980,6 +9814,10 @@ export interface operations {
                 category?: string;
                 /** @description Tag slug */
                 tag?: string;
+                /** @description Author slug */
+                author?: string;
+                /** @description Only featured articles, most recently featured first (SRS 1.10 BLOG 005) */
+                featured?: "true";
                 q?: string;
                 page?: components["schemas"]["Object"];
                 pageSize?: components["schemas"]["Object"];
@@ -9038,6 +9876,27 @@ export interface operations {
             };
         };
     };
+    BlogPublicController_author: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicAuthorPageDto"];
+                };
+            };
+        };
+    };
     BlogPublicController_comments_: {
         parameters: {
             query?: {
@@ -9083,6 +9942,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CommentReceiptDto"];
+                };
+            };
+        };
+    };
+    BlogPublicController_previewPost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicPostDto"];
                 };
             };
         };
@@ -9262,6 +10142,31 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RedactCommentDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminCommentDto"];
+                };
+            };
+        };
+    };
+    CommentsAdminController_reply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffReplyDto"];
             };
         };
         responses: {
@@ -10869,6 +11774,230 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PartnerDto"];
+                };
+            };
+        };
+    };
+    MenuPublicController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicMenusDto"];
+                };
+            };
+        };
+    };
+    MenuAdminController_list: {
+        parameters: {
+            query?: {
+                page?: components["schemas"]["Object"];
+                pageSize?: components["schemas"]["Object"];
+                order?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMenuSummaryDto"][];
+                };
+            };
+        };
+    };
+    MenuAdminController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMenuDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMenuDetailDto"];
+                };
+            };
+        };
+    };
+    MenuAdminController_locations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMenuLocationDto"][];
+                };
+            };
+        };
+    };
+    MenuAdminController_assign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignMenuLocationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMenuLocationDto"][];
+                };
+            };
+        };
+    };
+    MenuAdminController_linkSources: {
+        parameters: {
+            query: {
+                page?: components["schemas"]["Object"];
+                pageSize?: components["schemas"]["Object"];
+                order?: "asc" | "desc";
+                type: "route" | "page" | "post" | "blog_category" | "blog_tag" | "business_category" | "area" | "business";
+                q?: string;
+                sort?: "recent" | "title";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MenuLinkSourceDto"][];
+                };
+            };
+        };
+    };
+    MenuAdminController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMenuDetailDto"];
+                };
+            };
+        };
+    };
+    MenuAdminController_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveMenuDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminMenuDetailDto"];
+                };
+            };
+        };
+    };
+    MenuAdminController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EditorLinkSourcesController_search: {
+        parameters: {
+            query: {
+                page?: components["schemas"]["Object"];
+                pageSize?: components["schemas"]["Object"];
+                order?: "asc" | "desc";
+                type: "route" | "page" | "post" | "blog_category" | "blog_tag" | "business_category" | "area" | "business";
+                q?: string;
+                sort?: "recent" | "title";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MenuLinkSourceDto"][];
                 };
             };
         };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { withHeadingAnchors } from './headings';
+import { articleOutline, withHeadingAnchors } from './headings';
 
 /** Section anchors for editor-written pages: the policies are read and linked to section by section. */
 describe('Heading anchors', () => {
@@ -26,5 +26,26 @@ describe('Heading anchors', () => {
   it('leaves a body with no headings exactly as it was', () => {
     const body = '<p>One paragraph, nothing to anchor.</p>';
     expect(withHeadingAnchors(body)).toEqual({ html: body, headings: [] });
+  });
+});
+
+describe('Article outline', () => {
+  it('anchors sections and subsections with prefixed, unique ids in document order', () => {
+    const { html, headings } = articleOutline('<h2>Getting there</h2><p>…</p><h3>By tram</h3><h3>By tram</h3><h2>Comments</h2><h4>Not listed</h4>');
+    expect(headings).toEqual([
+      { id: 'section-getting-there', text: 'Getting there', level: 2 },
+      { id: 'section-by-tram', text: 'By tram', level: 3 },
+      { id: 'section-by-tram-2', text: 'By tram', level: 3 },
+      { id: 'section-comments', text: 'Comments', level: 2 },
+    ]);
+    expect(html).toContain('<h3 id="section-by-tram-2">By tram</h3>');
+    expect(html).toContain('<h4>Not listed</h4>');
+  });
+
+  it('never keeps an id from the body and skips headings with no text', () => {
+    const { html, headings } = articleOutline('<h2 id="main-content">Real <em>title</em></h2><h2>  </h2><h2>!!!</h2>');
+    expect(headings).toEqual([{ id: 'section-real-title', text: 'Real title', level: 2 }]);
+    expect(html).not.toContain('id="main-content"');
+    expect(html).toContain('<h2>  </h2>');
   });
 });

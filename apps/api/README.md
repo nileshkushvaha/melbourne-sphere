@@ -124,6 +124,12 @@ Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
 
 Model, invariants, recipes and the recovery procedure: `docs/authorization.md`. Technology decision: `docs/decisions/0001-authorization-casl.md`.
 
+## Navigation menus (SRS 1.9 MENU 001–006)
+
+`src/website/menu*.ts`. A menu is saved as a whole tree (`PUT /admin/menus/:id` with `expectedVersion`, items flat in display order, parents first) in one transaction with its activity record and, when the menu is shown anywhere, a `menus` cache purge. Locations are fixed rows (`PUT /admin/menus/locations/:location`); a save or assignment is checked against the shared rules in `@melbourne-sphere/domain/menus`, and every referenced record must exist. `GET /admin/menus/link-sources` feeds the admin's content panels under the menu permission alone. `GET /site/menus` resolves addresses and hides unpublished, inactive or deleted targets with their children (`menu-resolver.ts`, pure and unit tested).
+
+Deployment order: `migrate deploy` → `admin:seed-rbac` → `menus:seed` → `media:backfill-content` (records images already inside stored article, page, bio, FAQ and landing text so the media library and the retention task treat them as in use; `--dry-run` reports images that were already lost) → `blog:backfill-search-text` (fills `posts.searchText` for articles saved before blog search, SRS 1.10 BLOG 005; idempotent, `--dry-run` reports how many would change). The seed creates the default Main navigation, Footer and Footer legal menus only where a location is still empty, so it is safe to re-run; until it runs, the public header falls back to its built-in product routes.
+
 
 ## Integration test isolation
 

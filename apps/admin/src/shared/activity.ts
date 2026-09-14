@@ -21,6 +21,7 @@ const EXACT: Record<string, string> = {
   'system.queue.retry': 'Job retried',
   'system.queue.cancel': 'Job removed',
   'system.cache.invalidate': 'Cache cleared',
+  'website.menu.location.assign': 'Menu location changed',
 };
 
 /** The trailing word of a code, in the tense an operator would use for it. */

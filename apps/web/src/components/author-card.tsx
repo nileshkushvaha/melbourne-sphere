@@ -1,11 +1,12 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import type { PostDetail } from '@/lib/api';
 import { BrandIcon, brandLabel } from './brand-icon';
 
 /**
- * Author block shown under an article (SRS BLOG 004/005: author information
- * appears with the article rather than on an author archive page, which the
- * product does not have — so nothing here links to one).
+ * Author block shown under an article (SRS BLOG 004, 1.10 BLOG 005). It links
+ * to the author's page when they have one (an active author with published
+ * articles).
  *
  * Every field is optional and omitted when the editor has not filled it in, and
  * the block itself disappears when there is nothing to say beyond a name the
@@ -68,6 +69,11 @@ export function AuthorCard({ author }: { author: PostDetail['author'] }) {
                 );
               })}
             </ul>
+          )}
+          {author.profilePath && (
+            <Link href={author.profilePath} className="ms-text-link mt-4 inline-flex min-h-11 items-center text-sm font-semibold">
+              More articles by {author.displayName}
+            </Link>
           )}
         </div>
       </div>

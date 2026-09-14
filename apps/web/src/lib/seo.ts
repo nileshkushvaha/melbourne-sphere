@@ -95,7 +95,8 @@ export async function pageMetadata(input: PageSeo): Promise<Metadata> {
     title: input.title,
     description,
     ...(keywords.length > 0 ? { keywords } : {}),
-    alternates: { canonical: url },
+    // Every page points feed readers at the blog feed (SRS 1.10 BLOG 005).
+    alternates: { canonical: url, types: { 'application/rss+xml': [{ url: '/blog/feed.xml', title: `${settings.name} blog` }] } },
     ...(input.robots ? { robots: input.robots } : {}),
     openGraph: input.article
       ? { ...common, type: 'article', ...input.article }

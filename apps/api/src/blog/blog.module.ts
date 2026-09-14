@@ -9,12 +9,12 @@ import { BlogPublicService } from './blog-public.service.js';
 import { CommentsAdminController } from './comments.controller.js';
 import { CommentsService } from './comments.service.js';
 import { BlogService } from './blog.service.js';
-import { ScheduledPublishingService } from './scheduled-publishing.service.js';
 
 @Module({
   imports: [AuthModule, OutboxModule, ReviewsModule],
   controllers: [AuthorsAdminController, BlogCategoriesAdminController, BlogTagsAdminController, PostsAdminController, BlogPublicController, CommentsAdminController],
-  providers: [BlogService, ScheduledPublishingService, BlogPublicService, CommentsService, IdempotencyService],
+  // Scheduled publication is the worker's `content.publish-scheduled` task (SRS BLOG 002, TASK 001).
+  providers: [BlogService, BlogPublicService, CommentsService, IdempotencyService],
   exports: [BlogService, CommentsService],
 })
 export class BlogModule {}

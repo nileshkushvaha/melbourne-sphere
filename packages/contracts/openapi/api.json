@@ -4376,6 +4376,58 @@
         ]
       }
     },
+    "/api/v1/admin/authors/mine": {
+      "get": {
+        "operationId": "AuthorsAdminController_mine",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultAuthorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "The signed-in administrator’s default author for new articles",
+        "tags": [
+          "admin-blog"
+        ]
+      },
+      "put": {
+        "operationId": "AuthorsAdminController_setMine",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetDefaultAuthorDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefaultAuthorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Choose, or clear, the signed-in administrator’s default author",
+        "tags": [
+          "admin-blog"
+        ]
+      }
+    },
     "/api/v1/admin/authors/{id}": {
       "get": {
         "operationId": "AuthorsAdminController_getAuthor",
@@ -5075,6 +5127,69 @@
         ]
       }
     },
+    "/api/v1/admin/posts/preview-render": {
+      "post": {
+        "operationId": "PostsAdminController_renderPreview",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenderPostPreviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenderedPostPreviewDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Render unsaved article content for the editor without storing it (SRS BLOG 003)",
+        "tags": [
+          "admin-blog"
+        ]
+      }
+    },
+    "/api/v1/admin/posts/{id}/preview-link": {
+      "post": {
+        "operationId": "PostsAdminController_previewLink",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostPreviewLinkDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "A private ten-minute link to see the saved article on the public site, bound to this session",
+        "tags": [
+          "admin-blog"
+        ]
+      }
+    },
     "/api/v1/admin/posts/{id}/preview": {
       "get": {
         "operationId": "PostsAdminController_preview",
@@ -5132,6 +5247,185 @@
                 }
               }
             }
+          }
+        },
+        "tags": [
+          "admin-blog"
+        ]
+      }
+    },
+    "/api/v1/admin/posts/{id}/revisions/{revisionId}": {
+      "get": {
+        "operationId": "PostsAdminController_revision",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "revisionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostRevisionDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "One earlier version of the article, as written, for comparison",
+        "tags": [
+          "admin-blog"
+        ]
+      }
+    },
+    "/api/v1/admin/posts/{id}/revisions/{revisionId}/restore": {
+      "post": {
+        "operationId": "PostsAdminController_restoreRevision",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "revisionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestorePostRevisionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Bring back an earlier version; the current one is kept as a revision first (SRS BLOG 003)",
+        "tags": [
+          "admin-blog"
+        ]
+      }
+    },
+    "/api/v1/admin/posts/{id}/autosave": {
+      "get": {
+        "operationId": "PostsAdminController_autosave",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostAutosaveDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "The signed-in editor’s own unsaved work on this article, or null",
+        "tags": [
+          "admin-blog"
+        ]
+      },
+      "put": {
+        "operationId": "PostsAdminController_saveAutosave",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavePostAutosaveDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostAutosaveReceiptDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Keep unsaved work while writing; never changes the article",
+        "tags": [
+          "admin-blog"
+        ]
+      },
+      "delete": {
+        "operationId": "PostsAdminController_discardAutosave",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
           }
         },
         "tags": [
@@ -5381,6 +5675,88 @@
         ]
       }
     },
+    "/api/v1/admin/posts/{id}/feature": {
+      "post": {
+        "operationId": "PostsAdminController_feature",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostStateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Feature a published article on the home page and blog index (at most three)",
+        "tags": [
+          "admin-blog"
+        ]
+      }
+    },
+    "/api/v1/admin/posts/{id}/unfeature": {
+      "post": {
+        "operationId": "PostsAdminController_unfeature",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PostStateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PostDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Stop featuring an article",
+        "tags": [
+          "admin-blog"
+        ]
+      }
+    },
     "/api/v1/posts": {
       "get": {
         "operationId": "BlogPublicController_list",
@@ -5401,6 +5777,27 @@
             "description": "Tag slug",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "author",
+            "required": false,
+            "in": "query",
+            "description": "Author slug",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "featured",
+            "required": false,
+            "in": "query",
+            "description": "Only featured articles, most recently featured first (SRS 1.10 BLOG 005)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
             }
           },
           {
@@ -5511,6 +5908,37 @@
         ]
       }
     },
+    "/api/v1/authors/{slug}": {
+      "get": {
+        "operationId": "BlogPublicController_author",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicAuthorPageDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "An author page: active authors with at least one published article only (404 otherwise)",
+        "tags": [
+          "public-blog"
+        ]
+      }
+    },
     "/api/v1/posts/{id}/comments": {
       "get": {
         "operationId": "BlogPublicController_comments_",
@@ -5608,6 +6036,37 @@
           }
         },
         "summary": "Submit a comment for moderation (Idempotency-Key required)",
+        "tags": [
+          "public-blog"
+        ]
+      }
+    },
+    "/api/v1/preview/posts/{token}": {
+      "get": {
+        "operationId": "BlogPublicController_previewPost",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicPostDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "A draft article behind a private preview link issued to a signed-in editor (SRS BLOG 003); 404 once expired",
         "tags": [
           "public-blog"
         ]
@@ -5948,6 +6407,47 @@
           }
         },
         "summary": "Replace or restore the published text; the original is always kept",
+        "tags": [
+          "admin-comments"
+        ]
+      }
+    },
+    "/api/v1/admin/comments/{id}/reply": {
+      "post": {
+        "operationId": "CommentsAdminController_reply",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffReplyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCommentDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reply as the Melbourne Sphere team; published at once and recorded",
         "tags": [
           "admin-comments"
         ]
@@ -8544,6 +9044,489 @@
         ]
       }
     },
+    "/api/v1/site/menus": {
+      "get": {
+        "operationId": "MenuPublicController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicMenusDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Visible navigation for the header, top bar and footer",
+        "tags": [
+          "public-site"
+        ]
+      }
+    },
+    "/api/v1/admin/menus": {
+      "get": {
+        "operationId": "MenuAdminController_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "asc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminMenuSummaryDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      },
+      "post": {
+        "operationId": "MenuAdminController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMenuDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMenuDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/menus/locations": {
+      "get": {
+        "operationId": "MenuAdminController_locations",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminMenuLocationDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/menus/locations/{location}": {
+      "put": {
+        "operationId": "MenuAdminController_assign",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignMenuLocationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminMenuLocationDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Show a menu in a location, or clear it",
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/menus/link-sources": {
+      "get": {
+        "operationId": "MenuAdminController_linkSources",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "asc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "type",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "route",
+                "page",
+                "post",
+                "blog_category",
+                "blog_tag",
+                "business_category",
+                "area",
+                "business"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "title",
+              "type": "string",
+              "enum": [
+                "recent",
+                "title"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MenuLinkSourceDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Content a menu item can link to, for the add-items panels",
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/menus/{id}": {
+      "get": {
+        "operationId": "MenuAdminController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMenuDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      },
+      "put": {
+        "operationId": "MenuAdminController_save",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveMenuDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminMenuDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Save the whole menu tree in one transaction",
+        "tags": [
+          "admin-website"
+        ]
+      },
+      "delete": {
+        "operationId": "MenuAdminController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "admin-website"
+        ]
+      }
+    },
+    "/api/v1/admin/editor/link-sources": {
+      "get": {
+        "operationId": "EditorLinkSourcesController_search",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "asc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "type",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "route",
+                "page",
+                "post",
+                "blog_category",
+                "blog_tag",
+                "business_category",
+                "area",
+                "business"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "title",
+              "type": "string",
+              "enum": [
+                "recent",
+                "title"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MenuLinkSourceDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Content an article can link to or show as a card",
+        "tags": [
+          "admin-blog"
+        ]
+      }
+    },
     "/api/v1/admin/system/queues/workers": {
       "get": {
         "operationId": "QueueMonitorController_workers",
@@ -10925,6 +11908,8 @@
               "category",
               "area",
               "blogCategory",
+              "blogTag",
+              "faq",
               "setting"
             ]
           },
@@ -13877,6 +14862,60 @@
           "updatedAt"
         ]
       },
+      "DefaultAuthorSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "active"
+        ]
+      },
+      "DefaultAuthorDto": {
+        "type": "object",
+        "properties": {
+          "authorId": {
+            "type": "string",
+            "nullable": true
+          },
+          "author": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DefaultAuthorSummaryDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "authorId",
+          "author"
+        ]
+      },
+      "SetDefaultAuthorDto": {
+        "type": "object",
+        "properties": {
+          "authorId": {
+            "type": "string",
+            "nullable": true,
+            "description": "An active author profile, or null to clear the preference"
+          }
+        },
+        "required": [
+          "authorId"
+        ]
+      },
       "AuthorInputDto": {
         "type": "object",
         "properties": {
@@ -14342,6 +15381,17 @@
             "format": "date-time",
             "nullable": true
           },
+          "featuredAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the article was featured on the home page and blog index, or null (SRS 1.10 BLOG 005)"
+          },
+          "publishFailure": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why the scheduled publication was refused at its time; the article went back to draft"
+          },
           "publicationBlockers": {
             "description": "Unmet publication requirements (SRS BLOG 002)",
             "type": "array",
@@ -14371,6 +15421,8 @@
           "scheduledAt",
           "publishedAt",
           "firstPublishedAt",
+          "featuredAt",
+          "publishFailure",
           "publicationBlockers",
           "version",
           "updatedAt"
@@ -14538,6 +15590,17 @@
             "format": "date-time",
             "nullable": true
           },
+          "featuredAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the article was featured on the home page and blog index, or null (SRS 1.10 BLOG 005)"
+          },
+          "publishFailure": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why the scheduled publication was refused at its time; the article went back to draft"
+          },
           "publicationBlockers": {
             "description": "Unmet publication requirements (SRS BLOG 002)",
             "type": "array",
@@ -14638,6 +15701,8 @@
           "scheduledAt",
           "publishedAt",
           "firstPublishedAt",
+          "featuredAt",
+          "publishFailure",
           "publicationBlockers",
           "version",
           "updatedAt",
@@ -14655,6 +15720,130 @@
           "seoKeywords",
           "archivedAt",
           "createdAt"
+        ]
+      },
+      "RenderPostPreviewDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 180
+          },
+          "excerpt": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "bodyMarkdown": {
+            "type": "string",
+            "maxLength": 200000
+          },
+          "bodyFormat": {
+            "type": "string",
+            "enum": [
+              "markdown",
+              "html"
+            ],
+            "default": "html"
+          },
+          "authorId": {
+            "type": "string",
+            "nullable": true
+          },
+          "categoryId": {
+            "type": "string",
+            "nullable": true
+          },
+          "coverMediaId": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "PreviewImageDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "alt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "alt"
+        ]
+      },
+      "RenderedPostPreviewDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "excerpt": {
+            "type": "string"
+          },
+          "excerptGenerated": {
+            "type": "boolean",
+            "description": "True when the summary was written from the opening text because none was typed"
+          },
+          "sanitizedBody": {
+            "type": "string",
+            "description": "Sanitised HTML, exactly as a save would store it"
+          },
+          "authorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "categoryName": {
+            "type": "string",
+            "nullable": true
+          },
+          "cover": {
+            "nullable": true,
+            "description": "Null until the chosen image has been processed",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PreviewImageDto"
+              }
+            ]
+          },
+          "readingMinutes": {
+            "type": "number"
+          },
+          "noindex": {
+            "type": "boolean",
+            "description": "Always true: previews are never indexable (SRS BLOG 003)"
+          }
+        },
+        "required": [
+          "title",
+          "excerpt",
+          "excerptGenerated",
+          "sanitizedBody",
+          "authorName",
+          "categoryName",
+          "cover",
+          "readingMinutes",
+          "noindex"
+        ]
+      },
+      "PostPreviewLinkDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path on the public site, e.g. /preview/article/<token>"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "path",
+          "expiresAt"
         ]
       },
       "PostPreviewDto": {
@@ -14725,6 +15914,10 @@
             "type": "string",
             "nullable": true
           },
+          "actorName": {
+            "type": "string",
+            "nullable": true
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -14736,7 +15929,166 @@
           "title",
           "reason",
           "actorAdminId",
+          "actorName",
           "createdAt"
+        ]
+      },
+      "PostRevisionDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number",
+            "description": "The article version this snapshot was taken from"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "excerpt": {
+            "type": "string",
+            "nullable": true
+          },
+          "bodySource": {
+            "type": "string",
+            "description": "The text as written; the sanitised HTML for revisions recorded before 1.10"
+          },
+          "bodyFormat": {
+            "type": "string",
+            "enum": [
+              "markdown",
+              "html"
+            ]
+          },
+          "sanitizedSnapshot": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "actorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "title",
+          "excerpt",
+          "bodySource",
+          "bodyFormat",
+          "sanitizedSnapshot",
+          "reason",
+          "actorName",
+          "createdAt"
+        ]
+      },
+      "RestorePostRevisionDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number",
+            "description": "The article version last read; a concurrent change is refused with 409"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "PostAutosaveDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "excerpt": {
+            "type": "string"
+          },
+          "bodyMarkdown": {
+            "type": "string"
+          },
+          "bodyFormat": {
+            "type": "string",
+            "enum": [
+              "markdown",
+              "html"
+            ]
+          },
+          "baseVersion": {
+            "type": "number"
+          },
+          "savedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "True when the article has been saved by anyone since this work began"
+          }
+        },
+        "required": [
+          "title",
+          "excerpt",
+          "bodyMarkdown",
+          "bodyFormat",
+          "baseVersion",
+          "savedAt",
+          "stale"
+        ]
+      },
+      "SavePostAutosaveDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 180
+          },
+          "excerpt": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "bodyMarkdown": {
+            "type": "string",
+            "maxLength": 200000
+          },
+          "bodyFormat": {
+            "type": "string",
+            "enum": [
+              "markdown",
+              "html"
+            ]
+          },
+          "baseVersion": {
+            "type": "number",
+            "description": "The article version being edited"
+          }
+        },
+        "required": [
+          "title",
+          "excerpt",
+          "bodyMarkdown",
+          "bodyFormat",
+          "baseVersion"
+        ]
+      },
+      "PostAutosaveReceiptDto": {
+        "type": "object",
+        "properties": {
+          "savedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "savedAt"
         ]
       },
       "UpdatePostDto": {
@@ -14973,6 +16325,11 @@
                 "$ref": "#/components/schemas/PublicAuthorImageDto"
               }
             ]
+          },
+          "profilePath": {
+            "type": "string",
+            "nullable": true,
+            "description": "The public author page, when the author has one (SRS 1.10 BLOG 005)"
           }
         },
         "required": [
@@ -14986,7 +16343,8 @@
           "websiteUrl",
           "expertise",
           "links",
-          "image"
+          "image",
+          "profilePath"
         ]
       },
       "PublicPostCardDto": {
@@ -15116,6 +16474,103 @@
           "shareImage"
         ]
       },
+      "PublicAuthorPageDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "nullable": true,
+            "description": "Editorial role shown under the byline"
+          },
+          "shortBio": {
+            "type": "string",
+            "nullable": true,
+            "description": "Short card biography"
+          },
+          "bio": {
+            "type": "string",
+            "nullable": true,
+            "description": "Sanitised HTML profile"
+          },
+          "pronouns": {
+            "type": "string",
+            "nullable": true
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          },
+          "websiteUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "expertise": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicAuthorLinkDto"
+            }
+          },
+          "image": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicAuthorImageDto"
+              }
+            ]
+          },
+          "profilePath": {
+            "type": "string",
+            "nullable": true,
+            "description": "The public author page, when the author has one (SRS 1.10 BLOG 005)"
+          },
+          "seoTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "seoDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "postCount": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "displayName",
+          "slug",
+          "role",
+          "shortBio",
+          "bio",
+          "pronouns",
+          "location",
+          "websiteUrl",
+          "expertise",
+          "links",
+          "image",
+          "profilePath",
+          "seoTitle",
+          "seoDescription",
+          "postCount",
+          "updatedAt"
+        ]
+      },
       "PublicCommentDto": {
         "type": "object",
         "properties": {
@@ -15134,6 +16589,22 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "parentId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The top-level comment this replies to"
+          },
+          "staff": {
+            "type": "boolean",
+            "description": "Written by the Melbourne Sphere team"
+          },
+          "replies": {
+            "description": "Approved replies, oldest first; always empty on a reply",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicCommentDto"
+            }
           }
         },
         "required": [
@@ -15141,7 +16612,10 @@
           "displayName",
           "text",
           "redacted",
-          "createdAt"
+          "createdAt",
+          "parentId",
+          "staff",
+          "replies"
         ]
       },
       "SubmitCommentDto": {
@@ -15173,6 +16647,11 @@
           "website": {
             "type": "string",
             "writeOnly": true
+          },
+          "parentId": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "The approved comment being replied to; a reply to a reply joins the same thread (two levels)"
           }
         },
         "required": [
@@ -15202,6 +16681,35 @@
           "receiptId",
           "status",
           "message"
+        ]
+      },
+      "PublicEmbeddedBusinessDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "categoryName": {
+            "type": "string",
+            "nullable": true
+          },
+          "areaName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "categoryName",
+          "areaName"
         ]
       },
       "PublicPostDto": {
@@ -15294,6 +16802,13 @@
             "items": {
               "$ref": "#/components/schemas/PublicPostCardDto"
             }
+          },
+          "businesses": {
+            "description": "Published businesses the body shows as cards; a card whose business is not here is not shown",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicEmbeddedBusinessDto"
+            }
           }
         },
         "required": [
@@ -15316,7 +16831,8 @@
           "approvedCommentCount",
           "firstPublishedAt",
           "updatedAt",
-          "related"
+          "related",
+          "businesses"
         ]
       },
       "AdminCommentDto": {
@@ -15336,7 +16852,8 @@
           },
           "email": {
             "type": "string",
-            "description": "Visible to moderators only"
+            "nullable": true,
+            "description": "Masked; visible to moderators only; null on a team reply"
           },
           "originalText": {
             "type": "string"
@@ -15375,7 +16892,26 @@
             "type": "number"
           },
           "acknowledgedVersion": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
+          },
+          "parentId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The top-level comment this replies to"
+          },
+          "parentDisplayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "parentExcerpt": {
+            "type": "string",
+            "nullable": true,
+            "description": "The start of the comment being replied to"
+          },
+          "staff": {
+            "type": "boolean",
+            "description": "A reply written by the team from moderation"
           },
           "version": {
             "type": "number"
@@ -15400,6 +16936,10 @@
           "decidedAt",
           "openReportCount",
           "acknowledgedVersion",
+          "parentId",
+          "parentDisplayName",
+          "parentExcerpt",
+          "staff",
           "version",
           "createdAt"
         ]
@@ -15440,6 +16980,19 @@
           "expectedVersion",
           "publicText",
           "reason"
+        ]
+      },
+      "StaffReplyDto": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "text"
         ]
       },
       "DashboardMetricDto": {
@@ -18685,6 +20238,506 @@
         },
         "required": [
           "expectedVersion"
+        ]
+      },
+      "PublicMenuItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "href": {
+            "type": "string",
+            "nullable": true,
+            "description": "Null for a heading that only groups its children."
+          },
+          "external": {
+            "type": "boolean"
+          },
+          "newTab": {
+            "type": "boolean"
+          },
+          "rel": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "link",
+              "button"
+            ]
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicMenuItemDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "external",
+          "newTab",
+          "style",
+          "children"
+        ]
+      },
+      "PublicMenusDto": {
+        "type": "object",
+        "properties": {
+          "primary": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicMenuItemDto"
+            }
+          },
+          "secondary": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicMenuItemDto"
+            }
+          },
+          "footer": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicMenuItemDto"
+            }
+          },
+          "footer_bottom": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicMenuItemDto"
+            }
+          }
+        },
+        "required": [
+          "primary",
+          "secondary",
+          "footer",
+          "footer_bottom"
+        ]
+      },
+      "AdminMenuSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "itemCount": {
+            "type": "number"
+          },
+          "locations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "primary",
+                "secondary",
+                "footer",
+                "footer_bottom"
+              ]
+            }
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "version",
+          "itemCount",
+          "locations",
+          "updatedAt"
+        ]
+      },
+      "AdminMenuLocationDto": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "enum": [
+              "primary",
+              "secondary",
+              "footer",
+              "footer_bottom"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "maxDepth": {
+            "type": "number"
+          },
+          "menuId": {
+            "type": "string",
+            "nullable": true
+          },
+          "menuName": {
+            "type": "string",
+            "nullable": true
+          },
+          "version": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "location",
+          "label",
+          "description",
+          "maxDepth",
+          "version",
+          "updatedAt"
+        ]
+      },
+      "AssignMenuLocationDto": {
+        "type": "object",
+        "properties": {
+          "menuId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The menu to show here, or null to show none."
+          },
+          "expectedVersion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "MenuLinkSourceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "href": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unpublished",
+              "scheduled",
+              "inactive",
+              "missing"
+            ]
+          },
+          "hint": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "href",
+          "state"
+        ]
+      },
+      "MenuSourceDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unpublished",
+              "scheduled",
+              "inactive",
+              "missing"
+            ],
+            "description": "Whether the public can see what the item links to."
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "href": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "AdminMenuItemDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "parentKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "custom",
+              "heading",
+              "route",
+              "page",
+              "post",
+              "blog_category",
+              "blog_tag",
+              "business_category",
+              "area",
+              "business"
+            ]
+          },
+          "refId": {
+            "type": "string",
+            "nullable": true
+          },
+          "routeKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "url": {
+            "type": "string",
+            "nullable": true
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "titleAttribute": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "link",
+              "button"
+            ]
+          },
+          "openInNewTab": {
+            "type": "boolean"
+          },
+          "relNofollow": {
+            "type": "boolean"
+          },
+          "source": {
+            "$ref": "#/components/schemas/MenuSourceDto"
+          }
+        },
+        "required": [
+          "key",
+          "type",
+          "style",
+          "openInNewTab",
+          "relNofollow",
+          "source"
+        ]
+      },
+      "AdminMenuDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "itemCount": {
+            "type": "number"
+          },
+          "locations": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "primary",
+                "secondary",
+                "footer",
+                "footer_bottom"
+              ]
+            }
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminMenuItemDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "version",
+          "itemCount",
+          "locations",
+          "updatedAt",
+          "items"
+        ]
+      },
+      "CreateMenuDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "MenuItemInputDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "parentKey": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "custom",
+              "heading",
+              "route",
+              "page",
+              "post",
+              "blog_category",
+              "blog_tag",
+              "business_category",
+              "area",
+              "business"
+            ]
+          },
+          "refId": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64
+          },
+          "routeKey": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32
+          },
+          "url": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 300
+          },
+          "label": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 80
+          },
+          "titleAttribute": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "icon": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 40
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "link",
+              "button"
+            ]
+          },
+          "openInNewTab": {
+            "type": "boolean"
+          },
+          "relNofollow": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "type"
+        ]
+      },
+      "SaveMenuDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "expectedVersion": {
+            "type": "number",
+            "description": "Version last read; a concurrent change is refused with 409."
+          },
+          "items": {
+            "description": "The whole tree, flat, in display order, parents before children.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MenuItemInputDto"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "expectedVersion",
+          "items"
         ]
       },
       "WorkerLivenessDto": {

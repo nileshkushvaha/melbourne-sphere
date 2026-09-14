@@ -1,71 +1,37 @@
 import Image from 'next/image';
-import Link from 'next/link';
 import { MailIcon } from 'lucide-react';
-import { fetchAreas, fetchCategories, fetchSiteSettings, fetchStaticPages, fetchFaqs } from '@/lib/api';
+import { fetchMenus, fetchSiteSettings } from '@/lib/api';
 import { renderCopyright } from '@/lib/copyright';
 import { contactChannelFrom } from '@/lib/site';
 import { ConsentPreferencesLink } from './consent-banner';
+import { FOOTER_GRID, FooterBottomMenu, FooterMenuColumns } from './navigation/footer-menu';
 import { SocialLinks } from './social-links';
 
 /**
- * The Information column, in the order asked for. About is a product route
- * like Contact, so it is always linked; the pages an editor publishes follow.
+ * Footer (SRS UX 002, CFG 001, 1.9 MENU 003): a structured dark band closing
+ * the page rhythm.
  *
- * "Add your business" points at the contact page rather than the home page's
- * own call-to-action band: somebody who clicks it from the foot of an article
- * wants the form, not to be sent to the top of a different page.
- */
-const INFORMATION_LINKS = [
-  { href: '/about', label: 'About us' },
-  { href: '/business', label: 'Businesses' },
-  { href: '/blog', label: 'Latest articles' },
-];
-const CONTACT_LINKS = [
-  { href: '/contact', label: 'Contact us' },
-  { href: '/contact', label: 'Add your business' },
-];
-
-/**
- * The pages that belong in the bottom bar rather than the Information column:
- * people look for them at the foot of the page, and listing them twice is
- * clutter. In the order they are usually cited.
- */
-const POLICY_SLUGS = ['privacy', 'terms', 'review-guidelines'];
-
-/**
- * Footer (SRS UX 002, CFG 001): a structured dark band closing the page rhythm.
- *
- * The columns are the directory itself — the categories and areas people
- * actually browse by — rather than three links and a lot of space. Every one
- * of them is a page that exists: categories and areas come from the API, so a
- * category an editor retires stops being linked, and the policy pages appear
- * only once they are published. No link here points at a 404.
+ * The brand column comes from the general settings; the link columns and the
+ * links beside the copyright come from the Footer and Footer bottom menus in
+ * Website → Menus. The API resolves both, so a category an editor retires or a
+ * policy that is not yet published is simply not linked — no link here points
+ * at a 404.
  *
  * A postal address and a phone number are deliberately absent: this directory
  * has neither, and a footer that invents them tells visitors something untrue.
  * The email and the contact page are the routes that exist.
  */
 export async function SiteFooter() {
-  const [settings, pages, faqs, categories, areas] = await Promise.all([
-    fetchSiteSettings(),
-    fetchStaticPages(),
-    fetchFaqs(),
-    fetchCategories().catch(() => []),
-    fetchAreas().catch(() => []),
-  ]);
-  const topCategories = categories.slice(0, 6);
-  const topAreas = areas.slice(0, 6);
+  const [settings, menus] = await Promise.all([fetchSiteSettings(), fetchMenus()]);
   const channel = contactChannelFrom(settings);
-  const policyLinks = POLICY_SLUGS.map((slug) => pages.find((page) => page.slug === slug)).filter((page): page is { slug: string; title: string } => page !== undefined);
+  const columns = Math.min(menus.footer.length, 4);
   const copyright = renderCopyright(settings.footer.copyrightText, { year: new Date().getFullYear(), name: settings.name });
 
   return (
-    <footer className="ms-site-footer ms-on-dark bg-band-deep text-band-text">
+    // The target of the menu button when JavaScript is unavailable: the footer holds the same destinations.
+    <footer id="footer-navigation" className="ms-site-footer ms-on-dark bg-band-deep text-band-text">
       <div className="ms-container py-16 sm:py-20">
-        {/* Four columns: the brand, and three of links — the local areas and
-            categories people actually browse by, then the pages. Six columns
-            read as a wall of text at this width. */}
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_repeat(3,minmax(0,1fr))] lg:gap-10">
+        <div className={`grid gap-10 sm:grid-cols-2 lg:gap-10 ${FOOTER_GRID[columns]}`}>
           <div className="ms-footer-brand ms-footer-section min-w-0 max-w-sm">
             <p className="ms-footer-heading flex flex-wrap items-center gap-2.5">
               <span className={settings.branding.darkLogo ? "block w-[230px] max-w-full sm:w-[280px]" : "relative block aspect-[7.5/1] w-[230px] max-w-full overflow-hidden sm:w-[280px]"}>
@@ -97,77 +63,7 @@ export async function SiteFooter() {
             )}
           </div>
 
-          {topAreas.length > 0 && (
-            <nav aria-labelledby="footer-areas" className="ms-footer-section min-w-0">
-              <h2 id="footer-areas" className="ms-footer-heading font-display text-lg font-bold text-white">
-                Local areas
-              </h2>
-              <ul className="mt-5 -ml-3 flex flex-col gap-1">
-                {topAreas.map((area) => (
-                  <li key={area.slug}>
-                    <Link href={`/business/area/${area.slug}`} className="ms-footer-link inline-flex min-h-11 items-center rounded-lg px-3 text-base font-medium">
-                      {area.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          )}
-
-          {topCategories.length > 0 && (
-            <nav aria-labelledby="footer-categories" className="ms-footer-section min-w-0">
-              <h2 id="footer-categories" className="ms-footer-heading font-display text-lg font-bold text-white">
-                Categories
-              </h2>
-              <ul className="mt-5 -ml-3 flex flex-col gap-1">
-                {topCategories.map((category) => (
-                  <li key={category.slug}>
-                    <Link href={`/business/category/${category.slug}`} className="ms-footer-link inline-flex min-h-11 items-center rounded-lg px-3 text-base font-medium">
-                      {category.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          )}
-
-          <nav aria-labelledby="footer-information" className="ms-footer-section min-w-0">
-            <h2 id="footer-information" className="ms-footer-heading font-display text-lg font-bold text-white">
-              Information
-            </h2>
-            <ul className="mt-5 -ml-3 flex flex-col gap-1">
-              {INFORMATION_LINKS.map((link) => (
-                <li key={link.label}>
-                  <Link href={link.href} className="ms-footer-link inline-flex min-h-11 items-center rounded-lg px-3 text-base font-medium">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-              {/* Linked only once a question is actually published, on the same
-                  rule as the information pages: no link ever points at a 404. */}
-              {faqs.length > 0 && (
-                <li>
-                  <Link href="/faqs" className="ms-footer-link inline-flex min-h-11 items-center rounded-lg px-3 text-base font-medium">
-                    FAQs
-                  </Link>
-                </li>
-              )}
-              {pages.filter((page) => !POLICY_SLUGS.includes(page.slug)).map((page) => (
-                <li key={page.slug}>
-                  <Link href={`/${page.slug}`} className="ms-footer-link inline-flex min-h-11 items-center rounded-lg px-3 text-base font-medium">
-                    {page.title}
-                  </Link>
-                </li>
-              ))}
-              {CONTACT_LINKS.map((link) => (
-                <li key={link.label}>
-                  <Link href={link.href} className="ms-footer-link inline-flex min-h-11 items-center rounded-lg px-3 text-base font-medium">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
+          <FooterMenuColumns items={menus.footer} />
         </div>
 
         <div className="mt-12 flex flex-col gap-3 border-t border-band-border pt-6 text-sm text-band-muted sm:flex-row sm:items-center sm:justify-between">
@@ -177,15 +73,7 @@ export async function SiteFooter() {
               the line still could not change the end of it. */}
           <p>{copyright}</p>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 sm:justify-end">
-            {/* The policies, in the place people look for them. Each appears
-                only once its page is published, so the bar never offers a link
-                to an empty page — an unpublished policy is a gap to fill in the
-                admin, not a 404 to ship. */}
-            {policyLinks.map((page) => (
-              <Link key={page.slug} href={`/${page.slug}`} className="ms-footer-link inline-flex min-h-11 items-center rounded-lg px-3 text-base font-medium">
-                {page.title}
-              </Link>
-            ))}
+            <FooterBottomMenu items={menus.footer_bottom} />
             {/* Only rendered once the question has been answered, so it is a way
                 back to a decision rather than a second prompt. */}
             <ConsentPreferencesLink />

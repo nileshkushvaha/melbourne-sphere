@@ -38,11 +38,25 @@ const USAGE_INCLUDE = {
   areaShareImageOf: { select: { id: true, name: true } },
   businessShareImageOf: { select: { id: true, name: true } },
   blogCategoryShareImageOf: { select: { id: true, name: true } },
+  bodyReferences: { select: { resourceType: true, resourceId: true } },
 } satisfies Prisma.MediaAssetInclude;
 
 type UsageRow = Prisma.MediaAssetGetPayload<{ include: typeof USAGE_INCLUDE }>;
 
-function relationUsages(row: UsageRow): MediaAssetDto['usages'] {
+/** What each rich text owner is called on the media screens, and which kind of link reaches it. */
+const BODY_USAGE: Record<string, { kind: MediaAssetDto['usages'][number]['kind']; suffix: string }> = {
+  post: { kind: 'post', suffix: 'inside the article' },
+  static_page: { kind: 'page', suffix: 'inside the page' },
+  author: { kind: 'author', suffix: 'inside the bio' },
+  faq: { kind: 'faq', suffix: 'inside the answer' },
+  blog_category: { kind: 'blogCategory', suffix: 'inside the landing text' },
+  blog_tag: { kind: 'blogTag', suffix: 'inside the landing text' },
+};
+
+/** Titles of the records whose text shows an image, keyed `type:id`. */
+type BodyTitles = Map<string, { id: string; title: string }>;
+
+function relationUsages(row: UsageRow, bodyTitles: BodyTitles = new Map()): MediaAssetDto['usages'] {
   return [
     ...row.businesses.map((b) => ({ kind: 'business' as const, id: b.businessId, label: b.business.name })),
     ...row.coverOf.map((p) => ({ kind: 'post' as const, id: p.id, label: p.title })),
@@ -61,6 +75,13 @@ function relationUsages(row: UsageRow): MediaAssetDto['usages'] {
     ...row.areaShareImageOf.map((a) => ({ kind: 'area' as const, id: a.id, label: `${a.name} (share image)` })),
     ...row.businessShareImageOf.map((b) => ({ kind: 'business' as const, id: b.id, label: `${b.name} (share image)` })),
     ...row.blogCategoryShareImageOf.map((c) => ({ kind: 'blogCategory' as const, id: c.id, label: `${c.name} (blog category share image)` })),
+    // An image placed inside a body is a use like any other (MED 004): without
+    // it the library offered to delete a picture a published article shows.
+    ...row.bodyReferences.map((ref) => {
+      const usage = BODY_USAGE[ref.resourceType] ?? { kind: 'post' as const, suffix: 'inside the text' };
+      const owner = bodyTitles.get(`${ref.resourceType}:${ref.resourceId}`);
+      return { kind: usage.kind, id: owner?.id ?? ref.resourceId, label: `${owner?.title ?? 'Deleted record'} (${usage.suffix})` };
+    }),
   ];
 }
 
@@ -170,7 +191,7 @@ export class MediaService {
       db.mediaAsset.count({ where }),
     ]);
     return {
-      data: rows.map((row) => this.toDto(row, [...relationUsages(row), ...(settings.get(row.id) ?? [])])),
+      data: await this.withBodyTitles(rows, (titles) => rows.map((row) => this.toDto(row, [...relationUsages(row, titles), ...(settings.get(row.id) ?? [])]))),
       meta: collectionMeta(query.page, query.pageSize, total),
     };
   }
@@ -180,7 +201,7 @@ export class MediaService {
     const row = await db.mediaAsset.findUnique({ where: { id }, include: USAGE_INCLUDE });
     if (!row) throw notFound();
     const settings = await this.settingUsages();
-    return this.toDto(row, [...relationUsages(row), ...(settings.get(row.id) ?? [])]);
+    return this.withBodyTitles([row], (titles) => this.toDto(row, [...relationUsages(row, titles), ...(settings.get(row.id) ?? [])]));
   }
 
   async update(id: string, input: UpdateMediaDto, actor: AdminPrincipal, ctx: RequestContext): Promise<MediaAssetDto> {
@@ -213,7 +234,8 @@ export class MediaService {
     // SET NULL (testimonials, partners) and the settings documents that have no
     // foreign key at all: for those, the database would have let the delete
     // through and the page would simply have lost its picture.
-    const usages = [...relationUsages(asset), ...((await this.settingUsages()).get(id) ?? [])];
+    const relations = await this.withBodyTitles([asset], (titles) => relationUsages(asset, titles));
+    const usages = [...relations, ...((await this.settingUsages()).get(id) ?? [])];
     if (usages.length > 0) {
       throw new ConflictException({
         code: 'MEDIA_IN_USE',
@@ -224,6 +246,35 @@ export class MediaService {
     await this.storage.delete('quarantine', asset.objectKey).catch(() => undefined);
     await db.mediaAsset.delete({ where: { id } });
     await this.audit.record({ action: 'media.delete', actorAdminId: actor.id, targetType: 'media_asset', targetId: id, requestId: ctx.requestId, ipAddress: ctx.ip });
+  }
+
+  /**
+   * Looks up the titles of the records whose text shows these images, in one
+   * query per resource type, and hands them to `build`. A page is linked by its
+   * slug, as its editor route expects.
+   */
+  private async withBodyTitles<T>(rows: readonly UsageRow[], build: (titles: BodyTitles) => T): Promise<T> {
+    const refs = rows.flatMap((row) => row.bodyReferences);
+    const titles: BodyTitles = new Map();
+    if (refs.length === 0) return build(titles);
+    const idsOf = (type: string) => [...new Set(refs.filter((ref) => ref.resourceType === type).map((ref) => ref.resourceId))];
+    const db = await this.database.client();
+    const put = (type: string, entries: { key: string; id: string; title: string }[]) => entries.forEach((entry) => titles.set(`${type}:${entry.key}`, { id: entry.id, title: entry.title }));
+    const [posts, pages, authors, faqs, categories, tags] = await Promise.all([
+      idsOf('post').length ? db.post.findMany({ where: { id: { in: idsOf('post') } }, select: { id: true, title: true } }) : [],
+      idsOf('static_page').length ? db.staticPage.findMany({ where: { id: { in: idsOf('static_page') } }, select: { id: true, slug: true, title: true } }) : [],
+      idsOf('author').length ? db.author.findMany({ where: { id: { in: idsOf('author') } }, select: { id: true, displayName: true } }) : [],
+      idsOf('faq').length ? db.faq.findMany({ where: { id: { in: idsOf('faq') } }, select: { id: true, question: true } }) : [],
+      idsOf('blog_category').length ? db.blogCategory.findMany({ where: { id: { in: idsOf('blog_category') } }, select: { id: true, name: true } }) : [],
+      idsOf('blog_tag').length ? db.blogTag.findMany({ where: { id: { in: idsOf('blog_tag') } }, select: { id: true, name: true } }) : [],
+    ]);
+    put('post', posts.map((row) => ({ key: row.id, id: row.id, title: row.title })));
+    put('static_page', pages.map((row) => ({ key: row.id, id: row.slug, title: row.title })));
+    put('author', authors.map((row) => ({ key: row.id, id: row.id, title: row.displayName })));
+    put('faq', faqs.map((row) => ({ key: row.id, id: row.id, title: row.question.slice(0, 80) })));
+    put('blog_category', categories.map((row) => ({ key: row.id, id: row.id, title: row.name })));
+    put('blog_tag', tags.map((row) => ({ key: row.id, id: row.id, title: row.name })));
+    return build(titles);
   }
 
   /**

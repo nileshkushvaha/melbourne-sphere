@@ -79,6 +79,8 @@ export const PERMISSION = {
   websiteClientsApprove: 'website.clients.approve',
   websiteClientsPublish: 'website.clients.publish',
   websiteClientsDelete: 'website.clients.delete',
+  websiteMenusView: 'website.menus.view',
+  websiteMenusManage: 'website.menus.manage',
 } as const;
 
 export type PermissionCode = (typeof PERMISSION)[keyof typeof PERMISSION];
@@ -107,6 +109,7 @@ export const ROUTE_PERMISSIONS: { path: string; permissions: PermissionCode[] }[
   { path: '/website/partners', permissions: [PERMISSION.websiteClientsView] },
   { path: '/website/partners/new', permissions: [PERMISSION.websiteClientsCreate] },
   { path: '/website/partners/:id', permissions: [PERMISSION.websiteClientsUpdate] },
+  { path: '/website/menus', permissions: [PERMISSION.websiteMenusView] },
   { path: '/security/settings', permissions: [PERMISSION.securitySettingsView] },
   { path: '/system/cache', permissions: [PERMISSION.systemCacheView] },
   { path: '/system/queues', permissions: [PERMISSION.systemQueuesView] },

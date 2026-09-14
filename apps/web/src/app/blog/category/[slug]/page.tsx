@@ -5,21 +5,23 @@ import { ArticleCollection, BlogEmptyState } from '@/components/article-collecti
 import { BlogCategoryNav } from '@/components/blog-category-nav';
 import { CollectionHeader } from '@/components/collection-header';
 import { Pagination } from '@/components/pagination';
+import { isPastLastPage, pagedPath, pagedTitle, readPageParam } from '@/lib/pagination';
 import { fetchBlogTerms, fetchPosts, type BlogTerm } from '@/lib/api';
 
 async function categories(): Promise<BlogTerm[]> {
   return fetchBlogTerms('blog-categories');
 }
 
-export async function generateMetadata({ params }: PageProps<'/blog/category/[slug]'>): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PageProps<'/blog/category/[slug]'>): Promise<Metadata> {
   const { slug } = await params;
+  const page = readPageParam((await searchParams).page);
   const category = (await categories()).find((c) => c.slug === slug) ?? null;
   if (!category) return { title: 'Category not found', robots: { index: false } };
   // The editor's search appearance first; each empty field falls back to the composed text.
   return pageMetadata({
-    title: category.seoTitle ?? `${category.name} articles`,
+    title: pagedTitle(category.seoTitle ?? `${category.name} articles`, page),
     description: category.seoDescription ?? `Articles about ${category.name.toLowerCase()} in Melbourne: guides, local stories and practical advice from our editors.`,
-    path: `/blog/category/${category.slug}`,
+    path: pagedPath(`/blog/category/${category.slug}`, page),
     keywords: category.seoKeywords ? [category.seoKeywords] : [category.name, `${category.name} Melbourne`, `${category.name} articles`, 'Melbourne blog'],
     image: category.shareImage ? { url: category.shareImage.url, width: category.shareImage.width, height: category.shareImage.height, alt: `${category.name} articles` } : null,
     // A landing page without editorial content or articles is not worth indexing (SRS BLOG 005, SEO 003).
@@ -37,9 +39,9 @@ export default async function BlogCategoryPage({ params, searchParams }: PagePro
   if (!category) notFound();
 
   const query = await searchParams;
-  const pageParam = Number(Array.isArray(query.page) ? query.page[0] : query.page);
-  const page = Number.isInteger(pageParam) && pageParam >= 1 ? pageParam : 1;
+  const page = readPageParam(query.page);
   const posts = await fetchPosts({ page, category: category.slug });
+  if (isPastLastPage(page, posts.meta.pageCount)) notFound();
   const stocked = terms.filter((term) => term.postCount > 0 || term.slug === category.slug);
 
   return (
@@ -56,18 +58,14 @@ export default async function BlogCategoryPage({ params, searchParams }: PagePro
       />
       <div className="ms-container py-12 sm:py-16">
         {posts.data.length === 0 ? (
-          page > 1 ? (
-            <BlogEmptyState message="There are no more articles in this category." action={{ href: `/blog/category/${category.slug}`, label: `Back to ${category.name}` }} />
-          ) : (
-            <BlogEmptyState message="No stories have been published in this category yet." action={{ href: '/blog', label: 'Browse all stories' }} />
-          )
+          <BlogEmptyState message="No stories have been published in this category yet." action={{ href: '/blog', label: 'Browse all stories' }} />
         ) : (
           // The category is the page heading, so the cards do not repeat it.
           <ArticleCollection posts={posts.data} label={`Articles in ${category.name}`} showCategory={false} leadIsAboveFold />
         )}
         {posts.meta.pageCount > 1 && (
           <div className="mt-12">
-            <Pagination page={posts.meta.page} pageCount={posts.meta.pageCount} hrefFor={(p) => (p === 1 ? `/blog/category/${category.slug}` : `/blog/category/${category.slug}?page=${p}`)} />
+            <Pagination page={posts.meta.page} pageCount={posts.meta.pageCount} hrefFor={(p) => pagedPath(`/blog/category/${category.slug}`, p)} />
           </div>
         )}
       </div>

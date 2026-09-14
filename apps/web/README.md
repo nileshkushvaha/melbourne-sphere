@@ -10,7 +10,10 @@ Next.js 16 (App Router, React 19, Tailwind v4) public site for Melbourne Sphere.
 | `/business` (route group `(list)`) | dynamic | index; `noindex, follow` once any filter is applied |
 | `/business/category/[slug]`, `/business/area/[slug]` | dynamic, 404 for unknown or inactive terms | index if substantive |
 | `/business/[slug]` | dynamic, 404 unless published | index |
-| `/blog`, `/blog/[slug]`, `/blog/category/[slug]`, `/blog/tag/[slug]` | dynamic, 404 for drafts and unknown terms | index when published |
+| `/blog`, `/blog/[slug]`, `/blog/category/[slug]`, `/blog/tag/[slug]` | dynamic, 404 for drafts and unknown terms | index when published; `?page=N` crawlable and self-canonical, page past the last not found |
+| `/blog/feed.xml` | RSS 2.0, newest 20 summaries, `public, max-age=300` | advertised by `<link rel="alternate">` on every page |
+| `/blog/search?q=` | dynamic, `noindex, follow`, page past the last 404 | not indexed; `?q=` disallowed in robots |
+| `/blog/author/[slug]` | dynamic; 404 unless the author is active with a published article; `?page=N` self-canonical | indexed, in the editorial sitemap |
 | `/contact` | dynamic; always resolves. Product route, not editable content: the address, phone and postal details come from the general settings (SRS CFG 001), not from a CMS page | index |
 | `/about` | dynamic, 404 until the `about` information page is published. Custom template (`src/app/about/`, `src/components/about/`) over the CMS record: the administrator owns the title, introduction and SEO fields; the template adds live counts from `GET /site/metrics`, the contact route and the process copy (SRS ABT 001–006) | index when published, `noindex` while a draft |
 | `/privacy`, `/terms`, `/review-guidelines`, and any page an administrator created | dynamic, 404 until published; shared reading template `src/app/(pages)/[slug]/`, which asks the API rather than holding a slug list (SRS CFG 002 as amended in 1.7). The API refuses page addresses that would shadow a route on this table | index when published |
@@ -42,6 +45,7 @@ Article pictures all go through `src/components/article-media.tsx`: it reserves 
 ```
 src/app/            layout (shell, skip link, landmarks), pages, not-found, error boundaries
 src/components/     site header/footer, business card, filters, chips, pagination, results, hours table, breadcrumbs
+                    navigation/: primary-nav (disclosure dropdowns and flyouts), mobile-nav-drawer (modal <dialog>), secondary-nav, footer-menu, menu-link, menu-icon, active-trail
                     blog: article-media, post-card (standard + featured), article-collection, blog-category-nav, author-byline/card, share-links, comment-form/list
 src/lib/api.ts      server-only API client: envelopes, ApiRequestError, per-resource revalidate + cache tags
 src/lib/site.ts     SITE_ORIGIN and contactChannel() (a development address is treated as unset)
@@ -59,6 +63,10 @@ Copy `.env.example` to `.env.local` (git-ignored). `API_ORIGIN` is server-only a
 
 Every fetch sets an explicit `next.revalidate` and cache tags (SRS CACHE 001): taxonomy 300 s, search 30 s, business detail 60 s (`businesses`, `business:<slug>`). Tag-based purge on publish/unpublish arrives in the caching phase.
 
+Navigation (SRS 1.9 MENU 005) comes from `fetchMenus()` → `GET /site/menus`, already resolved and publication-filtered by the API, cached 300 s under `menus` **and** every content tag a menu can link to (`pages`, `posts`, `taxonomy`, `businesses`, `faqs`), so unpublishing a linked page also refreshes the menus. If the read fails the shell renders `lib/default-menus.ts` — product routes only, never a link that might 404. The header and footer keep no link lists of their own; edit navigation in the admin under Website → Menus.
+
 ## Commands
 
 `pnpm dev:web` · `pnpm --filter web build` · `pnpm --filter web test` · `pnpm --filter web lint` · `pnpm --filter web typecheck` (runs `next typegen` first).
+
+**Blog analytics (SRS 1.10 BLOG 006).** `lib/track.ts` sends a fixed set of blog events only after analytics consent, and only to Google Analytics or Tag Manager. Server components mark tracked areas with `data-track="<event>"`; `components/analytics-events.tsx` (in the layout) turns link clicks inside them into events and measures reading depth on `[data-track-read]`. Never send what a visitor typed.

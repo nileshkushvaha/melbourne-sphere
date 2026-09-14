@@ -14,6 +14,8 @@ interface Props {
   disabled?: boolean;
   ariaLabel?: string;
   minHeight?: number;
+  /** Change to replace the editor's content with `value` (e.g. after discarding changes). */
+  resetKey?: number;
 }
 
 export function RichTextEditorLazy(props: Props) {

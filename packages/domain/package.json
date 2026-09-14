@@ -13,6 +13,18 @@
       "types": "./dist/alerts.d.ts",
       "default": "./dist/alerts.js"
     },
+    "./embeds": {
+      "types": "./dist/embeds.d.ts",
+      "default": "./dist/embeds.js"
+    },
+    "./menus": {
+      "types": "./dist/menus.d.ts",
+      "default": "./dist/menus.js"
+    },
+    "./posts": {
+      "types": "./dist/posts.d.ts",
+      "default": "./dist/posts.js"
+    },
     "./seo-routes": {
       "types": "./dist/seo-routes.d.ts",
       "default": "./dist/seo-routes.js"

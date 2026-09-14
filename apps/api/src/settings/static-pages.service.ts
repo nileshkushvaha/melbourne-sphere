@@ -5,6 +5,7 @@ import type { RequestContext } from '../auth/auth.service.js';
 import { DatabaseService } from '../database/database.service.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import { renderSanitisedBody, toPlainText } from '../blog/sanitise.js';
+import { clearContentMedia, syncContentMedia } from '../media/content-media.js';
 import { MediaService } from '../media/media.service.js';
 import { CacheService } from '../cache/cache.service.js';
 import { CACHE_TAGS } from '@melbourne-sphere/domain';
@@ -97,20 +98,24 @@ export class StaticPagesService {
     }
 
     const bodyFormat = input.bodyFormat ?? 'html';
-    const row = await db.staticPage.create({
-      data: {
-        slug,
-        title: input.title,
-        bodySource: input.body,
-        bodyFormat,
-        sanitizedBody: renderSanitisedBody(input.body, bodyFormat),
-        seoTitle: input.seoTitle ?? null,
-        seoKeywords: input.seoKeywords ?? null,
-        ogImageMediaId: input.ogImageMediaId ?? null,
-        seoDescription: input.seoDescription ?? null,
-        layout: input.layout ?? defaultPageLayout(slug),
-        updatedByAdminId: actor.id,
-      },
+    const row = await db.$transaction(async (tx) => {
+      const created = await tx.staticPage.create({
+        data: {
+          slug,
+          title: input.title,
+          bodySource: input.body,
+          bodyFormat,
+          sanitizedBody: renderSanitisedBody(input.body, bodyFormat),
+          seoTitle: input.seoTitle ?? null,
+          seoKeywords: input.seoKeywords ?? null,
+          ogImageMediaId: input.ogImageMediaId ?? null,
+          seoDescription: input.seoDescription ?? null,
+          layout: input.layout ?? defaultPageLayout(slug),
+          updatedByAdminId: actor.id,
+        },
+      });
+      await syncContentMedia(tx, 'static_page', created.id, created.sanitizedBody);
+      return created;
     });
     await this.audit.record({
       action: 'settings.page.create',
@@ -147,6 +152,7 @@ export class StaticPagesService {
       // Revisions are the record of what was published; they go with the page
       // they describe rather than being left pointing at nothing.
       await tx.contentRevision.deleteMany({ where: { resourceType: 'static_page', resourceId: row.id } });
+      await clearContentMedia(tx, 'static_page', row.id);
       await tx.staticPage.delete({ where: { slug } });
     });
     await this.audit.record({
@@ -220,9 +226,14 @@ export class StaticPagesService {
     };
 
     const row = await db.$transaction(async (tx) => {
-      if (!current) return tx.staticPage.create({ data: { slug, ...data } });
+      if (!current) {
+        const created = await tx.staticPage.create({ data: { slug, ...data } });
+        await syncContentMedia(tx, 'static_page', created.id, sanitizedBody);
+        return created;
+      }
       const updated = await tx.staticPage.updateMany({ where: { slug, version: input.expectedVersion }, data: { ...data, version: { increment: 1 } } });
       if (updated.count !== 1) throw stale();
+      await syncContentMedia(tx, 'static_page', current.id, sanitizedBody);
       // Editing a live page keeps the previous published text (SRS CFG 002 revisions).
       if (current.status === 'published') {
         await tx.contentRevision.create({

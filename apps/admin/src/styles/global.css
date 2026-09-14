@@ -960,3 +960,171 @@ button:disabled,
 [aria-disabled='true'] {
   cursor: not-allowed;
 }
+
+/* ---- Navigation menu editor (Website → Menus, SRS 1.9 MENU 002) ------------
+   WordPress-style item cards: a quiet bordered row with a drag handle, and a
+   body that opens below it. Indentation carries the nesting, so the cards stay
+   the same width at every level of the tree. */
+.ms-menu-select-bar {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--ms-border, #e2e8f0);
+  background: var(--ms-sticky-bg, rgba(255, 255, 255, 0.92));
+}
+.ms-menu-card {
+  border: 1px solid var(--ms-border, #e2e8f0);
+  border-radius: 10px;
+  background: var(--ms-sticky-bg, #ffffff);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.ms-menu-card--error {
+  border-color: var(--ms-status-critical, #d03b3b);
+}
+.ms-menu-card--overlay {
+  box-shadow: 0 12px 28px -12px rgba(15, 23, 42, 0.35);
+  cursor: grabbing;
+}
+.ms-menu-handle,
+.ms-menu-toggle {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.ms-menu-handle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 36px;
+  cursor: grab;
+  touch-action: none;
+  color: var(--ms-status-neutral, #94a3b8);
+}
+.ms-menu-handle:hover {
+  background: var(--ms-chart-track, #f1f5f9);
+  color: inherit;
+}
+.ms-menu-toggle {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+}
+.ms-menu-toggle:hover {
+  background: var(--ms-chart-track, #f1f5f9);
+}
+.ms-menu-card-body {
+  padding: 12px 14px 12px;
+  border-top: 1px solid var(--ms-border-soft, #eef2f7);
+}
+.ms-menu-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px 16px;
+}
+.ms-menu-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ms-border-soft, #eef2f7);
+}
+/* Below a tablet the indentation would squeeze the cards to nothing; the step
+   shrinks so three levels still fit a phone. */
+@media (max-width: 575px) {
+  .ms-menu-tree > li {
+    margin-left: calc(var(--ms-menu-depth, 0) * 14px) !important;
+  }
+}
+
+/* ---- Article editor (WordPress-style) ----------------------------------------
+   Wide screens: the writing column beside the Publish and Details boxes, with
+   images below them. Narrower screens stack Publish and Details *above* the
+   writing so the buttons and the required choices are never scrolled out of
+   reach, and the images follow the writing. */
+.ms-post-editor {
+  display: grid;
+  gap: 0 24px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'top' 'main' 'rest';
+  align-items: start;
+}
+.ms-post-editor__main { grid-area: main; min-width: 0; }
+.ms-post-editor__top { grid-area: top; min-width: 0; }
+.ms-post-editor__rest { grid-area: rest; min-width: 0; }
+@media (min-width: 1200px) {
+  .ms-post-editor {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-areas: 'main top' 'main rest';
+    grid-template-rows: auto 1fr;
+  }
+}
+.ms-post-title .ant-input {
+  font-size: 26px;
+  font-weight: 640;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+  padding-inline: 0;
+}
+.ms-post-editor .ms-media-field { width: 100%; }
+
+/* Version history comparison (article editor). Colour is never the only
+   signal: removed text is struck through and added text underlined, and each
+   carries a screen-reader label. */
+.ms-diff-added {
+  background: rgba(22, 163, 74, 0.16);
+  text-decoration: underline;
+  text-decoration-color: rgba(22, 163, 74, 0.7);
+  border-radius: 3px;
+}
+.ms-diff-removed {
+  background: rgba(220, 38, 38, 0.12);
+  text-decoration: line-through;
+  border-radius: 3px;
+}
+.ms-revisions { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 768px) {
+  .ms-revisions { grid-template-columns: 260px minmax(0, 1fr); align-items: start; }
+}
+.ms-revisions__item {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.ms-revisions__item[aria-pressed='true'] { background: var(--ms-chart-track, #f1f5f9); }
+.ms-revisions__item:focus-visible { outline: 3px solid var(--ms-focus, #b45309); outline-offset: -3px; }
+.ms-revisions__meta { font-size: 12.5px; opacity: 0.75; }
+
+/* Article editor blocks: figures, embeds, business cards and tables. */
+.ms-editor-body figure.ms-figure { margin: 16px 0; }
+.ms-editor-body figure.ms-figure img { max-width: 100%; height: auto; border-radius: 8px; display: block; }
+.ms-editor-body figure.ms-figure:not(.ms-figure--wide) img { max-width: 520px; }
+.ms-editor-body figure.ms-figure figcaption { margin-top: 6px; font-size: 13px; opacity: 0.75; }
+.ms-editor-body div.ms-embed {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border: 1px dashed var(--ms-border, #cbd5e1);
+  border-radius: 8px;
+  background: var(--ms-chart-track, #f1f5f9);
+  font-weight: 600;
+}
+.ms-editor-body .ProseMirror-selectednode { outline: 3px solid var(--ms-focus, #b45309); outline-offset: 2px; }
+.ms-editor-body table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+.ms-editor-body :is(td, th) { border: 1px solid var(--ms-border, #cbd5e1); padding: 6px 8px; vertical-align: top; }
+.ms-editor-body th { background: var(--ms-chart-track, #f1f5f9); }

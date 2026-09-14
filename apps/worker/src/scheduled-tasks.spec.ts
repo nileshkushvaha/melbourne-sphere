@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { DatabaseClient } from '@melbourne-sphere/database';
 import type { Queue } from 'bullmq';
-import { TASK_IMPLEMENTATIONS, runScheduledTask, type RunDeps } from './scheduled-tasks.js';
+import { TASK_IMPLEMENTATIONS, plainTextOf, runScheduledTask, type RunDeps } from './scheduled-tasks.js';
 
 const NOW = new Date('2026-09-08T02:00:00.000Z');
 
@@ -107,21 +107,68 @@ describe('runScheduledTask', () => {
 });
 
 describe('task implementations', () => {
-  it('publishes only articles that are due, and asks for their pages to be refreshed', async () => {
-    const created: Record<string, unknown>[] = [];
-    const db = fakeDb({
-      post: { findMany: vi.fn(async () => [{ id: 'p1', slug: 'a-guide' }]) },
-      outboxEvent: { create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => { created.push(data); return data; }) },
-    });
-    (db as unknown as { post: { updateMany: unknown } }).post = {
-      ...(db as unknown as { post: object }).post,
-      updateMany: vi.fn(async () => ({ count: 1 })),
-    } as never;
+  const dueArticle = (overrides: Record<string, unknown> = {}) => ({
+    id: 'p1',
+    slug: 'a-guide',
+    version: 4,
+    title: 'A guide to Carlton',
+    excerpt: 'Where to eat and drink in Carlton this spring.',
+    sanitizedBody: `<p>${'Carlton is full of small places worth knowing. '.repeat(6)}</p>`,
+    firstPublishedAt: null,
+    author: { active: true },
+    category: { active: true },
+    ...overrides,
+  });
 
+  function publishingDb(rows: Record<string, unknown>[], updateCount = 1) {
+    const outbox: Record<string, unknown>[] = [];
+    const audit: Record<string, unknown>[] = [];
+    const updates: Record<string, unknown>[] = [];
+    const db = fakeDb({
+      post: {
+        findMany: vi.fn(async () => rows),
+        updateMany: vi.fn(async (args: Record<string, unknown>) => {
+          updates.push(args);
+          return { count: updateCount };
+        }),
+      },
+      outboxEvent: { create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => { outbox.push(data); return data; }) },
+      auditLog: { create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => { audit.push(data); return data; }), deleteMany: vi.fn() },
+    });
+    return { db, outbox, audit, updates };
+  }
+
+  it('publishes a due article like an editor would: version-guarded, audited, first publication kept, pages refreshed', async () => {
+    const { db, outbox, audit, updates } = publishingDb([dueArticle()]);
     const detail = await TASK_IMPLEMENTATIONS['content.publish-scheduled']!({ db, now: NOW, queue: {} as Queue });
     expect(detail).toBe('Published 1 article');
-    expect(created[0]).toMatchObject({ type: 'cache.invalidate', resourceType: 'post', resourceId: 'p1' });
-    expect(String((created[0] as { payload: { tags: string } }).payload.tags)).toContain('post:a-guide');
+    expect(updates[0]).toMatchObject({
+      where: { id: 'p1', status: 'scheduled', version: 4 },
+      data: { status: 'published', publishedAt: NOW, firstPublishedAt: NOW, scheduledAt: null, publishFailure: null, version: { increment: 1 } },
+    });
+    expect(outbox[0]).toMatchObject({ type: 'cache.invalidate', resourceType: 'post', resourceId: 'p1' });
+    expect(String((outbox[0] as { payload: { tags: string } }).payload.tags)).toContain('post:a-guide');
+    expect(audit[0]).toMatchObject({ action: 'blog.post.publish', targetType: 'post', targetId: 'p1' });
+  });
+
+  it('returns an article that no longer meets the requirements to draft, with the reason, instead of publishing it', async () => {
+    const { db, outbox, audit, updates } = publishingDb([dueArticle({ author: { active: false } })]);
+    const detail = await TASK_IMPLEMENTATIONS['content.publish-scheduled']!({ db, now: NOW, queue: {} as Queue });
+    expect(detail).toMatch(/returned 1 to draft/);
+    expect(updates[0]).toMatchObject({ data: { status: 'draft', scheduledAt: null, publishFailure: 'Choose an author' } });
+    expect(outbox).toEqual([]);
+    expect(audit[0]).toMatchObject({ action: 'blog.post.schedule_blocked', metadata: { blockers: ['Choose an author'] } });
+  });
+
+  it('does nothing when another runner or an editor changed the article first', async () => {
+    const { db, outbox, audit } = publishingDb([dueArticle()], 0);
+    expect(await TASK_IMPLEMENTATIONS['content.publish-scheduled']!({ db, now: NOW, queue: {} as Queue })).toBe('Nothing was due');
+    expect(outbox).toEqual([]);
+    expect(audit).toEqual([]);
+  });
+
+  it('counts article text the way the sanitiser does', () => {
+    expect(plainTextOf('<h2>Title</h2><p>Some&nbsp;text &amp; more</p>')).toBe('Title Some text _ more');
   });
 
   it('removes the address from a delivery record long before deleting the record itself', async () => {

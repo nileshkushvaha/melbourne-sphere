@@ -117,6 +117,7 @@ export const CACHE_TAGS = {
   business: (slug: string) => `business:${slug}`,
   posts: 'posts',
   post: (slug: string) => `post:${slug}`,
+  author: (slug: string) => `author:${slug}`,
   reviews: 'reviews',
   reviewsFor: (businessId: string) => `reviews:${businessId}`,
   comments: 'comments',
@@ -133,6 +134,8 @@ export const CACHE_TAGS = {
   alerts: 'alerts',
   testimonials: 'testimonials',
   partners: 'partners',
+  // Navigation menus (SRS 1.9 MENU 005) render in the header and footer of every page.
+  menus: 'menus',
 } as const;
 
 /** Bounded, de-duplicated tag list; the API and worker both enforce it. */

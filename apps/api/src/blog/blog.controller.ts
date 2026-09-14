@@ -1,10 +1,14 @@
-import { Body, Controller, Get, Header, HttpCode, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, HttpCode, Param, Patch, Post, Put, Query, Req } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { RequestContext } from '../auth/auth.service.js';
-import { CurrentAdmin, RequirePermissions, type AuthenticatedRequest } from '../auth/decorators.js';
+import { CurrentAdmin, CurrentSession, RequirePermissions, type AuthenticatedRequest } from '../auth/decorators.js';
+import type { SessionSummary } from '../auth/session.service.js';
+import { PostPreviewLinkDto, RenderPostPreviewDto, RenderedPostPreviewDto } from './dto/post-preview.dto.js';
+import { PostAutosaveDto, PostAutosaveReceiptDto, PostRevisionDetailDto, RestorePostRevisionDto, SavePostAutosaveDto } from './dto/post-history.dto.js';
 import { getRequestId } from '../common/request-id.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import { BlogService } from './blog.service.js';
+import { DefaultAuthorDto, SetDefaultAuthorDto } from './dto/default-author.dto.js';
 import { ChangeSlugDto } from '../seo/dto/redirect.dto.js';
 import {
   AuthorDto,
@@ -41,6 +45,25 @@ export class AuthorsAdminController {
   @ApiOkResponse({ type: [AuthorDto] })
   async list(@Query() query: ListAuthorsQueryDto) {
     return { data: await this.blog.listAuthors(query) };
+  }
+
+  // Declared before `:id`, so "mine" is never read as an author id.
+  @RequirePermissions('posts.write')
+  @Get('mine')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'The signed-in administrator’s default author for new articles' })
+  @ApiOkResponse({ type: DefaultAuthorDto })
+  async mine(@CurrentAdmin() actor: AdminPrincipal) {
+    return { data: await this.blog.getDefaultAuthor(actor) };
+  }
+
+  @RequirePermissions('posts.write')
+  @Put('mine')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Choose, or clear, the signed-in administrator’s default author' })
+  @ApiOkResponse({ type: DefaultAuthorDto })
+  async setMine(@Body() body: SetDefaultAuthorDto, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest) {
+    return { data: await this.blog.setDefaultAuthor(body.authorId ?? null, actor, ctxOf(req)) };
   }
 
   @RequirePermissions('posts.write')
@@ -211,6 +234,27 @@ export class PostsAdminController {
   }
 
   @RequirePermissions('posts.write')
+  @Post('preview-render')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store, private')
+  @Header('X-Robots-Tag', 'noindex, nofollow')
+  @ApiOperation({ summary: 'Render unsaved article content for the editor without storing it (SRS BLOG 003)' })
+  @ApiOkResponse({ type: RenderedPostPreviewDto })
+  async renderPreview(@Body() body: RenderPostPreviewDto) {
+    return { data: await this.blog.renderPreview(body) };
+  }
+
+  @RequirePermissions('posts.write')
+  @Post(':id/preview-link')
+  @HttpCode(201)
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'A private ten-minute link to see the saved article on the public site, bound to this session' })
+  @ApiOkResponse({ type: PostPreviewLinkDto })
+  async previewLink(@Param('id') id: string, @CurrentSession() session: SessionSummary) {
+    return { data: await this.blog.createPreviewLink(id, session.id) };
+  }
+
+  @RequirePermissions('posts.write')
   @Get(':id/preview')
   @Header('Cache-Control', 'no-store, private')
   @Header('X-Robots-Tag', 'noindex, nofollow')
@@ -226,6 +270,51 @@ export class PostsAdminController {
   @ApiOkResponse({ type: [PostRevisionDto] })
   async revisions(@Param('id') id: string) {
     return { data: await this.blog.revisions(id) };
+  }
+
+  @RequirePermissions('posts.write')
+  @Get(':id/revisions/:revisionId')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'One earlier version of the article, as written, for comparison' })
+  @ApiOkResponse({ type: PostRevisionDetailDto })
+  async revision(@Param('id') id: string, @Param('revisionId') revisionId: string) {
+    return { data: await this.blog.revisionDetail(id, revisionId) };
+  }
+
+  @RequirePermissions('posts.write')
+  @Post(':id/revisions/:revisionId/restore')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Bring back an earlier version; the current one is kept as a revision first (SRS BLOG 003)' })
+  @ApiOkResponse({ type: PostDto })
+  async restoreRevision(@Param('id') id: string, @Param('revisionId') revisionId: string, @Body() body: RestorePostRevisionDto, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest) {
+    return { data: await this.blog.restoreRevision(id, revisionId, body.expectedVersion, actor, ctxOf(req)) };
+  }
+
+  @RequirePermissions('posts.write')
+  @Get(':id/autosave')
+  @Header('Cache-Control', 'no-store, private')
+  @ApiOperation({ summary: 'The signed-in editor’s own unsaved work on this article, or null' })
+  @ApiOkResponse({ type: PostAutosaveDto })
+  async autosave(@Param('id') id: string, @CurrentAdmin() actor: AdminPrincipal) {
+    return { data: await this.blog.getAutosave(id, actor) };
+  }
+
+  @RequirePermissions('posts.write')
+  @Put(':id/autosave')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Keep unsaved work while writing; never changes the article' })
+  @ApiOkResponse({ type: PostAutosaveReceiptDto })
+  async saveAutosave(@Param('id') id: string, @Body() body: SavePostAutosaveDto, @CurrentAdmin() actor: AdminPrincipal) {
+    return { data: await this.blog.saveAutosave(id, body, actor) };
+  }
+
+  @RequirePermissions('posts.write')
+  @Delete(':id/autosave')
+  @HttpCode(204)
+  @Header('Cache-Control', 'no-store')
+  async discardAutosave(@Param('id') id: string, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest): Promise<void> {
+    await this.blog.discardAutosave(id, actor, ctxOf(req));
   }
 
   @RequirePermissions('posts.write')
@@ -290,5 +379,25 @@ export class PostsAdminController {
   @ApiOkResponse({ type: PostDto })
   async restore(@Param('id') id: string, @Body() body: PostStateDto, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest) {
     return { data: await this.blog.transition(id, 'restore', body, actor, ctxOf(req)) };
+  }
+
+  @RequirePermissions('posts.publish')
+  @Post(':id/feature')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Feature a published article on the home page and blog index (at most three)' })
+  @ApiOkResponse({ type: PostDto })
+  async feature(@Param('id') id: string, @Body() body: PostStateDto, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest) {
+    return { data: await this.blog.setFeatured(id, true, body, actor, ctxOf(req)) };
+  }
+
+  @RequirePermissions('posts.publish')
+  @Post(':id/unfeature')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Stop featuring an article' })
+  @ApiOkResponse({ type: PostDto })
+  async unfeature(@Param('id') id: string, @Body() body: PostStateDto, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest) {
+    return { data: await this.blog.setFeatured(id, false, body, actor, ctxOf(req)) };
   }
 }

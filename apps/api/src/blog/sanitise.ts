@@ -1,5 +1,6 @@
 import { marked } from 'marked';
 import sanitizeHtml from 'sanitize-html';
+import { EMBED_TITLE_MAX, htmlToPlainText, isMapEmbedSrc, isRecordId, isYoutubeId } from '@melbourne-sphere/domain';
 
 /**
  * Editorial content pipeline (SRS BLOG 001, SEC 001). Authors write Markdown;
@@ -15,30 +16,76 @@ const ALLOWED_TAGS = [
   'blockquote', 'pre', 'code',
   'a', 'img', 'figure', 'figcaption',
   'table', 'thead', 'tbody', 'tr', 'th', 'td',
+  // Only as a validated embed or business-card marker (see transformTags.div).
+  'div',
 ];
+
+/**
+ * An embed or business-card marker with only its validated attributes, or null.
+ * A marker is inert — it loads nothing — and the public page decides how to
+ * show it; an iframe is never stored (SRS 1.10 BLOG 004, SEC 001).
+ */
+function embedMarker(attribs: sanitizeHtml.Attributes): sanitizeHtml.Attributes | null {
+  const title = (attribs['data-embed-title'] ?? '').replace(/[<>"]/g, '').slice(0, EMBED_TITLE_MAX);
+  switch (attribs['data-embed']) {
+    case 'youtube':
+      return isYoutubeId(attribs['data-embed-id']) && title ? { class: 'ms-embed', 'data-embed': 'youtube', 'data-embed-id': attribs['data-embed-id'], 'data-embed-title': title } : null;
+    case 'map':
+      return isMapEmbedSrc(attribs['data-embed-src']) && title ? { class: 'ms-embed', 'data-embed': 'map', 'data-embed-src': attribs['data-embed-src'], 'data-embed-title': title } : null;
+    case 'business':
+      return isRecordId(attribs['data-business-id']) ? { class: 'ms-embed', 'data-embed': 'business', 'data-business-id': attribs['data-business-id'], 'data-embed-title': title } : null;
+    default:
+      return null;
+  }
+}
 
 const SANITISE_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: ALLOWED_TAGS,
   allowedAttributes: {
     a: ['href', 'title', 'rel', 'target'],
-    img: ['src', 'alt', 'title', 'width', 'height', 'loading'],
+    // `data-media-id` names the library image so the image counts as in use
+    // (MED 004); anything but an id-shaped value is removed below.
+    img: ['src', 'alt', 'title', 'width', 'height', 'loading', 'data-media-id'],
     th: ['scope', 'colspan', 'rowspan'],
     td: ['colspan', 'rowspan'],
     code: ['class'],
+    figure: ['class'],
+    div: ['class', 'data-embed', 'data-embed-id', 'data-embed-src', 'data-embed-title', 'data-business-id'],
   },
+  allowedClasses: { figure: ['ms-figure', 'ms-figure--wide'], div: ['ms-embed'] },
   // Only these protocols survive; javascript:, data: and vbscript: never do.
   allowedSchemes: ['http', 'https', 'mailto', 'tel'],
   allowedSchemesAppliedToAttributes: ['href', 'src'],
   allowProtocolRelative: false,
   disallowedTagsMode: 'discard',
   transformTags: {
+    // Formatting pasted from word processors and the editor's own shortcuts is
+    // kept in the nearest allowed form rather than silently dropped: strike
+    // becomes deletion, bold/italic become their semantic tags, and headings
+    // outside h2–h4 move to the nearest level (the page title is the only h1).
+    s: 'del',
+    strike: 'del',
+    b: 'strong',
+    i: 'em',
+    h1: 'h2',
+    h5: 'h4',
+    h6: 'h4',
+    // A div survives only as a valid marker; any other div is unwrapped and its text kept.
+    div: (tagName, attribs) => {
+      const marker = embedMarker(attribs);
+      return marker ? { tagName: 'div', attribs: marker } : { tagName: 'ms-unwrap', attribs: {} };
+    },
     // External links open safely; internal ones keep default behaviour (SRS BUS 003 style rules).
     a: (tagName, attribs) => {
       const href = attribs.href ?? '';
       const external = /^https?:\/\//i.test(href);
       return { tagName, attribs: { ...attribs, ...(external ? { rel: 'noopener noreferrer nofollow', target: '_blank' } : { rel: attribs.rel ?? 'noopener' }) } };
     },
-    img: (tagName, attribs) => ({ tagName, attribs: { ...attribs, alt: attribs.alt ?? '', loading: 'lazy' } }),
+    img: (tagName, attribs) => {
+      const { 'data-media-id': mediaId, ...rest } = attribs;
+      const validId = typeof mediaId === 'string' && /^[a-z0-9]{20,40}$/.test(mediaId);
+      return { tagName, attribs: { ...rest, ...(validId ? { 'data-media-id': mediaId } : {}), alt: attribs.alt ?? '', loading: 'lazy' } };
+    },
   },
   exclusiveFilter: (frame) => frame.tag === 'a' && !frame.attribs.href,
 };
@@ -67,5 +114,5 @@ export function sanitiseHtmlFragment(html: string): string {
 
 /** Plain text for excerpts, search and length checks; never used for rendering. */
 export function toPlainText(html: string): string {
-  return sanitizeHtml(html ?? '', { allowedTags: [], allowedAttributes: {} }).replace(/\s+/g, ' ').trim();
+  return htmlToPlainText(html);
 }
