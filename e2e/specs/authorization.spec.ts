@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { ADMIN_URL, API_URL, stackIsUp } from './support.js';
-import { canProvision, provision, provisioningBlocker, setRolePermissions, type ProvisionedAdmin, type ProvisionedFixture } from './provisioning.js';
+import { MODERATOR_PERMISSIONS, canProvision, provision, provisioningBlocker, setRolePermissions, type ProvisionedAdmin, type ProvisionedFixture } from './provisioning.js';
 
 /**
  * Authorization journeys (SRS RBAC 006/010, QA 003 / audit closure item 2).
@@ -127,7 +127,7 @@ test.describe('Authorization journeys', () => {
     await expect(page.getByRole('heading', { level: 1, name: /reviews/i })).toBeVisible();
 
     // The role loses moderation while the browser session is open.
-    await setRolePermissions(fixture.moderatorRoleId, ['comments.moderate']);
+    await setRolePermissions(fixture.moderatorRoleId, MODERATOR_PERMISSIONS.filter((key) => !key.startsWith('reviews.')));
 
     const refused = await page.request.get(`${API_URL}/api/v1/admin/reviews`);
     expect(refused.status(), 'the open session must not keep the withdrawn permission').toBe(403);
@@ -135,7 +135,7 @@ test.describe('Authorization journeys', () => {
     await page.goto(`${ADMIN_URL}/reviews`);
     await expect(page.getByRole('heading', { level: 1, name: /do not have permission/i })).toBeVisible();
     // Restore the fixture for the remaining assertions in this file.
-    await setRolePermissions(fixture.moderatorRoleId, ['reviews.moderate', 'comments.moderate']);
+    await setRolePermissions(fixture.moderatorRoleId, [...MODERATOR_PERMISSIONS]);
   });
 
   test('signing out clears the session and the capabilities behind it', async ({ page }) => {

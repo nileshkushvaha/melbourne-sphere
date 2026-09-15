@@ -233,8 +233,10 @@ export function RichTextEditor({ value, onChange, disabled = false, ariaLabel = 
     editor.commands.setContent(value || '', { emitUpdate: false });
   }, [editor, resetKey, value]);
 
+  // No update event: TipTap emits one by default, which reported an unchanged
+  // text as an edit on mount and left a freshly opened page "unsaved".
   useEffect(() => {
-    editor?.setEditable(!disabled);
+    editor?.setEditable(!disabled, false);
   }, [editor, disabled]);
 
   if (!editor) return null;

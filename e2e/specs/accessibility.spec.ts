@@ -81,7 +81,13 @@ test.describe('Public accessibility', () => {
       // where a Turnstile key is configured the widget holds a connection open,
       // and 'networkidle' would never arrive.
       await page.waitForLoadState('load');
-      await page.evaluate(() => Promise.all([...document.images].filter((image) => !image.complete).map((image) => image.decode().catch(() => undefined))));
+      // Lazy images below the fold do not load until scrolled to, so decode()
+      // on them never settles; only the eagerly loaded ones (the hero) are awaited.
+      await page.evaluate(() => Promise.all([...document.images].filter((image) => !image.complete && image.loading !== 'lazy').map((image) => image.decode().catch(() => undefined))));
+      // The entrance motion fades text in from opacity 0 (≤ 1.3 s). Contrast is
+      // judged on the settled page, as a reader sees it, not mid-fade; endless
+      // animations (the route spinner) never finish, so only finite ones are awaited.
+      await page.evaluate(() => Promise.all(document.getAnimations().filter((animation) => Number.isFinite(Number(animation.effect?.getComputedTiming().endTime))).map((animation) => animation.finished.catch(() => undefined))));
       expect(await axeViolations(page), path).toEqual([]);
     }
   });

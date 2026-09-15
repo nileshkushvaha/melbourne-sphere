@@ -20,6 +20,8 @@ import { createDatabaseClient, type DatabaseClient } from '@melbourne-sphere/dat
 /** Every account this module creates starts with this, so cleanup is exact. */
 export const E2E_ADMIN_PREFIX = 'e2e-authz-';
 const E2E_ROLE_PREFIX = 'e2e_authz_';
+/** The role-limited persona: open and moderate reviews and comments, nothing else. */
+export const MODERATOR_PERMISSIONS: readonly string[] = ['reviews.view', 'reviews.moderate', 'comments.view', 'comments.moderate'];
 /** `Algorithm.Argon2id` is a const enum; 2 is its value (matches the API's PasswordService). */
 const ARGON2ID = 2;
 
@@ -153,9 +155,13 @@ export async function provision(): Promise<{ fixture: ProvisionedFixture; dispos
   const moderatorRole = await db.role.create({
     data: { key: `${E2E_ROLE_PREFIX}moderator`, name: 'E2E Moderator', description: 'Journey fixture: moderation only', isActive: true },
   });
-  for (const key of ['reviews.moderate', 'comments.moderate']) {
+  // SRS 1.13 per-menu permissions: a screen opens with its View code, and the
+  // action codes (moderate) act on it. A code missing from the catalogue fails
+  // the run rather than silently provisioning a weaker role.
+  for (const key of MODERATOR_PERMISSIONS) {
     const permission = await db.permission.findUnique({ where: { key } });
-    if (permission) await db.rolePermission.create({ data: { roleId: moderatorRole.id, permissionId: permission.id } });
+    if (!permission) throw new Error(`Permission ${key} is not in the catalogue; run admin:seed-rbac`);
+    await db.rolePermission.create({ data: { roleId: moderatorRole.id, permissionId: permission.id } });
   }
 
   const fixture: ProvisionedFixture = {

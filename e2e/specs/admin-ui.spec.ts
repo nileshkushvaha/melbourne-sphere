@@ -182,7 +182,9 @@ test.describe('Admin interface', () => {
     // mouse; the group controls are buttons for the same reason.
     const search = page.getByLabel('Search permissions');
     await search.fill('listings');
-    const checkbox = page.getByRole('checkbox', { name: /Publish listings/ }).first();
+    // The grid is one row per menu item and one column per action (SRS 1.13),
+    // so listings.publish is the "Businesses" row's "Publish" checkbox.
+    const checkbox = page.getByRole('checkbox', { name: 'Businesses: Publish', exact: true });
     await checkbox.focus();
     await expect(checkbox).toBeFocused();
     await page.keyboard.press('Space');
