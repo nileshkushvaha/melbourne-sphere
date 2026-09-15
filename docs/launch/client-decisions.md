@@ -10,11 +10,11 @@ Status date: 2026-09-07. Source of the baselines: SRS §23 (decisions D01–D08)
 | --- | --- | --- | --- | --- |
 | D01 | Melbourne geographic boundary and locality allow-list | Before publishing listings outside the City of Melbourne | **Pending** — council-area baseline applied; recommendation in `melbourne-boundary.md` | Client |
 | D02 | Logo, wordmark, browser icon, share image, hero photography, rotating phrases | Before visual acceptance | **Pending** — documented development fallbacks in place | Client / design lead |
-| D03a | Cloudflare Turnstile account and keys | Before staging (public forms are closed without it) | **Pending** — no account | Technical lead / client |
-| D03b | Transactional email provider and verified sender | Before staging (enquiry delivery cannot be proven without it) | **Pending** — SMTP adapter ready; needs relay credentials and a verified sender domain | Technical lead / client |
-| D03c | Object storage (S3-compatible) and CDN | Before staging | **Pending** — adapter ready; MinIO locally | Technical lead / client |
-| D03d | Hosting region, observability (error tracking, uptime) | Before staging | **Pending** | Technical lead / client |
-| D04 | Public domain, public contact address, per-business enquiry recipients | Before delivery tests | **Pending** — site withholds the contact route until a routable address is set | Client |
+| D03a | Cloudflare Turnstile account and keys | Before staging (public forms are closed without it) | **Provided** — confirmed by the client 15 Sep 2026; keys held in the server env files only | Technical lead / client |
+| D03b | Transactional email provider and verified sender | Before staging (enquiry delivery cannot be proven without it) | **Provided** — confirmed by the client 15 Sep 2026; prove enquiry and password-reset delivery on staging | Technical lead / client |
+| D03c | Object storage (S3-compatible) and CDN | Before staging | **Provided** — confirmed by the client 15 Sep 2026 (VPS media storage) | Technical lead / client |
+| D03d | Hosting region, observability (error tracking, uptime) | Before staging | **Partly provided** — VPS confirmed 15 Sep 2026; error tracking and uptime alerting still pending (launch blocker) | Technical lead / client |
+| D04 | Public domain, public contact address, per-business enquiry recipients | Before delivery tests | **Domain provided** — confirmed 15 Sep 2026; public contact address and enquiry recipients are set in the admin before launch | Client |
 | D05 | Approved public copy: About, Contact, Privacy, Terms, Review guidelines | Before live form collection | **Pending** — pages refuse to publish placeholder text | Client (legal review) |
 | D05a | Approved homepage and section copy | Before visual acceptance | **Pending** — original development copy in place, listed in `content-requirements.md` | Client |
 | D06 | Two-factor (TOTP) policy for administrators | Before administrator onboarding | **Pending** — optional TOTP applied | Client / security owner |

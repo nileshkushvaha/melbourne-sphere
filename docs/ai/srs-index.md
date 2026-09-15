@@ -1,6 +1,6 @@
 # SRS navigation index
 
-Index into `docs/Melbourne_Sphere_Technical_SRS_v1.md` (912 lines, MD5 `d34668c2406da91e0c6ac10932cedde8` on 2026-09-14; SRS revision 1.12). It maps implementation areas to the SRS's own headings and requirement IDs so a session reads the complete relevant sections instead of the whole document. It is not a specification: when in doubt, open the section. Line numbers are approximate anchors for `sed -n`; headings are exact.
+Index into `docs/Melbourne_Sphere_Technical_SRS_v1.md` (919 lines, MD5 `5f8f853e9fcaa44983b5eba214c0bec9` on 2026-09-15; SRS revision 1.17). It maps implementation areas to the SRS's own headings and requirement IDs so a session reads the complete relevant sections instead of the whole document. It is not a specification: when in doubt, open the section. Line numbers are approximate anchors for `sed -n`; headings are exact.
 
 | Area | SRS heading (exact) | IDs | Approx. lines |
 | --- | --- | --- | --- |
@@ -16,7 +16,7 @@ Index into `docs/Melbourne_Sphere_Technical_SRS_v1.md` (912 lines, MD5 `d34668c2
 | Blog, editorial, comments | `# 9 Blog and editorial content` | BLOG 001–005 (006 in the 1.10 change log), COM 001–002 | 260–277 |
 | Admin auth, accounts, admin UX | `# 10 Administration and permissions` | ADM 001–003, AUTH 001–003 | 278–317 |
 | **Roles, permissions, effective access, permission-aware admin UI** | `# 10 Administration and permissions` (RBAC block, revision 1.1) | RBAC 001–012 | 278–317 |
-| Media pipeline and site configuration/pages | `# 11 Media and site configuration` | MED 001–004, CFG 001–003 | 318–335 |
+| Media pipeline and site configuration/pages (page sections, preview, history, scheduling and address changes: change log 1.17) | `# 11 Media and site configuration` | MED 001–004, CFG 001–003 | 318–335 |
 | SEO, sitemap, redirects, structured data | `# 12 SEO indexing and structured data` | SEO 001–007 | 336–353 |
 | Core data model and invariants (entity table) | `# 13 Data model and relational invariants` | DAT 001–003 | 354–375 |
 | Editorial/operational model, migrations | `# 14 Editorial and operational data model` | DAT 004–006 | 376–406 |
@@ -48,3 +48,5 @@ Index into `docs/Melbourne_Sphere_Technical_SRS_v1.md` (912 lines, MD5 `d34668c2
 Per-phase acceptance criteria are written in `docs/setup-progress.md` from these sections; the requirement-level status lives in `docs/requirements-traceability.md`.
 
 Sections 25–26 were added at revision 1.2 and extend the earlier sections; the obligations of sections 10, 16, 17, 18 and 19 apply to every module specified there. The Logimart reference comparison that informed them is `docs/reference/logimart-comparison.md` — a behavioural reference only, never an architecture or security reference.
+
+Line ranges after the change-log table are approximate: rows 1.13–1.17 (15 Sep 2026) lengthened the table near the top of the file, so sections sit roughly 5–10 lines lower than the ranges shown. Search for the exact heading.

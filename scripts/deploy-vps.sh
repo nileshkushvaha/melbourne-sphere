@@ -12,7 +12,8 @@ flock -n 9 || { echo 'Another deployment is running.' >&2; exit 1; }
 [[ -L "$ROOT/current" ]] || { echo 'Expected current to be a release symlink.' >&2; exit 1; }
 PREVIOUS=$(readlink -f "$ROOT/current")
 [[ "$PREVIOUS" == "$ROOT/releases/"* && -d "$PREVIOUS" ]]
-for env in api web worker; do test -r "$ROOT/shared/$env.env"; done
+for env in api web worker backup; do test -r "$ROOT/shared/$env.env"; done
+test -r "$ROOT/shared/backup-recipient.txt"
 sudo -v
 sudo nginx -t
 for service in ms-api ms-worker ms-web; do sudo systemctl is-active --quiet "$service"; done
@@ -63,9 +64,6 @@ api_command pnpm db:build
 pnpm domain:build
 pnpm mail:build
 pnpm db:migrations:check
-# Stop before switching if migrations are pending, failed, or TLS is invalid.
-# Schema changes require a separately reviewed migration/backup plan.
-api_command pnpm db:migrate:status
 pnpm --filter api build
 pnpm --filter worker build
 (
@@ -91,16 +89,33 @@ find "$DIR/apps/admin/dist" -type f -exec chmod 640 {} +
 sudo -u www-data test -r "$DIR/apps/admin/dist/index.html"
 
 sudo -v
-BACKUP="$ROOT/backups/before-deploy-$(date +%Y%m%d%H%M%S).sql.gz"
+# Encrypted backup immediately before the schema changes (SRS BACK 001), with
+# the same script and account as the daily job, so the file is restorable by
+# the documented drill. Nothing is migrated unless this succeeds.
+BACKUP_DIR="$ROOT/backups/before-deploy"
+mkdir -p "$BACKUP_DIR"
+BACKUP_LOG=$(mktemp)
 (
   umask 077
-  cd "$ROOT/services"
-  sudo docker compose --env-file .env exec -T mysql sh -eu -c '
-    MYSQL_PWD="$MYSQL_PASSWORD" exec mysqldump --user="$MYSQL_USER" \
-      --single-transaction --no-tablespaces --set-gtid-purged=OFF "$MYSQL_DATABASE"
-  ' | gzip > "$BACKUP"
-)
-gzip -t "$BACKUP"
+  set -a
+  . "$ROOT/shared/backup.env"
+  set +a
+  export MYSQL_PWD="$MYSQL_BACKUP_PASSWORD"
+  "$DIR/infrastructure/backup/backup-database.sh" \
+    --host 127.0.0.1 --user ms_backup --database melbourne_sphere \
+    --out "$BACKUP_DIR" --recipient "$(cat "$ROOT/shared/backup-recipient.txt")"
+) | tee "$BACKUP_LOG"
+BACKUP=$(ls -t "$BACKUP_DIR"/*.age "$BACKUP_DIR"/*.gpg 2>/dev/null | head -1 || true)
+rm -f "$BACKUP_LOG"
+[[ -n "$BACKUP" && -s "$BACKUP" ]] || { echo 'Pre-deploy backup was not written; nothing was migrated.' >&2; exit 1; }
+# Keep the ten most recent pre-deploy backups (the daily job keeps its own 30 days).
+ls -t "$BACKUP_DIR"/* 2>/dev/null | tail -n +21 | xargs -r rm -f
+
+# Apply reviewed migrations while the previous release is still serving.
+# Migrations are additive (policy checked above), so the running code keeps
+# working on the new schema; a failure here stops before anything switches.
+api_command pnpm db:migrate:deploy
+api_command pnpm db:migrate:status
 
 wait_url() {
   local url=$1
@@ -139,6 +154,9 @@ rollback() {
   exit 1
 }
 printf '%s\n' "$PREVIOUS" > "$ROOT/previous-release"
+# The version the Workers card and error reports show.
+sudo -u ms sed -i '/^APP_VERSION=/d' "$ROOT/shared/worker.env"
+printf 'APP_VERSION=%s\n' "$SHA" | sudo -u ms tee -a "$ROOT/shared/worker.env" >/dev/null
 trap rollback ERR INT TERM
 switch_link "$DIR"
 restart_apps

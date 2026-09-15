@@ -3,9 +3,15 @@
 Every advisory `pnpm audit` reports for this repository, with what it means here.
 Reviewed 7 September 2026 as part of the authorization audit closure, and again
 on 8 September 2026 during the complete production-readiness audit, which added
-the three rows marked *new 8 Sep*. Rerun with
+the three rows marked *new 8 Sep*, and on 15 September 2026 during the go-live audit (row marked *new 15 Sep*). Rerun with
 `pnpm audit` and update the table when it changes; do not silence an advisory
 with an override to make the report green.
+
+**CI gate.** `.github/workflows/ci.yml` passes exactly the four accepted high
+advisories to `pnpm audit --ignore`: `GHSA-cqhc-2h57-wpxf` (mariadb),
+`GHSA-3f6p-5ww8-9rcr` (mysql2), `GHSA-j3q9-mxjg-w52f` (path-to-regexp) and
+`GHSA-ggr8-5vv4-36mx` (deepmerge-ts). Any other high or critical advisory fails
+the build. When a row below is removed, remove its ID from the workflow too.
 
 Reading the "used?" column: an advisory only matters if the vulnerable code runs
 in a path this product actually takes.
@@ -19,6 +25,7 @@ in a path this product actually takes.
 | `mariadb` (charset escaping) *new 8 Sep* | 3.4.5 | `packages/database > @prisma/adapter-mariadb > mariadb` | Moderate | **No** — the advisory is a SQL-injection risk in Buffer parameter escaping under the `big5`, `gbk`, `sjis`, `cp932` and `gb18030` client character sets. Every database, table and connection in this system is `utf8mb4` (asserted by the migration policy and confirmed against the audit database: 55 tables, 0 with any other collation), so the vulnerable escaping path is never selected | ≥ 3.4.7 | Same pin as the row above | None needed; the charset is not configurable by a request | Verified TLS and a private segment, as above | Prisma pins `mariadb ≥ 3.4.7` |
 | `mariadb` (cleartext transmission) *new 8 Sep* | 3.4.5 | `packages/database > @prisma/adapter-mariadb > mariadb` | Moderate | **Yes, in principle** — the same handshake exposure as the high-severity row above, from a different angle | ≥ 3.4.7 | Same pin | Production refuses to start without verified TLS to MySQL | Verified TLS | As above |
 | `mysql2` (zlib bomb) *new 8 Sep* | 3.15.3 | `packages/database > @prisma/client > prisma > mysql2` | Moderate | **No** — decompression-bomb denial of service in the compressed protocol handler, reachable only from a malicious *server*. `mysql2` ships with the Prisma CLI (a devDependency) and is not loaded at run time; the application uses the mariadb adapter, and compression is not enabled | ≥ 3.23.1 | Owned by the Prisma CLI | Development and CI only | None — it does not ship | Prisma 8 GA |
+| `multer` (three denial-of-service advisories) *new 15 Sep* | 2.3.0 (was 2.2.0) | `apps/api > @nestjs/platform-express > multer`, and `apps/worker > @nestjs/core > @nestjs/platform-express > multer` | High | **Yes** — Express's multipart parser is part of the API's HTTP stack | ≥ 2.3.0 | **Fixed.** `@nestjs/platform-express` 12.0.2 depends on `multer` 2.3.0 itself; the API was upgraded to it, and a workspace `overrides` entry (`multer: ^2.3.0`) removes the 2.2.0 copy the worker still resolved through `@nestjs/core`'s peer. This is the maintainers' own patched version, not a suppression | None needed | None | Drop the override once every Nest package in the lockfile resolves 12.0.2 or later |
 | `uuid` | 8.3.2 | `tools/load > autocannon > hyperid > uuid` | Moderate | **No** — the load-test harness only, never deployed | ≥ 11.1.1 | Owned by `autocannon` | Development tool | None | `autocannon` updates `hyperid` |
 
 Nothing in `@casl/ability` 7.0.1 or the `@ucast/*` packages it depends on has an

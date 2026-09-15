@@ -27,6 +27,12 @@ This is deliberate — it is what makes revocation immediate for supported chang
 — and it is why the procedure below exists rather than a watcher polling the
 database for edits nobody is supposed to make.
 
+## When a permission is split
+
+Deploys run `admin:seed-rbac` after migrations. When the catalogue gains codes that replace an older one (`migratesFrom`), that run copies the old code's role and direct grants onto each new code, once, and records `authz.permission.migrated` in the activity log. The CLI prints `grants carried over: N`; a second run prints 0.
+
+Afterwards `pnpm --filter api authz:verify` reports `split permissions: every holder of an old code holds its replacements`. A holder listed there either had a replacement removed on purpose after the deploy, or the synchronisation has not run. Retired codes stay assigned and grant nothing; remove them from roles once the client is satisfied.
+
 ## Inspecting access
 
 ```bash

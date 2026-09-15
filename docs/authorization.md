@@ -24,11 +24,30 @@ The calculation lives in exactly one place: `apps/api/src/authorization/effectiv
 
 ## 2. Permission codes
 
-`resource.action`, lower snake case, declared in `apps/api/src/identity/permissions.ts` with a label, a description and a module for the interface.
+`resource.action`, lower snake case, declared in `apps/api/src/identity/permissions.ts` with a label, a description, the sidebar **module** and **menu item** it belongs to, and its **action** (View, Create, Update, Publish, Delete or a named extra such as Redact).
+
+**One menu item, its own codes** (SRS change log 1.13). Every admin menu item has a View code that opens it and a code per action it has, so SEO settings, Home page settings and General settings can be given to different people. The role editor shows the catalogue as the sidebar: a section per sidebar group, a row per menu item, a column per action. Ticking an action ticks the row's View; unticking View removes the row's actions.
 
 The code catalogue is the source of truth. `pnpm --filter api admin:seed-rbac` synchronises it into the `permissions` table (idempotent; safe on every deployment). Administrators **assign** permissions; they never create them, so a misspelt or unknown code cannot exist to be granted. A code that is not in the catalogue can never satisfy a requirement, even if a row for it exists in the database.
 
 Retiring one: set `active: false` on the entry and re-run the synchronisation. The row and its assignments stay for the audit trail while granting nothing.
+
+**Splitting one.** Add the new codes with `migratesFrom: ['old.code']` and retire the old one. The synchronisation run that first creates a new code copies every role and direct grant of the old code onto it (one transaction per code, audited as `authz.permission.migrated`, cache versions bumped), so nobody gains or loses access on deploy. It runs once per code: a grant removed afterwards is never re-added. `authz:verify` lists holders of an old code who lack a replacement.
+
+| Retired in 1.13 | Replaced by |
+| --- | --- |
+| `settings.manage` | `settings.general.view/update`, `settings.home.view/update`, `settings.seo.view/update`, `website.pages.view/create/update/publish/delete` |
+| `taxonomy.manage` | `categories.view/create/update`, `services.view/create/update`, `areas.view/create/update` |
+| `listings.write` | `listings.create`, `listings.update` (plus `featured.view/manage` from `listings.read`/`listings.publish`) |
+| `posts.write` | `posts.view/create/update`, `authors.view/create/update`, `blog_categories.view/create/update`, `blog_tags.view/create/update` (plus `posts.feature` from `posts.publish`) |
+| `media.manage` | `media.view/upload/update/delete` |
+| `redirects.manage` | `redirects.view/create/update/delete` |
+| `admins.manage` | `admins.view/create/update/status` |
+| `community.contacts.view` | `enquiries.contact.view`, `reviews.email.view`, `comments.email.view`, `reports.email.view` |
+| — (1.16) | `media.documents.upload` is new and carried over from nothing: a Super Admin assigns it, and image uploaders do not receive it |
+| `audit.read` (1.14) | `activity.authentication.view`, `activity.access_control.view`, `activity.content.view`, `activity.moderation.view`, `activity.communication.view`, `activity.configuration.view`, `activity.system.view` — the activity log and dashboard activity show only those areas |
+
+Narrowed, with new siblings carried over: `reviews.moderate` (+ `reviews.view`, `reviews.redact`), `comments.moderate` (+ `comments.view/redact/reply`), `reports.manage` (+ `reports.view`), `enquiries.manage` (+ `enquiries.retry`), `website.menus.manage` (+ `website.menus.assign`), `system.queues.cancel` (+ `system.queues.clean`), and `system.status.view` was first carried over from `audit.read` (itself retired in 1.14).
 
 The admin application mirrors the codes in `apps/admin/src/auth/permissions.ts`; `permissions.test.ts` compares the two lists and fails if they drift.
 
@@ -43,6 +62,7 @@ publish(...) {}
 ```
 
 - A route that declares nothing is **refused** (`PERMISSION_UNDECLARED`) and logged as a programming error. A new endpoint cannot ship open.
+- `@RequireAnyPermission('categories.view', 'listings.create', …)` accepts any one of the codes. It is only for a lookup another screen depends on — the listing editor's categories, services and areas, the article editor's authors, blog categories and tags, the editor link search — so holding that screen's permission is enough. `routes:matrix` prints these as `a | b`, and flags any route still carrying a retired code as `RETIRED(…)`.
 - `@SessionOnly()` is for routes that need identity but no capability (`/auth/me`, logout). `@Public()` is for login, forgot- and reset-password only.
 - **401** when authentication is missing, invalid, expired or revoked. **403** when the identity is valid but the permission is absent, or an account, role or permission is inactive. Bodies use the standard envelope with the request id and say nothing about which permission was missing or where it would have come from.
 - Where access depends on the loaded record, repeat the check in the service with the record in hand. A permission check on the URL alone cannot know whether *this* listing may be published.
@@ -64,9 +84,9 @@ All under `/api/v1/admin`, each with its own permission:
 | `POST /roles` | `roles.create` |
 | `PATCH /roles/{id}`, `PUT /roles/{id}/permissions` | `roles.update` |
 | `DELETE /roles/{id}` | `roles.delete` |
-| `GET /admins/{id}/access` | `admins.manage` |
+| `GET /admins/{id}/access` | `admins.view` |
 | `PUT /admins/{id}/roles`, `PUT /admins/{id}/permissions` | `admins.access.manage` |
-| `GET /audit?action=authz.*` | `audit.read` |
+| `GET /activity?action=authz.*` | any `activity.*.view`; results limited to the areas held (`authz.*` needs `activity.access_control.view`) |
 
 **Replacement, not patching.** Assignment endpoints take the complete set the caller intends to end up with. Repeating a request changes nothing (idempotent), the payload states the end state rather than a diff, and `expectedVersion` refuses a write made against a stale view with `409 STALE_VERSION`. Every mutation runs in one transaction containing the change, its audit record, the cache invalidation and the revocation of the target's sessions.
 
