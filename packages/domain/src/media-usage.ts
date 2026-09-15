@@ -1,5 +1,6 @@
 /**
- * Where an image can be in use (SRS MED 004, DAT 003).
+ * Where an image or a document can be in use (SRS MED 004, DAT 003; documents
+ * and menu links since change log 1.16).
  *
  * Two things act on "is this image used anywhere?": the library refuses to
  * delete an image that is, and the worker's retention task removes processed
@@ -18,7 +19,7 @@
  * `MediaAsset` relations that make an image in use. The names are the Prisma
  * relation fields, so a query can be built from them directly.
  */
-export const MEDIA_USAGE_RELATIONS = ['businesses', 'coverOf', 'shareImageOf', 'pageShareImageOf', 'authorOf', 'testimonials', 'partners', 'categoryImageOf', 'categoryShareImageOf', 'areaImageOf', 'areaShareImageOf', 'businessShareImageOf', 'blogCategoryShareImageOf', 'bodyReferences'] as const;
+export const MEDIA_USAGE_RELATIONS = ['businesses', 'coverOf', 'shareImageOf', 'pageShareImageOf', 'authorOf', 'testimonials', 'partners', 'categoryImageOf', 'categoryShareImageOf', 'areaImageOf', 'areaShareImageOf', 'businessShareImageOf', 'blogCategoryShareImageOf', 'blogTagShareImageOf', 'menuItemDocuments', 'bodyReferences'] as const;
 
 export type MediaUsageRelation = (typeof MEDIA_USAGE_RELATIONS)[number];
 
@@ -77,7 +78,7 @@ export const CONTENT_MEDIA_RESOURCES = ['post', 'static_page', 'author', 'faq', 
 export type ContentMediaResource = (typeof CONTENT_MEDIA_RESOURCES)[number];
 
 const MEDIA_ID = '[a-z0-9]{20,40}';
-/** `data-media-id="…"`, written by the editor on every image it inserts. */
+/** `data-media-id="…"`, written by the editor on every image and document link it inserts. */
 const DATA_ATTRIBUTE = new RegExp(`data-media-id=["'](${MEDIA_ID})["']`, 'gi');
 /**
  * A published rendition's address. Every variant key is `media/<assetId>/…`

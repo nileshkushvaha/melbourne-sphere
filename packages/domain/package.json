@@ -25,6 +25,10 @@
       "types": "./dist/menus.d.ts",
       "default": "./dist/menus.js"
     },
+    "./page-sections": {
+      "types": "./dist/page-sections.d.ts",
+      "default": "./dist/page-sections.js"
+    },
     "./posts": {
       "types": "./dist/posts.d.ts",
       "default": "./dist/posts.js"

@@ -48,8 +48,8 @@ export interface ScheduledTaskDefinition {
 export const SCHEDULED_TASKS: ScheduledTaskDefinition[] = [
   {
     code: 'content.publish-scheduled',
-    label: 'Publish scheduled articles',
-    description: 'Publishes articles whose scheduled time has passed and refreshes the pages that show them. An article that no longer meets the publication requirements goes back to draft with the reason.',
+    label: 'Publish scheduled articles and pages',
+    description: 'Publishes articles and information pages whose scheduled time has passed and refreshes the pages that show them. Anything that no longer meets the publication requirements goes back to draft with the reason.',
     scheduleLabel: 'Every minute',
     cron: '* * * * *',
     timezone: 'Australia/Melbourne',

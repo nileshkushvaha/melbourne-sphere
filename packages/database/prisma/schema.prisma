@@ -112,6 +112,7 @@ model AdminUser {
   menusUpdated       Menu[]                @relation("MenuUpdatedBy")
   menuLocationsUpdated MenuLocation[]      @relation("MenuLocationUpdatedBy")
   postAutosaves      PostAutosave[]
+  pageAutosaves      PageAutosave[]
   defaultAuthor      Author?               @relation("AdminDefaultAuthor", fields: [defaultAuthorId], references: [id], onDelete: SetNull)
 
   @@index([status])
@@ -1071,6 +1072,13 @@ model BlogTag {
   name           String   @db.VarChar(60)
   slug           String   @unique @db.VarChar(100)
   landingContent String?  @db.Text
+  /// Search appearance (SRS SEO 001, change log 1.15), as on blog categories:
+  /// each optional, falling back to the composed title, description and the
+  /// site image when empty.
+  seoTitle       String?  @db.VarChar(180)
+  seoDescription String?  @db.VarChar(300)
+  seoKeywords    String?  @db.VarChar(255)
+  ogImageMediaId String?
   active         Boolean  @default(true)
   version        Int      @default(1)
   createdAt      DateTime @default(now()) @db.DateTime(3)
@@ -1078,6 +1086,7 @@ model BlogTag {
 
   posts     PostTag[]
   menuItems MenuItem[]
+  ogImage   MediaAsset? @relation("BlogTagShareImage", fields: [ogImageMediaId], references: [id], onDelete: Restrict)
 
   @@index([active])
   @@map("blog_tags")
@@ -1209,6 +1218,8 @@ model ContentRevision {
   bodyFormat        PostBodyFormat?
   excerpt           String?  @db.VarChar(500)
   title             String?  @db.VarChar(200)
+  /// A page's sections as they stood (change log 1.17); null for articles and older revisions.
+  sectionsSnapshot  Json?
   reason            String?  @db.VarChar(500)
   actorAdminId      String?
   createdAt         DateTime @default(now()) @db.DateTime(3)
@@ -1268,6 +1279,12 @@ enum MediaStatus {
   rejected
 }
 
+/// What an asset is (change log 1.16): an image with renditions, or a PDF document.
+enum MediaKind {
+  image
+  document
+}
+
 /// Uploaded image (SRS MED 001–003). The original stays in the private
 /// quarantine bucket; only re-encoded variants are ever published.
 model MediaAsset {
@@ -1282,6 +1299,12 @@ model MediaAsset {
   checksum          String?     @db.Char(64)
   /// Random server-generated key in the private quarantine bucket.
   objectKey         String      @unique @db.VarChar(255)
+  kind              MediaKind   @default(image)
+  /// A document's display name (change log 1.16); images use alt text instead.
+  title             String?     @db.VarChar(180)
+  /// The published copy of a document; images publish variants instead.
+  publicObjectKey   String?     @unique @db.VarChar(191)
+  pageCount         Int?
   status            MediaStatus @default(quarantined)
   rejectionReason   String?     @db.VarChar(500)
   /// Required for content images (SRS MED 003).
@@ -1309,13 +1332,17 @@ model MediaAsset {
   areaShareImageOf LocalArea[]  @relation("LocalAreaShareImage")
   businessShareImageOf Business[] @relation("BusinessShareImage")
   blogCategoryShareImageOf BlogCategory[] @relation("BlogCategoryShareImage")
+  blogTagShareImageOf      BlogTag[]      @relation("BlogTagShareImage")
   testimonials Testimonial[]  @relation("TestimonialMedia")
   partners   PartnerOrganisation[] @relation("PartnerMedia")
   authorOf   Author[]        @relation("AuthorImage")
   /// Images shown inside rich content (article and page bodies, bios, answers, landing text).
   bodyReferences ContentMediaReference[] @relation("ContentBodyMedia")
+  /// Menu items that link this document (change log 1.16).
+  menuItemDocuments MenuItem[] @relation("MenuItemDocument")
 
   @@index([status, createdAt])
+  @@index([kind, status, createdAt])
   @@map("media_assets")
 }
 
@@ -1597,6 +1624,7 @@ enum MenuItemType {
   business_category
   area
   business
+  document
 }
 
 enum MenuItemStyle {
@@ -1652,6 +1680,8 @@ model MenuItem {
   categoryId     String?
   localAreaId    String?
   businessId     String?
+  /// A PDF from the media library, for a `document` item (change log 1.16).
+  documentId     String?
   /// Key from SEO_ROUTES for a `route` item.
   routeKey       String?       @db.VarChar(32)
   /// Validated destination of a `custom` item (MENU 004).
@@ -1678,6 +1708,7 @@ model MenuItem {
   category     Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   localArea    LocalArea?    @relation(fields: [localAreaId], references: [id], onDelete: SetNull)
   business     Business?     @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  document     MediaAsset?   @relation("MenuItemDocument", fields: [documentId], references: [id], onDelete: SetNull)
 
   @@index([menuId, parentId, position])
   @@index([parentId])
@@ -1688,6 +1719,7 @@ model MenuItem {
   @@index([categoryId])
   @@index([localAreaId])
   @@index([businessId])
+  @@index([documentId])
   @@map("menu_items")
 }
 
@@ -1710,6 +1742,8 @@ model AdminPasswordHistory {
 enum StaticPageStatus {
   draft
   published
+  /// Waiting for `scheduledAt`, published by the worker (change log 1.17).
+  scheduled
 }
 
 /// Editable information pages (SRS CFG 002). Slugs come from a fixed set so no
@@ -1727,11 +1761,13 @@ enum StaticPageLayout {
 
 model StaticPage {
   id               String           @id @default(cuid())
-  /// One of: about, privacy, terms, review-guidelines (SRS 1.6 CFG 002).
+  /// A system page (privacy, terms, review-guidelines) or an address an editor chose (SRS 1.7, change log 1.17).
   slug             String           @unique @db.VarChar(64)
   title            String           @db.VarChar(180)
-  /// Sanitised HTML actually rendered on the public page.
+  /// Sanitised HTML of the page's words: rendered for a page without sections, and read by search and the publication gate.
   sanitizedBody    String           @db.MediumText
+  /// The page's sections (change log 1.17), validated by `validatePageSections`; null for a page written before sections.
+  sections         Json?
   /// Source exactly as the editor wrote it, in bodyFormat.
   bodySource       String           @db.MediumText
   bodyFormat       PostBodyFormat   @default(html)
@@ -1747,6 +1783,12 @@ model StaticPage {
   /// Contact routing address for the Contact page; validated before activation.
   contactEmail     String?          @db.VarChar(255)
   publishedAt      DateTime?        @db.DateTime(3)
+  /// When a scheduled page goes live (change log 1.17).
+  scheduledAt      DateTime?        @db.DateTime(3)
+  /// Why a scheduled page returned to draft instead of publishing.
+  publishFailure   String?          @db.VarChar(300)
+  /// Hidden from search engines: noindex, and left out of the sitemap.
+  noindex          Boolean          @default(false)
   version          Int              @default(1)
   updatedByAdminId String?
   createdAt        DateTime         @default(now()) @db.DateTime(3)
@@ -1755,9 +1797,31 @@ model StaticPage {
   updatedBy AdminUser?  @relation("StaticPageEditor", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
   ogImage   MediaAsset? @relation("StaticPageShareImage", fields: [ogImageMediaId], references: [id], onDelete: Restrict)
   menuItems MenuItem[]
+  autosaves PageAutosave[]
 
   @@index([status])
+  @@index([status, scheduledAt])
   @@map("static_pages")
+}
+
+/// An administrator's unsaved work on a page (change log 1.17): private, never
+/// published, never a revision; one per page per administrator.
+model PageAutosave {
+  id          String   @id @default(cuid())
+  pageId      String
+  adminId     String
+  title       String   @db.VarChar(180)
+  sections    Json
+  /// The page version the editor was working from.
+  baseVersion Int
+  savedAt     DateTime @default(now()) @updatedAt @db.DateTime(3)
+
+  page  StaticPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  admin AdminUser  @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([pageId, adminId])
+  @@index([adminId])
+  @@map("page_autosaves")
 }
 
 /// Manual editorial feature (SRS DIR 007). No payment fields exist and none may

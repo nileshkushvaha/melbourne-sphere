@@ -97,7 +97,8 @@ export type MenuItemType =
   | 'blog_tag'
   | 'business_category'
   | 'area'
-  | 'business';
+  | 'business'
+  | 'document';
 
 export interface MenuItemTypeDefinition {
   type: MenuItemType;
@@ -117,6 +118,8 @@ export const MENU_ITEM_TYPES: readonly MenuItemTypeDefinition[] = Object.freeze(
   { type: 'business_category', label: 'Business category', referenced: true },
   { type: 'area', label: 'Local area', referenced: true },
   { type: 'business', label: 'Business', referenced: true },
+  // A PDF from the media library (change log 1.16).
+  { type: 'document', label: 'Document', referenced: true },
 ]);
 
 export const MENU_ITEM_TYPE_KEYS: readonly MenuItemType[] = MENU_ITEM_TYPES.map((definition) => definition.type);

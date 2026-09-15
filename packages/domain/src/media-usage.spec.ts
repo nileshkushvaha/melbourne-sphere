@@ -52,3 +52,11 @@ describe('media usage', () => {
     expect(extractMediaIds(`<p>see /media/${id}/x.webp</p>`)).toEqual([]);
   });
 });
+
+describe('document uses (change log 1.16)', () => {
+  it('counts menu links and blog tag share images, and finds a document id on a link', () => {
+    expect(MEDIA_USAGE_RELATIONS).toContain('menuItemDocuments');
+    expect(MEDIA_USAGE_RELATIONS).toContain('blogTagShareImageOf');
+    expect(extractMediaIds('<a href="https://media.example/x.pdf" class="ms-doc-link" data-media-id="cmu2a3ydk0000yjumqnk96o5a">Price list</a>')).toEqual(['cmu2a3ydk0000yjumqnk96o5a']);
+  });
+});

@@ -56,7 +56,7 @@ export {
 } from './alerts.js';
 export { buildEnquiryMail, safeReplyTo, sanitiseHeaderValue, type EnquiryMailInput, type OutboundEnquiryMail } from './enquiry-mail.js';
 export { assertQueueJobId, jobIdProblem, queueJobId, JOB_NAMES, MAX_JOB_ID_LENGTH, type JobName, CACHE_INVALIDATE_JOB, CACHE_TAGS, MAX_CACHE_TAGS, normaliseCacheTags, ENQUIRY_EMAIL_JOB, MEDIA_PROCESS_JOB, MAX_DISPATCH_ATTEMPTS, QUEUE_NAME, backoffMs, defaultJobOptions, redisConnectionFromUrl, type JobRetryPolicy, type RedisConnection } from './queue.js';
-export { ALLOWED_IMAGE_MIME, MAX_MEGAPIXELS, MAX_PIXELS, MAX_UPLOAD_BYTES, MIN_DIMENSION, VARIANT_KINDS, VARIANT_MIME, VARIANT_SIZES, extensionForMime, imageRejectionReason, isAllowedImageMime, objectKeyFor, variantDimensions, type AllowedImageMime, type ImageFacts, type VariantKind } from './media.js';
+export { ALLOWED_DOCUMENT_MIME, ALLOWED_IMAGE_MIME, ALLOWED_UPLOAD_MIME, MAX_DOCUMENT_BYTES, MAX_MEGAPIXELS, MAX_PIXELS, MAX_UPLOAD_BYTES, MIN_DIMENSION, VARIANT_KINDS, VARIANT_MIME, VARIANT_SIZES, documentRejectionReason, extensionForMime, imageRejectionReason, isAllowedImageMime, maxBytesFor, mediaKindForMime, objectKeyFor, pdfPageCount, readableFileSize, safeDownloadName, variantDimensions, type AllowedDocumentMime, type AllowedImageMime, type DocumentFacts, type ImageFacts, type MediaKind, type VariantKind } from './media.js';
 export {
   SCHEDULED_TASKS,
   SCHEDULED_TASK_JOB,
@@ -83,3 +83,33 @@ export {
 } from './worker-heartbeat.js';
 export { ENQUIRY_HANDLING_ACTIONS, ENQUIRY_HANDLING_STATUSES, canChangeEnquiryHandling, type EnquiryHandlingAction, type EnquiryHandlingStatus } from './enquiry-handling.js';
 export { DEFAULT_PRICING, PRICING_LIMITS, PRICING_PERIODS, PRICING_PLAN_KEYS, formatPrice, planFromSlug, planSlug, type PricingPeriod, type PricingPlan, type PricingPlanKey, type PricingSettings } from './pricing.js';
+export {
+  PAGE_SECTION_LIMITS,
+  PAGE_SECTION_TYPES,
+  pageSectionBlockers,
+  pageSectionBusinessIds,
+  pageSectionDefinition,
+  pageSectionDocumentIds,
+  pageSectionImageIds,
+  pageSectionsHtml,
+  sectionsFromLegacyBody,
+  validatePageSections,
+  type BusinessesSection,
+  type CalloutSection,
+  type CardsSection,
+  type ContactSection,
+  type FaqItem,
+  type FaqSection,
+  type HeaderSection,
+  type ImageTextSection,
+  type PageButton,
+  type PageCard,
+  type PageSection,
+  type PageSectionDefinition,
+  type PageSectionFieldErrors,
+  type PageSectionType,
+  type TextSection,
+  PAGE_MIN_BODY_CHARACTERS,
+  pagePublicationBlockers,
+  pageTextBlockers,
+} from './page-sections.js';
