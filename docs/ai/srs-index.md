@@ -1,6 +1,6 @@
 # SRS navigation index
 
-Index into `docs/Melbourne_Sphere_Technical_SRS_v1.md` (912 lines, MD5 `c918ac23b126e8f8f9f4f6a749583830` on 2026-09-14; SRS revision 1.10). It maps implementation areas to the SRS's own headings and requirement IDs so a session reads the complete relevant sections instead of the whole document. It is not a specification: when in doubt, open the section. Line numbers are approximate anchors for `sed -n`; headings are exact.
+Index into `docs/Melbourne_Sphere_Technical_SRS_v1.md` (912 lines, MD5 `d34668c2406da91e0c6ac10932cedde8` on 2026-09-14; SRS revision 1.12). It maps implementation areas to the SRS's own headings and requirement IDs so a session reads the complete relevant sections instead of the whole document. It is not a specification: when in doubt, open the section. Line numbers are approximate anchors for `sed -n`; headings are exact.
 
 | Area | SRS heading (exact) | IDs | Approx. lines |
 | --- | --- | --- | --- |

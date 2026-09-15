@@ -8,12 +8,12 @@ import { ArrowRightIcon, MapPinIcon, PenLineIcon, ShieldCheckIcon } from 'lucide
 import { JsonLdScript } from '@/components/json-ld';
 import { organizationJsonLd, webSiteJsonLd } from '@/lib/structured-data';
 import { BusinessCard } from '@/components/business-card';
-import { TestimonialCarousel } from '@/components/testimonial-carousel';
 import { PartnerStrip } from '@/components/partner-strip';
+import { PricingPlans } from '@/components/pricing-plans';
 import { CategoryIcon } from '@/components/category-icon';
 import { FeaturedPostCard, PostCard } from '@/components/post-card';
 import { Band, SectionHeading, cardGridColumns, gridColumns } from '@/components/page-shell';
-import { fetchAreas, fetchCategories, fetchHome, fetchPosts, fetchSiteSettings, flattenCategories, searchBusinesses, type BusinessCard as BusinessCardData, type PublicArea, type PublicCategory, type PostCard as PostCardData, type SearchMeta, fetchTestimonials, fetchPartners } from '@/lib/api';
+import { fetchAreas, fetchCategories, fetchHome, fetchPosts, fetchSiteSettings, flattenCategories, searchBusinesses, type BusinessCard as BusinessCardData, type PublicArea, type PublicCategory, type PostCard as PostCardData, type SearchMeta, fetchPartners } from '@/lib/api';
 import { HeroHeadline } from '@/components/hero-headline';
 import { HeroSearch } from '@/components/hero-search';
 import { HeroBanner } from '@/components/hero-banner';
@@ -83,14 +83,13 @@ export default async function HomePage() {
   // Started first so it runs alongside the band data; it never rejects, because
   // the shell must render even when the settings endpoint is unavailable.
   const settingsPromise = fetchSiteSettings();
-  const [homeResult, categoriesResult, areasResult, newestResult, topRatedResult, postsResult, testimonialsResult, partnersResult, featuredPostsResult] = await Promise.allSettled([
+  const [homeResult, categoriesResult, areasResult, newestResult, topRatedResult, postsResult, partnersResult, featuredPostsResult] = await Promise.allSettled([
     fetchHome(),
     fetchCategories(),
     fetchAreas(),
     searchBusinesses({ q: '', category: null, area: null, minRating: null, openNow: false, sort: 'newest', page: 1 }),
     searchBusinesses({ q: '', category: null, area: null, minRating: 4, openNow: false, sort: 'rating', page: 1 }),
     fetchPosts({ page: 1 }),
-    fetchTestimonials(),
     fetchPartners(),
     fetchPosts({ page: 1, pageSize: 3, featured: true }),
   ]);
@@ -109,9 +108,8 @@ export default async function HomePage() {
   const featured = newest.ok ? (newest.data.meta.featured ?? []) : [];
   const channel = contactChannelFrom(settings);
   const areasWithIntro = areas.ok ? areas.data.filter((area) => (area.editorialIntro ?? '').trim().length > 0) : [];
-  // Both fetchers already fall back to an empty list, so an unavailable API
+  // The fetcher already falls back to an empty list, so an unavailable API
   // omits the band rather than failing the page.
-  const testimonials = testimonialsResult.status === 'fulfilled' ? testimonialsResult.value : [];
   const partners = partnersResult.status === 'fulfilled' ? partnersResult.value : [];
   // Featured articles lead (SRS 1.10 BLOG 005), then the newest ones not already
   // shown. Featuring is an addition: if that list cannot be read, the band
@@ -362,9 +360,19 @@ export default async function HomePage() {
           records grant nobody any access (SRS 1.2 PTNR 001). Omitted when none
           is published and authorised, rather than rendering an empty strip. */}
       {partners.length > 0 && (
-        <Band tone="plain" aria-labelledby="partners-heading">
-          <SectionHeading id="partners-heading" eyebrow="Working with" title="Clients and partners" />
-          <PartnerStrip partners={partners} />
+        <Band tone="dark" aria-labelledby="partners-heading">
+          <SectionHeading tone="dark" id="partners-heading" eyebrow="Working with" title="Clients and partners" />
+          <PartnerStrip partners={partners} tone="dark" />
+        </Band>
+      )}
+
+      {/* Pricing (SRS 1.12) — omitted when prices are switched off in General settings. */}
+      {settings.pricing?.enabled && (
+        <Band tone="page" id="pricing" aria-labelledby="pricing-heading">
+          <SectionHeading id="pricing-heading" eyebrow="Pricing" title="Simple, transparent pricing" description="Two plans, each with one clear price including GST. Choose one and our team will reply with the next steps." />
+          <div className="mt-10">
+            <PricingPlans pricing={settings.pricing} />
+          </div>
         </Band>
       )}
 
@@ -377,7 +385,7 @@ export default async function HomePage() {
               Run a business in Melbourne?
             </h2>
             <p className="mt-5 max-w-xl text-lg leading-relaxed text-band-muted">
-              Send us your details and our editors will check and publish the listing for you. There is nothing to sign up for and nothing to pay.
+              {settings.pricing?.enabled ? 'Choose a plan above, send us your details and our editors will check and publish the listing for you.' : 'Send us your details and our editors will check and publish the listing for you.'}
             </p>
             {channel.listingMailto ? (
               <a
@@ -413,15 +421,6 @@ export default async function HomePage() {
         </div>
       </Band>
 
-      {/* Testimonials — omitted entirely when nothing is approved and published
-          (SRS 1.2 TSTM 004): an empty band would be a placeholder, and the
-          specification is explicit that the site ships without invented copy. */}
-      {testimonials.length > 0 && (
-        <Band tone="soft" aria-labelledby="testimonials-heading">
-          <SectionHeading id="testimonials-heading" eyebrow="In their words" title="What Melbourne businesses say" description="Quotes published with the permission of the people who gave them." />
-          <TestimonialCarousel testimonials={testimonials} />
-        </Band>
-      )}
     </>
   );
 }

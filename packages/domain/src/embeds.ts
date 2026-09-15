@@ -82,3 +82,13 @@ export function parseEmbedUrl(input: string): EmbedParseResult {
   }
   return fail('Only YouTube videos and Google Maps embeds can be added.');
 }
+
+/** The map above the footer when an administrator has not chosen one (SRS 1.11 BUS 003): Melbourne, from Google's keyless embed. */
+// `z=13` opens on the city centre and inner suburbs rather than the whole region.
+export const DEFAULT_MELBOURNE_MAP_SRC = 'https://www.google.com/maps?q=Melbourne%20VIC&z=13&output=embed';
+export const SITE_MAP_TITLE = 'Map of Melbourne';
+
+/** A source the site-wide map may load: a validated Google Maps embed, or exactly the built-in Melbourne map. */
+export function isSiteMapSrc(value: unknown): value is string {
+  return value === DEFAULT_MELBOURNE_MAP_SRC || isMapEmbedSrc(value);
+}

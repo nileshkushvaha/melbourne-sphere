@@ -22,7 +22,17 @@ import { useConsent } from '@/lib/use-consent';
  *  * It is announced politely rather than assertively: it is not an error and
  *    should not interrupt a screen reader mid-sentence.
  */
-export function ConsentBanner({ configured, privacyHref = '/privacy' }: { configured: boolean; privacyHref?: string }) {
+export function ConsentBanner({
+  configured,
+  providers = [],
+  privacyHref = null,
+}: {
+  configured: boolean;
+  /** Who receives the data, e.g. ["Google"] or ["Google", "Meta"], from the configured analytics. */
+  providers?: string[];
+  /** The published privacy policy; without one no link is shown, so the banner never points at a missing page. */
+  privacyHref?: string | null;
+}) {
   const choice = useConsent();
   const banner = useRef<HTMLDivElement>(null);
   // Re-opened from the footer, even though a choice has already been made.
@@ -45,6 +55,10 @@ export function ConsentBanner({ configured, privacyHref = '/privacy' }: { config
   if (choice === undefined) return null;
   if (choice !== null && !reopened) return null;
 
+  // A Meta pixel is used for advertising as well as measurement, so the purpose says so.
+  const purpose = providers.includes('Meta') ? 'analytics and advertising cookies' : 'analytics cookies';
+  const from = providers.length > 1 ? `${providers.slice(0, -1).join(', ')} and ${providers.at(-1)}` : (providers[0] ?? '');
+
   const answer = (value: 'accepted' | 'declined') => {
     writeConsent(value);
     setReopened(false);
@@ -61,10 +75,17 @@ export function ConsentBanner({ configured, privacyHref = '/privacy' }: { config
     >
       <div className="ms-container flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="max-w-2xl text-sm text-slate-700 dark:text-slate-200">
-          We would like to use analytics cookies to understand how this site is used. They are only set if you accept.{' '}
-          <Link href={privacyHref} className="font-medium underline underline-offset-4">
-            How we handle your data
-          </Link>
+          We’d like to use {purpose}
+          {from ? ` from ${from}` : ''} to understand how people use this site and improve it. These cookies are only set if you accept, and you can change your choice at any time
+          with “Cookie choices” at the bottom of the page.
+          {privacyHref && (
+            <>
+              {' '}
+              <Link href={privacyHref} className="font-medium underline underline-offset-4">
+                Read our privacy policy
+              </Link>
+            </>
+          )}
         </p>
         <div className="flex shrink-0 gap-2">
           <button

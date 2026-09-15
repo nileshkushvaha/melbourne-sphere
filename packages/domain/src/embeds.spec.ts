@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isMapEmbedSrc, isRecordId, isYoutubeId, parseEmbedUrl } from './embeds.js';
+import { DEFAULT_MELBOURNE_MAP_SRC, isMapEmbedSrc, isRecordId, isSiteMapSrc, isYoutubeId, parseEmbedUrl } from './embeds.js';
 
 const PB = '!1m18!1m12!1m3!1d3151.8!2d144.96!3d-37.81!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x6ad642b%3A0x5045675218ce6e0!2sFlinders%20Street!5e0!3m2!1sen!2sau!4v1700000000000';
 
@@ -47,5 +47,15 @@ describe('marker checks', () => {
     expect(isMapEmbedSrc(`https://evil.example/maps/embed?pb=${PB}`)).toBe(false);
     expect(isRecordId('cmf0abcdefghijklmnopqrstu')).toBe(true);
     expect(isRecordId('../../etc')).toBe(false);
+  });
+});
+
+describe('isSiteMapSrc', () => {
+  it('accepts the built-in Melbourne map and validated Google embeds only', () => {
+    expect(isSiteMapSrc(DEFAULT_MELBOURNE_MAP_SRC)).toBe(true);
+    expect(isSiteMapSrc(`https://www.google.com/maps/embed?pb=${PB}`)).toBe(true);
+    expect(isSiteMapSrc('https://www.google.com/maps?q=Sydney&output=embed')).toBe(false);
+    expect(isSiteMapSrc('https://evil.example/maps/embed?pb=1')).toBe(false);
+    expect(isSiteMapSrc(null)).toBe(false);
   });
 });

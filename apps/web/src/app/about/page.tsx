@@ -66,7 +66,7 @@ const PHOTOS = {
 const OFFER: IconPoint[] = [
   { icon: StoreIcon, title: 'Business listings', text: 'Hours, contacts and services, checked before publishing.' },
   { icon: CompassIcon, title: 'Browse by area or category', text: 'Find what’s nearby, in the words locals use.' },
-  { icon: BookOpenIcon, title: 'Guides and local stories', text: 'Written by our editors, not by the businesses.' },
+  { icon: BookOpenIcon, title: 'Guides and local stories', text: 'Written and edited by our team; paid guest posts are clearly labelled.' },
   { icon: StarIcon, title: 'Moderated reviews', text: 'Read by a person before they appear.' },
 ];
 

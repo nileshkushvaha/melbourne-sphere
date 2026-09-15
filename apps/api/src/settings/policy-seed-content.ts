@@ -91,7 +91,7 @@ Melbourne Sphere is an independent directory of businesses operating in Melbourn
 
 Listing details — opening hours, contact details, the description of what a business does — are supplied by the businesses themselves and checked by our editors before publication. Businesses change, and a check made once can go out of date. Please confirm anything that matters to you with the business directly before travelling or spending money.
 
-We do not charge a business to be listed, and no business can pay to rank higher in search results. Featured placements appear in a separate, labelled block and never change the order of the results themselves.
+Businesses pay a yearly fee to be listed, and guest posts on the blog are paid for and clearly labelled as guest posts. No business can pay to rank higher in search results. Featured placements appear in a separate, labelled block and never change the order of the results themselves.
 
 If you find something on a listing that is wrong, tell us and we will correct it.
 

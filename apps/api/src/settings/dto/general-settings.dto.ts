@@ -1,7 +1,23 @@
 import { ApiExtraModels, ApiProperty, ApiPropertyOptional, getSchemaPath } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsObject, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsObject, IsOptional, IsString, Max, MaxLength, Min, ValidateNested } from 'class-validator';
+import { PRICING_LIMITS, PRICING_PERIODS, PRICING_PLAN_KEYS, type PricingPeriod, type PricingPlanKey } from '@melbourne-sphere/domain';
 import { LIMITS, SOCIAL_PLATFORMS, type SocialPlatform } from '../general-settings.js';
+
+/** One published price (SRS 1.12). The DTO checks shape; `validateGeneralSettings` applies the rules and defaults. */
+export class PricingPlanDto {
+  @ApiProperty({ enum: PRICING_PLAN_KEYS }) @IsIn(PRICING_PLAN_KEYS) key!: PricingPlanKey;
+  @ApiProperty({ maxLength: PRICING_LIMITS.name.max }) @IsString() @MaxLength(PRICING_LIMITS.name.max) name!: string;
+  @ApiProperty({ description: 'Australian cents, GST inclusive' }) @IsInt() @Min(0) @Max(PRICING_LIMITS.priceCents) priceCents!: number;
+  @ApiProperty({ enum: PRICING_PERIODS }) @IsIn(PRICING_PERIODS) period!: PricingPeriod;
+  @ApiProperty({ type: String, nullable: true, maxLength: PRICING_LIMITS.summary }) @IsOptional() @IsString() @MaxLength(PRICING_LIMITS.summary) summary!: string | null;
+  @ApiProperty({ type: [String], maxItems: PRICING_LIMITS.features }) @IsArray() @ArrayMaxSize(PRICING_LIMITS.features) @IsString({ each: true }) @MaxLength(PRICING_LIMITS.feature, { each: true }) features!: string[];
+}
+
+export class PricingSettingsDto {
+  @ApiProperty({ description: 'Whether prices are shown on the home and contact pages' }) @IsBoolean() enabled!: boolean;
+  @ApiProperty({ type: [PricingPlanDto] }) @IsArray() @ArrayMaxSize(PRICING_PLAN_KEYS.length) @ValidateNested({ each: true }) @Type(() => PricingPlanDto) plans!: PricingPlanDto[];
+}
 
 /**
  * One optional profile URL per platform. The DTO only checks shape and length;
@@ -58,6 +74,8 @@ export class GeneralSettingsDto {
   copyrightText?: string | null;
 
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.footerText }) @IsOptional() @IsString() @MaxLength(LIMITS.footerText) footerText?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: LIMITS.siteMapSrc, description: 'Google Maps "Embed a map" HTML or address for the map above the footer; empty shows Melbourne' }) @IsOptional() @IsString() @MaxLength(LIMITS.siteMapSrc) siteMapSrc?: string | null;
+  @ApiPropertyOptional({ type: PricingSettingsDto, description: 'Published prices (SRS 1.12)' }) @IsOptional() @IsObject() @ValidateNested() @Type(() => PricingSettingsDto) pricing?: PricingSettingsDto;
 }
 
 export class UpdateGeneralSettingsDto extends GeneralSettingsDto {
@@ -108,6 +126,20 @@ export class PublicSiteBrandingDto {
   @ApiProperty({ type: SettingsImageDto, nullable: true, description: 'Default Open Graph image' }) shareImage!: SettingsImageDto | null;
 }
 
+/** The map above the footer (SRS 1.11 BUS 003); always present, loaded only when a visitor asks. */
+export class PublicSiteMapDto {
+  @ApiProperty({ description: 'A validated Google Maps embed address, or the built-in Melbourne map' }) src!: string;
+  @ApiProperty() title!: string;
+}
+
+/** Prices for the home and contact pages (SRS 1.12); ordered through the contact form, never paid on the site. */
+export class PublicPricingDto {
+  @ApiProperty() enabled!: boolean;
+  @ApiProperty({ enum: ['AUD'] }) currency!: 'AUD';
+  @ApiProperty({ description: 'Amounts include GST' }) gstInclusive!: boolean;
+  @ApiProperty({ type: [PricingPlanDto] }) plans!: PricingPlanDto[];
+}
+
 export class PublicSiteFooterDto {
   @ApiProperty({ type: String, nullable: true, description: 'Template with {year} and {name}; clients render it so the year is never stale' }) copyrightText!: string | null;
   @ApiProperty({ type: String, nullable: true }) text!: string | null;
@@ -156,5 +188,7 @@ export class PublicSiteSettingsDto {
   @ApiProperty({ description: 'Whether the contact strip above the navigation is shown' }) headerTopBarEnabled!: boolean;
   @ApiProperty({ type: [PublicSocialLinkDto], description: 'Configured profiles in a fixed order; empty when none are set' }) social!: PublicSocialLinkDto[];
   @ApiProperty({ type: PublicSiteFooterDto }) footer!: PublicSiteFooterDto;
+  @ApiProperty({ type: PublicSiteMapDto }) siteMap!: PublicSiteMapDto;
+  @ApiProperty({ type: PublicPricingDto }) pricing!: PublicPricingDto;
   @ApiProperty({ type: PublicRouteSeoDto }) seo!: PublicRouteSeoDto;
 }

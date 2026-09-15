@@ -78,6 +78,7 @@ export class PublicPostCardDto {
   @ApiProperty({ type: [PublicImageVariantDto], description: 'Published cover renditions; empty when the article has no processed cover' }) cover!: PublicImageVariantDto[];
   @ApiProperty({ type: PublicImageVariantDto, nullable: true, description: 'Image used when the article is shared; null means the cover is used' }) shareImage!: PublicImageVariantDto | null;
   @ApiProperty({ type: String, nullable: true, description: 'Photographer credit recorded with the cover image. Several licences require it to be shown.' }) coverCredit!: string | null;
+  @ApiProperty({ description: 'A paid guest post, shown with a Guest post label (SRS 1.12)' }) guestPost!: boolean;
 }
 
 /** A published business shown as a card inside an article (SRS 1.10 BLOG 004). */

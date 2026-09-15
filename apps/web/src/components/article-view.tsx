@@ -63,6 +63,11 @@ export function ArticleView({ post, preview = false }: Props) {
             >
               {post.category.name}
             </Link>
+            {post.guestPost && (
+              <span className="ml-2 mt-7 inline-flex min-h-9 items-center rounded-full border border-amber-300/50 bg-amber-300/15 px-3.5 text-xs font-semibold uppercase tracking-[0.14em] text-amber-200">
+                Guest post
+              </span>
+            )}
             {/* `text-balance` keeps a long headline from leaving one word alone on
                 the last line; `break-words` keeps an unbroken one inside the column. */}
             <h1 className="font-display mt-5 text-balance break-words text-[clamp(2rem,1.5rem+2.6vw,3.15rem)] leading-[1.06] tracking-tight lg:max-w-[85%]">{post.title}</h1>
@@ -107,6 +112,11 @@ export function ArticleView({ post, preview = false }: Props) {
           )}
 
           <ArticleToc headings={outline.headings} variant="inline" />
+
+          {/* A paid article says so before it starts (SRS 1.12). */}
+          {post.guestPost && (
+            <p className="rounded-card border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">This is a paid guest post. It was reviewed by our editors before publishing.</p>
+          )}
 
           {/* Reading depth is measured on the published article only, never on a private preview (SRS 1.10 BLOG 006). */}
           <div data-track-read={preview ? undefined : post.slug}>

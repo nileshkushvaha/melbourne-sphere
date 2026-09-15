@@ -50,9 +50,11 @@ function Author({ post, size = 28 }: { post: PostCardData; size?: number }) {
 }
 
 function Meta({ post, showCategory, label }: { post: PostCardData; showCategory: boolean; label?: string }) {
+  // A paid guest post is always disclosed (SRS 1.12); an explicit label such as "Latest" is shown beside it.
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs">
       {label && <span className="inline-flex items-center rounded-full bg-navy-900 px-2.5 py-1 font-semibold uppercase tracking-[0.08em] text-white">{label}</span>}
+      {post.guestPost && <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 font-semibold uppercase tracking-[0.08em] text-amber-900">Guest post</span>}
       {showCategory && <span className="inline-flex items-center rounded-full bg-sky-50 px-2.5 py-1 font-semibold text-sky-700">{post.category.name}</span>}
       <time dateTime={post.publishedAt} className="text-text-muted">
         {formatArticleDate(post.publishedAt)}

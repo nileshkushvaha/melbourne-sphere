@@ -75,3 +75,20 @@ describe('analytics consent', () => {
     expect(await screen.findByRole('region', { name: 'Cookies' })).toBeInTheDocument();
   });
 });
+
+describe('ConsentBanner wording', () => {
+  beforeEach(() => window.localStorage.clear());
+
+  it('names who receives the data, and links the privacy policy only when it is published', async () => {
+    const { rerender } = render(<ConsentBanner configured providers={['Google', 'Meta']} privacyHref="/privacy" />);
+    const region = await screen.findByRole('region', { name: 'Cookies' });
+    expect(region).toHaveTextContent('analytics and advertising cookies from Google and Meta');
+    expect(region).toHaveTextContent('Cookie choices');
+    expect(screen.getByRole('link', { name: 'Read our privacy policy' })).toHaveAttribute('href', '/privacy');
+
+    rerender(<ConsentBanner configured providers={['Google']} privacyHref={null} />);
+    expect(region).toHaveTextContent('analytics cookies from Google');
+    expect(region).not.toHaveTextContent('advertising');
+    expect(screen.queryByRole('link', { name: 'Read our privacy policy' })).not.toBeInTheDocument();
+  });
+});

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Alert, App, Button, Col, Form, Input, Row, Switch } from 'antd';
+import { Alert, App, Button, Card, Col, Form, Input, InputNumber, Row, Select, Switch } from 'antd';
+import { PRICING_PLAN_KEYS, type PricingPeriod, type PricingPlanKey } from '@melbourne-sphere/domain/pricing';
 import { useOnError } from '@refinedev/core';
 import { generalSettingsApi, SOCIAL_PLATFORMS, type GeneralSettings, type SocialPlatform } from '@/api/settings';
 import { isApiError } from '@/api/errors';
@@ -13,6 +14,18 @@ import { PageLoader, PageHeader, SectionCard, StickyActions, PageLoadError } fro
 import { useUnsavedChanges } from '@/shared/useUnsavedChanges';
 
 type BrandingSlot = 'logoMediaId' | 'darkLogoMediaId' | 'faviconMediaId' | 'shareImageMediaId';
+
+/** A price as the form edits it: dollars and one feature per line; the API stores cents and a list. */
+interface PlanFormValues {
+  key: PricingPlanKey;
+  name: string;
+  price: number | null;
+  period: PricingPeriod;
+  summary?: string | null;
+  featuresText?: string;
+}
+
+const PLAN_LABELS: Record<PricingPlanKey, string> = { guest_post: 'Guest Post', business_listing: 'Business Listing' };
 
 interface FormValues {
   applicationName: string;
@@ -32,6 +45,8 @@ interface FormValues {
   social: Record<SocialPlatform, string | null | undefined>;
   copyrightText?: string | null;
   footerText?: string | null;
+  siteMapSrc?: string | null;
+  pricing?: { enabled: boolean; plans: PlanFormValues[] };
 }
 
 const SOCIAL_PLACEHOLDERS: Record<SocialPlatform, string> = {
@@ -94,6 +109,14 @@ export function GeneralSettingsPage() {
       social: Object.fromEntries(SOCIAL_PLATFORMS.map((platform) => [platform, record.social?.[platform] ?? ''])) as FormValues['social'],
       copyrightText: record.copyrightText ?? '',
       footerText: record.footerText ?? '',
+      siteMapSrc: record.siteMapSrc ?? '',
+      pricing: {
+        enabled: record.pricing?.enabled ?? true,
+        plans: PRICING_PLAN_KEYS.map((key) => {
+          const plan = record.pricing?.plans.find((entry) => entry.key === key);
+          return { key, name: plan?.name ?? PLAN_LABELS[key], price: plan ? plan.priceCents / 100 : null, period: plan?.period ?? (key === 'guest_post' ? 'one_time' : 'year'), summary: plan?.summary ?? '', featuresText: plan?.features.join('\n') ?? '' };
+        }),
+      },
     });
   }, [record, form]);
 
@@ -106,6 +129,19 @@ export function GeneralSettingsPage() {
         ...values,
         // Empty strings mean "not published"; the API clears the stored value.
         social: Object.fromEntries(SOCIAL_PLATFORMS.map((platform) => [platform, values.social?.[platform] || null])),
+        pricing: values.pricing
+          ? {
+              enabled: values.pricing.enabled,
+              plans: values.pricing.plans.map((plan) => ({
+                key: plan.key,
+                name: plan.name,
+                priceCents: Math.round(Number(plan.price ?? 0) * 100),
+                period: plan.period,
+                summary: plan.summary || null,
+                features: (plan.featuresText ?? '').split('\n').map((line) => line.trim()).filter(Boolean),
+              })),
+            }
+          : undefined,
         expectedVersion: record.version,
       });
       message.success('General settings saved');
@@ -236,6 +272,50 @@ export function GeneralSettingsPage() {
           </Form.Item>
           <Form.Item label="Footer text" name="footerText" extra="A short paragraph under the footer brand.">
             <Input.TextArea rows={3} maxLength={600} showCount placeholder="A sentence about who runs the directory and how to get in touch." />
+          </Form.Item>
+        </SectionCard>
+
+        <SectionCard title="Pricing" description="Prices shown on the home and contact pages. Enter them including GST.">
+          <Form.Item label="Show prices on the site" name={['pricing', 'enabled']} valuePropName="checked">
+            <Switch />
+          </Form.Item>
+          <Row gutter={16}>
+            {PRICING_PLAN_KEYS.map((key, index) => (
+              <Col xs={24} lg={12} key={key}>
+                <Card size="small" title={PLAN_LABELS[key]} style={{ marginBottom: 16 }}>
+                  <Form.Item name={['pricing', 'plans', index, 'key']} hidden>
+                    <Input />
+                  </Form.Item>
+                  <Form.Item label="Plan name" name={['pricing', 'plans', index, 'name']} rules={[{ required: true, min: 2, message: 'Give the plan a name of at least 2 characters' }]}>
+                    <Input maxLength={40} />
+                  </Form.Item>
+                  <Row gutter={12}>
+                    <Col span={12}>
+                      <Form.Item label="Price (inc. GST)" name={['pricing', 'plans', index, 'price']} rules={[{ required: true, message: 'Enter a price' }]}>
+                        <InputNumber min={0} max={10000} precision={2} prefix="$" style={{ width: '100%' }} />
+                      </Form.Item>
+                    </Col>
+                    <Col span={12}>
+                      <Form.Item label="Billed" name={['pricing', 'plans', index, 'period']}>
+                        <Select options={[{ value: 'one_time', label: 'One time' }, { value: 'year', label: 'Per year' }]} />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                  <Form.Item label="Summary" name={['pricing', 'plans', index, 'summary']}>
+                    <Input maxLength={140} />
+                  </Form.Item>
+                  <Form.Item label="What is included" name={['pricing', 'plans', index, 'featuresText']} extra="One point per line, up to 6." style={{ marginBottom: 0 }}>
+                    <Input.TextArea rows={4} />
+                  </Form.Item>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        </SectionCard>
+
+        <SectionCard title="Map above the footer" description="Shown on every public page. It loads from Google only when a visitor chooses to show it.">
+          <Form.Item label="Google Maps embed (optional)" name="siteMapSrc" extra="Google Maps → Share → Embed a map → Copy HTML. Leave empty to show Melbourne.">
+            <Input.TextArea rows={3} maxLength={3000} placeholder='<iframe src="https://www.google.com/maps/embed?pb=…"></iframe>' />
           </Form.Item>
         </SectionCard>
 

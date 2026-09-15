@@ -973,3 +973,29 @@ html:has(dialog.ms-drawer[open]) { overflow: hidden; }
 .ms-toc summary::after { content: '+'; margin-left: auto; font-size: 1.1rem; color: var(--ms-sky-700); }
 .ms-toc[open] summary::after { content: '−'; }
 @media (prefers-reduced-motion: no-preference) { html:has(.ms-toc) { scroll-behavior: smooth; } }
+
+/* ---- Map above the footer (SRS 1.11 BUS 003) ------------------------------ */
+/* Edge to edge, with its height reserved so the page does not move when it loads. */
+.ms-site-map { width: 100%; height: clamp(18rem, 42vw, 32rem); background: var(--ms-band-deep); }
+.ms-site-map iframe { display: block; width: 100%; height: 100%; border: 0; }
+
+/* ---- Pricing plans (SRS 1.12) ------------------------------------------------- */
+.ms-pricing-card {
+  border-radius: var(--ms-radius-lg);
+  border: 1px solid var(--ms-border);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.ms-pricing-card:hover { transform: translateY(-3px); box-shadow: 0 22px 44px -22px rgb(15 23 42 / 0.28); }
+/* The emphasised plan: a 2px gradient frame around the same white card. */
+.ms-pricing-card--featured {
+  border: 0;
+  padding: 2px;
+  background-image: linear-gradient(135deg, var(--ms-sky-500), var(--ms-sky-700));
+  box-shadow: 0 26px 52px -26px rgb(3 105 161 / 0.5);
+}
+.ms-pricing-card--featured > div { border-radius: calc(var(--ms-radius-lg) - 2px); }
+@media (prefers-reduced-motion: reduce) {
+  .ms-pricing-card { transition: none; }
+  .ms-pricing-card:hover { transform: none; }
+}

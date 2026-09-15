@@ -107,6 +107,8 @@ export function submissionFailureMessage(status: number, code?: string): string 
  * the editors' queue stays sortable.
  */
 export const CONTACT_TOPICS = [
+  'Business listing plan',
+  'Guest post',
   'Add or update a business listing',
   'Correct a published listing',
   'Report a review or comment',
@@ -122,6 +124,8 @@ export type ContactTopic = (typeof CONTACT_TOPICS)[number];
  * the wording offered to the visitor is shortened.
  */
 export const CONTACT_TOPIC_LABELS: Record<ContactTopic, string> = {
+  'Business listing plan': 'Business Listing plan',
+  'Guest post': 'Guest post',
   'Add or update a business listing': 'Add or update a business',
   'Correct a published listing': 'Correct listing information',
   'Report a review or comment': 'Report a review or comment',

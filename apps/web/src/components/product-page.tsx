@@ -75,7 +75,29 @@ export function ContentSection({ id, title, intro, children }: { id: string; tit
  * under `lead` on a wide screen. The sidebar column spans both rows, which is
  * what gives its sticky card room to travel and stops it above the footer.
  */
-export function ProductPageLayout({ lead, aside, children }: { lead: ReactNode; aside: ReactNode; children: ReactNode }) {
+export function ProductPageLayout({ lead, aside, children, split }: { lead?: ReactNode; aside: ReactNode; children: ReactNode; split?: [ReactNode, ReactNode] }) {
+  if (split) {
+    // Two equal columns. Left: the first half, then the sections. Right: the second
+    // half at its own height with the aside directly under it; that column spans the
+    // whole height, so a sticky aside stays in view while the left side scrolls. The
+    // document order is first half, second half, aside, sections, which is also the
+    // reading order on narrow screens.
+    return (
+      <div className="bg-surface-muted">
+        <div className="ms-container grid gap-10 py-12 sm:py-16 lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16">
+          <div className="flex min-w-0 flex-col lg:col-start-1 lg:row-start-1">{split[0]}</div>
+          <div className="flex min-w-0 flex-col gap-10 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+            {split[1]}
+            {aside}
+          </div>
+          <div className="flex min-w-0 flex-col gap-12 lg:col-start-1 lg:row-start-2">
+            {lead}
+            {children}
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="bg-surface-muted">
       <div className="ms-container grid gap-10 py-12 sm:py-16 lg:grid-cols-[minmax(0,1fr)_28rem] lg:gap-x-12 xl:grid-cols-[minmax(0,1fr)_32rem] xl:gap-x-20">
@@ -92,6 +114,8 @@ const STICKY = {
   fits: 'lg:[@media(min-height:58rem)]:sticky lg:[@media(min-height:58rem)]:top-24 xl:[@media(min-height:54rem)]:sticky xl:[@media(min-height:54rem)]:top-24 has-[[role=alert]]:static',
   /** For a short card that fits any desktop viewport. */
   always: 'lg:sticky lg:top-24',
+  /** For a form the page keeps in view on every desktop; static again once it holds an alert, so nothing is hidden. */
+  form: 'lg:sticky lg:top-24 has-[[role=alert]]:static',
 } as const;
 
 /**
@@ -103,8 +127,8 @@ const STICKY = {
  * a short card that fits any desktop viewport. When a sidebar stacks several
  * cards, only the last should be sticky.
  */
-export function AsideCard({ id, anchorId, icon, title, description, sticky = true, children }: { id: string; anchorId?: string; icon: LucideIcon; title: string; description: string; sticky?: boolean | 'always'; children?: ReactNode }) {
-  const stickiness = sticky === 'always' ? STICKY.always : sticky ? STICKY.fits : '';
+export function AsideCard({ id, anchorId, icon, title, description, sticky = true, children }: { id: string; anchorId?: string; icon: LucideIcon; title: string; description: string; sticky?: boolean | 'always' | 'form'; children?: ReactNode }) {
+  const stickiness = sticky === 'always' ? STICKY.always : sticky === 'form' ? STICKY.form : sticky ? STICKY.fits : '';
   return (
     <section
       id={anchorId}

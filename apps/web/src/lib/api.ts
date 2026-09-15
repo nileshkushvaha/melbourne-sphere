@@ -1,3 +1,5 @@
+import { DEFAULT_MELBOURNE_MAP_SRC, SITE_MAP_TITLE } from '@melbourne-sphere/domain/embeds';
+import { DEFAULT_PRICING } from '@melbourne-sphere/domain/pricing';
 import 'server-only';
 import type { components } from '@melbourne-sphere/contracts';
 import type { SearchState } from './search-params';
@@ -94,6 +96,8 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   headerTopBarEnabled: false,
   social: [],
   footer: { copyrightText: null, text: null },
+  siteMap: { src: DEFAULT_MELBOURNE_MAP_SRC, title: SITE_MAP_TITLE },
+  pricing: { ...DEFAULT_PRICING, currency: 'AUD', gstInclusive: true },
   // Nothing overridden: every page keeps the text it was written with.
   seo: { routes: {}, twitterCard: 'summary_large_image', googleSiteVerification: null, analytics: { googleAnalyticsId: null, googleTagManagerId: null, facebookPixelId: null } },
 };
@@ -172,17 +176,6 @@ export async function fetchServiceAlerts(): Promise<PublicServiceAlert[]> {
   }
 }
 
-export interface PublicTestimonial {
-  id: string;
-  displayName: string;
-  relationship: string | null;
-  quote: string;
-  /** Stars the person gave, 1–5; null when they gave none, and then none are shown. */
-  rating: number | null;
-  business: { name: string; slug: string } | null;
-  image: { url: string; alt: string; width: number; height: number } | null;
-}
-
 export interface PublicPartner {
   id: string;
   name: string;
@@ -190,19 +183,6 @@ export interface PublicPartner {
   websiteUrl: string | null;
   logo: { url: string; width: number; height: number };
   logoAlt: string;
-}
-
-/**
- * Approved and published testimonials (SRS 1.2 TSTM 004). An empty list means
- * the section is omitted; a failure means the same, because a home page missing
- * one band is better than a home page that will not render.
- */
-export async function fetchTestimonials(): Promise<PublicTestimonial[]> {
-  try {
-    return (await apiGet<{ data: PublicTestimonial[] }>('/testimonials', { revalidate: 300, tags: ['testimonials'] })).data;
-  } catch {
-    return [];
-  }
 }
 
 /** Published, authorised client and partner organisations (SRS 1.2 PTNR 005). */

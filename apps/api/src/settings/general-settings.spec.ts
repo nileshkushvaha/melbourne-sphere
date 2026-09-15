@@ -132,3 +132,54 @@ describe('renderCopyright', () => {
     expect(renderCopyright('{name} · © {year} {name}', { year: 2026, name: 'MS' })).toBe('MS · © 2026 MS');
   });
 });
+
+describe('site map setting (SRS 1.11 BUS 003)', () => {
+  const pb = '!1m18!1m12!1m3!1d3151.8!2d144.96!3d-37.81!5e0!3m2!1sen!2sau';
+  const base = { applicationName: 'Melbourne Sphere', headerTopBarEnabled: false };
+
+  it('stores the clean embed address from pasted HTML or the address itself', () => {
+    const html = `<iframe src="https://www.google.com/maps/embed?pb=${pb}" width="600" height="450" loading="lazy"></iframe>`;
+    expect(validateGeneralSettings({ ...base, siteMapSrc: html }).value.siteMapSrc).toBe(`https://www.google.com/maps/embed?pb=${pb}`);
+    expect(validateGeneralSettings({ ...base, siteMapSrc: `https://www.google.com/maps/embed?pb=${pb}` }).errors).toEqual({});
+  });
+
+  it('treats empty as the built-in map and refuses share links, videos and other hosts', () => {
+    expect(validateGeneralSettings({ ...base, siteMapSrc: '  ' }).value.siteMapSrc).toBeNull();
+    for (const bad of ['https://maps.app.goo.gl/abc', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'https://evil.example/maps/embed?pb=1', 'x'.repeat(3001)]) {
+      expect(validateGeneralSettings({ ...base, siteMapSrc: bad }).errors.siteMapSrc, bad).toBeDefined();
+    }
+  });
+});
+
+describe('pricing (SRS 1.12)', () => {
+  const base = { applicationName: 'Melbourne Sphere', headerTopBarEnabled: false };
+  const plan = (key: string, overrides: Record<string, unknown> = {}) => ({ key, name: 'Guest Post', priceCents: 3900, period: 'one_time', summary: 'One article', features: ['A', 'B'], ...overrides });
+
+  it('ships the published prices when nothing is stored', () => {
+    const { value } = validateGeneralSettings(base);
+    expect(value.pricing.enabled).toBe(true);
+    expect(value.pricing.plans.map((entry) => [entry.key, entry.priceCents, entry.period])).toEqual([
+      ['guest_post', 3900, 'one_time'],
+      ['business_listing', 6900, 'year'],
+    ]);
+  });
+
+  it('keeps both plans in order and accepts edited values', () => {
+    const { errors, value } = validateGeneralSettings({ ...base, pricing: { enabled: false, plans: [plan('business_listing', { name: 'Listing', priceCents: 7900, period: 'year' }), plan('guest_post')] } });
+    expect(errors).toEqual({});
+    expect(value.pricing.enabled).toBe(false);
+    expect(value.pricing.plans.map((entry) => entry.key)).toEqual(['guest_post', 'business_listing']);
+    expect(value.pricing.plans[1]).toMatchObject({ name: 'Listing', priceCents: 7900 });
+  });
+
+  it('refuses bad prices, periods, names and too many or too long points', () => {
+    const { errors } = validateGeneralSettings({
+      ...base,
+      pricing: { enabled: true, plans: [plan('guest_post', { priceCents: 39.5, period: 'month', name: 'X' }), plan('business_listing', { features: ['1', '2', '3', '4', '5', '6', '7'] })] },
+    });
+    expect(errors['pricing.plans.0.priceCents']).toBeDefined();
+    expect(errors['pricing.plans.0.period']).toBeDefined();
+    expect(errors['pricing.plans.0.name']).toBeDefined();
+    expect(errors['pricing.plans.1.features']).toBeDefined();
+  });
+});

@@ -4,6 +4,8 @@ import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import { SiteAnalytics } from '@/components/site-analytics';
 import { AnalyticsEvents } from '@/components/analytics-events';
 import { SiteFooter } from '@/components/site-footer';
+import { HideOnPaths } from '@/components/hide-on-paths';
+import { SiteMapBand } from '@/components/site-map-band';
 import { ServiceAlertBar } from '@/components/service-alert-bar';
 import { SiteHeader } from '@/components/site-header';
 import { PageMotion } from '@/components/page-motion';
@@ -87,6 +89,10 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         <main id="main-content" className="w-full flex-1">
           {children}
         </main>
+        {/* The map above the footer on every public page, except private previews (SRS 1.11 BUS 003). */}
+        <HideOnPaths prefixes={['/preview/']}>
+          <SiteMapBand />
+        </HideOnPaths>
         <SiteFooter />
         {/* The cookie question and the analytics it governs. Placed last so it
             is the final thing in the tab order: a visitor who ignores it can

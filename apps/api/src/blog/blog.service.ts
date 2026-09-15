@@ -602,6 +602,7 @@ export class BlogService {
           seoTitle: input.seoTitle ?? null,
           seoDescription: input.seoDescription ?? null,
           commentsEnabled: input.commentsEnabled ?? true,
+          guestPost: input.guestPost ?? false,
           tags: { create: [...new Set(input.tagIds ?? [])].map((tagId) => ({ tagId })) },
         },
         include: postInclude,
@@ -656,6 +657,7 @@ export class BlogService {
     if (input.seoTitle !== undefined) data.seoTitle = input.seoTitle;
     if (input.seoDescription !== undefined) data.seoDescription = input.seoDescription;
     if (input.commentsEnabled !== undefined) data.commentsEnabled = input.commentsEnabled;
+    if (input.guestPost !== undefined) data.guestPost = input.guestPost;
 
     const row = await db.$transaction(async (tx) => {
       const updated = await tx.post.updateMany({ where: { id, version: input.expectedVersion }, data });
@@ -930,6 +932,7 @@ export class BlogService {
       categoryName: row.category.name,
       tagIds: row.tags.map((t) => t.tagId).sort(),
       commentsEnabled: row.commentsEnabled,
+      guestPost: row.guestPost,
       scheduledAt: row.scheduledAt?.toISOString() ?? null,
       publishedAt: row.publishedAt?.toISOString() ?? null,
       firstPublishedAt: row.firstPublishedAt?.toISOString() ?? null,

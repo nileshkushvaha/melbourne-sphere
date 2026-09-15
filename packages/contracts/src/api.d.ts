@@ -1916,7 +1916,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Published articles, newest first (category, tag, q, page, pageSize) */
+        /** Published articles, newest first (category, tag, author, featured, q, page, pageSize) */
         get: operations["BlogPublicController_list"];
         put?: never;
         post?: never;
@@ -4816,6 +4816,8 @@ export interface components {
             categoryName: string;
             tagIds: string[];
             commentsEnabled: boolean;
+            /** @description A paid guest post (SRS 1.12) */
+            guestPost: boolean;
             /** Format: date-time */
             scheduledAt: string | null;
             /** Format: date-time */
@@ -4862,6 +4864,8 @@ export interface components {
             seoDescription?: string | null;
             /** @description Whether visitors may comment (SRS COM 002) */
             commentsEnabled?: boolean;
+            /** @description A paid guest post: labelled on the site and its links marked sponsored (SRS 1.12) */
+            guestPost?: boolean;
         };
         PostCoverDto: {
             id: string;
@@ -4880,6 +4884,8 @@ export interface components {
             categoryName: string;
             tagIds: string[];
             commentsEnabled: boolean;
+            /** @description A paid guest post (SRS 1.12) */
+            guestPost: boolean;
             /** Format: date-time */
             scheduledAt: string | null;
             /** Format: date-time */
@@ -5053,6 +5059,8 @@ export interface components {
             seoDescription?: string | null;
             /** @description Whether visitors may comment (SRS COM 002) */
             commentsEnabled?: boolean;
+            /** @description A paid guest post: labelled on the site and its links marked sponsored (SRS 1.12) */
+            guestPost?: boolean;
             expectedVersion: number;
             /** @description Why the article changed; stored with the revision */
             revisionReason?: string;
@@ -5118,6 +5126,8 @@ export interface components {
             shareImage: components["schemas"]["PublicImageVariantDto"] | null;
             /** @description Photographer credit recorded with the cover image. Several licences require it to be shown. */
             coverCredit: string | null;
+            /** @description A paid guest post, shown with a Guest post label (SRS 1.12) */
+            guestPost: boolean;
         };
         PublicBlogTermDto: {
             name: string;
@@ -5213,6 +5223,8 @@ export interface components {
             shareImage: components["schemas"]["PublicImageVariantDto"] | null;
             /** @description Photographer credit recorded with the cover image. Several licences require it to be shown. */
             coverCredit: string | null;
+            /** @description A paid guest post, shown with a Guest post label (SRS 1.12) */
+            guestPost: boolean;
             /** @description Allowlist-sanitised HTML */
             body: string;
             seoTitle: string | null;
@@ -5532,6 +5544,30 @@ export interface components {
             copyrightText: string | null;
             text: string | null;
         };
+        PublicSiteMapDto: {
+            /** @description A validated Google Maps embed address, or the built-in Melbourne map */
+            src: string;
+            title: string;
+        };
+        PricingPlanDto: {
+            /** @enum {string} */
+            key: "guest_post" | "business_listing";
+            name: string;
+            /** @description Australian cents, GST inclusive */
+            priceCents: number;
+            /** @enum {string} */
+            period: "one_time" | "year";
+            summary: string | null;
+            features: string[];
+        };
+        PublicPricingDto: {
+            enabled: boolean;
+            /** @enum {string} */
+            currency: "AUD";
+            /** @description Amounts include GST */
+            gstInclusive: boolean;
+            plans: components["schemas"]["PricingPlanDto"][];
+        };
         PublicAnalyticsDto: {
             googleAnalyticsId: string | null;
             googleTagManagerId: string | null;
@@ -5561,6 +5597,8 @@ export interface components {
             /** @description Configured profiles in a fixed order; empty when none are set */
             social: components["schemas"]["PublicSocialLinkDto"][];
             footer: components["schemas"]["PublicSiteFooterDto"];
+            siteMap: components["schemas"]["PublicSiteMapDto"];
+            pricing: components["schemas"]["PublicPricingDto"];
             seo: components["schemas"]["PublicRouteSeoDto"];
         };
         HeroSlideDto: {
@@ -5595,6 +5633,11 @@ export interface components {
             youtube?: string | null;
             pinterest?: string | null;
         };
+        PricingSettingsDto: {
+            /** @description Whether prices are shown on the home and contact pages */
+            enabled: boolean;
+            plans: components["schemas"]["PricingPlanDto"][];
+        };
         GeneralSettingsRecordDto: {
             /** @description Public name used in the header, page titles and the copyright line */
             applicationName: string;
@@ -5626,6 +5669,10 @@ export interface components {
             /** @description Supports {year} and {name}; empty uses the built-in line */
             copyrightText?: string | null;
             footerText?: string | null;
+            /** @description Google Maps "Embed a map" HTML or address for the map above the footer; empty shows Melbourne */
+            siteMapSrc?: string | null;
+            /** @description Published prices (SRS 1.12) */
+            pricing?: components["schemas"]["PricingSettingsDto"];
             /** @description Normalised phone; null when none is set */
             supportPhoneDisplay: components["schemas"]["PublicPhoneNumberDto"] | null;
             logo: components["schemas"]["SettingsImageDto"] | null;
@@ -5668,6 +5715,10 @@ export interface components {
             /** @description Supports {year} and {name}; empty uses the built-in line */
             copyrightText?: string | null;
             footerText?: string | null;
+            /** @description Google Maps "Embed a map" HTML or address for the map above the footer; empty shows Melbourne */
+            siteMapSrc?: string | null;
+            /** @description Published prices (SRS 1.12) */
+            pricing?: components["schemas"]["PricingSettingsDto"];
             /** @description Version returned by GET; 0 when no settings row has been saved yet */
             expectedVersion: number;
         };

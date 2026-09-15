@@ -15,6 +15,7 @@ import {
   validateContactForm,
   type ContactFormValues,
   type FieldErrors,
+  type ContactTopic,
 } from '@/lib/submissions';
 import { TurnstileWidget, type TurnstileWidgetHandle } from './turnstile-widget';
 
@@ -45,6 +46,8 @@ interface Props {
   privacyHref?: string | null;
   /** Renders for a narrow column (the policy-page sidebar): one field per row at every width. */
   compact?: boolean;
+  /** The topic chosen before the form opened, e.g. from a price card (SRS 1.12). */
+  initialTopic?: ContactTopic;
 }
 
 /**
@@ -58,8 +61,8 @@ interface Props {
  * anyway, and a form that always fails is worse than an honest notice. The form
  * never has a card of its own: the page or panel around it provides one.
  */
-export function ContactForm({ turnstileSiteKey, privacyHref = null, compact = false }: Props) {
-  const [values, setValues] = useState<ContactFormValues>(EMPTY);
+export function ContactForm({ turnstileSiteKey, privacyHref = null, compact = false, initialTopic }: Props) {
+  const [values, setValues] = useState<ContactFormValues>(() => ({ ...EMPTY, topic: initialTopic ?? '' }));
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);

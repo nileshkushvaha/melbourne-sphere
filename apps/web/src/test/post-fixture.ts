@@ -19,6 +19,7 @@ export function post(overrides: Partial<PostCardData> = {}): PostCardData {
     cover: [],
     shareImage: null,
     coverCredit: null,
+    guestPost: false,
     ...overrides,
   };
 }

@@ -9,7 +9,7 @@ import { DEFAULT_SEO_SETTINGS, EMPTY_ROUTE_SEO, SEO_SETTINGS_KEY, validateSeoSet
 import type { UpdateSeoSettingsDto } from './dto/seo-settings.dto.js';
 import type { PublicRouteSeoDto } from './dto/general-settings.dto.js';
 import { MediaService } from '../media/media.service.js';
-import { CACHE_TAGS, SEO_ROUTES } from '@melbourne-sphere/domain';
+import { CACHE_TAGS, SEO_ROUTES, DEFAULT_MELBOURNE_MAP_SRC, SITE_MAP_TITLE } from '@melbourne-sphere/domain';
 import { SettingsStoreService } from './settings-store.service.js';
 import { WEBSITE_GROUP } from './registry.js';
 import type { HomeSettingsRecordDto, PublicHeroSlideDto, PublicHomeDto, UpdateHomeSettingsDto } from './dto/settings.dto.js';
@@ -228,6 +228,8 @@ export class SettingsService {
       headerTopBarEnabled: value.headerTopBarEnabled,
       social: SOCIAL_PLATFORMS.flatMap((platform) => (value.social[platform] ? [{ platform, url: value.social[platform]! }] : [])),
       footer: { copyrightText: value.copyrightText, text: value.footerText },
+      siteMap: { src: value.siteMapSrc ?? DEFAULT_MELBOURNE_MAP_SRC, title: SITE_MAP_TITLE },
+      pricing: { enabled: value.pricing.enabled, currency: 'AUD', gstInclusive: true, plans: value.pricing.plans },
       // The public site renders these into the pages that have no record of
       // their own; sharing the shell payload keeps it to one cached request.
       seo: await this.publicRouteSeo(),

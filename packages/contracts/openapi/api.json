@@ -5854,7 +5854,7 @@
             }
           }
         },
-        "summary": "Published articles, newest first (category, tag, q, page, pageSize)",
+        "summary": "Published articles, newest first (category, tag, author, featured, q, page, pageSize)",
         "tags": [
           "public-blog"
         ]
@@ -15366,6 +15366,10 @@
           "commentsEnabled": {
             "type": "boolean"
           },
+          "guestPost": {
+            "type": "boolean",
+            "description": "A paid guest post (SRS 1.12)"
+          },
           "scheduledAt": {
             "type": "string",
             "format": "date-time",
@@ -15418,6 +15422,7 @@
           "categoryName",
           "tagIds",
           "commentsEnabled",
+          "guestPost",
           "scheduledAt",
           "publishedAt",
           "firstPublishedAt",
@@ -15506,6 +15511,10 @@
           "commentsEnabled": {
             "type": "boolean",
             "description": "Whether visitors may comment (SRS COM 002)"
+          },
+          "guestPost": {
+            "type": "boolean",
+            "description": "A paid guest post: labelled on the site and its links marked sponsored (SRS 1.12)"
           }
         },
         "required": [
@@ -15574,6 +15583,10 @@
           },
           "commentsEnabled": {
             "type": "boolean"
+          },
+          "guestPost": {
+            "type": "boolean",
+            "description": "A paid guest post (SRS 1.12)"
           },
           "scheduledAt": {
             "type": "string",
@@ -15698,6 +15711,7 @@
           "categoryName",
           "tagIds",
           "commentsEnabled",
+          "guestPost",
           "scheduledAt",
           "publishedAt",
           "firstPublishedAt",
@@ -16170,6 +16184,10 @@
             "type": "boolean",
             "description": "Whether visitors may comment (SRS COM 002)"
           },
+          "guestPost": {
+            "type": "boolean",
+            "description": "A paid guest post: labelled on the site and its links marked sponsored (SRS 1.12)"
+          },
           "expectedVersion": {
             "type": "number"
           },
@@ -16403,6 +16421,10 @@
             "type": "string",
             "nullable": true,
             "description": "Photographer credit recorded with the cover image. Several licences require it to be shown."
+          },
+          "guestPost": {
+            "type": "boolean",
+            "description": "A paid guest post, shown with a Guest post label (SRS 1.12)"
           }
         },
         "required": [
@@ -16417,7 +16439,8 @@
           "coverAlt",
           "cover",
           "shareImage",
-          "coverCredit"
+          "coverCredit",
+          "guestPost"
         ]
       },
       "PublicBlogTermDto": {
@@ -16769,6 +16792,10 @@
             "nullable": true,
             "description": "Photographer credit recorded with the cover image. Several licences require it to be shown."
           },
+          "guestPost": {
+            "type": "boolean",
+            "description": "A paid guest post, shown with a Guest post label (SRS 1.12)"
+          },
           "body": {
             "type": "string",
             "description": "Allowlist-sanitised HTML"
@@ -16824,6 +16851,7 @@
           "cover",
           "shareImage",
           "coverCredit",
+          "guestPost",
           "body",
           "seoTitle",
           "seoDescription",
@@ -17907,6 +17935,99 @@
           "text"
         ]
       },
+      "PublicSiteMapDto": {
+        "type": "object",
+        "properties": {
+          "src": {
+            "type": "string",
+            "description": "A validated Google Maps embed address, or the built-in Melbourne map"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "src",
+          "title"
+        ]
+      },
+      "PricingPlanDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "guest_post",
+              "business_listing"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "priceCents": {
+            "type": "number",
+            "description": "Australian cents, GST inclusive"
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "one_time",
+              "year"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 140
+          },
+          "features": {
+            "maxItems": 6,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "priceCents",
+          "period",
+          "summary",
+          "features"
+        ]
+      },
+      "PublicPricingDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "AUD"
+            ]
+          },
+          "gstInclusive": {
+            "type": "boolean",
+            "description": "Amounts include GST"
+          },
+          "plans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PricingPlanDto"
+            }
+          }
+        },
+        "required": [
+          "enabled",
+          "currency",
+          "gstInclusive",
+          "plans"
+        ]
+      },
       "PublicAnalyticsDto": {
         "type": "object",
         "properties": {
@@ -18005,6 +18126,12 @@
           "footer": {
             "$ref": "#/components/schemas/PublicSiteFooterDto"
           },
+          "siteMap": {
+            "$ref": "#/components/schemas/PublicSiteMapDto"
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/PublicPricingDto"
+          },
           "seo": {
             "$ref": "#/components/schemas/PublicRouteSeoDto"
           }
@@ -18020,6 +18147,8 @@
           "headerTopBarEnabled",
           "social",
           "footer",
+          "siteMap",
+          "pricing",
           "seo"
         ]
       },
@@ -18140,6 +18269,25 @@
           }
         }
       },
+      "PricingSettingsDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether prices are shown on the home and contact pages"
+          },
+          "plans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PricingPlanDto"
+            }
+          }
+        },
+        "required": [
+          "enabled",
+          "plans"
+        ]
+      },
       "GeneralSettingsRecordDto": {
         "type": "object",
         "properties": {
@@ -18236,6 +18384,20 @@
             "type": "string",
             "nullable": true,
             "maxLength": 600
+          },
+          "siteMapSrc": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 3000,
+            "description": "Google Maps \"Embed a map\" HTML or address for the map above the footer; empty shows Melbourne"
+          },
+          "pricing": {
+            "description": "Published prices (SRS 1.12)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PricingSettingsDto"
+              }
+            ]
           },
           "supportPhoneDisplay": {
             "nullable": true,
@@ -18402,6 +18564,20 @@
             "type": "string",
             "nullable": true,
             "maxLength": 600
+          },
+          "siteMapSrc": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 3000,
+            "description": "Google Maps \"Embed a map\" HTML or address for the map above the footer; empty shows Melbourne"
+          },
+          "pricing": {
+            "description": "Published prices (SRS 1.12)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PricingSettingsDto"
+              }
+            ]
           },
           "expectedVersion": {
             "type": "number",

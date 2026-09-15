@@ -20,7 +20,8 @@ const GAP_PX = 16;
  * with snapping, so swipe, trackpad, arrow keys and a screen reader all work
  * without script, and nothing moves on its own.
  */
-export function PartnerStrip({ partners }: { partners: PublicPartner[] }) {
+export function PartnerStrip({ partners, tone = 'light' }: { partners: PublicPartner[]; /** `dark` when the strip sits on a navy band. */ tone?: 'light' | 'dark' }) {
+  const dark = tone === 'dark';
   const strip = useRef<HTMLUListElement>(null);
   const [index, setIndex] = useState(0);
   const [perView, setPerView] = useState(1);
@@ -56,8 +57,10 @@ export function PartnerStrip({ partners }: { partners: PublicPartner[] }) {
     element.scrollTo({ left: target * (card.offsetWidth + GAP_PX), behavior: reduced ? 'auto' : 'smooth' });
   };
 
-  const control =
-    'inline-flex size-11 shrink-0 items-center justify-center rounded-full border border-border bg-white text-navy-900 shadow-sm transition-colors hover:border-sky-400 hover:text-link disabled:cursor-default disabled:opacity-35';
+  const control = `inline-flex size-11 shrink-0 items-center justify-center rounded-full border shadow-sm transition-colors hover:border-sky-400 disabled:cursor-default disabled:opacity-35 ${
+    dark ? 'border-white/20 bg-white/10 text-white' : 'border-border bg-white text-navy-900 hover:text-link'
+  }`;
+  const card = `flex h-full items-center gap-3 rounded-card border p-4 ${dark ? 'border-white/12 bg-white/[0.06]' : 'border-border bg-white'}`;
 
   return (
     <div className="mt-8">
@@ -72,19 +75,19 @@ export function PartnerStrip({ partners }: { partners: PublicPartner[] }) {
           ref={strip}
           tabIndex={0}
           aria-label="Organisations we work with"
-          className="ms-gallery-strip flex flex-1 snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-link motion-reduce:scroll-auto"
+          className={`ms-gallery-strip flex flex-1 snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 focus-visible:outline-2 focus-visible:outline-offset-4 motion-reduce:scroll-auto ${dark ? 'focus-visible:outline-sky-400' : 'focus-visible:outline-link'}`}
         >
           {partners.map((partner) => {
             const inside = (
               <>
                 {/* Decorative: the organisation's name is the text beside it. */}
                 {/* eslint-disable-next-line @next/next/no-img-element -- small fixed-size mark from our own media pipeline */}
-                <img src={partner.logo.url} alt="" width={partner.logo.width} height={partner.logo.height} className="size-12 shrink-0 rounded-xl object-contain" />
+                <img src={partner.logo.url} alt="" width={partner.logo.width} height={partner.logo.height} className={`size-12 shrink-0 rounded-xl object-contain ${dark ? 'bg-white p-1' : ''}`} />
                 <span className="min-w-0">
                   {/* Wrapped to two lines rather than truncated: an organisation
                       cut off mid-word ("Victoria Small Business …") is not a name. */}
-                  <span className="block font-semibold leading-snug text-navy-900">{partner.name}</span>
-                  {partner.relationshipLabel && <span className="mt-0.5 block text-xs text-text-muted">{partner.relationshipLabel}</span>}
+                  <span className={`block font-semibold leading-snug ${dark ? 'text-white' : 'text-navy-900'}`}>{partner.name}</span>
+                  {partner.relationshipLabel && <span className={`mt-0.5 block text-xs ${dark ? 'text-band-muted' : 'text-text-muted'}`}>{partner.relationshipLabel}</span>}
                 </span>
               </>
             );
@@ -95,12 +98,12 @@ export function PartnerStrip({ partners }: { partners: PublicPartner[] }) {
                     href={partner.websiteUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex h-full items-center gap-3 rounded-card border border-border bg-white p-4 transition-colors hover:border-sky-400"
+                    className={`${card} transition-colors hover:border-sky-400`}
                   >
                     {inside}
                   </a>
                 ) : (
-                  <div className="flex h-full items-center gap-3 rounded-card border border-border bg-white p-4">{inside}</div>
+                  <div className={card}>{inside}</div>
                 )}
               </li>
             );
@@ -125,7 +128,7 @@ export function PartnerStrip({ partners }: { partners: PublicPartner[] }) {
               aria-label={`Show partner ${position + 1} of ${lastIndex + 1}`}
               aria-current={position === index ? 'true' : undefined}
             >
-              <span aria-hidden="true" className={`rounded-full transition-all ${position === index ? 'size-2.5 bg-sky-500' : 'size-2 bg-border-strong'}`} />
+              <span aria-hidden="true" className={`rounded-full transition-all ${position === index ? 'size-2.5 bg-sky-500' : `size-2 ${dark ? 'bg-white/35' : 'bg-border-strong'}`}`} />
             </button>
           ))}
         </div>

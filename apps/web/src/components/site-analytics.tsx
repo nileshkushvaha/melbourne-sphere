@@ -1,4 +1,4 @@
-import { fetchSiteSettings } from '@/lib/api';
+import { fetchSiteSettings, privacyNoticeHref } from '@/lib/api';
 import { hasAnalytics } from '@/lib/analytics';
 import { Analytics } from './analytics';
 import { ConsentBanner } from './consent-banner';
@@ -19,10 +19,14 @@ export async function SiteAnalytics() {
   const ids = settings.seo?.analytics;
   // The type guard is what lets the component below take a non-null value.
   if (!hasAnalytics(ids)) return null;
+  // Named in the banner, so visitors know who would receive the data.
+  const providers = [...(ids.googleAnalyticsId || ids.googleTagManagerId ? ['Google'] : []), ...(ids.facebookPixelId ? ['Meta'] : [])];
+  // Linked only once the privacy policy is published, never to a missing page.
+  const privacyHref = await privacyNoticeHref().catch(() => null);
   return (
     <>
       <Analytics ids={ids} />
-      <ConsentBanner configured />
+      <ConsentBanner configured providers={providers} privacyHref={privacyHref} />
     </>
   );
 }

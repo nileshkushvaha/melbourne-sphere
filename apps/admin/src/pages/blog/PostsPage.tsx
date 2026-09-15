@@ -123,6 +123,7 @@ export function PostsPage() {
               <Space size={4}>
                 <StatusTag status={v} />
                 {v === 'published' && post.featuredAt && <Pill tone="positive">Featured</Pill>}
+                {post.guestPost && <Pill tone="neutral">Guest post</Pill>}
                 {v === 'draft' && post.publishFailure && <Pill tone="critical">Couldn’t publish on schedule</Pill>}
                 {v === 'draft' && !post.publishFailure && post.publicationBlockers.length > 0 && <Pill tone="attention">Not ready to publish</Pill>}
                 {v === 'scheduled' && post.scheduledAt && <span>{formatDateTime(post.scheduledAt)}</span>}

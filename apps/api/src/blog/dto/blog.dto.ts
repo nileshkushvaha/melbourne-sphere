@@ -153,6 +153,7 @@ export class PostFieldsDto {
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 180 }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(180) seoTitle?: string | null;
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 300 }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(300) seoDescription?: string | null;
   @ApiPropertyOptional({ description: 'Whether visitors may comment (SRS COM 002)' }) @IsOptional() @IsBoolean() commentsEnabled?: boolean;
+  @ApiPropertyOptional({ description: 'A paid guest post: labelled on the site and its links marked sponsored (SRS 1.12)' }) @IsOptional() @IsBoolean() guestPost?: boolean;
 }
 
 class RequiredPostFieldsDto {
@@ -188,6 +189,7 @@ export class PostSummaryDto {
   @ApiProperty() categoryName!: string;
   @ApiProperty({ type: [String] }) tagIds!: string[];
   @ApiProperty() commentsEnabled!: boolean;
+  @ApiProperty({ description: 'A paid guest post (SRS 1.12)' }) guestPost!: boolean;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) scheduledAt!: string | null;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) publishedAt!: string | null;
   @ApiProperty({ type: String, format: 'date-time', nullable: true }) firstPublishedAt!: string | null;

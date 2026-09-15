@@ -28,6 +28,17 @@ const cardInclude = {
 type CardRow = Prisma.PostGetPayload<{ include: typeof cardInclude }>;
 
 const RELATED_LIMIT = 4;
+
+const EXTERNAL_LINK_REL = 'rel="noopener noreferrer nofollow"';
+
+/**
+ * Outbound links in a paid guest post are marked sponsored, as search engines
+ * require for paid links (SRS 1.12). Applied when the article is read, so
+ * switching the flag on or off needs no change to the stored text.
+ */
+export function sponsoredLinks(body: string, guestPost: boolean): string {
+  return guestPost ? body.replaceAll(EXTERNAL_LINK_REL, 'rel="sponsored noopener noreferrer nofollow"') : body;
+}
 /** The most matches a search ranks; far more than anyone pages through, and it bounds the work per query. */
 const SEARCH_CANDIDATE_LIMIT = 500;
 
@@ -95,7 +106,7 @@ export class BlogPublicService {
     const [related, approvedCommentCount, businesses] = await Promise.all([this.related(row), db.comment.count({ where: visibleCommentsWhere(row.id) }), this.embeddedBusinesses(row.sanitizedBody)]);
     return {
       ...this.toCard(row),
-      body: row.sanitizedBody,
+      body: sponsoredLinks(row.sanitizedBody, row.guestPost),
       seoTitle: row.seoTitle,
       seoDescription: row.seoDescription,
       commentsEnabled: row.commentsEnabled,
@@ -148,7 +159,7 @@ export class BlogPublicService {
     if (!row || row.status === 'archived') throw notFound();
     return {
       ...this.toCard(row),
-      body: row.sanitizedBody,
+      body: sponsoredLinks(row.sanitizedBody, row.guestPost),
       seoTitle: row.seoTitle,
       seoDescription: row.seoDescription,
       commentsEnabled: row.commentsEnabled,
@@ -257,6 +268,7 @@ export class BlogPublicService {
       // credit to appear wherever the image does. It is stored on the asset, so
       // one image credited once is credited everywhere it is used.
       coverCredit: row.cover?.credit ?? null,
+      guestPost: row.guestPost,
       // The image used when the article is shared. An article that sets one
       // publishes that; otherwise the cover stands in, which is what readers
       // expect and what the editor is told on the screen.

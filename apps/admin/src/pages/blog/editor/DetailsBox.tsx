@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { App, Button, Form, Select, Typography } from 'antd';
+import { App, Button, Form, Select, Switch, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { Link } from 'react-router';
 import { blogApi, type Author, type BlogTerm } from '@/api/blog';
@@ -115,6 +115,10 @@ export function DetailsBox({ authors, categories, tags, onTagCreated, readOnly, 
           No author profiles yet. <Link to="/authors/new">Create one</Link>, then choose it here.
         </Typography.Text>
       )}
+      {/* Paid articles are disclosed to readers and search engines (SRS 1.12). */}
+      <Form.Item label="Paid guest post" name="guestPost" valuePropName="checked" extra="Shows a Guest post label; links in it are marked as sponsored." style={{ marginTop: 16, marginBottom: 0 }}>
+        <Switch />
+      </Form.Item>
     </SectionCard>
   );
 }

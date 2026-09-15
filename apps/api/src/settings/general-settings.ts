@@ -1,3 +1,4 @@
+import { DEFAULT_PRICING, PRICING_LIMITS, PRICING_PERIODS, PRICING_PLAN_KEYS, parseEmbedUrl, type PricingPeriod, type PricingSettings } from '@melbourne-sphere/domain';
 import { linkHostsFor, parseAustralianPhone, validatePublicUrl, validatePlatformUrl } from '../directory/business-rules.js';
 
 /**
@@ -35,6 +36,8 @@ export const LIMITS = {
   socialUrl: 300,
   copyrightText: 200,
   footerText: 600,
+  /** Google's "Embed a map" HTML; its address alone is at most about 2,000 characters. */
+  siteMapSrc: 3000,
   mediaId: 64,
 } as const;
 
@@ -80,6 +83,10 @@ export interface GeneralSettings {
   copyrightText: string | null;
   /** Short paragraph under the footer brand. */
   footerText: string | null;
+  /** Google Maps embed address for the map above the footer (SRS 1.11 BUS 003); null shows Melbourne. */
+  siteMapSrc: string | null;
+  /** Published prices shown on the home and contact pages (SRS 1.12). */
+  pricing: PricingSettings;
 }
 
 export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = Object.freeze({
@@ -100,6 +107,8 @@ export const DEFAULT_GENERAL_SETTINGS: GeneralSettings = Object.freeze({
   social: Object.freeze(emptySocial()) as Record<SocialPlatform, string | null>,
   copyrightText: null,
   footerText: null,
+  siteMapSrc: null,
+  pricing: DEFAULT_PRICING,
 }) as GeneralSettings;
 
 export type FieldErrors = Record<string, string[]>;
@@ -217,6 +226,50 @@ export function validateGeneralSettings(input: unknown): { errors: FieldErrors; 
     if (footer.length > LIMITS.footerText) errors.footerText = [`Footer text must be ${LIMITS.footerText} characters or fewer`];
     else value.footerText = footer;
   }
+
+  // The map above the footer: Google's "Embed a map" HTML or address, read by the same parser as article maps.
+  const mapInput = typeof raw.siteMapSrc === 'string' ? raw.siteMapSrc.trim() : '';
+  if (mapInput !== '') {
+    const parsed = mapInput.length > LIMITS.siteMapSrc ? null : parseEmbedUrl(mapInput);
+    if (!parsed) errors.siteMapSrc = ['That is too long to be a Google Maps embed. Copy it again from Share → Embed a map.'];
+    else if (!parsed.ok) errors.siteMapSrc = [parsed.reason];
+    else if (parsed.embed.provider !== 'map') errors.siteMapSrc = ['Paste a Google Maps embed here, not a video.'];
+    else value.siteMapSrc = parsed.embed.src;
+  }
+
+  // Published prices (SRS 1.12). Both plans always exist, in a fixed order; an unreadable
+  // or missing plan keeps its shipped values rather than disappearing from the pages.
+  const pricingRaw = (typeof raw.pricing === 'object' && raw.pricing !== null ? raw.pricing : {}) as Record<string, unknown>;
+  const plansRaw = Array.isArray(pricingRaw.plans) ? (pricingRaw.plans as unknown[]) : [];
+  value.pricing = {
+    enabled: pricingRaw.enabled === undefined ? DEFAULT_PRICING.enabled : pricingRaw.enabled === true,
+    plans: PRICING_PLAN_KEYS.map((key, index) => {
+      const fallback = DEFAULT_PRICING.plans[index]!;
+      const source = plansRaw.find((plan): plan is Record<string, unknown> => typeof plan === 'object' && plan !== null && (plan as { key?: unknown }).key === key);
+      if (!source) return { ...fallback, features: [...fallback.features] };
+      const at = `pricing.plans.${index}`;
+      const name = singleLine(source.name);
+      if (name.length < PRICING_LIMITS.name.min || name.length > PRICING_LIMITS.name.max) errors[`${at}.name`] = [`Plan name must be ${PRICING_LIMITS.name.min}–${PRICING_LIMITS.name.max} characters`];
+      const price = source.priceCents;
+      const priceValid = typeof price === 'number' && Number.isInteger(price) && price >= 0 && price <= PRICING_LIMITS.priceCents;
+      if (!priceValid) errors[`${at}.priceCents`] = ['Enter a price between $0 and $10,000'];
+      const period = (PRICING_PERIODS as readonly unknown[]).includes(source.period) ? (source.period as PricingPeriod) : null;
+      if (!period) errors[`${at}.period`] = ['Choose one time or per year'];
+      const summary = singleLine(source.summary);
+      if (summary.length > PRICING_LIMITS.summary) errors[`${at}.summary`] = [`Summary must be ${PRICING_LIMITS.summary} characters or fewer`];
+      const features = (Array.isArray(source.features) ? source.features : []).map(singleLine).filter((feature) => feature !== '');
+      if (features.length > PRICING_LIMITS.features) errors[`${at}.features`] = [`Use at most ${PRICING_LIMITS.features} points`];
+      else if (features.some((feature) => feature.length > PRICING_LIMITS.feature)) errors[`${at}.features`] = [`Keep each point to ${PRICING_LIMITS.feature} characters or fewer`];
+      return {
+        key,
+        name: name || fallback.name,
+        priceCents: priceValid ? (price as number) : fallback.priceCents,
+        period: period ?? fallback.period,
+        summary: summary || null,
+        features: features.slice(0, PRICING_LIMITS.features),
+      };
+    }),
+  };
 
   // The header bar exists to show contact details; without one it would be an empty strip.
   if (value.headerTopBarEnabled && !value.supportEmail && !value.supportPhone && SOCIAL_PLATFORMS.every((platform) => value.social[platform] === null)) {

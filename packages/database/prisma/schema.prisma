@@ -1123,6 +1123,8 @@ model Post {
   /// Comma-separated; recorded for internal search and reporting.
   seoKeywords      String?        @db.VarChar(255)
   commentsEnabled  Boolean        @default(true)
+  /// A paid guest post: labelled on the site and its links marked sponsored (SRS 1.12).
+  guestPost        Boolean        @default(false)
   /// UTC instant; the admin picks it in Australia/Melbourne (SRS BLOG 002).
   scheduledAt      DateTime?      @db.DateTime(3)
   /// Why a scheduled publication was refused at its time (the article went back

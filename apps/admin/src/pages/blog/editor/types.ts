@@ -17,6 +17,7 @@ export interface PostFormValues {
   seoDescription?: string | null;
   seoKeywords?: string | null;
   commentsEnabled: boolean;
+  guestPost?: boolean;
   revisionReason?: string;
 }
 
@@ -43,6 +44,7 @@ export function valuesFromPost(post: Post): PostFormValues {
     seoDescription: post.seoDescription,
     seoKeywords: post.seoKeywords,
     commentsEnabled: post.commentsEnabled,
+    guestPost: post.guestPost,
   };
 }
 

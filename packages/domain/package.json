@@ -17,6 +17,10 @@
       "types": "./dist/embeds.d.ts",
       "default": "./dist/embeds.js"
     },
+    "./pricing": {
+      "types": "./dist/pricing.d.ts",
+      "default": "./dist/pricing.js"
+    },
     "./menus": {
       "types": "./dist/menus.d.ts",
       "default": "./dist/menus.js"
