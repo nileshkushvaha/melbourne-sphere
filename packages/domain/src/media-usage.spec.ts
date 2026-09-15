@@ -23,6 +23,8 @@ describe('media usage', () => {
       areaShareImageOf: { none: {} },
       businessShareImageOf: { none: {} },
       blogCategoryShareImageOf: { none: {} },
+      blogTagShareImageOf: { none: {} },
+      menuItemDocuments: { none: {} },
       bodyReferences: { none: {} },
     });
   });

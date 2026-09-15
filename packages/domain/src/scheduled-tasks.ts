@@ -181,9 +181,12 @@ export const SCHEDULED_RUN_RETENTION_DAYS = 30;
  * dependency carrying more than the question needs.
  */
 export function scheduledTaskIntervalMinutes(task: ScheduledTaskDefinition): number {
-  const minuteField = task.cron.split(' ')[0] ?? '*';
+  const [minuteField = '*', ...rest] = task.cron.split(' ');
+  const hourly = rest.every((field) => field === '*');
+  // `* * * * *` runs every minute; reading it as daily let a stopped publisher go unnoticed for two days.
+  if (minuteField === '*' && hourly) return 1;
   const everyN = /^\*\/(\d+)$/.exec(minuteField);
-  if (everyN && task.cron.split(' ').slice(1).every((field) => field === '*')) return Number(everyN[1]);
+  if (everyN && hourly) return Number(everyN[1]);
   return 24 * 60;
 }
 

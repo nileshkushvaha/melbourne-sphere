@@ -45,12 +45,14 @@ describe('the task registry', () => {
 
 describe('expected cadence, for detecting a stopped scheduler', () => {
   it('reads the interval from the cron expressions this file owns', () => {
-    expect(scheduledTaskIntervalMinutes(scheduledTask('content.publish-scheduled')!)).toBe(5);
+    expect(scheduledTaskIntervalMinutes(scheduledTask('content.publish-scheduled')!)).toBe(1);
+    expect(scheduledTaskIntervalMinutes({ ...scheduledTask('content.publish-scheduled')!, cron: '*/5 * * * *' })).toBe(5);
     expect(scheduledTaskIntervalMinutes(scheduledTask('activity.retention')!)).toBe(24 * 60);
   });
 
   it('allows two missed windows plus a margin before calling a task stale', () => {
-    expect(scheduledTaskStaleAfterMinutes(scheduledTask('content.publish-scheduled')!)).toBe(25);
+    expect(scheduledTaskStaleAfterMinutes(scheduledTask('content.publish-scheduled')!)).toBe(17);
+    expect(scheduledTaskStaleAfterMinutes(scheduledTask('activity.retention')!)).toBe(2 * 24 * 60 + 15);
   });
 
   it('gives every registered task a finite, positive staleness bound', () => {
