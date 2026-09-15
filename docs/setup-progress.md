@@ -2140,3 +2140,20 @@ The earlier go-live audit was security-focused and missed functional defects. Th
 **Tests.** Stale tests from the 1.13–1.17 work realigned without weakening them; jsdom `<dialog>` stand-in added. Focused runs (user-authorised): admin 21 files 130/130; web 5 files 38/38 (+5 new more-reviews, +open-now coverage); API specs for changed services 14 files 118/118; env validation 46/46; worker scheduled tasks 16/16. `tsc` and lint clean in admin, web, API and worker; contracts regenerated. Runtime (temporary session, revoked): `topLevel` returns 7 of 48 categories, all top-level; the four website editors load by id; business by id 200; `/business?openNow=1` shows the chip. Not verified with data: redirect `isActive` filter and single-segment page redirect (no redirects in the dev database). Full suites, integration and Playwright remain for the release gate.
 
 **Deliberately unchanged.** `robots.txt` still disallows `/business?` (listings are in the sitemap); a page number past the end shows a "past the end" message. Category facets do not yet roll child counts up into parents.
+
+## 15 September 2026 — Release gate on `release/2026-09-go-live`
+
+**Commits.** With the user's go-ahead, the uncommitted work (SRS 1.13–1.17, Pages, production hardening, the functional review) was committed on the branch `release/2026-09-go-live` in layered commits (database and domain, API and worker, admin, web and e2e, deploy/CI/docs), followed by the gate fixes below. Nothing pushed. A secret scan of the changes found only placeholder fixtures.
+
+**Real defects found by the gate and fixed.**
+- `scheduledTaskIntervalMinutes` read `* * * * *` as daily, so worker liveness would have taken two days to flag a stopped scheduled-publishing task (`packages/domain/src/scheduled-tasks.ts`).
+- TipTap's `setEditable` emits an update by default: every page or article with rich text opened as "unsaved", so Publish and Change address stayed disabled (`apps/admin/src/components/RichTextEditor.tsx`).
+- Earlier in the day (functional review): page builder opened new pages with sections collapsed and disabled "Move up" on the second section; `/website/pages/new` needed only view permission.
+
+**Gate policy change (user decision).** The admin bundle budget summed every lazy chunk while describing it as first load. `apps/admin/scripts/check-bundle-budget.mjs` now follows `index.html` and static imports (first-load cap 1.8 MB; 1.60 MB now), keeps the 1.1 MB entry cap (879 kB) and raises the all-chunks cap from 2.6 to 3.2 MB (2.88 MB now) for the 1.13–1.17 screens.
+
+**Stale tests realigned (no weakening).** API integration: 14 (1.13 permission codes and modules, 1.10 comment replies and summaries to the last whole sentence, 1.14 activity fields, null dashboard sections without permission, 1.17 version on every save, author pages in the sitemap, secondary categories in facets matching the filter, stale menu location saves 409). Browser: moderator fixture holds the 1.13 view codes (a missing code now fails provisioning), menu-and-action checkbox names, the axe scan waits for eager images and finished fade-in animations (contrast was measured mid-fade; theme tokens pass AA). Domain: media usage relations for 1.16.
+
+**Skips.** The browser runner fails on any skip. The seed (`e2e/scripts/seed-public-fixtures.mjs`) now adds a published information page and a primary menu with a submenu, and the page-builder journey is excluded from the 320 px project in `playwright.config.ts` instead of skipping itself.
+
+**Results.** Lint and typecheck clean; unit: database 27, API 330, admin 329, web 256, domain 95, mail 38, worker 51 all passing; API e2e 19; all builds; bundle budget; contracts in sync; integration: API 316/316, database 5/5. Browser (`pnpm test:browser`, own database and ports): 75 expected, 0 unexpected, 0 skipped, 0 flaky at desktop and 320 px, exit 0. Every step of `pnpm verify:release` is green.

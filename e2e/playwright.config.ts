@@ -27,6 +27,7 @@ export default defineConfig({
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
-    { name: 'mobile-320', use: { ...devices['Desktop Chrome'], viewport: { width: 320, height: 720 } } },
+    // The page builder is an editing journey at desktop width; the public page is checked at 320 px by pages.spec.ts.
+    { name: 'mobile-320', use: { ...devices['Desktop Chrome'], viewport: { width: 320, height: 720 } }, testIgnore: /page-builder\.spec\.ts$/ },
   ],
 });

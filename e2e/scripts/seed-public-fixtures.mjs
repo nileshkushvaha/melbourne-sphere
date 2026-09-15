@@ -3,9 +3,10 @@
  *
  * The suite runs against a database it creates for the run, which is empty. The
  * discovery and editorial journeys need one published business and one published
- * article to be journeys at all — without them they skip, and a skipped journey
- * is not evidence (audit F-09). This seeds exactly what those journeys read and
- * nothing else; the database is dropped when the run ends.
+ * article, the information-page journey a published page, and the desktop
+ * submenu journey a primary menu with children — without them they skip, and a
+ * skipped journey is not evidence (audit F-09). This seeds exactly what those
+ * journeys read and nothing else; the database is dropped when the run ends.
  */
 import { createDatabaseClient } from '@melbourne-sphere/database';
 
@@ -59,7 +60,41 @@ try {
       publishedAt: now,
     },
   });
-  console.log('[browser] seeded one published business and one published article');
+  const text = 'Melbourne Sphere lists local businesses that an editor has checked, with honest reviews and current opening hours. ';
+  const page = await db.staticPage.create({
+    data: {
+      title: 'About listing a business',
+      slug: 'fixture-information',
+      sanitizedBody: `<h2>How listings work</h2><p>${text.repeat(3).trim()}</p>`,
+      bodySource: `<h2>How listings work</h2><p>${text.repeat(3).trim()}</p>`,
+      bodyFormat: 'html',
+      seoDescription: 'How a business comes to be listed on Melbourne Sphere, used by the browser suite.',
+      status: 'published',
+      publishedAt: now,
+    },
+  });
+
+  // The primary location row is created by the migrations; it gets a menu whose
+  // "Businesses" item has children, so the header renders a submenu.
+  const menu = await db.menu.create({ data: { name: 'Main navigation' } });
+  const item = (id, position, data) => ({ id: `fixture-${id}`, menuId: menu.id, position, ...data });
+  await db.menuItem.createMany({
+    data: [
+      item('home', 0, { type: 'route', routeKey: 'home' }),
+      item('directory', 1, { type: 'route', routeKey: 'directory' }),
+      item('blog', 2, { type: 'route', routeKey: 'blog' }),
+      item('contact', 3, { type: 'route', routeKey: 'contact' }),
+    ],
+  });
+  await db.menuItem.createMany({
+    data: [
+      item('page', 0, { parentId: 'fixture-directory', type: 'page', pageId: page.id }),
+      item('faqs', 1, { parentId: 'fixture-directory', type: 'route', routeKey: 'faqs' }),
+    ],
+  });
+  await db.menuLocation.update({ where: { location: 'primary' }, data: { menuId: menu.id, version: { increment: 1 } } });
+
+  console.log('[browser] seeded one published business, one published article, one published page and a primary menu with a submenu');
 } finally {
   await db.$disconnect();
 }

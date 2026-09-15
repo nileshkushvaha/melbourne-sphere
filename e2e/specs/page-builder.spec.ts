@@ -26,10 +26,9 @@ test.describe('Page builder', () => {
     if (dispose) await dispose();
   });
 
-  test.beforeEach(async ({ request }, testInfo) => {
+  // Desktop only: the mobile-320 project ignores this file (playwright.config.ts).
+  test.beforeEach(async ({ request }) => {
     test.skip(!(await stackIsUp(request)), 'The API and web app must be running');
-    // The editor is exercised at desktop width; the public page is checked at 320 px by pages.spec.ts.
-    test.skip(testInfo.project.name !== 'desktop', 'Runs in the desktop project');
   });
 
   const signIn = async (page: Page, admin: ProvisionedAdmin) => {

@@ -3,6 +3,7 @@
 Overwrite this file at every phase gate; keep it factual and short. History lives in `docs/setup-progress.md` (and `docs/history/`), requirement status in `docs/requirements-traceability.md`.
 
 ## Phase
+- **Latest (15 Sep 2026, release gate):** branch `release/2026-09-go-live`; gate fixes: scheduler staleness for every-minute tasks, pages opening as unsaved (TipTap), admin budget now measures first load (user decision); stale integration and browser tests realigned; browser seed covers pages and submenus.
 - **Latest (15 Sep 2026, functional review):** admin pagination, server-search term pickers, editors loading by id, full role/menu lists, page-builder section bugs, `/website/pages/new` permission; API cache purges, per-request open-now, blog search filters, idempotency retry, `METRICS_TOKEN` applied; web moved-page redirects, more reviews, open-now filter, duplicate-safe lists and forms. Focused tests pass (see setup-progress); full suites still at the release gate.
 - **Latest (15 Sep 2026, go-live audit):** a full production audit (API and worker, web and admin, deploy, infrastructure and secrets) found no leak of stacks, SQL or internals, and complete permission coverage on admin routes. **Not yet safe to go live**: see "Go-live blockers" below. Fixed in this pass:
   - API: Prisma P2002/P2025/init errors map to 409/404/503 with generic text; 5xx logs record the route pattern, not the URL; readiness says "Service not ready"; `enableShutdownHooks`; listens on 127.0.0.1 in production (`HOST`); production refuses `OPENAPI_ENABLED`, a missing `METRICS_TOKEN` and `TRUST_PROXY=0`; Turnstile action must match; login throttle reset uses the normalised email.
@@ -15,9 +16,9 @@ Overwrite this file at every phase gate; keep it factual and short. History live
 - **Latest (15 Sep 2026, Pages stages 1–5, change log 1.17):** pages are built from sections (migration `20260916090000_page_sections_workflow`, `packages/domain/src/page-sections.ts`). Admin page builder (`apps/admin/src/pages/website/editor/`): templates, sortable sections, per-section forms, publish box with checklist and search advice; private preview links (`/preview/page/[token]`), autosave of unsaved changes, version history with compare and restore; scheduling (worker `content.publish-scheduled` publishes pages too), address change with a permanent redirect, duplicate, unpublish reason; public `WebPage`/`FAQPage` JSON-LD, picture credits, heading order. Page and article admin routes accept 1 MB JSON. Runtime-checked per stage through compiled services and the browser; tests added, not run. SRS change-log 1.17, traceability, SRS index, client guide `docs/operations/editing-pages.md` and Playwright journeys (`e2e/specs/pages.spec.ts`, `page-builder.spec.ts`) are in place. Remaining: run the suites and journeys, and a signed-in admin browser check of the page builder.
 
 ## Go-live blockers (15 Sep 2026)
-1. Commit the uncommitted work (SRS 1.13–1.16, Pages, hardening) — needs the user's go-ahead.
-2. Run the release gate (`pnpm verify:release`, integration, Playwright) — needs the user's go-ahead; CI green.
-3. Pages rework is built (stages 1–6); check the page builder in a signed-in browser and include its journeys in the release run.
+1. Done: work committed on `release/2026-09-go-live` (not pushed). Push and CI green still needed.
+2. Done: release gate fully green (unit, API e2e, build, budget, contracts, integration 316+5, browser 75/75 with no skips).
+3. Pages rework built; the page-builder journey passes in the browser suite.
 4. Error tracking and uptime alerts with a named owner (D03d, D07).
 5. Staging rehearsal on the VPS with `SITE_NOINDEX=true`: deploy with migrations, a rollback, Turnstile, email and media proven; restore drill recorded.
 6. Apply the new nginx/Cloudflare/systemd sections of `docs/operations/deployment-vps.md` on the server.
