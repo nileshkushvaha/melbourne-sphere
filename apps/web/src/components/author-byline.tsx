@@ -10,6 +10,8 @@ interface Props {
   readingMinutes?: number;
   /** `dark` when the byline sits on a navy band. */
   tone?: 'light' | 'dark';
+  /** Inline metadata on wider screens, stacked on phones. */
+  layout?: 'stacked' | 'inline';
 }
 
 /**
@@ -20,7 +22,7 @@ interface Props {
  * unconditionally labelled almost every article as updated on the day it came
  * out, which told a reader nothing.
  */
-export function AuthorByline({ author, publishedAt, updatedAt, readingMinutes, tone = 'light' }: Props) {
+export function AuthorByline({ author, publishedAt, updatedAt, readingMinutes, tone = 'light', layout = 'stacked' }: Props) {
   const muted = tone === 'dark' ? 'text-band-muted' : 'text-text-muted';
   const strong = tone === 'dark' ? 'text-white' : 'text-text';
   const fallback = tone === 'dark' ? 'bg-white/12 text-white' : 'bg-sky-100 text-sky-700';
@@ -34,7 +36,7 @@ export function AuthorByline({ author, publishedAt, updatedAt, readingMinutes, t
           {author.displayName.slice(0, 1)}
         </span>
       )}
-      <div className="min-w-0 text-sm">
+      <div className={`min-w-0 text-sm ${layout === 'inline' ? 'sm:flex sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-1' : ''}`}>
         <p className={muted}>
           {author.profilePath ? (
             <Link href={author.profilePath} className={`font-semibold ${strong} underline-offset-2 hover:underline`}>
@@ -47,7 +49,7 @@ export function AuthorByline({ author, publishedAt, updatedAt, readingMinutes, t
         </p>
         {/* One dot-separated line, so the dates and the reading estimate read as
             one piece of provenance rather than three stacked labels. */}
-        <p className={`mt-0.5 flex flex-wrap items-center gap-x-1.5 ${muted}`}>
+        <p className={`mt-0.5 flex flex-wrap items-center gap-x-1.5 ${muted} ${layout === 'inline' ? 'sm:mt-0' : ''}`}>
           <time dateTime={publishedAt}>{formatArticleDate(publishedAt)}</time>
           {showUpdated && (
             <>

@@ -74,7 +74,7 @@ export default async function BlogIndexPage({ searchParams }: PageProps<'/blog'>
   return (
     <>
       <section aria-labelledby="blog-heading" className="ms-on-dark ms-editorial-band text-band-text">
-        <div className="ms-container py-11 sm:py-16">
+        <div className="ms-container py-8 sm:py-10">
           {/* The publisher and the size of the archive on one line: both are
               labels for the heading under them, and stacking them separately
               left the band twice as tall as its content needed. */}
@@ -91,22 +91,27 @@ export default async function BlogIndexPage({ searchParams }: PageProps<'/blog'>
               </>
             )}
           </p>
-          <h1 id="blog-heading" className="font-display mt-3.5 max-w-3xl text-balance text-[clamp(2.25rem,5vw,3.5rem)] leading-[1.04] tracking-tight">
+          <h1 id="blog-heading" className="font-display mt-3.5 text-balance text-[clamp(2.25rem,5vw,3.5rem)] leading-[1.04] tracking-tight">
             Stories from around the city
           </h1>
-          <p className="mt-4 max-w-2xl text-lg leading-relaxed text-band-muted">
-            Guides, interviews and news about the businesses and neighbourhoods we list — written by our editors, not by the businesses.
+          <p className="mt-4 max-w-4xl text-lg leading-relaxed text-band-muted">
+            Local guides, food discoveries, and stories from Melbourne’s neighbourhoods.
           </p>
-          <div className="mt-8">
-            <BlogCategoryNav categories={stocked} active="all" />
-          </div>
-          <div className="mt-6">
-            <BlogSearchForm tone="dark" />
+          <p className="mt-2 max-w-4xl text-sm leading-relaxed text-band-muted">
+            Written and edited by our team, with paid guest posts clearly labelled.
+          </p>
+          <div className="mt-6 grid min-w-0 gap-5 border-t border-band-border pt-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-end lg:gap-8">
+            <div className="min-w-0">
+              <BlogCategoryNav categories={stocked} active="all" />
+            </div>
+            <div className="min-w-0">
+              <BlogSearchForm tone="dark" />
+            </div>
           </div>
         </div>
       </section>
 
-      <div className="ms-container py-12 sm:py-16">
+      <div className="ms-container pt-6 pb-12 sm:pt-8 sm:pb-16">
         {posts.data.length === 0 ? (
           <BlogEmptyState message="No articles have been published yet. The first ones are being written." />
         ) : (

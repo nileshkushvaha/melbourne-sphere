@@ -12,8 +12,8 @@ import { formatArticleDate } from '@/lib/share';
 import { absoluteUrl } from '@/lib/site';
 
 /**
- * The page grid, shared by the header, the article and the comments so all
- * three start on the same line as the site navigation: a reading column on the
+ * The page grid, shared by the article and the comments so both
+ * start on the same line as the site navigation: a reading column on the
  * left and a fixed sidebar on the right, with any spare width falling between
  * them rather than stretching the measure.
  */
@@ -54,7 +54,7 @@ export function ArticleView({ post, preview = false }: Props) {
   return (
     <>
       <header className="ms-on-dark ms-editorial-band text-band-text">
-        <div className={`${PAGE_GRID} pt-9 sm:pt-14 ${hasCover ? 'pb-28 sm:pb-36' : 'pb-9 sm:pb-14'}`}>
+        <div className={`ms-container pt-8 sm:pt-10 ${hasCover ? 'pb-28 sm:pb-36' : 'pb-9 sm:pb-12'}`}>
           <div className="min-w-0">
             <Breadcrumbs items={crumbs} tone="dark" />
             <Link
@@ -65,10 +65,10 @@ export function ArticleView({ post, preview = false }: Props) {
             </Link>
             {/* `text-balance` keeps a long headline from leaving one word alone on
                 the last line; `break-words` keeps an unbroken one inside the column. */}
-            <h1 className="font-display mt-5 text-balance break-words text-[clamp(2rem,1.5rem+2.6vw,3.15rem)] leading-[1.06] tracking-tight">{post.title}</h1>
-            <p className="mt-5 text-lg leading-relaxed text-band-muted sm:text-xl sm:leading-relaxed">{post.excerpt}</p>
-            <div className="mt-8 border-t border-band-border pt-6">
-              <AuthorByline author={post.author} publishedAt={post.publishedAt} updatedAt={post.updatedAt} readingMinutes={readingMinutes} tone="dark" />
+            <h1 className="font-display mt-5 text-balance break-words text-[clamp(2rem,1.5rem+2.6vw,3.15rem)] leading-[1.06] tracking-tight lg:max-w-[85%]">{post.title}</h1>
+            <p className="mt-5 text-lg leading-relaxed text-band-muted sm:text-xl sm:leading-relaxed lg:max-w-[75%]">{post.excerpt}</p>
+            <div className="mt-6 border-t border-band-border pt-5">
+              <AuthorByline author={post.author} publishedAt={post.publishedAt} updatedAt={post.updatedAt} readingMinutes={readingMinutes} tone="dark" layout="inline" />
             </div>
           </div>
         </div>
