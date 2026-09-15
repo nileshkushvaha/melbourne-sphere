@@ -20,12 +20,12 @@ import { BarList, SegmentedBar, TrendChart, type SegmentTone, type TrendSeries }
 import { EmptyState, PageHeader, Pill, SectionCard, StatCard } from '@/components/ui';
 import { brand } from '@/config/theme';
 import { formatDateTime } from '@/shared/format';
-import { readableAction } from '@/shared/activity';
 import { useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { DashboardHero } from './dashboard/DashboardHero';
 import { KpiTile, type KpiAccent } from './dashboard/KpiTile';
 import { SystemHealthCard } from './dashboard/SystemHealthCard';
+import { ActivityFeed } from './activity/ActivityFeed';
 
 /** Icon per work-queue metric; falls back to nothing for anything new from the API. */
 const METRIC_ICONS: Record<string, ReactNode> = {
@@ -146,12 +146,18 @@ export function DashboardPage() {
   const ratingDistribution = data?.ratingDistribution ?? [];
   const topCategories = data?.topCategories ?? [];
   const hasSideColumn = enquiryDelivery.length > 0 || listingStatus.length > 0;
+  // A widget the API returns as null is one this account may not see (change log 1.13);
+  // an empty list is one with nothing in it.
+  const scheduledPosts = data?.scheduledPosts ?? null;
+  const activity = data?.activity ?? null;
+  const nothingVisible =
+    metrics.length === 0 && series.length === 0 && (data?.figures ?? []).length === 0 && scheduledPosts === null && activity === null && !hasSideColumn && ratingDistribution.length === 0 && topCategories.length === 0;
 
   return (
     <div>
       <PageHeader
         title="Dashboard"
-        description={`How the directory has moved over the last ${days} days, and what needs a decision now. Figures follow your permissions.`}
+        description={`The last ${days} days, and what needs a decision now. Figures follow your permissions.`}
         meta={data ? <Pill tone="neutral">Updated {formatDateTime(data.generatedAt)}</Pill> : null}
         actions={
           <Button icon={<ReloadOutlined aria-hidden="true" />} onClick={data ? refresh : reload} loading={state.status === 'loading' || refreshing}>
@@ -171,6 +177,7 @@ export function DashboardPage() {
         <div aria-busy={refreshing} style={{ opacity: refreshing ? 0.6 : 1, transition: 'opacity 0.2s ease' }}>
           <DashboardHero data={data} />
 
+          {(metrics.length > 0 || nothingVisible) && (
           <section aria-labelledby="dashboard-queues">
             <SectionHeading id="dashboard-queues">Needs a decision</SectionHeading>
             {needsAttention.length === 0 && metrics.length > 0 && (
@@ -183,7 +190,7 @@ export function DashboardPage() {
                 </Col>
               ))}
             </Row>
-            {metrics.length === 0 && (
+            {nothingVisible && (
               <SectionCard title="No metrics available">
                 <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
                   Your account has no permissions that expose dashboard counts. Ask a Super Admin if you expect to moderate or publish content.
@@ -191,6 +198,7 @@ export function DashboardPage() {
               </SectionCard>
             )}
           </section>
+          )}
 
           <KpiRow data={data} />
 
@@ -247,14 +255,16 @@ export function DashboardPage() {
             </Row>
           )}
 
+          {(scheduledPosts !== null || activity !== null) && (
           <Row gutter={[20, 0]}>
-            <Col xs={24} xl={12}>
+            {scheduledPosts !== null && (
+            <Col xs={24} xl={activity !== null ? 12 : 24}>
               <SectionCard title="Scheduled articles" description="Publishing runs automatically; overdue items mean the scheduler needs attention.">
-                {(data.scheduledPosts ?? []).length === 0 ? (
+                {scheduledPosts.length === 0 ? (
                   <EmptyState title="Nothing scheduled" description="Articles you schedule for a future Melbourne time appear here until they publish." />
                 ) : (
                   <List
-                    dataSource={data.scheduledPosts ?? []}
+                    dataSource={scheduledPosts}
                     renderItem={(post) => (
                       <List.Item
                         actions={[
@@ -278,7 +288,9 @@ export function DashboardPage() {
                 )}
               </SectionCard>
             </Col>
-            <Col xs={24} xl={12}>
+            )}
+            {activity !== null && (
+            <Col xs={24} xl={scheduledPosts !== null ? 12 : 24}>
               <SectionCard
                 title="Recent activity"
                 description="The latest entries from the audit log."
@@ -291,26 +303,32 @@ export function DashboardPage() {
                   </Link>
                 }
               >
-                {(data.activity ?? []).length === 0 ? (
+                {activity.length === 0 ? (
                   <EmptyState title="No recent activity" description="Administrator actions appear here as soon as they happen." />
                 ) : (
-                  <List
-                    dataSource={data.activity ?? []}
-                    renderItem={(entry) => (
-                      <List.Item>
-                        <div>
-                          <Typography.Text strong>{readableAction(entry.action, { withDomain: true })}</Typography.Text>
-                          <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
-                            {entry.actorName ?? 'System'} · {formatDateTime(entry.createdAt)}
-                          </Typography.Paragraph>
-                        </div>
-                      </List.Item>
-                    )}
+                  // The same rows as the activity log, in their short form, so the two screens read alike.
+                  <ActivityFeed
+                    byDay={false}
+                    variant="compact"
+                    entries={activity.map((entry) => ({
+                      id: entry.id,
+                      action: entry.action,
+                      category: entry.category,
+                      domainLabel: entry.domainLabel,
+                      outcome: entry.outcome,
+                      actorName: entry.actorName,
+                      targetType: entry.targetType,
+                      targetId: entry.targetId,
+                      targetLabel: entry.targetLabel,
+                      createdAt: entry.createdAt,
+                    }))}
                   />
                 )}
               </SectionCard>
             </Col>
+            )}
           </Row>
+          )}
 
           <SystemHealthCard />
 

@@ -14,6 +14,8 @@ const PANELS: { type: MenuLinkSourceType; label: string; noun: string }[] = [
   { type: 'business_category', label: 'Business categories', noun: 'business categories' },
   { type: 'area', label: 'Local areas', noun: 'local areas' },
   { type: 'business', label: 'Businesses', noun: 'published businesses' },
+  // PDFs from the media library (change log 1.16).
+  { type: 'document', label: 'Documents', noun: 'documents' },
   { type: 'route', label: 'Site pages', noun: 'site pages' },
 ];
 

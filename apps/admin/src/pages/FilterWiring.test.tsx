@@ -40,14 +40,14 @@ describe('list filters reach the API', () => {
   it('sends the blog tag search and status', async () => {
     renderWithProviders(<EditorialTermsPage config={BLOG_TAGS_CONFIG} />, {
       initialEntries: ['/admin/blog-tags?q=coffee&status=inactive'],
-      authProvider: providerWithPermissions(['posts.write']),
+      authProvider: providerWithPermissions(['posts.view']),
     });
     await screen.findByRole('heading', { level: 1 });
     asked('/admin/blog-tags', 'q=coffee', 'status=inactive');
   });
 
   it('sends the page search and status', async () => {
-    renderWithProviders(<PagesPage />, { initialEntries: ['/admin/website/pages?q=about&status=draft'], authProvider: providerWithPermissions(['settings.manage']) });
+    renderWithProviders(<PagesPage />, { initialEntries: ['/admin/website/pages?q=about&status=draft'], authProvider: providerWithPermissions(['website.pages.view']) });
     await screen.findByRole('heading', { level: 1 });
     asked('/admin/pages', 'q=about', 'status=draft');
   });
@@ -87,13 +87,13 @@ describe('list filters reach the API', () => {
   });
 
   it('sends the author search to the server rather than filtering in the browser', async () => {
-    renderWithProviders(<AuthorsPage />, { initialEntries: ['/admin/authors?q=priya&status=active'], authProvider: providerWithPermissions(['posts.write']) });
+    renderWithProviders(<AuthorsPage />, { initialEntries: ['/admin/authors?q=priya&status=active'], authProvider: providerWithPermissions(['authors.view']) });
     await screen.findByRole('heading', { level: 1 });
     asked('/admin/authors', 'q=priya', 'status=active');
   });
 
   it('sends the administrator role filter', async () => {
-    renderWithProviders(<AdministratorsPage />, { initialEntries: ['/admin/admins?role=editor'], authProvider: providerWithPermissions(['admins.manage', 'roles.view']) });
+    renderWithProviders(<AdministratorsPage />, { initialEntries: ['/admin/admins?role=editor'], authProvider: providerWithPermissions(['admins.view', 'roles.view']) });
     await screen.findByRole('heading', { level: 1 });
     asked('/admin/admins', 'role=editor');
   });

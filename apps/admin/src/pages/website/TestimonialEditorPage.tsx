@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import { businessesApi } from '@/api/businesses';
+import { RemoteSelect } from '@/components/RemoteSelect';
 import { App, Form, Input, InputNumber } from 'antd';
 import { useNavigate, useParams } from 'react-router';
 import { testimonialsApi, type Testimonial } from '@/api/website';
@@ -32,10 +34,12 @@ export function TestimonialEditorPage() {
   const { saving, error, submit } = useRecordEditor<Values>(form);
 
   const [state] = useAsync<Testimonial | null>(
-    () => (creating ? Promise.resolve(null) : testimonialsApi.list({ pageSize: 50 }).then((r) => r.data.find((row) => row.id === id) ?? null)),
+    () => (creating ? Promise.resolve(null) : testimonialsApi.get(id!)),
     [id, creating],
   );
   const record = state.status === 'ready' ? state.data : null;
+  const linkedBusinessId = Form.useWatch('businessId', form) as string | undefined;
+  const [linkedBusiness] = useAsync((signal) => (linkedBusinessId ? businessesApi().get(linkedBusinessId, signal) : Promise.resolve(null)), [linkedBusinessId]);
 
   useEffect(() => {
     if (!record) return;
@@ -64,7 +68,8 @@ export function TestimonialEditorPage() {
         displayOrder: values.displayOrder,
       };
       if (creating) await testimonialsApi.create(payload);
-      else if (record) await testimonialsApi.update(record.id, { ...payload, expectedVersion: record.version });
+      else if (!record) throw new Error('This testimonial could not be loaded, so nothing was saved. Reload the page and try again.');
+      else await testimonialsApi.update(record.id, { ...payload, expectedVersion: record.version });
       message.success(creating ? 'Testimonial created as a draft' : 'Testimonial updated');
     }).then((ok) => {
       if (ok) navigate(LIST);
@@ -109,8 +114,13 @@ export function TestimonialEditorPage() {
       <Form.Item label="Rating" name="rating" extra="Stars the person gave, 1 to 5. Empty shows no stars at all.">
         <InputNumber min={1} max={5} precision={0} style={{ width: 120 }} placeholder="e.g. 5" />
       </Form.Item>
-      <Form.Item label="Linked listing" name="businessId" extra="The listing's reference, so the quote links to it. Copy it from the listing address.">
-        <Input maxLength={64} style={{ maxWidth: 420 }} placeholder="Paste a listing reference" />
+      <Form.Item label="Linked listing" name="businessId" extra="Optional. The quote links to this listing.">
+        <RemoteSelect
+          placeholder="Search for a listing"
+          width={420}
+          valueLabel={linkedBusiness.status === 'ready' ? linkedBusiness.data?.name : undefined}
+          search={(term, signal) => businessesApi().list({ q: term || undefined, pageSize: 20, sort: 'name', order: 'asc' }, signal).then((result) => result.data.map((business) => ({ value: business.id, label: business.name })))}
+        />
       </Form.Item>
       <Form.Item label="Portrait image" name="mediaId" extra="Chosen from the media library. Optional.">
         <MediaField current={record?.image ?? null} emptyLabel="No portrait yet" clearLabel="Remove portrait" aspectRatio="1 / 1" />

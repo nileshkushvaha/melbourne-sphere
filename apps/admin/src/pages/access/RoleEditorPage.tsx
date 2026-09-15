@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, App, Button, Form, Input, Space, Switch, Typography } from 'antd';
+import { Alert, App, Button, Form, Input, Space, Switch } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useOnError } from '@refinedev/core';
@@ -162,12 +162,7 @@ export function RoleEditorPage() {
         <SectionCard title="Permissions" description="Everything an administrator holding this role can do.">
           {catalogState.status === 'loading' && <PageLoader label="Loading the permission catalogue…" />}
           {catalogState.status === 'ready' && (
-            <>
-              <Typography.Paragraph type="secondary">
-                {permissions.length} selected of {catalogState.data.filter((entry) => entry.isActive).length} available.
-              </Typography.Paragraph>
-              <PermissionMatrix catalog={catalogState.data} value={permissions} disabled={readOnly} onChange={setPermissions} />
-            </>
+            <PermissionMatrix catalog={catalogState.data} value={permissions} disabled={readOnly} onChange={setPermissions} />
           )}
         </SectionCard>
 

@@ -43,7 +43,9 @@ describe('ApiStatus', () => {
       jsonResponse(503, { error: { code: 'SERVICE_UNAVAILABLE', message: 'Database unavailable', fields: {}, requestId: 'r-9' } }, { 'x-request-id': 'r-9' })) as typeof fetch;
     renderWithProviders(<ApiStatus />);
     expect(await screen.findByText(/cannot reach the api/i)).toBeInTheDocument();
-    expect(screen.getByText(/database unavailable/i)).toBeInTheDocument();
+    // An availability failure gets the client's own sentence; what the server said stays off the page.
+    expect(screen.getByText(/temporarily unavailable/i)).toBeInTheDocument();
+    expect(screen.queryByText(/database unavailable/i)).not.toBeInTheDocument();
     expect(screen.getByText(/quote reference SERVICE_UNAVAILABLE · request r-9/i)).toBeInTheDocument();
   });
 });

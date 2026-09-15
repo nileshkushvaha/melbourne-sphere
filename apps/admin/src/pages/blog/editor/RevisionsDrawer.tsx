@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Alert, App, Button, Drawer, Empty, List, Skeleton, Space, Tag, Typography } from 'antd';
 import { HistoryOutlined } from '@ant-design/icons';
-import { diffWords } from 'diff';
 import { blogApi, type Post } from '@/api/blog';
 import { isApiError } from '@/api/errors';
+import { TextComparison } from '@/components/TextComparison';
 import { ErrorState } from '@/components/ui';
 import { formatDateTime } from '@/shared/format';
+import { readableText } from '@/shared/readableText';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 
 interface Props {
@@ -15,41 +16,6 @@ interface Props {
   dirty: boolean;
   onClose: () => void;
   onRestored: (post: Post) => void;
-}
-
-/** Text a person would read, from either an HTML body or a Markdown one. */
-function readableText(source: string, format: 'html' | 'markdown'): string {
-  if (format === 'markdown' || typeof DOMParser === 'undefined') return source;
-  const doc = new DOMParser().parseFromString(source, 'text/html');
-  // Keep paragraph breaks, so the comparison reads as paragraphs rather than one line.
-  doc.querySelectorAll('p, h2, h3, h4, li, blockquote, pre, tr').forEach((element) => element.append('\n'));
-  return (doc.body.textContent ?? '').replace(/\n{3,}/g, '\n\n').trim();
-}
-
-/** Word-by-word comparison: removed words struck through, added words highlighted, both labelled for screen readers. */
-function Comparison({ before, after }: { before: string; after: string }) {
-  const parts = useMemo(() => diffWords(before, after), [before, after]);
-  const changed = parts.some((part) => part.added || part.removed);
-  if (!changed) return <Typography.Text type="secondary">No differences.</Typography.Text>;
-  return (
-    <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
-      {parts.map((part, index) =>
-        part.added ? (
-          <ins key={index} className="ms-diff-added">
-            <span className="sr-only">[added] </span>
-            {part.value}
-          </ins>
-        ) : part.removed ? (
-          <del key={index} className="ms-diff-removed">
-            <span className="sr-only">[removed] </span>
-            {part.value}
-          </del>
-        ) : (
-          <span key={index}>{part.value}</span>
-        ),
-      )}
-    </div>
-  );
 }
 
 /**
@@ -135,13 +101,13 @@ export function RevisionsDrawer({ post, current, dirty, onClose, onRestored }: P
                 {detail.data.title !== null && detail.data.title !== current.title && (
                   <section>
                     <Typography.Title level={3} style={{ fontSize: 15 }}>Title</Typography.Title>
-                    <Comparison before={detail.data.title} after={current.title} />
+                    <TextComparison before={detail.data.title} after={current.title} />
                   </section>
                 )}
                 {detail.data.excerpt !== null && detail.data.excerpt !== current.excerpt && (
                   <section>
                     <Typography.Title level={3} style={{ fontSize: 15 }}>Summary</Typography.Title>
-                    <Comparison before={detail.data.excerpt} after={current.excerpt} />
+                    <TextComparison before={detail.data.excerpt} after={current.excerpt} />
                   </section>
                 )}
                 <section>
@@ -149,7 +115,7 @@ export function RevisionsDrawer({ post, current, dirty, onClose, onRestored }: P
                   {detail.data.bodySource === detail.data.sanitizedSnapshot && detail.data.bodyFormat === 'html' && (
                     <Alert type="info" showIcon style={{ marginBottom: 8 }} message="This older version was kept before formatting details were recorded; restoring it keeps its text and headings." />
                   )}
-                  <Comparison before={readableText(detail.data.bodySource, detail.data.bodyFormat)} after={readableText(current.bodyMarkdown, current.bodyFormat)} />
+                  <TextComparison before={readableText(detail.data.bodySource, detail.data.bodyFormat)} after={readableText(current.bodyMarkdown, current.bodyFormat)} />
                 </section>
               </Space>
             )}

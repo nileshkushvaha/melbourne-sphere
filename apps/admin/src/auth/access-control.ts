@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 import type { AccessControlProvider } from '@refinedev/core';
-import { holdsAll, permissionsForPath, type PermissionCode } from './permissions';
+import { holdsAll, holdsAny, routeRequirement, type PermissionCode } from './permissions';
 
 /**
  * Refine access control (SRS RBAC 010). `can` answers from the effective
@@ -19,10 +19,12 @@ export function createAccessControlProvider(getPermissions: () => readonly strin
       const held = getPermissions();
       if (!held) return { can: false, reason: 'Loading your permissions' };
       const explicit = (params?.permissions as PermissionCode[] | undefined) ?? [];
-      const required = explicit.length > 0 ? explicit : action?.includes('.') ? [action as PermissionCode] : permissionsForPath(resource ?? '');
+      const route = explicit.length === 0 && !action?.includes('.') ? routeRequirement(resource ?? '') : null;
+      const required = explicit.length > 0 ? explicit : action?.includes('.') ? [action as PermissionCode] : (route?.permissions ?? []);
       // An unmapped resource has no requirement; the API still guards it.
       if (required.length === 0) return { can: true };
-      return holdsAll(held, required) ? { can: true } : { can: false, reason: 'You do not have permission to do that' };
+      const allowed = route?.anyOf ? holdsAny(held, required) : holdsAll(held, required);
+      return allowed ? { can: true } : { can: false, reason: 'You do not have permission to do that' };
     },
     options: { buttons: { enableAccessControl: true, hideIfUnauthorized: true } },
   };

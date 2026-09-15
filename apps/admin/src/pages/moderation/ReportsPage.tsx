@@ -14,6 +14,8 @@ import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { FormSelect } from '@/components/FormSelect';
 import { expandToggle } from '@/components/ui/expandToggle';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 /** What the reporter chose, in the words of the public report form. */
 const REASON_LABELS: Record<string, string> = { spam: 'Spam', offensive: 'Offensive', misleading: 'Misleading', privacy: 'Privacy concern', other: 'Other' };
@@ -37,6 +39,8 @@ const FILTERS = ['status'] as const;
  */
 export function ReportsPage() {
   useDocumentTitle('Abuse reports');
+  const { can } = useCapabilities();
+  const mayHandle = can(PERMISSION.reportsManage);
   const api = moderationApi();
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
@@ -114,7 +118,7 @@ export function ReportsPage() {
               <Typography.Paragraph type="secondary">
                 {report.reporterEmail ? (
                   <>
-                    Reporter contact: <RevealContact masked={report.reporterEmail} reveal={() => api.revealReporterEmail(report.id)} />
+                    Reporter contact: <RevealContact masked={report.reporterEmail} permission={PERMISSION.reportsEmailView} reveal={() => api.revealReporterEmail(report.id)} />
                   </>
                 ) : (
                   'No reporter contact provided'
@@ -148,8 +152,8 @@ export function ReportsPage() {
             width: 220,
             render: (_: unknown, report) => (
               <Space wrap>
-                {report.status === 'open' && <Button size="small" onClick={() => void investigate(report)}>Investigate</Button>}
-                {report.status !== 'resolved' && <Button size="small" type="primary" onClick={() => { setDialogError(null); form.resetFields(); setResolving(report); }}>Resolve</Button>}
+                {mayHandle && report.status === 'open' && <Button size="small" onClick={() => void investigate(report)}>Investigate</Button>}
+                {mayHandle && report.status !== 'resolved' && <Button size="small" type="primary" onClick={() => { setDialogError(null); form.resetFields(); setResolving(report); }}>Resolve</Button>}
               </Space>
             ),
           },

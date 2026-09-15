@@ -27,7 +27,7 @@ export function FaqEditorPage() {
   const [form] = Form.useForm<Values>();
   const { saving, error, submit } = useRecordEditor<Values>(form);
 
-  const [state] = useAsync<Faq | null>(() => (creating ? Promise.resolve(null) : faqsApi.list({ pageSize: 50 }).then((r) => r.data.find((row) => row.id === id) ?? null)), [id, creating]);
+  const [state] = useAsync<Faq | null>(() => (creating ? Promise.resolve(null) : faqsApi.get(id!)), [id, creating]);
 
   useEffect(() => {
     if (state.status === 'ready' && state.data) {
@@ -46,7 +46,8 @@ export function FaqEditorPage() {
     submit(async (values) => {
       const payload = { ...values, groupName: values.groupName?.trim() || null, answerFormat: 'html' as const };
       if (creating) await faqsApi.create(payload);
-      else if (record) await faqsApi.update(record.id, { ...payload, expectedVersion: record.version });
+      else if (!record) throw new Error('This question could not be loaded, so nothing was saved. Reload the page and try again.');
+      else await faqsApi.update(record.id, { ...payload, expectedVersion: record.version });
       message.success(creating ? 'Question created as a draft' : 'Question updated');
     }).then((ok) => {
       if (ok) navigate(LIST);

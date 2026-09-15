@@ -67,7 +67,8 @@ describe('createHttpClient', () => {
     expect(apiError.kind).toBe(kind);
     expect(apiError.status).toBe(status);
     expect(apiError.code).toBe(code);
-    expect(apiError.userMessage).toBe('Server message');
+    // A server or availability failure always gets the client's own sentence.
+    expect(apiError.userMessage).toBe(kind === 'server' ? 'The server encountered an unexpected problem.' : kind === 'unavailable' ? 'The service is temporarily unavailable. Please try again shortly.' : 'Server message');
     expect(apiError.fields).toEqual({ name: ['too short'] });
     expect(apiError.requestId).toBe('hdr-id');
     expect(apiError.retryAfterSeconds).toBe(7);

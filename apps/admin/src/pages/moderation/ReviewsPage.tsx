@@ -16,6 +16,8 @@ import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { expandToggle } from '@/components/ui/expandToggle';
 import { brand } from '@/config/theme';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 /**
  * One entry per decision, so the dialog's title, its button and the message
@@ -51,6 +53,9 @@ const FILTERS = ['repeatFlagged', 'reported', 'status', 'businessId', 'id'] as c
  */
 export function ReviewsPage() {
   useDocumentTitle('Reviews');
+  const { can } = useCapabilities();
+  const mayModerate = can(PERMISSION.reviewsModerate);
+  const mayRedact = can(PERMISSION.reviewsRedact);
   const api = moderationApi();
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
@@ -119,6 +124,9 @@ export function ReviewsPage() {
       }
     });
 
+  // The chosen business's name, whether or not it is on this page of results.
+  const [chosenBusiness] = useAsync((signal) => (businessId ? businessesApi().get(businessId, signal) : Promise.resolve(null)), [businessId]);
+
   return (
     <div>
       <PageHeader crumbs={[{ label: 'Community' }, { label: 'Reviews' }]} title="Reviews" description="Reviews are never published automatically. Ratings are never edited." />
@@ -129,13 +137,13 @@ export function ReviewsPage() {
               ariaLabel="Filter by business"
               placeholder="Any business"
               value={businessId}
-              valueLabel={state.status === 'ready' ? state.data.data.find((row) => row.businessId === businessId)?.businessName : undefined}
+              valueLabel={chosenBusiness.status === 'ready' ? chosenBusiness.data?.name : undefined}
               onChange={(next) => list.set('businessId', next)}
               search={(term, signal) => businessesApi().list({ q: term || undefined, pageSize: 20, sort: 'name', order: 'asc' }, signal).then((r) => r.data.map((row) => ({ value: row.id, label: row.name })))}
               width={230}
             />
             <Select aria-label="Filter by status" allowClear placeholder="All statuses" value={status} onChange={(v) => list.set('status', v)} style={{ width: 160 }} options={REVIEW_STATUSES.map((s) => ({ value: s, label: s }))} />
-            <Select aria-label="Filter by flag" allowClear placeholder="Any flag" value={repeatFlagged ? 'repeat' : reported ? 'reported' : undefined} style={{ width: 190 }} onChange={(v) => { list.set('repeatFlagged', v === 'repeat' ? 'true' : undefined); list.set('reported', v === 'reported' ? 'true' : undefined); }} options={[{ value: 'repeat', label: 'Repeat submissions' }, { value: 'reported', label: 'Has open reports' }]} />
+            <Select aria-label="Filter by flag" allowClear placeholder="Any flag" value={repeatFlagged ? 'repeat' : reported ? 'reported' : undefined} style={{ width: 190 }} onChange={(v) => list.setMany({ repeatFlagged: v === 'repeat' ? 'true' : undefined, reported: v === 'reported' ? 'true' : undefined })} options={[{ value: 'repeat', label: 'Repeat submissions' }, { value: 'reported', label: 'Has open reports' }]} />
           </>
         }
       >
@@ -157,7 +165,7 @@ export function ReviewsPage() {
                 <Alert type="info" showIcon message="Published text differs from the original" description={<span style={{ whiteSpace: 'pre-line' }}>{review.publicText}{review.redactionReason ? ` — ${review.redactionReason}` : ''}</span>} />
               )}
               <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
-                Contact: <RevealContact masked={review.email} reveal={() => api.revealReviewEmail(review.id)} /> · acknowledged {review.acknowledgedVersion}
+                Contact: <RevealContact masked={review.email} permission={PERMISSION.reviewsEmailView} reveal={() => api.revealReviewEmail(review.id)} /> · acknowledged {review.acknowledgedVersion}
                 {review.moderationReason ? ` · reason: ${review.moderationReason}` : ''}
               </Typography.Paragraph>
             </div>
@@ -203,10 +211,10 @@ export function ReviewsPage() {
             width: 260,
             render: (_: unknown, review) => (
               <Space wrap>
-                {review.status !== 'approved' && <Button size="small" type="primary" onClick={() => { setDialogError(null); decisionForm.resetFields(); setPending({ review, decision: 'approve' }); }}>Publish</Button>}
-                {review.status !== 'rejected' && <Button size="small" danger onClick={() => { setDialogError(null); decisionForm.resetFields(); setPending({ review, decision: 'reject' }); }}>Reject</Button>}
-                {review.status !== 'spam' && <Button size="small" onClick={() => { setDialogError(null); decisionForm.resetFields(); setPending({ review, decision: 'spam' }); }}>Spam</Button>}
-                <Button size="small" onClick={() => { setDialogError(null); redactForm.setFieldsValue({ publicText: review.publicText ?? review.originalText, reason: '' }); setRedacting(review); }}>Redact</Button>
+                {mayModerate && review.status !== 'approved' && <Button size="small" type="primary" onClick={() => { setDialogError(null); decisionForm.resetFields(); setPending({ review, decision: 'approve' }); }}>Publish</Button>}
+                {mayModerate && review.status !== 'rejected' && <Button size="small" danger onClick={() => { setDialogError(null); decisionForm.resetFields(); setPending({ review, decision: 'reject' }); }}>Reject</Button>}
+                {mayModerate && review.status !== 'spam' && <Button size="small" onClick={() => { setDialogError(null); decisionForm.resetFields(); setPending({ review, decision: 'spam' }); }}>Spam</Button>}
+                {mayRedact && <Button size="small" onClick={() => { setDialogError(null); redactForm.setFieldsValue({ publicText: review.publicText ?? review.originalText, reason: '' }); setRedacting(review); }}>Redact</Button>}
               </Space>
             ),
           },

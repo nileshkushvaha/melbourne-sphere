@@ -9,6 +9,10 @@ import { useAsync } from '@/shared/useAsync';
 import { useRecordEditor } from '@/shared/useRecordEditor';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { brand } from '@/config/theme';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
+import { DocumentDetail } from './DocumentDetail';
+import { USAGE_LABELS } from './media-usage-labels';
 
 interface Values {
   altText: string;
@@ -22,23 +26,6 @@ function fileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** Where an image is used, in the words of the screen that uses it. */
-const USAGE_LABELS: Record<string, { what: string; href: (id: string) => string }> = {
-  business: { what: 'Business listing', href: (id) => `/businesses/${encodeURIComponent(id)}` },
-  post: { what: 'Article', href: (id) => `/posts/${encodeURIComponent(id)}` },
-  author: { what: 'Author profile', href: (id) => `/authors/${encodeURIComponent(id)}` },
-  testimonial: { what: 'Testimonial', href: (id) => `/website/testimonials/${encodeURIComponent(id)}` },
-  partner: { what: 'Partner logo', href: (id) => `/website/partners/${encodeURIComponent(id)}` },
-  page: { what: 'Website page', href: (id) => `/website/pages/${encodeURIComponent(id)}` },
-  category: { what: 'Business category', href: (id) => `/categories/${encodeURIComponent(id)}` },
-  area: { what: 'Local area', href: (id) => `/areas/${encodeURIComponent(id)}` },
-  blogCategory: { what: 'Blog category', href: (id) => `/blog-categories/${encodeURIComponent(id)}` },
-  blogTag: { what: 'Blog tag', href: (id) => `/blog-tags/${encodeURIComponent(id)}` },
-  faq: { what: 'FAQ', href: (id) => `/website/faqs/${encodeURIComponent(id)}` },
-  // A settings document, identified as `group.key`; the two that hold images
-  // each have their own screen.
-  setting: { what: 'Site settings', href: (id) => (id === 'website.home' ? '/settings' : '/settings/general') },
-};
 
 /**
  * One image's details (SRS MED 003). Alt text, credit and rights live on a page
@@ -55,6 +42,8 @@ export function MediaDetailPage() {
   const api = mediaApi();
   const { message } = App.useApp();
   const navigate = useNavigate();
+  const { can } = useCapabilities();
+  const mayUpdate = can(PERMISSION.mediaUpdate);
   const [form] = Form.useForm<Values>();
   const { saving, error, submit } = useRecordEditor<Values>(form);
   const [state, reload] = useAsync((signal) => api.get(id, signal), [id]);
@@ -67,6 +56,9 @@ export function MediaDetailPage() {
   useEffect(() => {
     if (asset) form.setFieldsValue({ altText: asset.altText ?? '', credit: asset.credit ?? '' });
   }, [asset, form]);
+
+  // A PDF has a title, a link and a scan result rather than a picture to describe (change log 1.16).
+  if (asset?.kind === 'document') return <DocumentDetail asset={asset} />;
 
   const storedFocal = asset && asset.focalX !== null && asset.focalY !== null ? { x: asset.focalX, y: asset.focalY } : null;
   const focal = focalEdit ?? storedFocal;
@@ -101,6 +93,7 @@ export function MediaDetailPage() {
       dirty={focalEdit !== null || undefined}
       error={error ?? (state.status === 'error' ? state.message : null)}
       status={asset ? `Version ${asset.version} · uploaded ${formatDateTime(asset.createdAt)}` : undefined}
+      readOnlyReason={!mayUpdate ? 'You can view this image but not change its details.' : null}
       onSubmit={save}
       aside={
         asset ? (

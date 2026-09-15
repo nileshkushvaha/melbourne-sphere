@@ -169,6 +169,7 @@ export function QueueMonitorPage() {
 
   const mayRetry = can(PERMISSION.systemQueuesRetry);
   const mayCancel = can(PERMISSION.systemQueuesCancel);
+  const mayClean = can(PERMISSION.systemQueuesClean);
 
   return (
     <div>
@@ -303,7 +304,7 @@ export function QueueMonitorPage() {
                     Remove selected
                   </Button>
                 )}
-                {mayCancel && state === 'completed' && <Button onClick={clean}>Remove records older than 7 days</Button>}
+                {mayClean && state === 'completed' && <Button onClick={clean}>Remove records older than 7 days</Button>}
               </Space>
             }
             bodyPadding={0}

@@ -11,9 +11,9 @@ const ROLES = {
 };
 
 const CATALOG = [
-  { key: 'posts.write', label: 'Edit articles', description: 'Create and edit blog posts', module: 'Editorial', isActive: true, isSystem: true },
-  { key: 'posts.publish', label: 'Publish articles', description: 'Publish, schedule and archive blog posts', module: 'Editorial', isActive: true, isSystem: true },
-  { key: 'roles.view', label: 'View roles', description: 'View roles', module: 'Access control', isActive: true, isSystem: true },
+  { key: 'posts.update', label: 'Edit articles', description: 'Create and edit blog posts', module: 'Editorial', menuItem: 'Articles', action: 'Update', isActive: true, isSystem: true },
+  { key: 'posts.publish', label: 'Publish articles', description: 'Publish, schedule and archive blog posts', module: 'Editorial', menuItem: 'Articles', action: 'Publish', isActive: true, isSystem: true },
+  { key: 'roles.view', label: 'View roles', description: 'View roles', module: 'Configuration', menuItem: 'Roles', action: 'View', isActive: true, isSystem: true },
 ];
 
 function stubFetch(routes: Record<string, unknown>) {
@@ -54,13 +54,13 @@ describe('Roles screens', () => {
 
   it('shows a protected role read-only, with its permission matrix disabled', async () => {
     globalThis.fetch = stubFetch({
-      '/admin/roles/r1': { ...ROLES.data[0], permissions: ['posts.write', 'roles.view'] },
+      '/admin/roles/r1': { ...ROLES.data[0], permissions: ['posts.update', 'roles.view'] },
       '/admin/permissions': CATALOG,
     });
     renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/roles/r1'], authProvider: providerWithPermissions(['roles.view', 'roles.update']) });
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Super Admin' })).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole('checkbox', { name: /edit articles/i })).toBeDisabled());
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: /^articles: update$/i })).toBeDisabled());
     // Nothing to save: the protected role's permissions are owned by the catalogue.
     expect(screen.queryByRole('button', { name: /save role/i })).not.toBeInTheDocument();
   });
@@ -68,12 +68,12 @@ describe('Roles screens', () => {
   it('lets an editable role be changed through the grouped matrix', async () => {
     const ue = user();
     globalThis.fetch = stubFetch({
-      '/admin/roles/r2': { ...ROLES.data[1], permissions: ['posts.write'] },
+      '/admin/roles/r2': { ...ROLES.data[1], permissions: ['posts.update'] },
       '/admin/permissions': CATALOG,
     });
     renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/roles/r2'], authProvider: providerWithPermissions(['roles.view', 'roles.update']) });
 
-    const publish = await screen.findByRole('checkbox', { name: /publish articles/i });
+    const publish = await screen.findByRole('checkbox', { name: /^articles: publish$/i });
     expect(publish).not.toBeChecked();
     await ue.click(publish);
     expect(publish).toBeChecked();

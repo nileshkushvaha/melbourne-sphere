@@ -59,7 +59,7 @@ export interface MenuLocationRow {
   updatedAt: string;
 }
 
-export type MenuLinkSourceType = 'route' | 'page' | 'post' | 'blog_category' | 'blog_tag' | 'business_category' | 'area' | 'business';
+export type MenuLinkSourceType = 'route' | 'page' | 'post' | 'blog_category' | 'blog_tag' | 'business_category' | 'area' | 'business' | 'document';
 
 export interface MenuLinkSource {
   /** A record id, or a route key for `route`. */
@@ -79,8 +79,14 @@ export interface MenuLinkSourceQuery {
 }
 
 export const menusApi = {
-  list(client: HttpClient = httpClient) {
-    return client.request<{ data: MenuSummary[]; meta: CollectionMeta }>('/admin/menus', { query: { page: 1, pageSize: 50 } }).then((r) => r.data.data);
+  /** Every menu, page by page, so the menu chooser and location assignment can offer all of them. */
+  async list(client: HttpClient = httpClient) {
+    const all: MenuSummary[] = [];
+    for (let page = 1; ; page += 1) {
+      const result = await client.request<{ data: MenuSummary[]; meta: CollectionMeta }>('/admin/menus', { query: { page, pageSize: 50 } }).then((r) => r.data);
+      all.push(...result.data);
+      if (page >= result.meta.pageCount || result.data.length === 0) return all;
+    }
   },
   get(id: string, client: HttpClient = httpClient) {
     return client.request<{ data: MenuDetail }>(`/admin/menus/${encodeURIComponent(id)}`).then((r) => r.data.data);

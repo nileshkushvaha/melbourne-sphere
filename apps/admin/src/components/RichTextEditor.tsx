@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { EditorContent, useEditor, type Editor } from '@tiptap/react';
+import { EditorContent, Extension, useEditor, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table';
@@ -7,6 +7,7 @@ import { App, Button, Divider, Tooltip, Typography } from 'antd';
 import {
   BoldOutlined,
   CodeOutlined,
+  FilePdfOutlined,
   ItalicOutlined,
   LinkOutlined,
   OrderedListOutlined,
@@ -22,6 +23,7 @@ import {
 import { brand } from '@/config/theme';
 import { BusinessCardDialog, EmbedDialog, LinkDialog } from './editor/EmbedDialogs';
 import { InsertImageDialog } from './editor/InsertImageDialog';
+import { DocumentPickerDialog, type DocumentLink } from './editor/DocumentPickerDialog';
 import { ArticleDocument, ArticleFigure, EmbedBlock, tidyPastedHtml, type EmbedAttributes, type FigureAttributes } from './editor/nodes';
 
 interface Props {
@@ -93,7 +95,31 @@ function countWords(editor: Editor | null): number {
   return text.trim() ? text.trim().split(/\s+/).length : 0;
 }
 
-type Dialog = { kind: 'image'; file: File | null; existing: FigureAttributes | null } | { kind: 'embed' } | { kind: 'business' } | { kind: 'link'; href: string } | null;
+type Dialog = { kind: 'image'; file: File | null; existing: FigureAttributes | null } | { kind: 'embed' } | { kind: 'business' } | { kind: 'link'; href: string } | { kind: 'document'; selectedText: string } | null;
+
+/**
+ * A link to a library PDF keeps the document's id (`data-media-id`) through
+ * editing and saving (change log 1.16), so the document counts as in use. The
+ * link mark comes from StarterKit, so the attribute is added globally rather
+ * than by replacing the mark.
+ */
+const DocumentLinkAttributes = Extension.create({
+  name: 'documentLinkAttributes',
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['link'],
+        attributes: {
+          mediaId: {
+            default: null,
+            parseHTML: (element) => element.getAttribute('data-media-id'),
+            renderHTML: (attributes) => (attributes.mediaId ? { 'data-media-id': attributes.mediaId } : {}),
+          },
+        },
+      },
+    ];
+  },
+});
 
 /**
  * Rich text editor for article bodies (SRS BLOG 001, 1.10 BLOG 004). It
@@ -123,6 +149,7 @@ export function RichTextEditor({ value, onChange, disabled = false, ariaLabel = 
         // no underline style; Ctrl+U would only produce formatting that vanishes.
         underline: false,
       }),
+      DocumentLinkAttributes,
       ArticleFigure,
       EmbedBlock,
       LibraryImage.configure({ inline: false, HTMLAttributes: { loading: 'lazy' } }),
@@ -232,6 +259,14 @@ export function RichTextEditor({ value, onChange, disabled = false, ariaLabel = 
     setDialog(null);
   };
 
+  const insertDocument = (link: DocumentLink) => {
+    const attrs = { href: link.href, mediaId: link.mediaId, class: 'ms-doc-link' };
+    const { empty } = editor.state.selection;
+    if (empty) editor.chain().focus().insertContent({ type: 'text', text: link.text, marks: [{ type: 'link', attrs }] }).run();
+    else editor.chain().focus().extendMarkRange('link').insertContent({ type: 'text', text: link.text, marks: [{ type: 'link', attrs }] }).run();
+    setDialog(null);
+  };
+
   const insertEmbed = (attributes: EmbedAttributes) => {
     editor.chain().focus().insertContent({ type: 'embedBlock', attrs: attributes }).run();
     setDialog(null);
@@ -267,6 +302,11 @@ export function RichTextEditor({ value, onChange, disabled = false, ariaLabel = 
         <Divider type="vertical" />
         <ToolButton label="Link (Ctrl+K)" icon={<LinkOutlined aria-hidden="true" />} active={editor.isActive('link')} onClick={() => openLinkRef.current()} />
         <ToolButton label="Add an image" icon={<PictureOutlined aria-hidden="true" />} onClick={() => setDialog({ kind: 'image', file: null, existing: null })} />
+        <ToolButton
+          label="Link a PDF document"
+          icon={<FilePdfOutlined aria-hidden="true" />}
+          onClick={() => setDialog({ kind: 'document', selectedText: editor.state.doc.textBetween(editor.state.selection.from, editor.state.selection.to, ' ') })}
+        />
         <ToolButton label="Add a video or map" icon={<PlayCircleOutlined aria-hidden="true" />} onClick={() => setDialog({ kind: 'embed' })} />
         <ToolButton label="Add a business card" icon={<ShopOutlined aria-hidden="true" />} onClick={() => setDialog({ kind: 'business' })} />
         <ToolButton label="Insert table" icon={<TableOutlined aria-hidden="true" />} onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} />
@@ -316,6 +356,7 @@ export function RichTextEditor({ value, onChange, disabled = false, ariaLabel = 
 
       {dialog?.kind === 'link' && <LinkDialog initialUrl={dialog.href} onCancel={() => setDialog(null)} onApply={applyLink} onRemove={removeLink} />}
       {dialog?.kind === 'image' && <InsertImageDialog initialFile={dialog.file} existing={dialog.existing} onCancel={() => setDialog(null)} onInsert={(attributes) => insertFigure(attributes, dialog.existing !== null)} />}
+      {dialog?.kind === 'document' && <DocumentPickerDialog selectedText={dialog.selectedText} onCancel={() => setDialog(null)} onInsert={insertDocument} />}
       {dialog?.kind === 'embed' && <EmbedDialog onCancel={() => setDialog(null)} onInsert={insertEmbed} />}
       {dialog?.kind === 'business' && <BusinessCardDialog onCancel={() => setDialog(null)} onInsert={insertEmbed} />}
     </div>

@@ -10,6 +10,8 @@ import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { MediaField } from '@/components/MediaField';
 import { PageHeader, PageLoader, PageLoadError, SectionCard, StickyActions } from '@/components/ui';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 /** How each directive is described to someone who does not write robots tags. */
 const ROBOTS_LABELS: Record<(typeof ROBOTS_DIRECTIVES)[number], string> = {
@@ -63,6 +65,8 @@ export function SeoSettingsPage() {
   const [form] = Form.useForm<FormValues>();
   const [state, reload] = useAsync((signal) => api.get(signal), []);
   const [saving, setSaving] = useState(false);
+  const { can } = useCapabilities();
+  const mayUpdate = can(PERMISSION.settingsSeoUpdate);
   const [error, setError] = useState<string | null>(null);
   const [routeKey, setRouteKey] = useState(SEO_ROUTES[0]!.key);
 
@@ -149,7 +153,8 @@ export function SeoSettingsPage() {
 
       {error && <Alert type="error" showIcon role="alert" message={error} style={{ marginBottom: 16 }} />}
 
-      <Form<FormValues> form={form} layout="vertical" disabled={saving} onFinish={(values) => void submit(values)} requiredMark={false}>
+      <Form<FormValues> form={form} layout="vertical" disabled={saving || !mayUpdate} onFinish={(values) => void submit(values)} requiredMark={false}>
+        {!mayUpdate && <Alert type="info" showIcon message="You can view these settings but not change them." style={{ marginBottom: 16 }} />}
         <SectionCard
           title="Search and social metadata"
           description="What you set replaces the page's own text. Empty fields keep it."
@@ -249,9 +254,11 @@ export function SeoSettingsPage() {
         {/* Version 0 means nothing has ever been saved, so there is no
             timestamp to show — the stored one is the epoch. */}
         <StickyActions status={record && record.version > 0 ? `Version ${record.version} · saved ${formatDateTime(record.updatedAt)}` : 'Nothing saved yet'}>
-          <Button type="primary" htmlType="submit" loading={saving}>
-            Save SEO settings
-          </Button>
+          {mayUpdate && (
+            <Button type="primary" htmlType="submit" loading={saving}>
+              Save SEO settings
+            </Button>
+          )}
         </StickyActions>
       </Form>
 

@@ -52,6 +52,8 @@ export function businessesApi(client: HttpClient = httpClient) {
           signal,
         })
         .then((r) => r.data),
+    /** One listing by id; filters use it to name the business they are set to. */
+    get: (id: string, signal?: AbortSignal) => client.request<{ data: BusinessRecord }>(path(id), { signal }).then((r) => r.data.data),
     create: (body: CreateBusinessInput) => client.request<{ data: BusinessRecord }>(BASE, { method: 'POST', body }).then((r) => r.data.data),
     update: (id: string, body: UpdateBusinessInput) => client.request<{ data: BusinessRecord }>(path(id), { method: 'PATCH', body }).then((r) => r.data.data),
     transition: (id: string, action: BusinessAction, body: BusinessActionInput) => client.request<{ data: BusinessRecord }>(path(id, `/${action}`), { method: 'POST', body }).then((r) => r.data.data),

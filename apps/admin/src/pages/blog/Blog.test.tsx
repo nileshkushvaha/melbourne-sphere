@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { AppRoutes } from '@/app/routes';
 import { EditorialTermsPage } from './EditorialTermsPage';
 import { BLOG_CATEGORIES_CONFIG } from './editorial-configs';
@@ -15,7 +15,7 @@ const post = {
   id: 'p1', title: 'Best laneway coffee', slug: 'best-laneway-coffee', status: 'draft', authorId: 'a1', authorName: 'Alex Editor',
   categoryId: 'c1', categoryName: 'City guides', tagIds: ['t1'], commentsEnabled: true, scheduledAt: null, publishedAt: null,
   firstPublishedAt: null, publicationBlockers: ['Excerpt must be at least 20 characters'], version: 2, updatedAt: now,
-  excerpt: 'short', bodyMarkdown: '# Coffee\n\nBody text.', sanitizedBody: '<h2>Coffee</h2><p>Body text.</p>', coverAlt: null,
+  excerpt: 'short', bodyMarkdown: '# Coffee\n\nBody text.', bodyFormat: 'markdown', sanitizedBody: '<h2>Coffee</h2><p>Body text.</p>', coverAlt: null,
   seoTitle: null, seoDescription: null, archivedAt: null, createdAt: now,
 };
 const meta = { page: 1, pageSize: 20, total: 1, pageCount: 1 };
@@ -88,7 +88,11 @@ describe('blog admin screens', () => {
     const dialog = await screen.findByRole('dialog');
     await ue.click(within(dialog).getByRole('button', { name: /^publish article$/i }));
     expect(await within(dialog).findByText('Excerpt must be at least 20 characters')).toBeInTheDocument();
-    await ue.click(within(dialog).getByRole('button', { name: /^publish article$/i }));
+    // One action at a time: the button is pressable again once the refused attempt has finished. (Its
+    // loading icon's leave animation never completes in jsdom, so it is located by its text.)
+    const retry = within(dialog).getByText('Publish article').closest('button')!;
+    await waitFor(() => expect(retry).not.toHaveClass('ant-btn-loading'));
+    await ue.click(retry);
     const publishes = calls.filter((c) => c.url.endsWith('/publish'));
     expect(publishes).toHaveLength(2);
     expect(JSON.parse(publishes[1]!.body!)).toMatchObject({ expectedVersion: 2 });
@@ -114,7 +118,7 @@ describe('blog admin screens', () => {
   it('lists blog categories and links each to its own editable address', async () => {
     renderWithProviders(<EditorialTermsPage config={BLOG_CATEGORIES_CONFIG} />, { initialEntries: ['/admin/blog-categories'] });
     expect(await screen.findByRole('heading', { level: 1, name: 'Blog categories' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /new category/i })).toHaveAttribute('href', '/admin/blog-categories/new');
+    expect(await screen.findByRole('link', { name: /new category/i })).toHaveAttribute('href', '/admin/blog-categories/new');
     // Editing is a route, so the list itself opens no dialog.
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });

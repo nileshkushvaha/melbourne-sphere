@@ -48,7 +48,7 @@ export function ServiceAlertEditorPage() {
   const endOffsetLabel = melbourneOffsetLabel(melbourneLocalToUtc(draft?.endsLocal ?? '') ?? melbourneLocalToUtc(draft?.startsLocal ?? '') ?? new Date());
 
   const [state] = useAsync<ServiceAlert | null>(
-    () => (creating ? Promise.resolve(null) : serviceAlertsApi.list({ pageSize: 50 }).then((r) => r.data.find((row) => row.id === id) ?? null)),
+    () => (creating ? Promise.resolve(null) : serviceAlertsApi.get(id!)),
     [id, creating],
   );
   const record = state.status === 'ready' ? state.data : null;
@@ -114,7 +114,8 @@ export function ServiceAlertEditorPage() {
         displayOrder: values.displayOrder,
       };
       if (creating) await serviceAlertsApi.create(payload);
-      else if (record) await serviceAlertsApi.update(record.id, { ...payload, expectedVersion: record.version });
+      else if (!record) throw new Error('This alert could not be loaded, so nothing was saved. Reload the page and try again.');
+      else await serviceAlertsApi.update(record.id, { ...payload, expectedVersion: record.version });
       message.success(creating ? 'Alert created as a draft' : 'Alert updated');
     }).then((ok) => {
       if (ok) navigate(LIST);

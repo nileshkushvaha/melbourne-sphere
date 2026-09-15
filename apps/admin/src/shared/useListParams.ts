@@ -74,6 +74,45 @@ export function useListParams<K extends string, E extends string = never>(
     [params, setParams, defaultPageSize],
   );
 
+  /**
+   * Writes several parameters in one address change and returns to page 1.
+   * Separate `set` calls in one handler would each start from the same address,
+   * so every call but the last would be lost.
+   */
+  const setMany = useCallback(
+    (values: Partial<Record<K | E, string | undefined>>) => {
+      const next = new URLSearchParams(params);
+      for (const [key, value] of Object.entries(values) as [string, string | undefined][]) {
+        if (value) next.set(key, value);
+        else next.delete(key);
+      }
+      next.delete('page');
+      setParams(next, { replace: true });
+    },
+    [params, setParams],
+  );
+
+  /**
+   * Sets the sort field and direction together, in one address change, and
+   * returns to page 1. Two separate `set` calls would each start from the same
+   * address, so the second would silently undo the first; no field clears both.
+   */
+  const setSort = useCallback(
+    (field: string | undefined, order: 'asc' | 'desc' = 'asc') => {
+      const next = new URLSearchParams(params);
+      if (field) {
+        next.set('sort', field);
+        next.set('order', order);
+      } else {
+        next.delete('sort');
+        next.delete('order');
+      }
+      next.delete('page');
+      setParams(next, { replace: true });
+    },
+    [params, setParams],
+  );
+
   /** The filters currently in force, for chips and for "clear filters". */
   const active = useMemo(() => keys.filter((key) => Boolean(params.get(key))), [keys, params]);
 
@@ -84,5 +123,5 @@ export function useListParams<K extends string, E extends string = never>(
     setParams(next, { replace: true });
   }, [keys, params, setParams]);
 
-  return { page, pageSize, get, set, setPage, setPageSize, active, filtered: active.length > 0, clear };
+  return { page, pageSize, get, set, setMany, setPage, setPageSize, setSort, active, filtered: active.length > 0, clear };
 }

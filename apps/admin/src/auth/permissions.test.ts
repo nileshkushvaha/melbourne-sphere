@@ -36,8 +36,8 @@ describe('admin permission codes', () => {
   it('does not leave the access-control screens ungated', () => {
     expect(permissionsForPath('/roles')).toEqual(['roles.view']);
     expect(permissionsForPath('/permissions')).toEqual(['permissions.view']);
-    expect(permissionsForPath('/admins')).toEqual(['admins.manage']);
-    expect(permissionsForPath('/audit')).toEqual(['audit.read']);
+    expect(permissionsForPath('/admins')).toEqual(['admins.view']);
+    expect(permissionsForPath('/audit')).toContain('activity.access_control.view');
   });
 });
 

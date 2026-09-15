@@ -61,7 +61,8 @@ export function PostEditorPage() {
   const { mutate: onAuthError } = useOnError();
   const api = blogApi();
   const { can, loading: capabilitiesLoading } = useCapabilities();
-  const canWrite = can(PERMISSION.postsWrite);
+  const canWrite = can(isNew ? PERMISSION.postsCreate : PERMISSION.postsUpdate);
+  const canFeature = can(PERMISSION.postsFeature);
   const canPublish = can(PERMISSION.postsPublish);
   const [form] = Form.useForm<PostFormValues>();
   const [formError, setFormError] = useState<string | null>(null);
@@ -492,7 +493,7 @@ export function PostEditorPage() {
           </div>
 
           <div className="ms-post-editor__top">
-            <PublishBox post={post} checklist={checklist} canWrite={canWrite} canPublish={canPublish} readOnly={readOnly} saving={saving} dirty={dirty} onSave={() => form.submit()} onAction={openAction} onFocusField={focusField} onPreview={openPreview} onHistory={() => setHistoryOpen(true)} onFeature={(featured) => void toggleFeatured(featured)} featuring={featuring} />
+            <PublishBox post={post} checklist={checklist} canWrite={canWrite} canPublish={canPublish} readOnly={readOnly} saving={saving} dirty={dirty} onSave={() => form.submit()} onAction={openAction} onFocusField={focusField} onPreview={openPreview} onHistory={() => setHistoryOpen(true)} onFeature={canFeature ? (featured) => void toggleFeatured(featured) : undefined} featuring={featuring} />
             <DetailsBox
               authors={authors.status === 'ready' ? authors.data : []}
               categories={categories.status === 'ready' ? categories.data : []}

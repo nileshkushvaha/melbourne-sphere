@@ -42,6 +42,10 @@ export interface FaqListQuery {
 
 
 export const faqsApi = {
+  /** One record by id, whatever page of the list it is on. */
+  get(id: string, client: HttpClient = httpClient) {
+    return client.request<{ data: Faq }>(`/admin/faqs/${encodeURIComponent(id)}`).then((r) => r.data.data);
+  },
   list(query: FaqListQuery = {}, client: HttpClient = httpClient) {
     return client.request<{ data: Faq[]; meta: CollectionMeta }>('/admin/faqs', { query: queryParams({ ...query }) }).then((r) => r.data);
   },
@@ -98,6 +102,10 @@ export interface ServiceAlertInput {
 }
 
 export const serviceAlertsApi = {
+  /** One record by id, whatever page of the list it is on. */
+  get(id: string, client: HttpClient = httpClient) {
+    return client.request<{ data: ServiceAlert }>(`/admin/service-alerts/${encodeURIComponent(id)}`).then((r) => r.data.data);
+  },
   list(query: { page?: number; pageSize?: number; status?: WebsiteContentStatus; severity?: AlertSeverity; q?: string } = {}, client: HttpClient = httpClient) {
     return client.request<{ data: ServiceAlert[]; meta: CollectionMeta }>('/admin/service-alerts', { query: queryParams({ ...query }) }).then((r) => r.data);
   },
@@ -174,6 +182,10 @@ export interface PartnerInput {
 }
 
 export const testimonialsApi = {
+  /** One record by id, whatever page of the list it is on. */
+  get(id: string, client: HttpClient = httpClient) {
+    return client.request<{ data: Testimonial }>(`/admin/testimonials/${encodeURIComponent(id)}`).then((r) => r.data.data);
+  },
   list(query: { page?: number; pageSize?: number; status?: WebsiteContentStatus; q?: string } = {}, client: HttpClient = httpClient) {
     return client.request<{ data: Testimonial[]; meta: CollectionMeta }>('/admin/testimonials', { query: queryParams({ ...query }) }).then((r) => r.data);
   },
@@ -192,6 +204,10 @@ export const testimonialsApi = {
 };
 
 export const partnersApi = {
+  /** One record by id, whatever page of the list it is on. */
+  get(id: string, client: HttpClient = httpClient) {
+    return client.request<{ data: PartnerOrganisation }>(`/admin/partners/${encodeURIComponent(id)}`).then((r) => r.data.data);
+  },
   list(query: { page?: number; pageSize?: number; status?: WebsiteContentStatus; q?: string } = {}, client: HttpClient = httpClient) {
     return client.request<{ data: PartnerOrganisation[]; meta: CollectionMeta }>('/admin/partners', { query: queryParams({ ...query }) }).then((r) => r.data);
   },

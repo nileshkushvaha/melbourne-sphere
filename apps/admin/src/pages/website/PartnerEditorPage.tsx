@@ -31,7 +31,7 @@ export function PartnerEditorPage() {
   const { saving, error, submit } = useRecordEditor<Values>(form);
 
   const [state] = useAsync<PartnerOrganisation | null>(
-    () => (creating ? Promise.resolve(null) : partnersApi.list({ pageSize: 50 }).then((r) => r.data.find((row) => row.id === id) ?? null)),
+    () => (creating ? Promise.resolve(null) : partnersApi.get(id!)),
     [id, creating],
   );
   const record = state.status === 'ready' ? state.data : null;
@@ -59,7 +59,8 @@ export function PartnerEditorPage() {
         displayOrder: values.displayOrder,
       };
       if (creating) await partnersApi.create(payload);
-      else if (record) await partnersApi.update(record.id, { ...payload, expectedVersion: record.version });
+      else if (!record) throw new Error('This organisation could not be loaded, so nothing was saved. Reload the page and try again.');
+      else await partnersApi.update(record.id, { ...payload, expectedVersion: record.version });
       message.success(creating ? 'Organisation created as a draft' : 'Organisation updated');
     }).then((ok) => {
       if (ok) navigate(LIST);

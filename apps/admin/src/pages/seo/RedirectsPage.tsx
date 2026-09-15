@@ -12,6 +12,8 @@ import { useBusy } from '@/shared/useBusy';
 import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 /** The parameters that narrow this list; everything else is sort or page. */
 const FILTERS = ['q', 'kind', 'active'] as const;
@@ -25,6 +27,10 @@ export function RedirectsPage() {
   const api = seoApi();
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
+  const { can } = useCapabilities();
+  const mayCreate = can(PERMISSION.redirectsCreate);
+  const mayUpdate = can(PERMISSION.redirectsUpdate);
+  const mayDelete = can(PERMISSION.redirectsDelete);
   const list = useListParams(FILTERS);
   const search = list.get('q') ?? '';
   const kind = list.get('kind') as RedirectKind | undefined;
@@ -72,11 +78,13 @@ export function RedirectsPage() {
         title="SEO redirects"
         description="Old addresses that forward visitors and search engines. Slug changes add these automatically."
         actions={
-          <Link to="/redirects/new">
-            <Button type="primary" icon={<PlusOutlined aria-hidden="true" />}>
-              New redirect
-            </Button>
-          </Link>
+          mayCreate ? (
+            <Link to="/redirects/new">
+              <Button type="primary" icon={<PlusOutlined aria-hidden="true" />}>
+                New redirect
+              </Button>
+            </Link>
+          ) : null
         }
       />
       {state.status === 'error' && <ErrorState message={state.message} reference={state.reference} onRetry={reload} />}
@@ -147,7 +155,7 @@ export function RedirectsPage() {
             width: 210,
             render: (_: unknown, row) => (
               <Space size={4} wrap>
-                {row.isActive ? (
+                {!mayUpdate ? null : row.isActive ? (
                   <Popconfirm
                     title="Switch this redirect off?"
                     description={
@@ -169,6 +177,7 @@ export function RedirectsPage() {
                     Switch on
                   </Button>
                 )}
+                {mayDelete && (
                 <Popconfirm
                   title="Delete this redirect?"
                   description="The rule and its history are removed. To stop it temporarily, switch it off instead."
@@ -181,6 +190,7 @@ export function RedirectsPage() {
                     Delete
                   </Button>
                 </Popconfirm>
+                )}
               </Space>
             ),
           },

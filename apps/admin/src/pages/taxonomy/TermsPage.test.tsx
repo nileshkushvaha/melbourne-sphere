@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { AppRoutes } from '@/app/routes';
 import { TermsPage } from './TermsPage';
@@ -43,6 +44,24 @@ describe('taxonomy terms page (local areas)', () => {
     expect(within(row).getByText('Not verified')).toBeInTheDocument();
     expect(calls[0]?.url).toBe('/api/v1/admin/areas?page=1&pageSize=20&status=active&sort=sortOrder&order=desc');
     expect(screen.getByRole('link', { name: 'Local areas' })).toBeInTheDocument();
+  });
+
+  it('moves to another page without losing the sort (a page click is not a sort)', async () => {
+    const ue = user();
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      calls.push({ url, method: 'GET' });
+      const page = Number(new URL(url, 'http://admin.test').searchParams.get('page') ?? '1');
+      return jsonResponse(200, { data: areas, meta: { page, pageSize: 20, total: 48, pageCount: 3 } });
+    }) as typeof fetch;
+    renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/areas?sort=name&order=asc'] });
+    await screen.findByText('Docklands');
+
+    await ue.click(screen.getByTitle('2'));
+    await vi.waitFor(() => expect(calls.some((call) => call.url.includes('page=2'))).toBe(true));
+    const second = calls.find((call) => call.url.includes('page=2'))!;
+    expect(second.url).toContain('sort=name');
+    expect(second.url).toContain('order=asc');
   });
 
   it('creates on its own route, maps field errors from the envelope, and confirms deactivation', async () => {

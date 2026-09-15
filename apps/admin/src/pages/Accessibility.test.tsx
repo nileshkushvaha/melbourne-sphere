@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { DashboardPage } from './DashboardPage';
 import { LoginPage } from './LoginPage';
 import { AuthorEditorPage } from './blog/AuthorEditorPage';
@@ -22,15 +22,15 @@ const redirect = {
 };
 
 const catalogue = [
-  { key: 'posts.write', label: 'Edit articles', description: 'Create and edit blog posts', module: 'Editorial', isActive: true, isSystem: true },
-  { key: 'roles.view', label: 'View roles', description: 'View roles and the permissions they carry', module: 'Access control', isActive: true, isSystem: true },
+  { key: 'posts.update', label: 'Edit articles', description: 'Create and edit blog posts', module: 'Editorial', menuItem: 'Articles', action: 'Update', isActive: true, isSystem: true },
+  { key: 'roles.view', label: 'View roles', description: 'View roles and the permissions they carry', module: 'Configuration', menuItem: 'Roles', action: 'View', isActive: true, isSystem: true },
 ];
 
 const adminAccess = {
   adminId: 'a2', displayName: 'Second Admin', email: 'second@example.com', status: 'active', version: 2,
   roles: [{ id: 'r2', key: 'editor', name: 'Editor', isActive: true }],
-  directPermissions: ['roles.view'], inheritedPermissions: ['posts.write'], effectivePermissions: ['posts.write', 'roles.view'],
-  sources: { 'posts.write': ['editor'], 'roles.view': ['direct'] },
+  directPermissions: ['roles.view'], inheritedPermissions: ['posts.update'], effectivePermissions: ['posts.update', 'roles.view'],
+  sources: { 'posts.update': ['editor'], 'roles.view': ['direct'] },
 };
 
 /** Automated WCAG checks on representative screens (SRS NFR 006/011). */
@@ -72,13 +72,15 @@ describe('accessibility', () => {
   it('role editor, including the permission matrix, has no automated violations', async () => {
     const { container } = renderWithProviders(<RoleEditorPage />, { initialEntries: ['/admin/roles/new'], routePath: '/roles/new' });
     await screen.findByRole('heading', { level: 1, name: 'New role' });
-    await screen.findByRole('checkbox', { name: /edit articles/i });
+    await screen.findByRole('checkbox', { name: /articles: update/i });
     await check(container);
   });
 
   it('administrator access editor has no automated violations', async () => {
     const { container } = renderWithProviders(<AdminAccessCard adminId="a2" isSelf={false} />, { initialEntries: ['/admin/admins/a2'] });
-    await screen.findByRole('table');
+    // The permission matrix and the permissions-in-force table, both loaded.
+    await waitFor(() => expect(screen.getAllByRole('table').length).toBeGreaterThanOrEqual(2));
+    await screen.findByRole('checkbox', { name: /roles: view/i });
     await check(container);
   });
 

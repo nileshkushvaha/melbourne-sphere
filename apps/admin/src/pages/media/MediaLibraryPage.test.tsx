@@ -44,7 +44,8 @@ describe('media library', () => {
     expect(within(tile).getByText('1200 × 800')).toBeInTheDocument();
     expect(within(tile).getByText('Used in 1 place')).toBeInTheDocument();
     expect(screen.getByAltText('A Melbourne laneway')).toHaveAttribute('src', 'https://cdn.test/media/thumb.webp');
-    expect(calls[0]?.url).toBe('/api/v1/admin/media?status=ready&page=1&pageSize=24');
+    // The images view asks for images only (change log 1.16: documents have their own view).
+    expect(calls[0]?.url).toBe('/api/v1/admin/media?kind=image&status=ready&page=1&pageSize=24');
   });
 
   it('links each image to its own details route rather than opening a dialog', async () => {
@@ -106,10 +107,12 @@ describe('media library', () => {
   });
 
   it('states the requirements before a file is chosen, and takes one by drop or by button', async () => {
-    renderWithProviders(<MediaLibraryPage />, { initialEntries: ['/admin/media'] });
+    // Uploading needs the Media library's Upload permission (change log 1.13).
+    renderWithProviders(<MediaLibraryPage />, { initialEntries: ['/admin/media'], authProvider: providerWithPermissions(['media.view', 'media.upload']) });
     await screen.findByRole('heading', { level: 1, name: 'Media library' });
 
-    expect(screen.getByText(/JPEG, PNG or WebP, up to 10 MB/i)).toBeInTheDocument();
+    // The upload card appears once the administrator's permissions are known.
+    expect(await screen.findByText(/JPEG, PNG or WebP, up to 10 MB/i)).toBeInTheDocument();
     expect(screen.getByText(/Drop an image here/i)).toBeInTheDocument();
     // The keyboard path is a real button, not a drop zone only.
     expect(screen.getByRole('button', { name: /choose an image/i })).toBeInTheDocument();
@@ -126,7 +129,7 @@ describe('media library', () => {
 
     // Reading worker liveness needs its own permission; without it the screen
     // can only say an upload has waited a long time, which the next case covers.
-    renderWithProviders(<MediaLibraryPage />, { initialEntries: ['/admin/media'], authProvider: providerWithPermissions(['media.manage', 'system.queues.view']) });
+    renderWithProviders(<MediaLibraryPage />, { initialEntries: ['/admin/media'], authProvider: providerWithPermissions(['media.view', 'media.upload', 'media.delete', 'system.queues.view']) });
     expect(await screen.findByText('Background processing is not running')).toBeInTheDocument();
     expect(screen.getByText(/will be prepared once it is running again/i)).toBeInTheDocument();
   });

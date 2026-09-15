@@ -29,10 +29,9 @@ export function toSignInFailure(error: unknown): SignInFailure {
       reference: error.requestId ? error.reference : null,
     });
   }
-  // Anything else is not from our client, so only its message is kept, and only
-  // when it is a short plain string — never an object dumped onto the screen.
-  const message = typeof (error as { message?: unknown } | null)?.message === 'string' ? (error as { message: string }).message.trim() : '';
-  const safe = message && message.length <= 200 ? message : 'Sign-in failed. Please try again.';
+  // Anything else is not from our client (a browser or library error), so its
+  // text is never shown.
+  const safe = 'Sign-in failed. Please try again.';
   return Object.assign(new Error(safe), { name: 'Sign-in failed', kind: 'unexpected' as const, retryAfterSeconds: null, fields: {}, reference: null });
 }
 

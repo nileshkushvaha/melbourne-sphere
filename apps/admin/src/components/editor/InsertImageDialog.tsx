@@ -2,9 +2,12 @@ import { useState } from 'react';
 import { Alert, Button, Input, Modal, Progress, Radio, Space, Typography, Upload } from 'antd';
 import { InboxOutlined, PictureOutlined } from '@ant-design/icons';
 import { mediaApi, uploadImage, variantUrl, type MediaAsset } from '@/api/media';
+import { isApiError } from '@/api/errors';
 import { MediaPicker } from '@/components/MediaPicker';
 import { brand } from '@/config/theme';
 import type { FigureAttributes, FigureSize } from './nodes';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 interface Props {
   /** A file dropped or pasted into the editor, ready to upload. */
@@ -35,6 +38,9 @@ export function InsertImageDialog({ initialFile = null, existing = null, onCance
   const [state, setState] = useState<UploadState>({ kind: 'idle' });
   const [picking, setPicking] = useState(false);
   const [triedInsert, setTriedInsert] = useState(false);
+  const { can } = useCapabilities();
+  const mayUpload = can(PERMISSION.mediaUpload);
+  const mayChoose = can(PERMISSION.mediaView);
 
   const previewSrc = asset ? (variantUrl(asset, 800) ?? '') : (existing?.src ?? '');
   const readyToInsert = Boolean(description.trim()) && (asset !== null || existing !== null);
@@ -68,7 +74,7 @@ export function InsertImageDialog({ initialFile = null, existing = null, onCance
       setAsset(uploaded);
       setState({ kind: 'idle' });
     } catch (error) {
-      setState({ kind: 'failed', message: error instanceof Error ? error.message : 'The upload did not finish. Try again.' });
+      setState({ kind: 'failed', message: isApiError(error) ? error.userMessage : 'The upload did not finish. Try again.' });
     }
   };
 
@@ -106,6 +112,7 @@ export function InsertImageDialog({ initialFile = null, existing = null, onCance
 
         {!existing && !asset && (
           <>
+            {mayUpload && (
             <Upload.Dragger
               accept="image/png,image/jpeg,image/webp"
               multiple={false}
@@ -123,14 +130,20 @@ export function InsertImageDialog({ initialFile = null, existing = null, onCance
               <p className="ant-upload-text">{file ? file.name : 'Drop a picture here, or click to choose one'}</p>
               <p className="ant-upload-hint">JPEG, PNG or WebP.</p>
             </Upload.Dragger>
+            )}
             <Space wrap>
-              <Button type="primary" onClick={() => void upload()} disabled={!file || busy} loading={busy}>
-                {state.kind === 'processing' ? 'Preparing the picture…' : 'Upload this picture'}
-              </Button>
-              <Button icon={<PictureOutlined aria-hidden="true" />} onClick={() => setPicking(true)} disabled={busy}>
-                Choose from the media library
-              </Button>
+              {mayUpload && (
+                <Button type="primary" onClick={() => void upload()} disabled={!file || busy} loading={busy}>
+                  {state.kind === 'processing' ? 'Preparing the picture…' : 'Upload this picture'}
+                </Button>
+              )}
+              {mayChoose && (
+                <Button icon={<PictureOutlined aria-hidden="true" />} onClick={() => setPicking(true)} disabled={busy}>
+                  Choose from the media library
+                </Button>
+              )}
             </Space>
+            {!mayUpload && !mayChoose && <Alert type="info" showIcon message="Adding a picture needs access to upload media or to the Media library." />}
             {state.kind === 'uploading' && <Progress percent={state.percent} size="small" aria-label="Upload progress" />}
             {state.kind === 'failed' && <Alert type="warning" showIcon message={state.message} />}
           </>

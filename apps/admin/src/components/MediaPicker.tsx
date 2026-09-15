@@ -27,13 +27,13 @@ export function MediaPicker({ open, onCancel, onPick, multiple = false, excludeI
   const [state, reload] = useAsync(
     (signal) =>
       open
-        ? api.list({ status: 'ready', q: query || undefined, page, pageSize: PAGE_SIZE }, signal)
+        ? api.list({ kind: 'image', status: 'ready', q: query || undefined, page, pageSize: PAGE_SIZE }, signal)
         : Promise.resolve({ data: [], meta: { page: 1, pageSize: 0, total: 0, pageCount: 1 } }),
     [open, query, page],
   );
   // How many are still being prepared, so their absence can be explained rather
   // than read as "there are none".
-  const [processing] = useAsync((signal) => (open ? api.list({ status: 'quarantined', pageSize: 1 }, signal) : Promise.resolve(null)), [open]);
+  const [processing] = useAsync((signal) => (open ? api.list({ kind: 'image', status: 'quarantined', pageSize: 1 }, signal) : Promise.resolve(null)), [open]);
 
   const assets = (state.status === 'ready' ? state.data.data : []).filter((asset) => !excludeIds.includes(asset.id));
   const total = state.status === 'ready' ? state.data.meta.total : 0;

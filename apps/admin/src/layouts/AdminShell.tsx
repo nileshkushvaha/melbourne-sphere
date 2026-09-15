@@ -38,6 +38,7 @@ import { Brand } from '@/components/Brand';
 import { brand, layoutDimensions } from '@/config/theme';
 import { useScrollableTables } from '@/shared/useScrollableTables';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { ACTIVITY_VIEW_CODES, type PermissionCode } from '@/auth/permissions';
 
 const { Header, Sider, Content, Footer } = Layout;
 
@@ -45,7 +46,8 @@ interface NavItem {
   key: string;
   label: string;
   icon: ReactNode;
-  permission?: string;
+  /** One code, or a list of which any one is enough. */
+  permission?: PermissionCode | readonly PermissionCode[];
 }
 
 interface NavGroup {
@@ -69,21 +71,21 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Business',
     items: [
       { key: '/businesses', label: 'Businesses', icon: <ShopOutlined aria-hidden="true" />, permission: 'listings.read' },
-      { key: '/businesses/featured', label: 'Featured listings', icon: <StarOutlined aria-hidden="true" />, permission: 'listings.read' },
-      { key: '/categories', label: 'Categories', icon: <AppstoreOutlined aria-hidden="true" />, permission: 'taxonomy.manage' },
-      { key: '/services', label: 'Services', icon: <TagsOutlined aria-hidden="true" />, permission: 'taxonomy.manage' },
-      { key: '/areas', label: 'Local areas', icon: <EnvironmentOutlined aria-hidden="true" />, permission: 'taxonomy.manage' },
+      { key: '/businesses/featured', label: 'Featured listings', icon: <StarOutlined aria-hidden="true" />, permission: 'featured.view' },
+      { key: '/categories', label: 'Categories', icon: <AppstoreOutlined aria-hidden="true" />, permission: 'categories.view' },
+      { key: '/services', label: 'Services', icon: <TagsOutlined aria-hidden="true" />, permission: 'services.view' },
+      { key: '/areas', label: 'Local areas', icon: <EnvironmentOutlined aria-hidden="true" />, permission: 'areas.view' },
     ],
   },
   {
     key: 'editorial',
     label: 'Editorial',
     items: [
-      { key: '/posts', label: 'Articles', icon: <ReadOutlined aria-hidden="true" />, permission: 'posts.write' },
-      { key: '/authors', label: 'Authors', icon: <UserOutlined aria-hidden="true" />, permission: 'posts.write' },
-      { key: '/blog-categories', label: 'Blog categories', icon: <EditOutlined aria-hidden="true" />, permission: 'posts.write' },
-      { key: '/blog-tags', label: 'Blog tags', icon: <TagsOutlined aria-hidden="true" />, permission: 'posts.write' },
-      { key: '/media', label: 'Media library', icon: <PictureOutlined aria-hidden="true" />, permission: 'media.manage' },
+      { key: '/posts', label: 'Articles', icon: <ReadOutlined aria-hidden="true" />, permission: 'posts.view' },
+      { key: '/authors', label: 'Authors', icon: <UserOutlined aria-hidden="true" />, permission: 'authors.view' },
+      { key: '/blog-categories', label: 'Blog categories', icon: <EditOutlined aria-hidden="true" />, permission: 'blog_categories.view' },
+      { key: '/blog-tags', label: 'Blog tags', icon: <TagsOutlined aria-hidden="true" />, permission: 'blog_tags.view' },
+      { key: '/media', label: 'Media library', icon: <PictureOutlined aria-hidden="true" />, permission: 'media.view' },
     ],
   },
   {
@@ -91,30 +93,30 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Community',
     items: [
       { key: '/enquiries', label: 'Enquiries', icon: <MailOutlined aria-hidden="true" />, permission: 'enquiries.read' },
-      { key: '/reviews', label: 'Reviews', icon: <StarOutlined aria-hidden="true" />, permission: 'reviews.moderate' },
-      { key: '/comments', label: 'Comments', icon: <CommentOutlined aria-hidden="true" />, permission: 'comments.moderate' },
-      { key: '/reports', label: 'Abuse reports', icon: <AlertOutlined aria-hidden="true" />, permission: 'reports.manage' },
+      { key: '/reviews', label: 'Reviews', icon: <StarOutlined aria-hidden="true" />, permission: 'reviews.view' },
+      { key: '/comments', label: 'Comments', icon: <CommentOutlined aria-hidden="true" />, permission: 'comments.view' },
+      { key: '/reports', label: 'Abuse reports', icon: <AlertOutlined aria-hidden="true" />, permission: 'reports.view' },
     ],
   },
   {
     key: 'configuration',
     label: 'Configuration',
     items: [
-      { key: '/settings/general', label: 'General settings', icon: <SettingOutlined aria-hidden="true" />, permission: 'settings.manage' },
-      { key: '/settings', label: 'Home page settings', icon: <LayoutOutlined aria-hidden="true" />, permission: 'settings.manage' },
-      { key: '/settings/seo', label: 'SEO settings', icon: <SearchOutlined aria-hidden="true" />, permission: 'settings.manage' },
-      { key: '/redirects', label: 'SEO redirects', icon: <LinkOutlined aria-hidden="true" />, permission: 'redirects.manage' },
-      { key: '/admins', label: 'Administrators', icon: <TeamOutlined aria-hidden="true" />, permission: 'admins.manage' },
+      { key: '/settings/general', label: 'General settings', icon: <SettingOutlined aria-hidden="true" />, permission: 'settings.general.view' },
+      { key: '/settings', label: 'Home page settings', icon: <LayoutOutlined aria-hidden="true" />, permission: 'settings.home.view' },
+      { key: '/settings/seo', label: 'SEO settings', icon: <SearchOutlined aria-hidden="true" />, permission: 'settings.seo.view' },
+      { key: '/redirects', label: 'SEO redirects', icon: <LinkOutlined aria-hidden="true" />, permission: 'redirects.view' },
+      { key: '/admins', label: 'Administrators', icon: <TeamOutlined aria-hidden="true" />, permission: 'admins.view' },
       { key: '/roles', label: 'Roles', icon: <SafetyCertificateOutlined aria-hidden="true" />, permission: 'roles.view' },
       { key: '/permissions', label: 'Permissions', icon: <KeyOutlined aria-hidden="true" />, permission: 'permissions.view' },
-      { key: '/audit', label: 'Activity log', icon: <FileSearchOutlined aria-hidden="true" />, permission: 'audit.read' },
+      { key: '/audit', label: 'Activity log', icon: <FileSearchOutlined aria-hidden="true" />, permission: ACTIVITY_VIEW_CODES },
     ],
   },
   {
     key: 'website',
     label: 'Website',
     items: [
-      { key: '/website/pages', label: 'Pages', icon: <FileTextOutlined aria-hidden="true" />, permission: 'settings.manage' },
+      { key: '/website/pages', label: 'Pages', icon: <FileTextOutlined aria-hidden="true" />, permission: 'website.pages.view' },
       { key: '/website/menus', label: 'Menus', icon: <MenuOutlined aria-hidden="true" />, permission: 'website.menus.view' },
       { key: '/website/faqs', label: 'FAQs', icon: <QuestionCircleOutlined aria-hidden="true" />, permission: 'website.faqs.view' },
       { key: '/website/service-alerts', label: 'Service alerts', icon: <AlertOutlined aria-hidden="true" />, permission: 'website.alerts.view' },
@@ -175,7 +177,7 @@ export function AdminShell({ children }: AdminShellProps) {
     () =>
       NAV_GROUPS.map((group) => ({
         ...group,
-        items: group.items.filter((item) => !item.permission || (capabilitiesKnown && (permissions ?? []).includes(item.permission))),
+        items: group.items.filter((item) => !item.permission || (capabilitiesKnown && (typeof item.permission === 'string' ? [item.permission] : item.permission).some((code) => (permissions ?? []).includes(code)))),
       })).filter((group) => group.items.length > 0),
     [permissions, capabilitiesKnown],
   );

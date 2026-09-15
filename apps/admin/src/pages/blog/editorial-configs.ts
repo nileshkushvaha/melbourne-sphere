@@ -1,4 +1,5 @@
 import type { BlogTermKind } from '@/api/blog';
+import { PERMISSION } from '@/auth/permissions';
 
 export interface EditorialTermsConfig {
   kind: BlogTermKind;
@@ -24,3 +25,9 @@ export const BLOG_TAGS_CONFIG: EditorialTermsConfig = {
   intro: 'Optional labels. A tag without landing content is not indexed by search engines.',
   publicBase: '/blog/tag',
 };
+
+/** Blog categories and blog tags are separate menu items with their own permissions (change log 1.13). */
+export const EDITORIAL_TERM_PERMISSIONS = {
+  'blog-categories': { create: PERMISSION.blogCategoriesCreate, update: PERMISSION.blogCategoriesUpdate },
+  'blog-tags': { create: PERMISSION.blogTagsCreate, update: PERMISSION.blogTagsUpdate },
+} as const;

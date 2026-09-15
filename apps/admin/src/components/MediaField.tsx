@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { Alert, Button, Space, Typography, Upload } from 'antd';
 import { DeleteOutlined, PictureOutlined } from '@ant-design/icons';
 import { mediaApi, uploadImage, variantUrl, type MediaAsset } from '@/api/media';
+import { isApiError } from '@/api/errors';
 import { MediaPicker } from './MediaPicker';
 import { brand } from '@/config/theme';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 interface Props {
   /** The chosen asset's id. Supplied by `Form.Item` when used as a control. */
@@ -44,6 +47,11 @@ export function MediaField({ value, onChange, current = null, emptyLabel = 'No i
   // between "nothing picked yet" and "the stored one was removed" is held here.
   const [cleared, setCleared] = useState(false);
   const shown = chosen ?? (cleared || !value ? null : current);
+  // Choosing needs the Media library's View permission and uploading its Upload
+  // permission; a screen's own permission does not imply either (change log 1.13).
+  const { can } = useCapabilities();
+  const mayChoose = can(PERMISSION.mediaView);
+  const mayUpload = can(PERMISSION.mediaUpload);
 
   return (
     <>
@@ -59,10 +67,17 @@ export function MediaField({ value, onChange, current = null, emptyLabel = 'No i
           </div>
         )}
         <Space direction="vertical" size={8}>
-          <Button icon={<PictureOutlined aria-hidden="true" />} onClick={() => setPicking(true)} disabled={disabled}>
-            {shown ? 'Replace image' : 'Choose image'}
-          </Button>
-          {uploadAlt && <Upload accept="image/png,image/jpeg,image/webp" showUploadList={false} disabled={disabled || uploading} beforeUpload={async (file) => {
+          {mayChoose && (
+            <Button icon={<PictureOutlined aria-hidden="true" />} onClick={() => setPicking(true)} disabled={disabled}>
+              {shown ? 'Replace image' : 'Choose image'}
+            </Button>
+          )}
+          {!mayChoose && !(uploadAlt && mayUpload) && (
+            <Typography.Text type="secondary" style={{ fontSize: 12.5, maxWidth: 220 }}>
+              Choosing an image needs access to the Media library.
+            </Typography.Text>
+          )}
+          {uploadAlt && mayUpload && <Upload accept="image/png,image/jpeg,image/webp" showUploadList={false} disabled={disabled || uploading} beforeUpload={async (file) => {
             setUploading(true);
             setUploadError(null);
             try {
@@ -73,12 +88,15 @@ export function MediaField({ value, onChange, current = null, emptyLabel = 'No i
                 asset = await api.get(asset.id);
               }
               const url = variantUrl(asset);
-              if (asset.status !== 'ready' || !url) throw new Error('Image is not ready yet. Check the media library, then choose it when processing finishes.');
+              if (asset.status !== 'ready' || !url) {
+                setUploadError('Image is not ready yet. Check the media library, then choose it when processing finishes.');
+                return false;
+              }
               setChosen({ url, alt: asset.altText ?? uploadAlt });
               setCleared(false);
               onChange?.(asset.id);
             } catch (error) {
-              setUploadError(error instanceof Error ? error.message : 'Upload failed');
+              setUploadError(isApiError(error) ? error.userMessage : 'The upload did not finish. Try again.');
             } finally { setUploading(false); }
             return false;
           }}><Button loading={uploading} disabled={disabled}>{uploading ? 'Processing image' : 'Upload image'}</Button></Upload>}

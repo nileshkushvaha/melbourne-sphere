@@ -24,8 +24,9 @@ describe('sign-in failures', () => {
     expect(signInMessage(failure('network')).showReference).toBe(false);
   });
 
-  it('keeps only a short plain message from an error it does not recognise', () => {
-    expect(toSignInFailure({ message: 'Invalid email or password' }).message).toBe('Invalid email or password');
+  it('never shows the text of an error that did not come from the API client', () => {
+    expect(toSignInFailure({ message: 'Invalid email or password' }).message).toBe('Sign-in failed. Please try again.');
+    expect(toSignInFailure(new TypeError('Failed to fetch')).message).toBe('Sign-in failed. Please try again.');
     expect(toSignInFailure({ message: 'x'.repeat(500) }).message).toBe('Sign-in failed. Please try again.');
     expect(toSignInFailure({ message: { nested: true } }).message).toBe('Sign-in failed. Please try again.');
     expect(toSignInFailure(null).kind).toBe('unexpected');

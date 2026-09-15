@@ -55,7 +55,7 @@ export function AuthorEditorPage() {
   const { mutate: onAuthError } = useOnError();
   const api = blogApi();
   const { can, loading: capabilitiesLoading } = useCapabilities();
-  const canWrite = can(PERMISSION.postsWrite);
+  const canWrite = can(isNew ? PERMISSION.authorsCreate : PERMISSION.authorsUpdate);
   const [form] = Form.useForm<FormValues>();
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);

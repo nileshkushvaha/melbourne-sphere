@@ -41,7 +41,7 @@ export function FeaturedPage() {
   const { mutate: onAuthError } = useOnError();
   const { can } = useCapabilities();
   const navigate = useNavigate();
-  const canManage = can(PERMISSION.listingsPublish);
+  const canManage = can(PERMISSION.featuredManage);
   const list = useListParams(FILTERS);
   const [state, reload] = useAsync((signal) => api.list(signal), []);
   const [, run] = useBusy();

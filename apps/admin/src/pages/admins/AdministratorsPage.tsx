@@ -9,6 +9,8 @@ import { useAsync } from '@/shared/useAsync';
 import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 /** The parameters that narrow this list; everything else is sort or page. */
 const FILTERS = ['q', 'status', 'role'] as const;
@@ -20,6 +22,8 @@ const FILTERS = ['q', 'status', 'role'] as const;
  */
 export function AdministratorsPage() {
   useDocumentTitle('Administrators');
+  const { can } = useCapabilities();
+  const mayInvite = can(PERMISSION.adminsCreate);
   const list = useListParams<(typeof FILTERS)[number], 'sort' | 'order'>(FILTERS);
   const page = list.page;
   const q = list.get('q') ?? '';
@@ -34,7 +38,7 @@ export function AdministratorsPage() {
   // Roles arrive on an account as keys; a reader recognises the name they chose,
   // so the list is fetched once to translate them. A key that no longer resolves
   // is shown as it is rather than hidden.
-  const [rolesState] = useAsync((signal) => authorizationApi().listRoles({ page: 1, pageSize: 50 }, signal), []);
+  const [rolesState] = useAsync((signal) => authorizationApi().listAllRoles(signal), []);
   const roleName = (key: string) => (rolesState.status === 'ready' ? rolesState.data.data.find((role) => role.key === key)?.name : undefined) ?? key;
 
 
@@ -45,11 +49,13 @@ export function AdministratorsPage() {
         title="Administrators"
         description="Everyone who can sign in. Invited accounts become active once a password is set."
         actions={
-          <Link to="/admins/new">
-            <Button type="primary" icon={<PlusOutlined aria-hidden="true" />}>
-              New administrator
-            </Button>
-          </Link>
+          mayInvite ? (
+            <Link to="/admins/new">
+              <Button type="primary" icon={<PlusOutlined aria-hidden="true" />}>
+                New administrator
+              </Button>
+            </Link>
+          ) : null
         }
       />
       <TableCard
@@ -84,12 +90,14 @@ export function AdministratorsPage() {
         scroll={{ x: 720 }}
         // Sorting writes to the address bar with the filters, so an ordered
         // view can be linked to.
-        onChange={(_pagination, _filters, sorter) => {
+        // Ant calls this for page changes too; those belong to the pagination
+        // control, so only a sort is handled here, or a page click would reset
+        // the list to page 1.
+        onChange={(_pagination, _filters, sorter, extra) => {
+          if (extra.action !== 'sort') return;
           const next = Array.isArray(sorter) ? sorter[0] : sorter;
           const field = typeof next?.field === 'string' ? next.field : undefined;
-          if (!field || !next?.order) return list.set('sort', undefined);
-          list.set('sort', field);
-          list.set('order', next.order === 'descend' ? 'desc' : 'asc');
+          list.setSort(field && next?.order ? field : undefined, next?.order === 'descend' ? 'desc' : 'asc');
         }}
         columns={[
           { title: 'Name', dataIndex: 'displayName', sorter: true, sortOrder: sortColumn('displayName'), render: (v: string, r) => <Link to={`/admins/${r.id}`}>{v}</Link> },

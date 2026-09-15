@@ -16,6 +16,8 @@ import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard, statusRowClass
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { expandToggle } from '@/components/ui/expandToggle';
 import { brand } from '@/config/theme';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 /**
  * One entry per decision, so the dialog's title, its button and the message
@@ -47,6 +49,10 @@ const FILTERS = ['status', 'reported', 'postId', 'id'] as const;
 /** Comment moderation (SRS COM 001): the same states and rules as reviews. */
 export function CommentsPage() {
   useDocumentTitle('Comments');
+  const { can } = useCapabilities();
+  const mayModerate = can(PERMISSION.commentsModerate);
+  const mayRedact = can(PERMISSION.commentsRedact);
+  const mayReply = can(PERMISSION.commentsReply);
   const api = moderationApi();
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
@@ -169,7 +175,7 @@ export function CommentsPage() {
               <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
                 {comment.email ? (
                   <>
-                    Contact: <RevealContact masked={comment.email} reveal={() => api.revealCommentEmail(comment.id)} /> · acknowledged {comment.acknowledgedVersion}
+                    Contact: <RevealContact masked={comment.email} permission={PERMISSION.commentsEmailView} reveal={() => api.revealCommentEmail(comment.id)} /> · acknowledged {comment.acknowledgedVersion}
                   </>
                 ) : (
                   'Written by the Melbourne Sphere team'
@@ -219,11 +225,11 @@ export function CommentsPage() {
             width: 260,
             render: (_: unknown, comment) => (
               <Space wrap>
-                {comment.status !== 'approved' && <Button size="small" type="primary" onClick={() => { setDialogError(null); decisionForm.resetFields(); setPending({ comment, decision: 'approve' }); }}>Publish</Button>}
-                {comment.status !== 'rejected' && <Button size="small" danger onClick={() => { setDialogError(null); decisionForm.resetFields(); setPending({ comment, decision: 'reject' }); }}>Reject</Button>}
-                {comment.status !== 'spam' && <Button size="small" onClick={() => { setDialogError(null); decisionForm.resetFields(); setPending({ comment, decision: 'spam' }); }}>Spam</Button>}
-                {comment.status === 'approved' && <Button size="small" onClick={() => { setDialogError(null); replyForm.resetFields(); setReplying(comment); }}>Reply</Button>}
-                <Button size="small" onClick={() => { setDialogError(null); redactForm.setFieldsValue({ publicText: comment.publicText ?? comment.originalText, reason: '' }); setRedacting(comment); }}>Redact</Button>
+                {mayModerate && comment.status !== 'approved' && <Button size="small" type="primary" onClick={() => { setDialogError(null); decisionForm.resetFields(); setPending({ comment, decision: 'approve' }); }}>Publish</Button>}
+                {mayModerate && comment.status !== 'rejected' && <Button size="small" danger onClick={() => { setDialogError(null); decisionForm.resetFields(); setPending({ comment, decision: 'reject' }); }}>Reject</Button>}
+                {mayModerate && comment.status !== 'spam' && <Button size="small" onClick={() => { setDialogError(null); decisionForm.resetFields(); setPending({ comment, decision: 'spam' }); }}>Spam</Button>}
+                {mayReply && comment.status === 'approved' && <Button size="small" onClick={() => { setDialogError(null); replyForm.resetFields(); setReplying(comment); }}>Reply</Button>}
+                {mayRedact && <Button size="small" onClick={() => { setDialogError(null); redactForm.setFieldsValue({ publicText: comment.publicText ?? comment.originalText, reason: '' }); setRedacting(comment); }}>Redact</Button>}
               </Space>
             ),
           },

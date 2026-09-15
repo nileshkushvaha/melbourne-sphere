@@ -11,9 +11,11 @@ interface Props {
   /** Fetches the options matching what has been typed; called with '' when opened. */
   search: (term: string, signal: AbortSignal) => Promise<RemoteOption[]>;
   value?: string;
-  onChange: (value: string | undefined) => void;
+  /** Supplied by `Form.Item` when used as a form control. */
+  onChange?: (value: string | undefined) => void;
   placeholder: string;
-  ariaLabel: string;
+  ariaLabel?: string;
+  id?: string;
   /** Shown for the current value before its label has been fetched. */
   valueLabel?: string;
   width?: number;
@@ -31,7 +33,7 @@ interface Props {
  * Typing is debounced: a request per keystroke would send five for "cafe" and
  * race them, and the last to arrive is not reliably the last one typed.
  */
-export function RemoteSelect({ search, value, onChange, placeholder, ariaLabel, valueLabel, width = 220 }: Props) {
+export function RemoteSelect({ search, value, onChange, placeholder, ariaLabel, valueLabel, width = 220, id }: Props) {
   const [typed, setTyped] = useState('');
   const [term, setTerm] = useState('');
 
@@ -48,6 +50,7 @@ export function RemoteSelect({ search, value, onChange, placeholder, ariaLabel, 
 
   return (
     <Select
+      id={id}
       aria-label={ariaLabel}
       allowClear
       showSearch
@@ -57,7 +60,7 @@ export function RemoteSelect({ search, value, onChange, placeholder, ariaLabel, 
       placeholder={placeholder}
       value={value}
       onSearch={setTyped}
-      onChange={(next) => onChange(next ?? undefined)}
+      onChange={(next) => onChange?.(next ?? undefined)}
       loading={state.status === 'loading'}
       notFoundContent={state.status === 'loading' ? 'Searching…' : 'Nothing matches'}
       style={{ width }}

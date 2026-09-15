@@ -8,7 +8,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const controller = new AbortController();
     const refresh = () => {
-      void httpClient.request<{ data: Settings }>('/settings', { signal: controller.signal })
+      void httpClient.request<{ data: Settings }>('/site/settings', { signal: controller.signal })
         .then((response) => { if (!controller.signal.aborted) setSettings(response.data.data); })
         .catch(() => { /* Bundled branding remains available when the API is offline. */ });
     };

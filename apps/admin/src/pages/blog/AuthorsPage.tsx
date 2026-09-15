@@ -9,6 +9,8 @@ import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 /** The parameters that narrow this list; everything else is sort or page. */
 const FILTERS = ['q', 'status'] as const;
@@ -21,6 +23,9 @@ export function AuthorsPage() {
   useDocumentTitle('Authors');
   const api = blogApi();
   const navigate = useNavigate();
+  const { can } = useCapabilities();
+  const mayCreate = can(PERMISSION.authorsCreate);
+  const mayUpdate = can(PERMISSION.authorsUpdate);
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
   const list = useListParams(FILTERS);
@@ -47,9 +52,11 @@ export function AuthorsPage() {
         title="Authors"
         description="Public bylines and author cards: photo, role, biography, topics and profile links. Authors never sign in."
         actions={
-          <Button type="primary" icon={<PlusOutlined aria-hidden="true" />} onClick={() => navigate('/authors/new')}>
-            New author
-          </Button>
+          mayCreate ? (
+            <Button type="primary" icon={<PlusOutlined aria-hidden="true" />} onClick={() => navigate('/authors/new')}>
+              New author
+            </Button>
+          ) : null
         }
       />
       {state.status === 'error' && <ErrorState message={state.message} reference={state.reference} onRetry={reload} />}
@@ -127,7 +134,7 @@ export function AuthorsPage() {
           { title: 'Updated', dataIndex: 'updatedAt', render: formatDateTime },
           {
             title: <span className="sr-only">Actions</span>,
-            render: (_: unknown, row) => <Switch checked={row.active} onChange={() => void toggleActive(row)} aria-label={`${row.active ? 'Deactivate' : 'Activate'} ${row.displayName}`} />,
+            render: (_: unknown, row) => <Switch checked={row.active} disabled={!mayUpdate} onChange={() => void toggleActive(row)} aria-label={`${row.active ? 'Deactivate' : 'Activate'} ${row.displayName}`} />,
           },
         ]}
       />

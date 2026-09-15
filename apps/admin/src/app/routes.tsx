@@ -4,6 +4,7 @@ import { CatchAllNavigate } from '@refinedev/react-router';
 import { Navigate, Outlet, Route, Routes } from 'react-router';
 import { AdminShell } from '@/layouts/AdminShell';
 import { PageLoader } from '@/components/ui';
+import { RouteErrorBoundary } from '@/components/ErrorBoundary';
 import { RequirePermission } from '@/auth/RequirePermission';
 import { AcceptSetupPage } from '@/pages/AcceptSetupPage';
 import { AREAS_CONFIG, CATEGORIES_CONFIG, SERVICES_CONFIG } from '@/pages/taxonomy/configs';
@@ -88,9 +89,11 @@ export function AppRoutes() {
                 enforces the same permission on every request the page makes.
               */}
               <RequirePermission>
-                <Suspense fallback={<PageLoader label="Loading this screen…" />}>
-                  <Outlet />
-                </Suspense>
+                <RouteErrorBoundary>
+                  <Suspense fallback={<PageLoader label="Loading this screen…" />}>
+                    <Outlet />
+                  </Suspense>
+                </RouteErrorBoundary>
               </RequirePermission>
             </AdminShell>
           </Authenticated>

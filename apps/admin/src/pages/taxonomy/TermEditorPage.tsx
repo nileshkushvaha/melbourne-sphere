@@ -1,4 +1,5 @@
 import { Fragment, useEffect } from 'react';
+import { TermSelect } from '@/components/TermSelect';
 import { App, Form, Input, InputNumber, Select } from 'antd';
 import { useNavigate, useParams } from 'react-router';
 import { taxonomyApi, type TermItem } from '@/api/taxonomy';
@@ -11,6 +12,8 @@ import { useAsync } from '@/shared/useAsync';
 import { useRecordEditor } from '@/shared/useRecordEditor';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import type { TermsPageConfig } from './TermsPage';
+import { TERM_PERMISSIONS } from './configs';
+import { useCapabilities } from '@/auth/access-control';
 
 /**
  * One taxonomy term on its own route (SRS CFG 003, ADM 002).
@@ -24,6 +27,8 @@ export function TermEditorPage({ config }: { config: TermsPageConfig }) {
   const { id } = useParams();
   const isNew = id === undefined;
   const api = taxonomyApi<TermItem>(config.kind);
+  const { can } = useCapabilities();
+  const mayUpdate = can(TERM_PERMISSIONS[config.kind].update);
   const { message } = App.useApp();
   const navigate = useNavigate();
   const [form] = Form.useForm();
@@ -34,11 +39,6 @@ export function TermEditorPage({ config }: { config: TermsPageConfig }) {
 
   const [state] = useAsync(() => (isNew ? Promise.resolve(null) : api.get(id)), [config.kind, id]);
   const term = state.status === 'ready' ? state.data : null;
-  // A term can never be its own parent, so the current record is excluded.
-  const [parents] = useAsync(
-    () => (config.kind === 'categories' ? api.list({ pageSize: 50, status: 'active', sort: 'name' }).then((r) => r.data.filter((entry) => !('parentId' in entry) || entry.parentId === null)) : Promise.resolve([] as TermItem[])),
-    [config.kind],
-  );
 
   // `initialValues` only applies when the form mounts, and the record arrives
   // after that, so the loaded values are pushed in when they land.
@@ -79,6 +79,7 @@ export function TermEditorPage({ config }: { config: TermsPageConfig }) {
       error={error ?? (state.status === 'error' ? state.message : null)}
       status={term ? `Version ${term.version}` : 'Not saved yet'}
       submitLabel={isNew ? 'Create' : 'Save'}
+      readOnlyReason={!isNew && !mayUpdate ? `You can view this ${config.singular.toLowerCase()} but not change it.` : null}
       onSubmit={save}
     >
       {config.fields.map((field) => (
@@ -119,11 +120,8 @@ export function TermEditorPage({ config }: { config: TermsPageConfig }) {
           ) : field.input === 'tags' ? (
             <Select mode="tags" tokenSeparators={[',']} placeholder="Add synonyms" />
           ) : field.input === 'parent' ? (
-            <Select
-              allowClear
-              placeholder="None (top-level)"
-              options={parents.status === 'ready' ? parents.data.filter((entry) => entry.id !== term?.id).map((entry) => ({ value: entry.id, label: entry.name })) : []}
-            />
+            // Top-level categories found by searching, so every possible parent can be chosen; a term is never its own parent.
+            <TermSelect kind="categories" topLevelOnly allowClear placeholder="None (top-level)" excludeIds={term ? [term.id] : []} />
           ) : (
             <Input maxLength={field.max} placeholder={field.placeholder} />
           )}

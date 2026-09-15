@@ -10,6 +10,8 @@ import { useAsync } from '@/shared/useAsync';
 import { useRecordEditor } from '@/shared/useRecordEditor';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import type { EditorialTermsConfig } from './editorial-configs';
+import { EDITORIAL_TERM_PERMISSIONS } from './editorial-configs';
+import { useCapabilities } from '@/auth/access-control';
 
 interface Values {
   name: string;
@@ -32,13 +34,15 @@ export function EditorialTermEditorPage({ config }: { config: EditorialTermsConf
   const api = blogApi();
   const { message } = App.useApp();
   const navigate = useNavigate();
+  const { can } = useCapabilities();
+  const mayUpdate = can(EDITORIAL_TERM_PERMISSIONS[config.kind].update);
   const [form] = Form.useForm<Values>();
   const { saving, error, submit } = useRecordEditor<Values>(form);
   // What the address will be if one has not been chosen, shown before saving.
   const typedName = Form.useWatch('name', form) ?? '';
   const listHref = `/${config.kind}`;
-  // Tags have no search appearance of their own: an untitled tag page is noindex (SRS BLOG 005).
-  const hasSearchAppearance = config.kind === 'blog-categories';
+  // Categories and tags both have a search appearance (change log 1.15).
+  const noun = config.singular.toLowerCase();
 
   // The API lists terms rather than serving one, which is the cheaper contract
   // for a set this small; the record is picked out of that list.
@@ -66,9 +70,10 @@ export function EditorialTermEditorPage({ config }: { config: EditorialTermsConf
         name: values.name,
         ...(values.slug ? { slug: values.slug } : {}),
         landingContent: values.landingContent || null,
-        ...(hasSearchAppearance
-          ? { seoTitle: values.seoTitle || null, seoDescription: values.seoDescription || null, seoKeywords: values.seoKeywords || null, ogImageMediaId: values.ogImageMediaId || null }
-          : {}),
+        seoTitle: values.seoTitle || null,
+        seoDescription: values.seoDescription || null,
+        seoKeywords: values.seoKeywords || null,
+        ogImageMediaId: values.ogImageMediaId || null,
       };
       if (creating) {
         await api.createTerm(config.kind, body);
@@ -94,6 +99,7 @@ export function EditorialTermEditorPage({ config }: { config: EditorialTermsConf
       error={error ?? (state.status === 'error' ? state.message : null)}
       status={term ? `Version ${term.version} · ${term.postCount} article${term.postCount === 1 ? '' : 's'}` : 'Not saved yet'}
       submitLabel={creating ? 'Create' : 'Save'}
+      readOnlyReason={!creating && !mayUpdate ? `You can view this ${config.singular.toLowerCase()} but not change it.` : null}
       onSubmit={save}
     >
       <Form.Item label="Name" name="name" rules={[{ required: true, message: 'Name is required' }]}>
@@ -113,27 +119,25 @@ export function EditorialTermEditorPage({ config }: { config: EditorialTermsConf
       <Form.Item label="Landing content (Markdown)" name="landingContent" extra="Shown on the landing page. Without it the page is not indexed.">
         <Input.TextArea rows={10} maxLength={5000} showCount />
       </Form.Item>
-      {hasSearchAppearance && (
-        <>
+      <>
           {/* A real heading, so the group is announced as one — the same section the directory categories use. */}
           <div className="ms-form-section">
             <h3>Search appearance</h3>
-            <p>How this category appears in search results and when shared. Each falls back to the composed title and description, and the site image, when empty.</p>
+            <p>How this {noun} appears in search results and when shared. Each falls back to the composed title and description, and the site image, when empty.</p>
           </div>
           <Form.Item label="SEO title" name="seoTitle">
-            <Input maxLength={180} showCount placeholder="e.g. Melbourne city guides — walks, markets and laneways" />
+            <Input maxLength={180} showCount placeholder={config.kind === 'blog-tags' ? 'e.g. Coffee in Melbourne — roasters, cafés and laneway bars' : 'e.g. Melbourne city guides — walks, markets and laneways'} />
           </Form.Item>
           <Form.Item label="Meta description" name="seoDescription">
             <Input.TextArea rows={3} maxLength={300} showCount placeholder="The summary shown under the title in search results" />
           </Form.Item>
           <Form.Item label="Keywords" name="seoKeywords" extra="Comma separated. Search engines ignore this tag; it will not affect ranking.">
-            <Input maxLength={255} placeholder="e.g. melbourne guides, walking tours, laneways" />
+            <Input maxLength={255} placeholder={config.kind === 'blog-tags' ? 'e.g. melbourne coffee, cafés, roasters' : 'e.g. melbourne guides, walking tours, laneways'} />
           </Form.Item>
           <Form.Item label="Share image" name="ogImageMediaId" extra="Used when the landing page is shared. Empty uses the site image.">
             <MediaField current={term?.ogImage ?? null} emptyLabel="The site image is used" clearLabel="Use the site image" aspectRatio="1.91 / 1" />
           </Form.Item>
-        </>
-      )}
+      </>
     </RecordEditorPage>
   );
 }

@@ -2,6 +2,7 @@ import { screen } from '@testing-library/react';
 import { AppRoutes } from '@/app/routes';
 import { renderWithProviders, user } from '@/test/render';
 import { jsonResponse } from '@/test/fetch-fakes';
+import { PRICING_PERIODS, PRICING_PLAN_KEYS } from '@melbourne-sphere/domain/pricing';
 
 const record = {
   applicationName: 'Melbourne Sphere',
@@ -21,6 +22,7 @@ const record = {
   social: { facebook: 'https://www.facebook.com/melbournesphere', instagram: null, x: null, youtube: null, pinterest: null },
   copyrightText: null,
   footerText: null,
+  pricing: { enabled: true, plans: PRICING_PLAN_KEYS.map((key) => ({ key, name: key === 'guest_post' ? 'Guest post' : 'Business listing', priceCents: 19900, period: PRICING_PERIODS[0], summary: null, features: [] })) },
   logo: null,
   favicon: null,
   shareImage: null,

@@ -119,8 +119,10 @@ function toApiError(response: Response, parsed: unknown, requestIdHeader: string
       kind,
       status: response.status,
       code,
-      // API messages are authored server-side for display (SRS API 002) and never echo private input.
-      userMessage: message || DEFAULT_MESSAGES[kind],
+      // 4xx messages are authored server-side for display (SRS API 002) and never
+      // echo private input. A server or availability failure always gets the
+      // client's own sentence, whatever the response said.
+      userMessage: kind === 'server' || kind === 'unavailable' ? DEFAULT_MESSAGES[kind] : message || DEFAULT_MESSAGES[kind],
       fields: sanitiseFields(fields),
       requestId: requestIdHeader ?? (typeof requestId === 'string' ? requestId : null),
       retryAfterSeconds: retryAfter,

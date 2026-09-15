@@ -21,7 +21,7 @@ export function PostsPage() {
   const api = blogApi();
   const list = useListParams(FILTERS);
   const { can } = useCapabilities();
-  const canWrite = can(PERMISSION.postsWrite);
+  const canWrite = can(PERMISSION.postsCreate);
   const status = (list.get('status') as PostStatus | null) ?? undefined;
   const q = list.get('q') ?? '';
   const authorId = list.get('authorId');

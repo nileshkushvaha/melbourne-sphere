@@ -11,6 +11,8 @@ import { errorMessage, useAsync } from '@/shared/useAsync';
 import { DangerZone, PageHeader, PageLoadError, PageLoader, Pill, RecordMetadata, SectionCard, StatusTag } from '@/components/ui';
 import { AdminAccessCard } from '@/pages/access/AdminAccessCard';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 /**
  * One administrator: who they are, what they can do, and where they are signed
@@ -25,8 +27,15 @@ export function AdminDetailPage() {
   const { id = '' } = useParams();
   const { message, modal } = App.useApp();
   const { data: me } = useGetIdentity<AdminSummary>();
+  const { can } = useCapabilities();
+  const mayRename = can(PERMISSION.adminsUpdate);
+  const mayInvite = can(PERMISSION.adminsCreate);
+  const mayChangeStatus = can(PERMISSION.adminsStatus);
+  const mayViewSessions = can(PERMISSION.securitySessionsView);
+  const mayRevokeSessions = can(PERMISSION.securitySessionsRevoke);
   const [state, reload] = useAsync(() => adminsApi.get(id), [id]);
-  const [sessions, reloadSessions] = useAsync(() => adminsApi.sessions(id), [id]);
+  // Sessions are their own permission; without it they are never requested.
+  const [sessions, reloadSessions] = useAsync(() => (mayViewSessions ? adminsApi.sessions(id) : Promise.resolve([] as SessionListItem[])), [id, mayViewSessions]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const admin = state.status === 'ready' ? state.data : null;
   useDocumentTitle(admin ? admin.displayName : 'Administrator');
@@ -84,11 +93,11 @@ export function AdminDetailPage() {
           style={{ marginTop: 20, maxWidth: 420 }}
         >
           <Form.Item label="Display name" name="displayName" rules={[{ required: true, min: 2, max: 80, message: 'Between 2 and 80 characters' }]} extra="Shown beside their changes in the activity log.">
-            <Input maxLength={80} placeholder="e.g. Sam Taylor" />
+            <Input maxLength={80} placeholder="e.g. Sam Taylor" disabled={!mayRename} />
           </Form.Item>
-          <Button htmlType="submit">Save name</Button>
+          {mayRename && <Button htmlType="submit">Save name</Button>}
         </Form>
-        {admin.status === 'invited' && (
+        {mayInvite && admin.status === 'invited' && (
           <div style={{ marginTop: 20 }}>
             <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
               They have not set a password yet. A setup link expires, so send a new one if the first has passed.
@@ -101,11 +110,12 @@ export function AdminDetailPage() {
       {/* Roles, direct permissions and the effective set with its sources (SRS RBAC 010). */}
       <AdminAccessCard adminId={admin.id} isSelf={isSelf} />
 
+      {mayViewSessions && (
       <SectionCard
         title="Where they are signed in"
         description="Each browser they are currently signed in on. Signing one out ends it immediately; they can sign in again."
         extra={
-          activeSessions.length > 0 && (
+          mayRevokeSessions && activeSessions.length > 0 && (
             <Button
               danger
               onClick={() =>
@@ -143,7 +153,7 @@ export function AdminDetailPage() {
               render: (_: unknown, session) =>
                 session.current ? (
                   <Pill>This session</Pill>
-                ) : (
+                ) : !mayRevokeSessions ? null : (
                   <Button size="small" onClick={() => mutate(() => adminsApi.revokeSession(admin.id, session.id), 'Session signed out')}>
                     Sign out
                   </Button>
@@ -153,8 +163,9 @@ export function AdminDetailPage() {
           locale={{ emptyText: 'They are not signed in anywhere at the moment.' }}
         />
       </SectionCard>
+      )}
 
-      {!isSelf && (
+      {!isSelf && mayChangeStatus && (
         <DangerZone title="Account status">
           {admin.status === 'disabled' ? (
             <>

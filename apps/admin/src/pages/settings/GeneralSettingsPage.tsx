@@ -12,6 +12,8 @@ import { MediaField } from '@/components/MediaField';
 import { BrandIcon, BrandOptionLabel } from '@/components/BrandIcon';
 import { PageLoader, PageHeader, SectionCard, StickyActions, PageLoadError } from '@/components/ui';
 import { useUnsavedChanges } from '@/shared/useUnsavedChanges';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 type BrandingSlot = 'logoMediaId' | 'darkLogoMediaId' | 'faviconMediaId' | 'shareImageMediaId';
 
@@ -82,6 +84,8 @@ export function GeneralSettingsPage() {
   const [form] = Form.useForm<FormValues>();
   const [state, reload] = useAsync((signal) => api.get(signal), []);
   const [saving, setSaving] = useState(false);
+  const { can } = useCapabilities();
+  const mayUpdate = can(PERMISSION.settingsGeneralUpdate);
   const [error, setError] = useState<string | null>(null);
   // Nothing here saves on its own, and the form is long enough to lose.
   const [dirty, setDirty] = useState(false);
@@ -173,7 +177,8 @@ export function GeneralSettingsPage() {
         description="Name, contact details, branding and footer."
       />
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} role="alert" />}
-      <Form<FormValues> form={form} layout="vertical" requiredMark={false} onFinish={submit} onValuesChange={() => setDirty(true)} disabled={state.status !== 'ready'}>
+      <Form<FormValues> form={form} layout="vertical" requiredMark={false} onFinish={submit} onValuesChange={() => setDirty(true)} disabled={state.status !== 'ready' || !mayUpdate}>
+        {!mayUpdate && <Alert type="info" showIcon message="You can view these settings but not change them." style={{ marginBottom: 16 }} />}
         <SectionCard title="Site identity" description="Used in the header, page titles, search results and the copyright line.">
           <Row gutter={16}>
             <Col xs={24} md={8}>
@@ -321,9 +326,11 @@ export function GeneralSettingsPage() {
 
         <StickyActions status={record && record.version > 0 ? `Version ${record.version} · last changed ${formatDateTime(record.updatedAt)}` : 'Not saved yet'}>
           <Button onClick={reload}>Reload</Button>
-          <Button type="primary" htmlType="submit" loading={saving}>
-            Save settings
-          </Button>
+          {mayUpdate && (
+            <Button type="primary" htmlType="submit" loading={saving}>
+              Save settings
+            </Button>
+          )}
         </StickyActions>
       </Form>
 

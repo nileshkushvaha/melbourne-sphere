@@ -11,6 +11,8 @@ import { ErrorState, ListEmpty, PageHeader, StatusTag, TableCard } from '@/compo
 import { tablePagination } from '@/shared/tablePagination';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+import { useCapabilities } from '@/auth/access-control';
+import { TERM_PERMISSIONS } from './configs';
 
 export interface TermField {
   name: string;
@@ -58,6 +60,9 @@ export function TermsPage({ config }: { config: TermsPageConfig }) {
   const navigate = useNavigate();
   const { mutate: onAuthError } = useOnError();
   const api = taxonomyApi<TermItem>(config.kind);
+  const { can } = useCapabilities();
+  const mayCreate = can(TERM_PERMISSIONS[config.kind].create);
+  const mayUpdate = can(TERM_PERMISSIONS[config.kind].update);
   const list = useListParams<(typeof FILTERS)[number], 'sort' | 'order'>(FILTERS);
   const page = list.page;
   const q = list.get('q') ?? '';
@@ -98,14 +103,14 @@ export function TermsPage({ config }: { config: TermsPageConfig }) {
         crumbs={[{ label: 'Business' }, { label: config.title }]}
         title={config.title}
         description={<>{config.intro}</>}
-        // Reaching this screen already requires taxonomy.manage (see the route
-        // table), so the action needs no second check.
         actions={
-          <Link to={`${listHref}/new`}>
-            <Button type="primary" icon={<PlusOutlined aria-hidden="true" />}>
-              Add {config.singular.toLowerCase()}
-            </Button>
-          </Link>
+          mayCreate ? (
+            <Link to={`${listHref}/new`}>
+              <Button type="primary" icon={<PlusOutlined aria-hidden="true" />}>
+                Add {config.singular.toLowerCase()}
+              </Button>
+            </Link>
+          ) : null
         }
       />
       <TableCard
@@ -123,12 +128,14 @@ export function TermsPage({ config }: { config: TermsPageConfig }) {
         dataSource={state.status === 'ready' ? state.data.data : []}
         // Sorting is the table's own affordance, and it writes to the same
         // address bar as the filters, so a sorted view can be linked to.
-        onChange={(_pagination, _filters, sorter) => {
+        // Ant calls this for page changes too; those belong to the pagination
+        // control, so only a sort is handled here, or a page click would reset
+        // the list to page 1.
+        onChange={(_pagination, _filters, sorter, extra) => {
+          if (extra.action !== 'sort') return;
           const next = Array.isArray(sorter) ? sorter[0] : sorter;
           const field = typeof next?.field === 'string' ? next.field : undefined;
-          if (!field || !next?.order) return list.set('sort', undefined);
-          list.set('sort', field);
-          list.set('order', next.order === 'descend' ? 'desc' : 'asc');
+          list.setSort(field && next?.order ? field : undefined, next?.order === 'descend' ? 'desc' : 'asc');
         }}
         pagination={state.status === 'ready' ? tablePagination(state.data.meta, list) : false}
         scroll={{ x: 760 }}
@@ -166,7 +173,7 @@ export function TermsPage({ config }: { config: TermsPageConfig }) {
           {
             title: <span className="sr-only">Actions</span>,
             width: 80,
-            render: (_: unknown, item: TermListItem) => <Switch checked={item.active} onChange={() => toggleActive(item)} aria-label={`${item.active ? 'Deactivate' : 'Activate'} ${item.name}`} />,
+            render: (_: unknown, item: TermListItem) => <Switch checked={item.active} disabled={!mayUpdate} onChange={() => toggleActive(item)} aria-label={`${item.active ? 'Deactivate' : 'Activate'} ${item.name}`} />,
           },
         ]}
         locale={{
@@ -176,7 +183,7 @@ export function TermsPage({ config }: { config: TermsPageConfig }) {
               filtered={list.filtered}
               noun={config.title.toLowerCase()}
               onClear={list.clear}
-              empty={{ title: `No ${config.title.toLowerCase()} yet`, description: config.intro, action: { label: `Add ${config.singular.toLowerCase()}`, onClick: () => navigate(`${listHref}/new`) } }}
+              empty={{ title: `No ${config.title.toLowerCase()} yet`, description: config.intro, action: mayCreate ? { label: `Add ${config.singular.toLowerCase()}`, onClick: () => navigate(`${listHref}/new`) } : undefined }}
             />
           ),
         }}

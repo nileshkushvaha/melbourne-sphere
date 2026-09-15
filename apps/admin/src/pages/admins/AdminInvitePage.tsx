@@ -31,7 +31,7 @@ export function AdminInvitePage() {
   const navigate = useNavigate();
   const [form] = Form.useForm<Values>();
   const { saving, error, submit } = useRecordEditor<Values>(form);
-  const [roles] = useAsync((signal) => authorizationApi().listRoles({ page: 1, pageSize: 50 }, signal), []);
+  const [roles] = useAsync((signal) => authorizationApi().listAllRoles(signal), []);
   const { data: me } = useGetIdentity<AdminSummary>();
   // Only a Super Admin may hand out the Super Admin role (SRS RBAC 011). The
   // server refuses it either way; offering it would only produce a refusal after

@@ -1,16 +1,15 @@
-import { Alert, Button, Space } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { Alert, Button } from 'antd';
 import { Link, useParams } from 'react-router';
 import { pagesApi } from '@/api/settings';
 import { PageHeader, PageLoader, StatusTag } from '@/components/ui';
 import { useAsync } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
-import { StaticPageEditor, StaticPagePublishAction } from './StaticPageEditor';
+import { PageEditor } from './editor/PageEditor';
 
 /**
- * One information page on its own route (SRS CFG 002). Editing lives on a page
- * rather than in a dialog so it can be linked to, reloaded and read at the
- * width long-form copy actually needs.
+ * One information page on its own route (SRS CFG 002, change log 1.17). Editing
+ * lives on a page rather than in a dialog so it can be linked to, reloaded and
+ * read at the width long-form copy actually needs.
  */
 export function PageEditorPage() {
   const { slug = '' } = useParams();
@@ -36,15 +35,13 @@ export function PageEditorPage() {
         description={`Public address: /${page.slug}`}
         meta={<StatusTag status={page.status} />}
         actions={
-          <Space wrap>
-            <Link to="/website/pages">
-              <Button icon={<ArrowLeftOutlined />}>All pages</Button>
-            </Link>
-            <StaticPagePublishAction page={page} onChanged={reload} />
-          </Space>
+          <Link to="/website/pages">
+            <Button>All pages</Button>
+          </Link>
         }
       />
-      <StaticPageEditor page={page} onSaved={reload} />
+      {/* A new version (after a save or a status change) starts a fresh editor from it. */}
+      <PageEditor key={`${page.slug}:${page.version}`} page={page} onReload={reload} />
     </div>
   );
 }

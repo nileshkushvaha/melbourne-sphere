@@ -1,8 +1,11 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { useLocation } from 'react-router';
 import { Button, Result, Typography } from 'antd';
 
 interface Props {
   children: ReactNode;
+  /** Inside the admin shell: no second <main>, so navigation stays usable. */
+  inline?: boolean;
 }
 
 interface State {
@@ -43,7 +46,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!this.state.hasError) return this.props.children;
     const { stale, occurredAt } = this.state;
     return (
-      <main id="main-content" tabIndex={-1} style={{ padding: 32 }} role="alert">
+      <Wrapper inline={this.props.inline}>
         <Result
           status={stale ? 'warning' : 'error'}
           title={<h1 style={{ fontSize: 24, margin: 0 }}>{stale ? 'This page is out of date' : 'Something went wrong'}</h1>}
@@ -65,7 +68,32 @@ export class ErrorBoundary extends Component<Props, State> {
             </>
           }
         />
-      </main>
+      </Wrapper>
     );
   }
+}
+
+function Wrapper({ inline, children }: { inline?: boolean; children: ReactNode }) {
+  return inline ? (
+    <div style={{ padding: 32 }} role="alert">
+      {children}
+    </div>
+  ) : (
+    <main id="main-content" tabIndex={-1} style={{ padding: 32 }} role="alert">
+      {children}
+    </main>
+  );
+}
+
+/**
+ * One screen's boundary: a render error replaces that screen only, the shell and
+ * its navigation stay, and moving to another address starts fresh.
+ */
+export function RouteErrorBoundary({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  return (
+    <ErrorBoundary key={location.pathname} inline>
+      {children}
+    </ErrorBoundary>
+  );
 }

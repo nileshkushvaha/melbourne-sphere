@@ -2,6 +2,7 @@ import { Typography } from 'antd';
 import { Pill } from '@/components/ui';
 import { formatDate } from '@/shared/format';
 import type { TermsPageConfig } from './TermsPage';
+import { PERMISSION } from '@/auth/permissions';
 
 /** The name field, with an example drawn from the taxonomy being edited. */
 const name = (placeholder: string) => ({ name: 'name', label: 'Name', input: 'text' as const, required: true, max: 80, placeholder });
@@ -79,3 +80,10 @@ export const AREAS_CONFIG: TermsPageConfig = {
     { name: 'ogImageMediaId', label: 'Share image', input: 'media', preview: 'ogImage', emptyLabel: 'The area image is used', clearLabel: 'Use the area image', aspectRatio: '1.91 / 1', help: 'Used when the page is shared. Empty uses the area image, then the site image.' },
   ],
 };
+
+/** Each taxonomy is its own menu item with its own permissions (change log 1.13). */
+export const TERM_PERMISSIONS = {
+  categories: { create: PERMISSION.categoriesCreate, update: PERMISSION.categoriesUpdate },
+  services: { create: PERMISSION.servicesCreate, update: PERMISSION.servicesUpdate },
+  areas: { create: PERMISSION.areasCreate, update: PERMISSION.areasUpdate },
+} as const;

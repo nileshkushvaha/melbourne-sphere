@@ -15,6 +15,8 @@ import { HeroPreview } from './HeroPreview';
 import { useUnsavedChanges } from '@/shared/useUnsavedChanges';
 import { variantUrl, type MediaAsset } from '@/api/media';
 import { brand } from '@/config/theme';
+import { useCapabilities } from '@/auth/access-control';
+import { PERMISSION } from '@/auth/permissions';
 
 interface HeroSlideValue {
   mediaId: string;
@@ -43,6 +45,8 @@ export function SiteSettingsPage() {
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
   const [form] = Form.useForm<FormValues>();
+  const { can } = useCapabilities();
+  const mayUpdate = can(PERMISSION.settingsHomeUpdate);
   const [state, reload] = useAsync((signal) => api.getHome(signal), []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,10 +113,11 @@ export function SiteSettingsPage() {
       <PageHeader
         crumbs={[{ label: 'Configuration' }, { label: 'Home page settings' }]}
         title="Home page settings"
-        description="The banner images, headline and counters on the public home page. Changes appear on the site within a minute of saving."
+        description="The home page banner, headline and counters. Changes appear on the site within a minute."
       />
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} role="alert" />}
-      <Form<FormValues> form={form} layout="vertical" requiredMark={false} onFinish={submit} onValuesChange={() => setDirty(true)} disabled={state.status !== 'ready'}>
+      <Form<FormValues> form={form} layout="vertical" requiredMark={false} onFinish={submit} onValuesChange={() => setDirty(true)} disabled={state.status !== 'ready' || !mayUpdate}>
+        {!mayUpdate && <Alert type="info" showIcon message="You can view these settings but not change them." style={{ marginBottom: 16 }} />}
         <SectionCard title="Hero wording" description="The heading and the phrases that rotate beneath it.">
           <Form.Item label="Headline" name="heroHeadline" extra="Read by screen readers. Must make sense without the rotating phrases." rules={[{ required: true, message: 'Headline is required' }]}>
             <Input maxLength={80} showCount placeholder="e.g. Everything Melbourne, in one place" />
@@ -144,7 +149,7 @@ export function SiteSettingsPage() {
 
         <SectionCard
           title="Home banner"
-          description={`Up to ${MAX_HERO_SLIDES} photographs behind the hero, shown in this order. They replace the site's two built-in Melbourne photographs; with none, those built-in photographs show.`}
+          description={`Up to ${MAX_HERO_SLIDES} hero photographs, in this order. With none, the built-in photographs show.`}
           extra={
             <Button icon={<PictureOutlined aria-hidden="true" />} onClick={() => setPickerOpen(true)}>
               Add image
@@ -234,9 +239,11 @@ export function SiteSettingsPage() {
         </SectionCard>
         <StickyActions status={record && record.version > 0 ? `Version ${record.version} · last changed ${formatDateTime(record.updatedAt)}` : 'Not saved yet'}>
           <Button onClick={reload}>Reload</Button>
-          <Button type="primary" htmlType="submit" loading={saving}>
-            Save settings
-          </Button>
+          {mayUpdate && (
+            <Button type="primary" htmlType="submit" loading={saving}>
+              Save settings
+            </Button>
+          )}
         </StickyActions>
       </Form>
       <MediaPicker

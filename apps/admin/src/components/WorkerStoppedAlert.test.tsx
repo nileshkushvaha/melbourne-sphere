@@ -32,7 +32,7 @@ describe('WorkerStoppedAlert', () => {
       calls.push(String(input));
       return jsonResponse(200, liveness(false));
     }) as typeof fetch;
-    renderWithProviders(<WorkerStoppedAlert consequence="Enquiry emails are waiting." />, { authProvider: providerWithPermissions(['media.manage']) });
+    renderWithProviders(<WorkerStoppedAlert consequence="Enquiry emails are waiting." />, { authProvider: providerWithPermissions(['media.view']) });
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(calls.some((url) => url.includes('/queues/workers'))).toBe(false);
     expect(screen.queryByText('Background processing is not running')).not.toBeInTheDocument();

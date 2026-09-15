@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
-import { Alert, App, Button, Form, Input, Progress, Select, Space, Typography } from 'antd';
-import { DeleteOutlined, UploadOutlined } from '@ant-design/icons';
+import { useSearchParams } from 'react-router';
+import { Alert, App, Button, Form, Input, Progress, Segmented, Select, Space, Typography } from 'antd';
+import { DeleteOutlined, FilePdfOutlined, PictureOutlined, UploadOutlined } from '@ant-design/icons';
 import { useOnError } from '@refinedev/core';
 import { Link } from 'react-router';
 import { ALLOWED_TYPES, MEDIA_STATUSES, UPLOAD_RULES, localFileProblem, mediaApi, uploadImage, variantUrl, type MediaAsset, type MediaStatus } from '@/api/media';
@@ -13,6 +14,7 @@ import { brand } from '@/config/theme';
 import { PERMISSION } from '@/auth/permissions';
 import { useCapabilities } from '@/auth/access-control';
 import { WorkerStoppedAlert } from '@/components/WorkerStoppedAlert';
+import { DocumentsLibrary } from './DocumentsLibrary';
 
 /** Processing takes seconds; longer than this means something is not running. */
 const WAITING_TOO_LONG_MS = 2 * 60 * 1000;
@@ -23,12 +25,39 @@ const STATUS_LABELS: Record<MediaStatus, string> = { quarantined: 'processing', 
 const FILTERS = ['q', 'status'] as const;
 
 /**
- * Media library (SRS MED 001–004). Uploads go straight to storage through a
- * signed URL; the API validates the bytes and the worker publishes the
- * renditions, so an image only becomes usable once it is processed.
+ * Media library (SRS MED 001–004, change log 1.16): images and PDF documents,
+ * one at a time behind a switch that lives in the address, so a link to the
+ * documents opens on the documents.
  */
 export function MediaLibraryPage() {
   useDocumentTitle('Media library');
+  const [params, setParams] = useSearchParams();
+  const kind = params.get('kind') === 'document' ? 'document' : 'image';
+  return (
+    <div>
+      <PageHeader crumbs={[{ label: 'Editorial' }, { label: 'Media library' }]} title="Media library" description="Images used on listings and articles, and PDF documents linked from pages, articles and menus." />
+      <Segmented
+        aria-label="Show images or documents"
+        value={kind}
+        // Switching starts the other list afresh: filters and page belong to the list they were set on.
+        onChange={(value) => setParams(value === 'document' ? { kind: 'document' } : {})}
+        options={[
+          { value: 'image', label: <span><PictureOutlined aria-hidden="true" /> Images</span> },
+          { value: 'document', label: <span><FilePdfOutlined aria-hidden="true" /> Documents</span> },
+        ]}
+        style={{ marginBottom: 20 }}
+      />
+      {kind === 'document' ? <DocumentsLibrary /> : <ImagesLibrary />}
+    </div>
+  );
+}
+
+/**
+ * Images. Uploads go straight to storage through a signed URL; the API
+ * validates the bytes and the worker publishes the renditions, so an image only
+ * becomes usable once it is processed.
+ */
+function ImagesLibrary() {
   const api = mediaApi();
   const { message, modal } = App.useApp();
   const { mutate: onAuthError } = useOnError();
@@ -37,11 +66,13 @@ export function MediaLibraryPage() {
   const page = list.page;
   const { can } = useCapabilities();
   const mayViewQueues = can(PERMISSION.systemQueuesView);
+  const mayUpload = can(PERMISSION.mediaUpload);
+  const mayDelete = can(PERMISSION.mediaDelete);
 
   const [state, reload] = useAsync(
     // The clock is read where the data is fetched, not while rendering: a render
     // that reads the time answers differently every time React calls it.
-    async (signal) => ({ ...(await api.list({ status, page, pageSize: 24, q: list.get('q') ?? undefined }, signal)), loadedAt: Date.now() }),
+    async (signal) => ({ ...(await api.list({ kind: 'image', status, page, pageSize: 24, q: list.get('q') ?? undefined }, signal)), loadedAt: Date.now() }),
     [status, page, list.get('q')],
   );
   const [uploading, setUploading] = useState(false);
@@ -137,7 +168,7 @@ export function MediaLibraryPage() {
 
   return (
     <div>
-      <PageHeader crumbs={[{ label: 'Editorial' }, { label: 'Media library' }]} title="Media library" description="Images used on listings and articles. Every image needs alt text before it can be used on a page." />
+      {mayUpload && (
       <SectionCard title="Add an image" description={`${UPLOAD_RULES} Location data is removed and the site makes its own sizes.`}>
         {/* Drop target and file picker are the same control: dropping is a
             convenience, and the button is what makes it reachable from the
@@ -226,6 +257,7 @@ export function MediaLibraryPage() {
         )}
         {uploadError && <Alert type="error" showIcon role="alert" message={uploadError} style={{ marginTop: 12 }} />}
       </SectionCard>
+      )}
       {/* An upload waits until the background worker makes its sizes. When
           nothing is consuming the queue that wait never ends, so the screen says
           so; otherwise, a slow wait still gets a softer hint. */}
@@ -349,14 +381,16 @@ export function MediaLibraryPage() {
                       <Link to={`/media/${asset.id}`} style={{ flex: 1, textAlign: 'center', padding: '8px 0' }}>
                         Details
                       </Link>
-                      <Button
-                        type="text"
-                        danger
-                        icon={<DeleteOutlined aria-hidden="true" />}
-                        aria-label={`Delete ${asset.sourceName}`}
-                        onClick={() => remove(asset)}
-                        style={{ borderLeft: `1px solid ${brand.border}`, borderRadius: 0, height: 'auto', padding: '8px 16px' }}
-                      />
+                      {mayDelete && (
+                        <Button
+                          type="text"
+                          danger
+                          icon={<DeleteOutlined aria-hidden="true" />}
+                          aria-label={`Delete ${asset.sourceName}`}
+                          onClick={() => remove(asset)}
+                          style={{ borderLeft: `1px solid ${brand.border}`, borderRadius: 0, height: 'auto', padding: '8px 16px' }}
+                        />
+                      )}
                     </div>
                   </div>
                 </li>

@@ -57,11 +57,11 @@ describe('capability lifecycle', () => {
 
   it('is wired to the shared store, so the access-control provider reads what the session wrote', async () => {
     const provider = withCapabilityLifecycle(
-      { login: async () => ({ success: true }), check: async () => ({ authenticated: true }), logout: async () => ({ success: true }), onError: async () => ({}), getPermissions: async () => ['media.manage'] },
+      { login: async () => ({ success: true }), check: async () => ({ authenticated: true }), logout: async () => ({ success: true }), onError: async () => ({}), getPermissions: async () => ['media.view'] },
       capabilityStore,
     );
     await provider.getPermissions?.({});
-    expect(capabilityStore.get()).toEqual(['media.manage']);
+    expect(capabilityStore.get()).toEqual(['media.view']);
     await provider.logout?.({});
     expect(capabilityStore.get()).toBeUndefined();
   });

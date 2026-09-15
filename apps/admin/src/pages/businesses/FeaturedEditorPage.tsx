@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { RemoteSelect } from '@/components/RemoteSelect';
 import { App, Form, Input, InputNumber, Skeleton, Typography } from 'antd';
 import { useNavigate } from 'react-router';
 import { businessesApi, featuredApi } from '@/api/businesses';
@@ -6,7 +8,6 @@ import { RecordEditorPage } from '@/components/ui';
 import { useAsync } from '@/shared/useAsync';
 import { useRecordEditor } from '@/shared/useRecordEditor';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
-import { FormSelect } from '@/components/FormSelect';
 import { formatDateTime } from '@/shared/format';
 import { FeaturedPlacementPreview } from './FeaturedPlacementPreview';
 
@@ -34,7 +35,8 @@ export function FeaturedEditorPage() {
   const navigate = useNavigate();
   const [form] = Form.useForm<Values>();
   const { saving, error, setError, submit } = useRecordEditor<Values>(form);
-  const [published] = useAsync((signal) => listings.list({ status: 'published', pageSize: 50, sort: 'name', order: 'asc' }, signal), []);
+  // Slugs of the businesses the search has offered, for the preview card of the one chosen.
+  const [slugs, setSlugs] = useState<Record<string, string>>({});
   // The offset of the dates being entered, not of today: across a daylight-saving
   // change the two differ by an hour, and the label is what the operator trusts.
   const startsLocal = Form.useWatch('startsLocal', form) as string | undefined;
@@ -46,7 +48,7 @@ export function FeaturedEditorPage() {
   // the chosen listing. Only published listings are offered, so the public
   // route answers for every choice.
   const businessId = Form.useWatch('businessId', form) as string | undefined;
-  const chosenSlug = published.status === 'ready' ? published.data.data.find((business) => business.id === businessId)?.slug : undefined;
+  const chosenSlug = businessId ? slugs[businessId] : undefined;
   const [card] = useAsync((signal) => (chosenSlug ? listings.publicCard(chosenSlug, signal) : Promise.resolve(null)), [chosenSlug]);
   const startsAt = melbourneLocalToUtc(startsLocal ?? '');
   const endsAt = endsLocal ? melbourneLocalToUtc(endsLocal) : null;
@@ -116,12 +118,15 @@ export function FeaturedEditorPage() {
       }
     >
       <Form.Item label="Listing" name="businessId" rules={[{ required: true, message: 'Choose a published listing' }]}>
-        <FormSelect
-          showSearch
-          optionFilterProp="label"
-          placeholder="Choose a published listing"
-          loading={published.status === 'loading'}
-          options={published.status === 'ready' ? published.data.data.map((business) => ({ value: business.id, label: business.name })) : []}
+        <RemoteSelect
+          placeholder="Search published listings"
+          width={420}
+          search={(term, signal) =>
+            listings.list({ status: 'published', q: term || undefined, pageSize: 20, sort: 'name', order: 'asc' }, signal).then((result) => {
+              setSlugs((current) => ({ ...current, ...Object.fromEntries(result.data.map((business) => [business.id, business.slug])) }));
+              return result.data.map((business) => ({ value: business.id, label: business.name }));
+            })
+          }
         />
       </Form.Item>
       <Form.Item label={`Starts (Melbourne time, ${startOffset})`} name="startsLocal" rules={[{ required: true, message: 'Choose when the placement starts' }]}>

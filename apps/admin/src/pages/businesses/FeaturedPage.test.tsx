@@ -36,7 +36,8 @@ describe('featured listings', () => {
     globalThis.fetch = originalFetch;
   });
 
-  const render = (permissions = ['listings.publish']) =>
+  // Featured listings has its own codes since change log 1.13: view to see them, manage to change them.
+  const render = (permissions = ['featured.view', 'featured.manage']) =>
     renderWithProviders(<FeaturedPage />, { initialEntries: ['/admin/businesses/featured'], authProvider: providerWithPermissions(permissions) });
 
   it("shows the server's own state rather than renaming it", async () => {
@@ -84,7 +85,7 @@ describe('featured listings', () => {
 
   it('offers nothing to change without the publish permission', async () => {
     serve([placement()]);
-    render(['listings.read']);
+    render(['featured.view']);
     await screen.findByText('Fixture Coffee House');
     expect(screen.queryByRole('link', { name: /feature a listing/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /remove/i })).not.toBeInTheDocument();
@@ -97,7 +98,7 @@ describe('featured listings', () => {
     unmount();
 
     serve([placement()]);
-    renderWithProviders(<FeaturedPage />, { initialEntries: ['/admin/businesses/featured?state=ended'], authProvider: providerWithPermissions(['listings.publish']) });
+    renderWithProviders(<FeaturedPage />, { initialEntries: ['/admin/businesses/featured?state=ended'], authProvider: providerWithPermissions(['featured.view', 'featured.manage']) });
     expect(await screen.findByText('No placements match your filters')).toBeInTheDocument();
   });
 });

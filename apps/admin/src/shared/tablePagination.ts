@@ -35,8 +35,12 @@ export function tablePagination(meta: CollectionMeta | undefined, list: ListPara
     pageSizeOptions: PAGE_SIZES,
     // "1–20 of 240" is the question a reader actually has when they look here.
     showTotal: (total, [from, to]) => `${from}–${to} of ${total}`,
+    // Compared with the size the table is showing (the API's answer), not the
+    // one in the address bar: when the two differ — a list the API pages at its
+    // own size — every click on a page number would otherwise read as a size
+    // change and send the reader back to page 1.
     onChange: (page, size) => {
-      if (size !== undefined && size !== list.pageSize) list.setPageSize(size);
+      if (size !== undefined && size !== meta.pageSize) list.setPageSize(size);
       else list.setPage(page);
     },
   };

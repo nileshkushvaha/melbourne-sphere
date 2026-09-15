@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
+import { TermSelect } from '@/components/TermSelect';
+import { useTermNames } from '@/shared/useTermNames';
 import { Alert, Button, Dropdown, Input, Select, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import { MoreOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons';
 import { useList } from '@refinedev/core';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import type { BusinessListItem, BusinessStatus } from '@/api/businesses';
 import { isApiError } from '@/api/errors';
-import { taxonomyApi, type CategoryItem, type LocalAreaItem } from '@/api/taxonomy';
 import { formatDateTime } from '@/shared/format';
-import { useAsync } from '@/shared/useAsync';
 import { EmptyState, PageHeader, Pill, StatusTag, TableCard } from '@/components/ui';
 import { PAGE_SIZES } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
@@ -45,7 +45,8 @@ export function BusinessesPage() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const { can } = useCapabilities();
-  const canWrite = can(PERMISSION.listingsWrite);
+  const canCreate = can(PERMISSION.listingsCreate);
+  const canWrite = can(PERMISSION.listingsUpdate);
   const page = Number(params.get('page') ?? '1') || 1;
   const q = params.get('q') ?? '';
   const status = (STATUSES as string[]).includes(params.get('status') ?? '') ? (params.get('status') as BusinessStatus) : undefined;
@@ -104,16 +105,16 @@ export function BusinessesPage() {
     queryOptions: { retry: false, placeholderData: (previous) => previous },
     errorNotification: false,
   });
-  const [categories] = useAsync(() => taxonomyApi<CategoryItem>('categories').list({ pageSize: 50, sort: 'name' }).then((r) => r.data), []);
-  const [areas] = useAsync(() => taxonomyApi<LocalAreaItem>('areas').list({ pageSize: 50, sort: 'name' }).then((r) => r.data), []);
+  // Names for the filter chips, looked up by id rather than by loading every term.
+  const categoryNames = useTermNames('categories', categoryId ? [categoryId] : []).names;
+  const areaNames = useTermNames('areas', localAreaId ? [localAreaId] : []).names;
 
-  const nameOf = (items: { id: string; name: string }[] | undefined, id: string) => items?.find((item) => item.id === id)?.name ?? id;
   /** The filters in force, so they can be seen and removed one at a time (DIR 006). */
   const chips: { key: string; label: string }[] = [
     ...(q ? [{ key: 'q', label: `“${q}”` }] : []),
     ...(status ? [{ key: 'status', label: `Status: ${status}` }] : []),
-    ...(categoryId ? [{ key: 'categoryId', label: `Category: ${nameOf(categories.status === 'ready' ? categories.data : undefined, categoryId)}` }] : []),
-    ...(localAreaId ? [{ key: 'localAreaId', label: `Area: ${nameOf(areas.status === 'ready' ? areas.data : undefined, localAreaId)}` }] : []),
+    ...(categoryId ? [{ key: 'categoryId', label: `Category: ${categoryNames[categoryId]?.name ?? '…'}` }] : []),
+    ...(localAreaId ? [{ key: 'localAreaId', label: `Area: ${areaNames[localAreaId]?.name ?? '…'}` }] : []),
     ...(featured ? [{ key: 'featured', label: featured === 'yes' ? 'Featured now' : 'Not featured' }] : []),
   ];
   const clearFilters = () => setParams(new URLSearchParams(sortKey === DEFAULT_SORT ? {} : { sort, order }));
@@ -130,7 +131,7 @@ export function BusinessesPage() {
         title="Businesses"
         description="Every Melbourne listing, its publishing state and where it appears in the directory."
         actions={
-          canWrite ? (
+          canCreate ? (
             <Link to="/businesses/new">
               <Button type="primary" icon={<PlusOutlined aria-hidden="true" />}>
                 Add business
@@ -153,28 +154,8 @@ export function BusinessesPage() {
               style={{ width: 280 }}
             />
             <Select aria-label="Filter by status" allowClear placeholder="Any status" value={status} onChange={(value) => setParam('status', value)} style={{ width: 150 }} options={STATUSES.map((value) => ({ value, label: value }))} />
-            <Select
-              aria-label="Filter by category"
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              placeholder="Any category"
-              value={categoryId}
-              onChange={(value) => setParam('categoryId', value)}
-              style={{ width: 190 }}
-              options={categories.status === 'ready' ? categories.data.map((item) => ({ value: item.id, label: item.name })) : []}
-            />
-            <Select
-              aria-label="Filter by local area"
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              placeholder="Any area"
-              value={localAreaId}
-              onChange={(value) => setParam('localAreaId', value)}
-              style={{ width: 170 }}
-              options={areas.status === 'ready' ? areas.data.map((item) => ({ value: item.id, label: item.name })) : []}
-            />
+            <TermSelect kind="categories" includeInactive allowClear aria-label="Filter by category" placeholder="Any category" value={categoryId} onChange={(value) => setParam('categoryId', (value as string | undefined) ?? undefined)} style={{ width: 190 }} />
+            <TermSelect kind="areas" includeInactive allowClear aria-label="Filter by local area" placeholder="Any area" value={localAreaId} onChange={(value) => setParam('localAreaId', (value as string | undefined) ?? undefined)} style={{ width: 170 }} />
             <Select
               aria-label="Filter by featured placement"
               allowClear
@@ -335,7 +316,7 @@ export function BusinessesPage() {
               chips.length > 0 ? (
                 <EmptyState title="No businesses match these filters" description="Try a different search, or remove a filter to widen the results." action={{ label: 'Clear filters', onClick: clearFilters }} />
               ) : (
-                <EmptyState title="No businesses yet" description="Add the first Melbourne listing. It stays a private draft until you publish it." action={canWrite ? { label: 'Add business', onClick: () => navigate('/businesses/new') } : undefined} />
+                <EmptyState title="No businesses yet" description="Add the first Melbourne listing. It stays a private draft until you publish it." action={canCreate ? { label: 'Add business', onClick: () => navigate('/businesses/new') } : undefined} />
               )
             ) : (
               ' '

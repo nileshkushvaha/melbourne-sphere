@@ -186,7 +186,7 @@ describe('businesses pages', () => {
   });
 
   it('groups the editor so a long form can be read, and separates the private address from the public ones', async () => {
-    renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses/b1'], authProvider: providerWithPermissions(['listings.read', 'listings.write', 'listings.publish']) });
+    renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses/b1'], authProvider: providerWithPermissions(['listings.read', 'listings.update', 'listings.publish']) });
     await screen.findByRole('heading', { level: 1, name: 'Little Collins Espresso' });
 
     for (const section of ['Business identity', 'Categories and services', 'Melbourne location', 'Contact details', 'Private enquiry address', 'Publishing', 'Verification', 'Record history']) {
@@ -200,7 +200,7 @@ describe('businesses pages', () => {
   });
 
   it('moves a published listing through the address control, leaving the old address working', async () => {
-    renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses/b-published'], authProvider: providerWithPermissions(['listings.read', 'listings.write', 'listings.publish']) });
+    renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses/b-published'], authProvider: providerWithPermissions(['listings.read', 'listings.update', 'listings.publish']) });
     await screen.findByRole('heading', { level: 1, name: 'Little Collins Espresso' });
 
     // The address is shown, not typed into, until Edit is pressed.
@@ -222,7 +222,7 @@ describe('businesses pages', () => {
   });
 
   it('refuses an address that is not a slug, before asking the server', async () => {
-    renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses/b-published'], authProvider: providerWithPermissions(['listings.read', 'listings.write', 'listings.publish']) });
+    renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses/b-published'], authProvider: providerWithPermissions(['listings.read', 'listings.update', 'listings.publish']) });
     await screen.findByRole('heading', { level: 1, name: 'Little Collins Espresso' });
     const ue = user();
     await ue.click(screen.getByRole('button', { name: 'Edit' }));
@@ -234,7 +234,7 @@ describe('businesses pages', () => {
   });
 
   it('keeps the save action in reach and says whether there is anything unsaved', async () => {
-    renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses/b1'], authProvider: providerWithPermissions(['listings.read', 'listings.write']) });
+    renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/businesses/b1'], authProvider: providerWithPermissions(['listings.read', 'listings.update']) });
     await screen.findByRole('heading', { level: 1, name: 'Little Collins Espresso' });
 
     expect(screen.getByText(/1 thing still to fix before it can be published/i)).toBeInTheDocument();

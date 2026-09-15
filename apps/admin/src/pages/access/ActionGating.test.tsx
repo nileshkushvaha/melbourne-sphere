@@ -34,8 +34,8 @@ describe('action visibility follows permissions', () => {
     expect(screen.queryByRole('link', { name: /add business/i })).not.toBeInTheDocument();
   });
 
-  it('offers "Add business" once the write permission is held', async () => {
-    renderWithProviders(<BusinessesPage />, { initialEntries: ['/admin/businesses'], authProvider: providerWithPermissions(['listings.read', 'listings.write']) });
+  it('offers "Add business" once the create permission is held', async () => {
+    renderWithProviders(<BusinessesPage />, { initialEntries: ['/admin/businesses'], authProvider: providerWithPermissions(['listings.read', 'listings.create']) });
     // The page header's action; the empty state offers the same thing again.
     expect(await screen.findByRole('link', { name: /add business/i })).toHaveAttribute('href', '/admin/businesses/new');
   });

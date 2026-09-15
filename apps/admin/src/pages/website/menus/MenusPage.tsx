@@ -27,6 +27,8 @@ export function MenusPage() {
   useDocumentTitle('Menus');
   const { can } = useCapabilities();
   const readOnly = !can(PERMISSION.websiteMenusManage);
+  // Choosing where a menu is shown is its own permission (change log 1.13).
+  const mayAssign = can(PERMISSION.websiteMenusAssign);
   const { message } = App.useApp();
   const [params, setParams] = useSearchParams();
   const tab = params.get('tab') === 'locations' ? 'locations' : 'edit';
@@ -127,7 +129,7 @@ export function MenusPage() {
       />
 
       {tab === 'locations' ? (
-        <MenuLocationsTab menus={menus} readOnly={readOnly} onChanged={reloadList} />
+        <MenuLocationsTab menus={menus} readOnly={!mayAssign} onChanged={reloadList} />
       ) : menus.length === 0 ? (
         <SectionCard>
           <Empty description="There are no menus yet.">

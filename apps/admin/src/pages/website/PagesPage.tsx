@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { App, Button, Input, Select, Space, Table, Typography } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
-import { Link } from 'react-router';
+import { ExportOutlined, PlusOutlined } from '@ant-design/icons';
+import { Link, useNavigate } from 'react-router';
+import { DuplicatePageDialog } from './editor/DuplicatePageDialog';
 import { pagesApi, type StaticPage } from '@/api/settings';
 import { errorMessage } from '@/shared/useAsync';
 import { PERMISSION } from '@/auth/permissions';
@@ -10,6 +12,9 @@ import { formatDateTime } from '@/shared/format';
 import { useAsync } from '@/shared/useAsync';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
+
+/** The public site, for "View on site"; empty in production, where the admin shares the site's origin. */
+const PUBLIC_SITE = ((import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined) ?? '').replace(/\/+$/, '');
 
 /** The parameters that narrow this list; everything else is sort or page. */
 const FILTERS = ['q', 'status'] as const;
@@ -27,10 +32,14 @@ export function PagesPage() {
   useDocumentTitle('Pages');
   const { can } = useCapabilities();
   const { message, modal } = App.useApp();
-  const canManage = can(PERMISSION.settingsManage);
+  const canCreate = can(PERMISSION.websitePagesCreate);
+  const canEdit = can(PERMISSION.websitePagesUpdate);
+  const canDelete = can(PERMISSION.websitePagesDelete);
+  const navigate = useNavigate();
+  const [duplicating, setDuplicating] = useState<StaticPage | null>(null);
   const list = useListParams(FILTERS);
   const q = list.get('q') ?? '';
-  const status = list.get('status') as 'draft' | 'published' | undefined;
+  const status = list.get('status') as StaticPage['status'] | undefined;
   const [state, reload] = useAsync((signal) => pagesApi().list({ q: q || undefined, status }, signal), [q, status]);
 
   const remove = (page: StaticPage) => {
@@ -61,9 +70,9 @@ export function PagesPage() {
       <PageHeader
         crumbs={[{ label: 'Website' }, { label: 'Pages' }]}
         title="Pages"
-        description="The policies are always here; pages you add appear below. Only published pages are public."
+        description="Policies and your own pages. Only published pages are public; add a page to a menu to link it."
         actions={
-          canManage ? (
+          canCreate ? (
             <Link to="/website/pages/new">
               <Button type="primary" icon={<PlusOutlined aria-hidden="true" />}>
                 New page
@@ -92,6 +101,7 @@ export function PagesPage() {
               style={{ width: 150 }}
               options={[
                 { value: 'published', label: 'Published' },
+                { value: 'scheduled', label: 'Scheduled' },
                 { value: 'draft', label: 'Draft' },
               ]}
             />
@@ -112,7 +122,7 @@ export function PagesPage() {
               filtered={list.filtered}
               noun="pages"
               onClear={list.clear}
-              empty={{ title: 'No pages yet', description: 'The pages the product ships with appear here as soon as this list can be read.' }}
+              empty={{ title: 'No pages yet', description: 'The policies appear here as soon as this list can be read. Choose “New page” to add your own.' }}
             />
           ),
         }}
@@ -122,7 +132,7 @@ export function PagesPage() {
             dataIndex: 'title',
             render: (_: unknown, record) => (
               <Space direction="vertical" size={0}>
-                {canManage ? <Link to={`/website/pages/${record.slug}`}>{record.title}</Link> : <span>{record.title}</span>}
+                <Link to={`/website/pages/${record.slug}`}>{record.title}</Link>
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                   /{record.slug}
                 </Typography.Text>
@@ -144,11 +154,24 @@ export function PagesPage() {
             dataIndex: 'status',
             width: 200,
             render: (_: unknown, record) => (
-              <Space size={8}>
-                <StatusTag status={record.status} />
-                {record.status !== 'published' && record.publicationBlockers.length > 0 && (
+              <Space direction="vertical" size={2}>
+                <Space size={8}>
+                  <StatusTag status={record.status} />
+                  {record.status !== 'published' && record.publicationBlockers.length > 0 && (
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      {record.publicationBlockers.length} to fix
+                    </Typography.Text>
+                  )}
+                </Space>
+                {record.status === 'scheduled' && record.scheduledAt && (
                   <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                    {record.publicationBlockers.length} to fix
+                    Goes live {formatDateTime(record.scheduledAt)}
+                  </Typography.Text>
+                )}
+                {record.status === 'draft' && record.publishFailure && <Pill tone="critical">Returned to draft</Pill>}
+                {record.noindex && (
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    Hidden from search engines
                   </Typography.Text>
                 )}
               </Space>
@@ -163,14 +186,22 @@ export function PagesPage() {
           {
             title: '',
             key: 'actions',
-            width: 170,
+            width: 230,
             render: (_: unknown, record) =>
-              canManage ? (
+              (
                 <Space size={8}>
                   <Link to={`/website/pages/${record.slug}`}>
-                    <Button size="small">Edit</Button>
+                    <Button size="small">{canEdit ? 'Edit' : 'View'}</Button>
                   </Link>
-                  {!record.isSystem && (
+                  {canCreate && record.version > 0 && (
+                    <Button size="small" onClick={() => setDuplicating(record)} aria-label={`Duplicate ${record.title}`}>
+                      Duplicate
+                    </Button>
+                  )}
+                  {record.status === 'published' && (
+                    <Button size="small" href={`${PUBLIC_SITE}/${record.slug}`} target="_blank" rel="noreferrer noopener" icon={<ExportOutlined aria-hidden="true" />} aria-label={`View ${record.title} on the site`} />
+                  )}
+                  {canDelete && !record.isSystem && (
                     <Button
                       size="small"
                       danger
@@ -185,11 +216,22 @@ export function PagesPage() {
                     </Button>
                   )}
                 </Space>
-              ) : null,
+              ),
           },
         ]}
       />
       </TableCard>
+      {duplicating && (
+        <DuplicatePageDialog
+          source={duplicating}
+          onCancel={() => setDuplicating(null)}
+          onDuplicated={(copy) => {
+            setDuplicating(null);
+            message.success('Copy created as a draft.');
+            navigate(`/website/pages/${encodeURIComponent(copy.slug)}`);
+          }}
+        />
+      )}
     </div>
   );
 }

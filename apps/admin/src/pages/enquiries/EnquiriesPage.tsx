@@ -42,6 +42,7 @@ export function EnquiriesPage() {
   const { mutate: onAuthError } = useOnError();
   const { can } = useCapabilities();
   const canManage = can(PERMISSION.enquiriesManage);
+  const canRetry = can(PERMISSION.enquiriesRetry);
   const list = useListParams(FILTERS);
   const handlingStatus = (list.get('handlingStatus') as HandlingStatus | null) ?? undefined;
   const deliveryStatus = (list.get('deliveryStatus') as DeliveryStatus | null) ?? undefined;
@@ -110,6 +111,9 @@ export function EnquiriesPage() {
       }
     });
 
+  // The chosen business's name, whether or not it is on this page of results.
+  const [chosenBusiness] = useAsync((signal) => (businessId ? businessesApi().get(businessId, signal) : Promise.resolve(null)), [businessId]);
+
   return (
     <div>
       <PageHeader crumbs={[{ label: 'Community' }, { label: 'Enquiries' }]} title="Enquiries" description="Delivery status is the email; handling status is your workflow." />
@@ -120,7 +124,7 @@ export function EnquiriesPage() {
               ariaLabel="Filter by business"
               placeholder="Any business"
               value={businessId}
-              valueLabel={(state.status === 'ready' ? state.data.data.find((row) => row.businessId === businessId)?.businessName : undefined) ?? undefined}
+              valueLabel={chosenBusiness.status === 'ready' ? chosenBusiness.data?.name : undefined}
               onChange={(next) => list.set('businessId', next)}
               search={(term, signal) => businessesApi().list({ q: term || undefined, pageSize: 20, sort: 'name', order: 'asc' }, signal).then((r) => r.data.map((row) => ({ value: row.id, label: row.name })))}
               width={230}
@@ -146,11 +150,11 @@ export function EnquiriesPage() {
               <Typography.Paragraph strong>{enquiry.subject}</Typography.Paragraph>
               <Typography.Paragraph style={{ whiteSpace: 'pre-line' }}>{enquiry.message}</Typography.Paragraph>
               <Typography.Paragraph type="secondary">
-                From {enquiry.name} · <RevealContact masked={enquiry.email} reveal={() => api.revealContact(enquiry.id).then((contact) => contact.email)} />
+                From {enquiry.name} · <RevealContact masked={enquiry.email} permission={PERMISSION.enquiriesContactView} reveal={() => api.revealContact(enquiry.id).then((contact) => contact.email)} />
                 {enquiry.phone ? (
                   <>
                     {' · '}
-                    <RevealContact masked={enquiry.phone} what="phone number" reveal={() => api.revealContact(enquiry.id).then((contact) => contact.phone)} />
+                    <RevealContact masked={enquiry.phone} what="phone number" permission={PERMISSION.enquiriesContactView} reveal={() => api.revealContact(enquiry.id).then((contact) => contact.phone)} />
                   </>
                 ) : null}{' '}
                 · acknowledged {enquiry.acknowledgedVersion}
@@ -187,9 +191,9 @@ export function EnquiriesPage() {
             title: <span className="sr-only">Actions</span>,
             width: 280,
             render: (_: unknown, enquiry) =>
-              canManage ? (
+              canManage || canRetry ? (
                 <Space wrap>
-                  {ENQUIRY_HANDLING_ACTIONS[enquiry.handlingStatus].map((action) => (
+                  {canManage && ENQUIRY_HANDLING_ACTIONS[enquiry.handlingStatus].map((action) => (
                     <Tooltip key={action.to} title={action.description}>
                       <Button
                         size="small"
@@ -202,7 +206,7 @@ export function EnquiriesPage() {
                       </Button>
                     </Tooltip>
                   ))}
-                  {(enquiry.deliveryStatus === 'failed' || enquiry.deliveryStatus === 'suppressed') && (
+                  {canRetry && (enquiry.deliveryStatus === 'failed' || enquiry.deliveryStatus === 'suppressed') && (
                     <Button size="small" type="primary" onClick={() => { setDialogError(null); form.resetFields(); setRetrying(enquiry); }}>
                       Retry delivery
                     </Button>

@@ -45,7 +45,7 @@ describe('admin application', () => {
     expect(document.title).toBe('Sign in · Melbourne Sphere Admin');
   });
 
-  it('login page shows the API message on failure and never stores anything in web storage', async () => {
+  it('login page shows a safe message on failure and never stores anything in web storage', async () => {
     const provider = anonymousProvider();
     provider.login = async () => ({ success: false, error: { name: 'Sign-in failed', message: 'Invalid email or password' } });
     renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/login'], authProvider: provider });
@@ -54,7 +54,8 @@ describe('admin application', () => {
     await userEvent.type(screen.getByLabelText(/^password/i), 'wrong-password-123');
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
     const alerts = await screen.findAllByRole('alert');
-    expect(alerts.some((a) => /invalid email or password/i.test(a.textContent ?? ''))).toBe(true);
+    // The fake provider's error is not from the API client, so its text is not shown.
+    expect(alerts.some((a) => /sign-in failed/i.test(a.textContent ?? ''))).toBe(true);
     expect(Object.keys(localStorage)).toHaveLength(0);
     expect(Object.keys(sessionStorage)).toHaveLength(0);
   });

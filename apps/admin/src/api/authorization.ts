@@ -10,7 +10,12 @@ export interface PermissionCatalogEntry {
   key: string;
   label: string;
   description: string;
+  /** The sidebar section. */
   module: string;
+  /** The sidebar label of the screen this code belongs to. */
+  menuItem: string;
+  /** The matrix column: View, Create, Update, Publish, Delete or a named extra. */
+  action: string;
   isActive: boolean;
   isSystem: boolean;
 }
@@ -55,6 +60,19 @@ export function authorizationApi(client: HttpClient = httpClient) {
   return {
     permissions: (signal?: AbortSignal) => client.request<{ data: PermissionCatalogEntry[] }>('/admin/permissions', { signal }).then((r) => r.data.data),
 
+    /** Every role, page by page: pickers must be able to offer all of them. */
+    listAllRoles: async (signal?: AbortSignal): Promise<Paginated<RoleListItem>> => {
+      const pageSize = 50;
+      let page = 1;
+      let result = await client.request<Paginated<RoleListItem>>(`/admin/roles?page=${page}&pageSize=${pageSize}`, { signal }).then((r) => r.data);
+      const all = [...result.data];
+      while (page < result.meta.pageCount) {
+        page += 1;
+        result = await client.request<Paginated<RoleListItem>>(`/admin/roles?page=${page}&pageSize=${pageSize}`, { signal }).then((r) => r.data);
+        all.push(...result.data);
+      }
+      return { ...result, data: all };
+    },
     listRoles: (params: { page: number; pageSize: number; q?: string }, signal?: AbortSignal) => {
       const search = new URLSearchParams({ page: String(params.page), pageSize: String(params.pageSize) });
       if (params.q) search.set('q', params.q);

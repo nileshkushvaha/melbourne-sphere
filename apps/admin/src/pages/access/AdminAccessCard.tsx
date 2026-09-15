@@ -58,7 +58,7 @@ export function AdminAccessCard({ adminId, isSelf }: { adminId: string; isSelf: 
   const { can, permissions: heldCodes } = useCapabilities();
   const { data: me } = useGetIdentity<AdminSummary>();
   const [accessState, reloadAccess] = useAsync((signal) => api.getAdminAccess(adminId, signal), [adminId]);
-  const [rolesState] = useAsync((signal) => api.listRoles({ page: 1, pageSize: 50 }, signal), []);
+  const [rolesState] = useAsync((signal) => api.listAllRoles(signal), []);
   const [catalogState] = useAsync((signal) => api.permissions(signal), []);
   /** Edits in progress, tagged with the record version they started from, so a reload discards them. */
   const [draft, setDraft] = useState<{ version: number; roleIds: string[]; direct: string[] } | null>(null);
@@ -107,7 +107,8 @@ export function AdminAccessCard({ adminId, isSelf }: { adminId: string; isSelf: 
   const rolesDirty = roleIds.join('|') !== saved.roleIds.join('|');
   const permissionsDirty = direct.join('|') !== saved.direct.join('|');
 
-  const mayReadAudit = can(PERMISSION.auditRead);
+  // Authorization history is access-control activity (change log 1.14).
+  const mayReadAudit = can(PERMISSION.activityAccessControlView);
   const [auditState] = useAsync<AuditEntry[]>(
     () =>
       mayReadAudit

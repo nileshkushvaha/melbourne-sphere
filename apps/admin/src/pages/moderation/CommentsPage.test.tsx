@@ -81,7 +81,11 @@ describe('comments moderation queue', () => {
   it('reports a failed load instead of showing an empty queue', async () => {
     globalThis.fetch = (async () => jsonResponse(500, { error: { code: 'INTERNAL', message: 'Boom', requestId: 'req-7' } })) as typeof fetch;
     renderWithProviders(<CommentsPage />, { initialEntries: ['/admin/comments'] });
-    expect(await screen.findByRole('alert')).toHaveTextContent(/something went wrong|boom/i);
+    const alert = await screen.findByRole('alert');
+    // A server failure is described in the client's words, never the server's, with the reference to quote.
+    expect(alert).toHaveTextContent(/unexpected problem/i);
+    expect(alert).toHaveTextContent(/req-7/);
+    expect(alert).not.toHaveTextContent(/boom/i);
     expect(screen.queryByText('No comments yet')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
   });

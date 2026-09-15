@@ -65,7 +65,8 @@ describe('dashboard', () => {
     expect(screen.getByText('Winter markets')).toBeInTheDocument();
     expect(screen.getByText('overdue')).toBeInTheDocument();
     // Audit keys are turned into something a person reads.
-    expect(screen.getByText('Blog post — published')).toBeInTheDocument();
+    expect(screen.getByText(/published a post/)).toBeInTheDocument();
+    expect(screen.queryByText(/blog\.post\.publish/)).not.toBeInTheDocument();
   });
 
   it('states each headline figure with its change in words, not colour', async () => {
@@ -88,8 +89,9 @@ describe('dashboard', () => {
     expect(within(legend).getByText('Enquiries received')).toBeInTheDocument();
 
     await userEvent.click(screen.getByText('Table'));
-    const table = await screen.findByRole('table');
-    expect(within(table).getByRole('columnheader', { name: 'Reviews received' })).toBeInTheDocument();
+    // A scrolling table: Ant Design draws its header and body as two tables inside one.
+    const table = (await screen.findByRole('columnheader', { name: 'Reviews received' })).closest('.ant-table') as HTMLElement;
+    expect(within(table).getByRole('columnheader', { name: 'Day' })).toBeInTheDocument();
     // Newest day first, with its value.
     expect(within(table).getAllByRole('row')[1]).toHaveTextContent('4');
   });
@@ -107,10 +109,12 @@ describe('dashboard', () => {
   });
 
   it('explains an account with no visible metrics, and omits every chart it may not see', async () => {
-    globalThis.fetch = serve({ data: { metrics: [], scheduledPosts: [], activity: [], generatedAt: payload.generatedAt } });
+    globalThis.fetch = serve({ data: { metrics: [], scheduledPosts: null, activity: null, generatedAt: payload.generatedAt } });
     renderWithProviders(<DashboardPage />, { initialEntries: ['/admin/'] });
     expect(await screen.findByText(/no permissions that expose dashboard counts/i)).toBeInTheDocument();
-    expect(await screen.findByText(/nothing scheduled/i)).toBeInTheDocument();
+    // Lists the account may not see are left out rather than shown as empty.
+    expect(screen.queryByText('Scheduled articles')).not.toBeInTheDocument();
+    expect(screen.queryByText('Recent activity')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Submissions' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Enquiry delivery' })).not.toBeInTheDocument();
     expect(screen.queryByText('At a glance')).not.toBeInTheDocument();

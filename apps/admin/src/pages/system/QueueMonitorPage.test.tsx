@@ -155,7 +155,7 @@ describe('QueueMonitorPage', () => {
         detail: 'No worker has checked in. Nothing is consuming melbourne-sphere: enquiries are stored but not delivered.',
         workers: [],
         oldestHeartbeatAgeSeconds: null,
-        scheduler: { healthy: false, detail: 'One task has not succeeded within the expected window.', stale: [{ code: 'content.publish-scheduled', label: 'Publish scheduled articles', lastSuccessAt: '2026-09-07T00:00:00.000Z', staleAfterMinutes: 25 }] },
+        scheduler: { healthy: false, detail: 'One task has not succeeded within the expected window.', stale: [{ code: 'content.publish-scheduled', label: 'Publish scheduled articles and pages', lastSuccessAt: '2026-09-07T00:00:00.000Z', staleAfterMinutes: 25 }] },
       },
     });
     renderWithProviders(<QueueMonitorPage />, { authProvider: providerWithPermissions(['system.queues.view']) });
@@ -163,7 +163,7 @@ describe('QueueMonitorPage', () => {
     expect(await screen.findByText('Nothing is processing work')).toBeInTheDocument();
     expect(await screen.findByText(/Nothing is consuming melbourne-sphere/)).toBeInTheDocument();
     // The stopped schedule is named, not just counted.
-    expect(await screen.findByText(/Publish scheduled articles/)).toBeInTheDocument();
+    expect(await screen.findByText(/Publish scheduled articles and pages/)).toBeInTheDocument();
   });
 
   it('lists each replica by instance, version and last report, with no host or environment detail', async () => {

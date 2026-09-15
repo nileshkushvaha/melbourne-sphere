@@ -3,7 +3,7 @@ import { App, Button, Typography } from 'antd';
 import { errorMessage } from '@/shared/useAsync';
 import { useBusy } from '@/shared/useBusy';
 import { useCapabilities } from '@/auth/access-control';
-import { PERMISSION } from '@/auth/permissions';
+import type { PermissionCode } from '@/auth/permissions';
 
 interface Props {
   /** The masked value the list already carries, e.g. `s•••m@example.com`. */
@@ -12,6 +12,8 @@ interface Props {
   reveal: () => Promise<string | null>;
   /** What is being revealed, for the button and the confirmation. */
   what?: string;
+  /** The screen's own reveal permission, e.g. `reviews.email.view` (change log 1.13). */
+  permission: PermissionCode;
 }
 
 /**
@@ -28,7 +30,7 @@ interface Props {
  * request, and the server writes an audit entry for it — the same shape the
  * email log already uses for recipients.
  */
-export function RevealContact({ masked, reveal, what = 'address' }: Props) {
+export function RevealContact({ masked, reveal, what = 'address', permission }: Props) {
   const { can } = useCapabilities();
   const { message, modal } = App.useApp();
   const [shown, setShown] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export function RevealContact({ masked, reveal, what = 'address' }: Props) {
 
   if (!masked) return <Typography.Text type="secondary">Not given</Typography.Text>;
   if (shown) return <Typography.Text copyable>{shown}</Typography.Text>;
-  if (!can(PERMISSION.communityContactsView)) return <Typography.Text>{masked}</Typography.Text>;
+  if (!can(permission)) return <Typography.Text>{masked}</Typography.Text>;
 
   const ask = () =>
     modal.confirm({

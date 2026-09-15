@@ -9,7 +9,8 @@ import { formatDateTime } from '@/shared/format';
 import { errorMessage, useAsync } from '@/shared/useAsync';
 import { useListParams } from '@/shared/useListParams';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
-import type { EditorialTermsConfig } from './editorial-configs';
+import { EDITORIAL_TERM_PERMISSIONS, type EditorialTermsConfig } from './editorial-configs';
+import { useCapabilities } from '@/auth/access-control';
 
 /** The parameters that narrow this list; everything else is sort or page. */
 const FILTERS = ['q', 'status'] as const;
@@ -24,6 +25,9 @@ export function EditorialTermsPage({ config }: { config: EditorialTermsConfig })
   const api = blogApi();
   const { message } = App.useApp();
   const { mutate: onAuthError } = useOnError();
+  const { can } = useCapabilities();
+  const mayCreate = can(EDITORIAL_TERM_PERMISSIONS[config.kind].create);
+  const mayUpdate = can(EDITORIAL_TERM_PERMISSIONS[config.kind].update);
   const list = useListParams(FILTERS);
   const q = list.get('q') ?? '';
   const status = list.get('status') as 'active' | 'inactive' | undefined;
@@ -48,11 +52,13 @@ export function EditorialTermsPage({ config }: { config: EditorialTermsConfig })
         title={config.title}
         description={config.intro}
         actions={
-          <Link to={`${listHref}/new`}>
-            <Button type="primary" icon={<PlusOutlined aria-hidden="true" />}>
-              New {config.singular.toLowerCase()}
-            </Button>
-          </Link>
+          mayCreate ? (
+            <Link to={`${listHref}/new`}>
+              <Button type="primary" icon={<PlusOutlined aria-hidden="true" />}>
+                New {config.singular.toLowerCase()}
+              </Button>
+            </Link>
+          ) : null
         }
       />
       {state.status === 'error' && <ErrorState message={state.message} reference={state.reference} onRetry={reload} />}
@@ -95,7 +101,7 @@ export function EditorialTermsPage({ config }: { config: EditorialTermsConfig })
           { title: 'Updated', dataIndex: 'updatedAt', render: formatDateTime },
           {
             title: <span className="sr-only">Actions</span>,
-            render: (_: unknown, row) => <Switch checked={row.active} onChange={() => void toggleActive(row)} aria-label={`${row.active ? 'Deactivate' : 'Activate'} ${row.name}`} />,
+            render: (_: unknown, row) => <Switch checked={row.active} disabled={!mayUpdate} onChange={() => void toggleActive(row)} aria-label={`${row.active ? 'Deactivate' : 'Activate'} ${row.name}`} />,
           },
         ]}
         locale={{

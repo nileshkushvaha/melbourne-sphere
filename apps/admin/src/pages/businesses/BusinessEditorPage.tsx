@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { TermSelect } from '@/components/TermSelect';
 import { Alert, App, Button, Col, Form, Input, InputNumber, List, Modal, Row, Select, Space, Switch, Typography } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, LinkOutlined } from '@ant-design/icons';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
@@ -8,9 +9,8 @@ import { ACTIONS_BY_STATUS, businessesApi, LINK_KINDS, toNamePath, type Business
 import { GalleryEditor } from './GalleryEditor';
 import { HoursEditor } from './HoursEditor';
 import { isApiError } from '@/api/errors';
-import { taxonomyApi, type CategoryItem, type LocalAreaItem, type ServiceItem } from '@/api/taxonomy';
 import { formatDateTime } from '@/shared/format';
-import { errorMessage, fieldErrors, useAsync } from '@/shared/useAsync';
+import { errorMessage, fieldErrors } from '@/shared/useAsync';
 import { useDocumentTitle } from '@/shared/useDocumentTitle';
 import { BrandOptionLabel } from '@/components/BrandIcon';
 import { brandLabel } from '@/shared/brands';
@@ -20,7 +20,6 @@ import { brand } from '@/config/theme';
 import { useUnsavedChanges } from '@/shared/useUnsavedChanges';
 import { useCapabilities } from '@/auth/access-control';
 import { PERMISSION } from '@/auth/permissions';
-import { FormSelect } from '@/components/FormSelect';
 import { MediaField } from '@/components/MediaField';
 
 const ACTION_LABELS: Record<BusinessAction, { label: string; title: string; hint: string; danger?: boolean }> = {
@@ -142,7 +141,7 @@ export function BusinessEditorPage() {
   const { mutate: onAuthError } = useOnError();
   const api = businessesApi();
   const { can, loading: capabilitiesLoading } = useCapabilities();
-  const canWrite = can(PERMISSION.listingsWrite);
+  const canWrite = can(isNew ? PERMISSION.listingsCreate : PERMISSION.listingsUpdate);
   const canPublish = can(PERMISSION.listingsPublish);
   const [form] = Form.useForm<FormValues>();
   const hasAddress = Form.useWatch('hasAddress', form);
@@ -156,9 +155,9 @@ export function BusinessEditorPage() {
   const record = useOne<BusinessRecord>({ resource: 'businesses', id: id ?? '', queryOptions: { enabled: !isNew, retry: false }, errorNotification: false });
   const business = isNew ? null : (record.result ?? null);
   useDocumentTitle(isNew ? 'New business' : (business?.name ?? 'Business'));
-  const [categories] = useAsync(() => taxonomyApi<CategoryItem>('categories').list({ pageSize: 50, status: 'active', sort: 'name' }).then((r) => r.data), []);
-  const [services] = useAsync(() => taxonomyApi<ServiceItem>('services').list({ pageSize: 50, status: 'active', sort: 'name' }).then((r) => r.data), []);
-  const [areas] = useAsync(() => taxonomyApi<LocalAreaItem>('areas').list({ pageSize: 50, status: 'active', sort: 'name' }).then((r) => r.data), []);
+
+  // The primary category is not offered again among the secondary ones.
+  const primaryCategoryId = Form.useWatch('primaryCategoryId', form) as string | undefined;
 
   useEffect(() => {
     if (business) form.setFieldsValue(toForm(business));
@@ -264,7 +263,6 @@ export function BusinessEditorPage() {
   const lifecycleActions = allowed.filter((action) => action === 'archive' || action === 'restore');
   /** Field names the form is currently unhappy about, for the error summary. */
   const invalidFields = form.getFieldsError().filter((field) => field.errors.length > 0).map((field) => FIELD_LABELS[String(field.name[0])] ?? String(field.name[0]));
-  const options = (items: { id: string; name: string }[]) => items.map((i) => ({ value: i.id, label: i.name }));
 
   return (
     <div>
@@ -346,13 +344,13 @@ export function BusinessEditorPage() {
 
             <SectionCard title="Categories and services" description="Where this business appears in directory search and browsing.">
               <Form.Item label="Primary category" name="primaryCategoryId" extra="Where it is classified first in the directory." rules={[{ required: true, message: 'Choose a primary category' }]}>
-                <FormSelect showSearch optionFilterProp="label" placeholder="Choose a category" options={categories.status === 'ready' ? options(categories.data) : []} />
+                <TermSelect kind="categories" placeholder="Search for a category" />
               </Form.Item>
               <Form.Item label="Secondary categories" name="secondaryCategoryIds">
-                <Select mode="multiple" optionFilterProp="label" placeholder="Add any that also apply" options={categories.status === 'ready' ? options(categories.data) : []} />
+                <TermSelect kind="categories" multiple placeholder="Search to add any that also apply" excludeIds={primaryCategoryId ? [primaryCategoryId] : []} />
               </Form.Item>
               <Form.Item label="Services" name="serviceIds">
-                <Select mode="multiple" optionFilterProp="label" placeholder="Add the services offered" options={services.status === 'ready' ? options(services.data) : []} />
+                <TermSelect kind="services" multiple placeholder="Search to add the services offered" />
               </Form.Item>
             </SectionCard>
 
@@ -361,7 +359,7 @@ export function BusinessEditorPage() {
               description="The directory covers Melbourne only. A listing outside the approved boundary cannot be published."
             >
               <Form.Item label="Local area" name="localAreaId" extra="The Melbourne area this business trades in." rules={[{ required: true, message: 'Choose a local area' }]}>
-                <FormSelect showSearch optionFilterProp="label" placeholder="Choose a Melbourne area" options={areas.status === 'ready' ? options(areas.data) : []} />
+                <TermSelect kind="areas" placeholder="Search for a Melbourne area" />
               </Form.Item>
               <Form.Item label="Has a street address" name="hasAddress" valuePropName="checked" extra="Turn this off for a business that trades without a public premises.">
                 <Switch />
@@ -443,7 +441,7 @@ export function BusinessEditorPage() {
 
             <SectionCard
               title="Search appearance"
-              description="How this listing appears in search results and when it is shared. Each field falls back to the business name, description and cover photograph when empty."
+              description="How the listing looks in search and shares. Empty fields use its name, description and cover photo."
             >
               <Form.Item label="SEO title" name="seoTitle" extra="About 60 characters shows in full in search results.">
                 <Input maxLength={180} showCount placeholder="e.g. Carlton Corner Bakery — sourdough bakery in Carlton, Melbourne" />

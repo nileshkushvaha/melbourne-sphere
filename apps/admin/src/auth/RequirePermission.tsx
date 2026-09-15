@@ -3,7 +3,7 @@ import { useLocation } from 'react-router';
 import { PageLoader } from '@/components/ui';
 import { ForbiddenPage } from '@/pages/ForbiddenPage';
 import { useCapabilities } from './access-control';
-import { permissionsForPath, type PermissionCode } from './permissions';
+import { routeRequirement, type PermissionCode } from './permissions';
 
 /**
  * Route guard (SRS RBAC 010). While capabilities are unknown it renders a
@@ -17,8 +17,11 @@ import { permissionsForPath, type PermissionCode } from './permissions';
 export function RequirePermission({ children, permissions }: { children: ReactNode; permissions?: PermissionCode[] }) {
   const location = useLocation();
   const { can, loading } = useCapabilities();
-  const required = permissions ?? permissionsForPath(location.pathname);
+  const route = routeRequirement(location.pathname);
+  const required = permissions ?? route.permissions;
+  // A route marked any-of (the activity log, read by area) opens with one of its codes.
+  const anyOf = !permissions && route.anyOf;
   if (loading) return <PageLoader label="Checking your permissions…" />;
-  if (required.length > 0 && !can(...required)) return <ForbiddenPage />;
+  if (required.length > 0 && !(anyOf ? required.some((code) => can(code)) : can(...required))) return <ForbiddenPage />;
   return <>{children}</>;
 }

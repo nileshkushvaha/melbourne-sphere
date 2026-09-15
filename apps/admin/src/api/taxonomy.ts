@@ -22,6 +22,10 @@ export interface TermListQuery {
   pageSize?: number;
   q?: string;
   status?: 'active' | 'inactive';
+  /** Comma-separated ids: only these terms, whatever their status (at most 50). */
+  ids?: string;
+  /** Categories only: top-level ones, the possible parents. */
+  topLevel?: boolean;
   sort?: 'name' | 'slug' | 'sortOrder' | 'createdAt' | 'updatedAt';
   order?: 'asc' | 'desc';
 }

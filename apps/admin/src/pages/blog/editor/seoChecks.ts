@@ -14,10 +14,11 @@ export interface SeoCheck {
 }
 
 export interface SeoCheckInput {
-  focusPhrase: string;
+  /** Omitted for content that has no focus phrase (information pages): those checks are skipped. */
+  focusPhrase?: string;
   title: string;
   seoTitle: string;
-  summary: string;
+  summary?: string;
   seoDescription: string;
   slug: string;
   bodyHtml: string;
@@ -63,12 +64,14 @@ export function seoChecks(input: SeoCheckInput): SeoCheck[] {
   const checks: SeoCheck[] = [];
   const add = (code: string, good: boolean, goodMessage: string, improveMessage: string) => checks.push({ code, status: good ? 'good' : 'improve', message: good ? goodMessage : improveMessage });
 
-  const phrase = input.focusPhrase.split(',')[0]!.trim();
-  if (!phrase) {
+  const phrase = (input.focusPhrase ?? '').split(',')[0]!.trim();
+  if (input.focusPhrase === undefined) {
+    // No focus phrase on this kind of content: only the general checks apply.
+  } else if (!phrase) {
     checks.push({ code: 'focus', status: 'improve', message: 'Add a focus phrase — the words people would search for — to get advice on using it.' });
   } else {
     const shownTitle = input.seoTitle || input.title;
-    const shownDescription = input.seoDescription || input.summary;
+    const shownDescription = input.seoDescription || input.summary || '';
     add('focus-title', hasPhrase(shownTitle, phrase), 'The focus phrase is in the title.', `Use “${phrase}” in the title, ideally near the start.`);
     add('focus-description', hasPhrase(shownDescription, phrase), 'The focus phrase is in the summary.', `Use “${phrase}” in the summary, which search results show under the title.`);
     add('focus-opening', hasPhrase(words.slice(0, 100).join(' '), phrase), 'The focus phrase appears early in the article.', `Mention “${phrase}” in the opening paragraph.`);

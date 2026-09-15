@@ -10,7 +10,7 @@ describe('access control (SRS RBAC 010)', () => {
     it('maps a route to the permissions it needs, longest prefix first', () => {
       expect(permissionsForPath('/roles')).toEqual(['roles.view']);
       expect(permissionsForPath('/roles/abc123')).toEqual(['roles.view']);
-      expect(permissionsForPath('/settings/general')).toEqual(['settings.manage']);
+      expect(permissionsForPath('/settings/general')).toEqual(['settings.general.view']);
       // Unmapped screens (dashboard, account) need a session only; the API still guards them.
       expect(permissionsForPath('/')).toEqual([]);
     });
@@ -59,7 +59,7 @@ describe('access control (SRS RBAC 010)', () => {
     });
 
     it('renders the forbidden state for a route the administrator may not use', async () => {
-      renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/roles'], authProvider: providerWithPermissions(['media.manage']) });
+      renderWithProviders(<AppRoutes />, { initialEntries: ['/admin/roles'], authProvider: providerWithPermissions(['media.view']) });
       expect(await screen.findByRole('heading', { level: 1, name: /do not have permission/i })).toBeInTheDocument();
       // It says what happened and offers the way back, rather than pretending the page is missing.
       expect(screen.getByRole('link', { name: /back to dashboard/i })).toBeInTheDocument();

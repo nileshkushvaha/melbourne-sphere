@@ -37,6 +37,14 @@ export interface AuditEntry {
   requestId: string | null;
   ipAddress: string | null;
   createdAt: string;
+  /** Readable name of the record, where it is not private (change log 1.14). */
+  targetLabel?: string | null;
+  /** How many events this row stands for; 1 unless the list was grouped. */
+  count?: number;
+  firstAt?: string;
+  lastAt?: string;
+  /** Pass back as `groupKey` to list the events of a group. */
+  groupKey?: string | null;
 }
 
 export interface AuditQuery {
@@ -52,6 +60,8 @@ export interface AuditQuery {
   from?: string;
   to?: string;
   order?: 'asc' | 'desc';
+  grouped?: 'true' | 'false';
+  groupKey?: string;
 }
 
 export const adminsApi = {
@@ -90,6 +100,12 @@ export const adminsApi = {
 export const auditApi = {
   list(query: AuditQuery = {}, signal?: AbortSignal, client: HttpClient = httpClient) {
     return client.request<{ data: AuditEntry[]; meta: CollectionMeta }>('/admin/activity', { query: queryParams(query), signal }).then((r) => r.data);
+  },
+  /** Events per visible area since an instant, for the area chips. */
+  summary(from: string, signal?: AbortSignal, client: HttpClient = httpClient) {
+    return client
+      .request<{ data: { from: string; areas: Array<{ category: string; count: number }> } }>('/admin/activity/summary', { query: { from }, signal })
+      .then((r) => r.data.data);
   },
 };
 

@@ -4,9 +4,9 @@ import { renderWithProviders, providerWithPermissions, user } from '@/test/rende
 import { jsonResponse } from '@/test/fetch-fakes';
 
 const CATALOGUE = [
-  { key: 'listings.read', label: 'See listings', description: 'View business listings.', module: 'Listings', isActive: true, isSystem: true },
-  { key: 'listings.publish', label: 'Publish listings', description: 'Make a listing public.', module: 'Listings', isActive: true, isSystem: true },
-  { key: 'admins.access.manage', label: 'Manage administrator access', description: 'Change roles and permissions.', module: 'Configuration', isActive: true, isSystem: true },
+  { key: 'listings.read', label: 'See listings', description: 'View business listings.', module: 'Business', menuItem: 'Businesses', action: 'View', isActive: true, isSystem: true },
+  { key: 'listings.publish', label: 'Publish listings', description: 'Make a listing public.', module: 'Business', menuItem: 'Businesses', action: 'Publish', isActive: true, isSystem: true },
+  { key: 'admins.access.manage', label: 'Manage administrator access', description: 'Change roles and permissions.', module: 'Configuration', menuItem: 'Administrators', action: 'Assign access', isActive: true, isSystem: true },
 ];
 
 const ROLES = {
@@ -64,7 +64,7 @@ describe('AdminAccessCard', () => {
     globalThis.fetch = originalFetch;
   });
 
-  const full = ['admins.access.manage', 'listings.read', 'listings.publish', 'audit.read'];
+  const full = ['admins.access.manage', 'listings.read', 'listings.publish', 'activity.access_control.view'];
 
   it('names the role a permission is inherited from, and marks a direct grant as direct', async () => {
     renderWithProviders(<AdminAccessCard adminId="a2" isSelf={false} />, { authProvider: providerWithPermissions(full) });
@@ -91,7 +91,7 @@ describe('AdminAccessCard', () => {
     // Nothing has changed yet, so there is nothing to save.
     expect(save).toBeDisabled();
 
-    await ui.click(screen.getByRole('checkbox', { name: /See listings/ }));
+    await ui.click(screen.getByRole('checkbox', { name: 'Businesses: View' }));
     expect(await screen.findByText('Not saved yet.')).toBeInTheDocument();
     await ui.click(screen.getByRole('button', { name: 'Save direct permissions' }));
 
@@ -118,7 +118,7 @@ describe('AdminAccessCard', () => {
   it('withholds a permission the acting administrator does not hold, and says why', async () => {
     renderWithProviders(<AdminAccessCard adminId="a2" isSelf={false} />, { authProvider: providerWithPermissions(['admins.access.manage', 'listings.read']) });
 
-    const checkbox = await screen.findByRole('checkbox', { name: /Publish listings/ });
+    const checkbox = await screen.findByRole('checkbox', { name: 'Businesses: Publish' });
     expect(checkbox).toBeDisabled();
     expect(screen.getByText('You do not hold this permission, so you cannot grant it.')).toBeInTheDocument();
   });
