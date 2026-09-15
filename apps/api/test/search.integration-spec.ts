@@ -62,7 +62,7 @@ describe('Public directory search and detail (integration)', () => {
     expect(res.headers['cache-control']).toBe('public, max-age=60');
     expect(names(res)).toEqual(['Beans & Co', 'Carlton Pipes', 'Espresso Lane', 'Laneway Espresso Bar', 'Nightcap']);
     expect(res.body.meta).toMatchObject({ page: 1, pageSize: 20, total: 5, pageCount: 1, sort: 'name' });
-    expect(res.body.meta.facets.categories).toEqual([{ slug: 'cafes', name: 'Cafes', count: 3 }, { slug: 'bars', name: 'Bars', count: 1 }, { slug: 'plumbers', name: 'Plumbers', count: 1 }]);
+    expect(res.body.meta.facets.categories).toEqual([{ slug: 'cafes', name: 'Cafes', count: 3 }, { slug: 'bars', name: 'Bars', count: 2 }, { slug: 'plumbers', name: 'Plumbers', count: 1 }]);
     expect(res.body.meta.facets.areas).toEqual([{ slug: 'melbourne-cbd', name: 'Melbourne CBD', count: 3 }, { slug: 'carlton', name: 'Carlton', count: 2 }]);
     const card = res.body.data[0];
     expect(card).toEqual({ id: ids.beans, name: 'Beans & Co', slug: 'beans-and-co', primaryCategory: { name: 'Cafes', slug: 'cafes' }, localArea: { name: 'Melbourne CBD', slug: 'melbourne-cbd' }, rating: { average: 4.2, count: 10 }, image: null });
@@ -96,7 +96,10 @@ describe('Public directory search and detail (integration)', () => {
     const unknown = await agent().get('/api/v1/businesses?category=does-not-exist').expect(200);
     expect(unknown.body).toMatchObject({ data: [], meta: { total: 0 } });
     const facets = (await agent().get('/api/v1/businesses?area=carlton').expect(200)).body.meta.facets;
-    expect(facets.categories).toEqual([{ slug: 'cafes', name: 'Cafes', count: 1 }, { slug: 'plumbers', name: 'Plumbers', count: 1 }]);
+    // A facet counts primary and secondary categories, as the category filter matches them: Laneway Espresso Bar is a cafe that is also listed under Bars.
+    expect(facets.categories).toEqual([{ slug: 'bars', name: 'Bars', count: 1 }, { slug: 'cafes', name: 'Cafes', count: 1 }, { slug: 'plumbers', name: 'Plumbers', count: 1 }]);
+    const barsInCarlton = await agent().get('/api/v1/businesses?area=carlton&category=bars').expect(200);
+    expect(barsInCarlton.body.meta.total).toBe(1);
     expect(facets.areas.map((a: { slug: string }) => a.slug)).toEqual(['melbourne-cbd', 'carlton']); // area facet ignores the area filter itself
   });
 

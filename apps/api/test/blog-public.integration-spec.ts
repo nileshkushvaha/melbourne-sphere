@@ -158,7 +158,7 @@ describe('Public blog and comments (integration)', () => {
     await admin(agent().post(`/api/v1/admin/comments/${ids.comment}/approve`)).send({ expectedVersion: approved.body.data.version }).expect(409);
 
     const publicList = await agent().get(`/api/v1/posts/${ids.main}/comments`).expect(200);
-    expect(publicList.body.data).toEqual([{ id: ids.comment, displayName: 'Sam Reader', text: 'Great guide, thanks for the tips.', redacted: false, createdAt: expect.any(String) }]);
+    expect(publicList.body.data).toEqual([{ id: ids.comment, displayName: 'Sam Reader', text: 'Great guide, thanks for the tips.', redacted: false, createdAt: expect.any(String), parentId: null, staff: false, replies: [] }]);
     expect((await agent().get('/api/v1/posts/where-to-find-laneway-coffee').expect(200)).body.data.approvedCommentCount).toBe(1);
 
     const redacted = await admin(agent().patch(`/api/v1/admin/comments/${ids.comment}/redaction`)).send({ expectedVersion: approved.body.data.version, publicText: 'Great guide.', reason: 'Removed a personal detail' }).expect(200);

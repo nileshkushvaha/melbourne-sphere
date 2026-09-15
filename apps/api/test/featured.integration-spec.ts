@@ -43,7 +43,7 @@ describe('Featured placements (integration)', () => {
         .put(`/api/v1/admin/admins/${created.id}/permissions`)
         .set('Origin', ORIGIN)
         .set('Cookie', cookie)
-        .send({ permissions: ['listings.read'], expectedVersion: fresh.version })
+        .send({ permissions: ['featured.view'], expectedVersion: fresh.version })
         .expect(200);
     }
     const signedIn = await agent()
@@ -290,7 +290,7 @@ describe('Featured placements (integration)', () => {
     const reader = await readerCookie();
     const body = { businessId: businesses['Ordinary Cafe']!.id, startsAt: new Date('2027-09-01T00:00:00.000Z').toISOString() };
 
-    // Reading is allowed with listings.read; changing is not.
+    // Reading is allowed with featured.view; changing needs featured.manage.
     await agent().get('/api/v1/admin/featured').set('Cookie', reader).expect(200);
     await agent().post('/api/v1/admin/featured').set('Origin', ORIGIN).set('Cookie', reader).send(body).expect(403);
 

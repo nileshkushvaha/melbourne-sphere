@@ -87,7 +87,7 @@ describe('SEO: sitemaps and redirects (integration)', () => {
     expect(businesses.body.meta.count).toBe(1);
 
     const editorial = await agent().get('/api/v1/seo/sitemap/editorial').expect(200);
-    expect(editorial.body.data.map((e: { path: string }) => e.path)).toEqual(['/blog', '/blog/where-to-find-filter-coffee']);
+    expect(editorial.body.data.map((e: { path: string }) => e.path)).toEqual(['/blog', '/blog/where-to-find-filter-coffee', '/blog/author/editor']); // an active author with published work has a page (SRS 1.10 BLOG 005)
 
     const taxonomies = await agent().get('/api/v1/seo/sitemap/taxonomies').expect(200);
     const paths = taxonomies.body.data.map((e: { path: string }) => e.path);

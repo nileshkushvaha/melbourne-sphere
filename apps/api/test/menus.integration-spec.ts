@@ -159,8 +159,9 @@ describe('Menus (integration)', () => {
 
     const primary = await location('primary');
     await admin('put', '/locations/primary').send({ menuId: menu.id, expectedVersion: primary.version }).expect(200);
-    const staleLocation = await admin('put', '/locations/primary').send({ menuId: menu.id, expectedVersion: primary.version }).expect(200);
-    expect(staleLocation.body.data).toBeTruthy();
+    const staleLocation = await admin('put', '/locations/primary').send({ menuId: menu.id, expectedVersion: primary.version }).expect(409);
+    expect(staleLocation.body.error.code).toBe('STALE_VERSION');
+    expect((await location('primary')).menuId).toBe(menu.id);
     const assigned = await admin('delete', `/${menu.id}`).expect(409);
     expect(assigned.body.error.code).toBe('MENU_ASSIGNED');
     const cleared = await admin('put', '/locations/primary').send({ menuId: null, expectedVersion: (await location('primary')).version }).expect(409);

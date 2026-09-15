@@ -72,13 +72,17 @@ describe('Static pages (integration)', () => {
     const list = await agent().get('/api/v1/pages').expect(200);
     expect(list.body.data).toEqual([{ slug: 'privacy', title: 'Privacy' }]);
 
-    // Editing published text keeps a revision (CFG 002).
+    // Every save keeps the version it replaces, draft or published (change log 1.17):
+    // the placeholder, fixed and edited saves each keep one; the first save created the row.
     const edited = await put('/api/v1/admin/pages/privacy').send({ expectedVersion: published.body.data.version, title: 'Privacy', body: `${realCopy}<p>We updated this page.</p>`, revisionReason: 'Clarified retention' }).expect(200);
     expect(edited.body.data.version).toBe(published.body.data.version + 1);
     const db = testDatabase();
-    const revisions = await db.contentRevision.findMany({ where: { resourceType: 'static_page' } });
-    expect(revisions).toHaveLength(1);
-    expect(revisions[0]?.reason).toBe('Clarified retention');
+    const revisions = await db.contentRevision.findMany({ where: { resourceType: 'static_page' }, orderBy: { version: 'asc' } });
+    expect(revisions).toHaveLength(3);
+    expect(revisions.map((revision) => revision.reason)).toEqual([null, null, 'Clarified retention']);
+    // The edit keeps the published text it replaced.
+    expect(revisions[2]?.version).toBe(published.body.data.version);
+    expect(revisions[2]?.sanitizedSnapshot).not.toContain('We updated this page.');
   });
 
   it('refuses to write a page the registry does not know', async () => {
@@ -136,7 +140,8 @@ describe('Static pages (integration)', () => {
       }
       // Nothing was created by any of those attempts.
       const list = await agent().get('/api/v1/admin/pages').set('Cookie', cookie).expect(200);
-      expect(list.body.data).toHaveLength(5);
+      // The three system pages and the one created above (About is a product route since 13 Sep 2026).
+      expect(list.body.data).toHaveLength(4);
     });
 
     it('will not delete a system page, or a page that is still published', async () => {

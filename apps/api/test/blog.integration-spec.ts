@@ -78,13 +78,15 @@ describe('Blog editorial core (integration)', () => {
 
   it('writes a summary from the opening text when the writer leaves it empty, and suggests a free address', async () => {
     const opening = 'Carlton has more independent cafés per street than anywhere else in the city.';
+    // The summary ends at the last whole sentence that fits in 160 characters (deriveExcerpt, SRS 1.10 BLOG 002 (3)).
+    const summary = `${opening} Each one roasts its own beans and bakes every morning.`;
     const created = await admin(agent().post('/api/v1/admin/posts'))
       .send({ title: 'Cafés of Carlton', excerpt: '', bodyFormat: 'html', bodyMarkdown: `<p>${opening} ${'Each one roasts its own beans and bakes every morning. '.repeat(6)}</p>`, authorId, categoryId })
       .expect(201);
-    expect(created.body.data.excerpt).toBe(opening);
+    expect(created.body.data.excerpt).toBe(summary);
     // Emptying it again on an edit rewrites it from the current text.
     const cleared = await admin(agent().patch(`/api/v1/admin/posts/${created.body.data.id}`)).send({ expectedVersion: created.body.data.version, excerpt: '' }).expect(200);
-    expect(cleared.body.data.excerpt).toBe(opening);
+    expect(cleared.body.data.excerpt).toBe(summary);
     const clash = await admin(agent().post('/api/v1/admin/posts')).send({ title: 'Cafés of Carlton', slug: created.body.data.slug, authorId, categoryId }).expect(409);
     expect(clash.body.error.fields.slug[0]).toContain(`${created.body.data.slug}-2`);
   });

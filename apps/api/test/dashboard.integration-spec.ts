@@ -47,8 +47,8 @@ describe('Dashboard (integration)', () => {
     const keys = res.body.data.metrics.map((metric: { key: string }) => metric.key);
     expect(keys).toEqual(expect.arrayContaining(['pendingReviews', 'pendingComments', 'openReports', 'failedEnquiries', 'draftListings', 'quarantinedMedia', 'duePosts']));
     expect(res.body.data.activity.length).toBeGreaterThan(0);
-    // Audit entries carry an action and an actor, never message content.
-    expect(Object.keys(res.body.data.activity[0])).toEqual(['id', 'action', 'actorName', 'targetType', 'createdAt']);
+    // Audit entries carry an action, an actor and a readable target name (change log 1.14), never message content.
+    expect(Object.keys(res.body.data.activity[0])).toEqual(['id', 'action', 'category', 'domainLabel', 'outcome', 'actorName', 'targetType', 'targetId', 'targetLabel', 'createdAt']);
     expect(res.headers['cache-control']).toBe('no-store');
     // Trends, figures and breakdowns are counts only, in Melbourne calendar days.
     const data = res.body.data;
@@ -70,14 +70,16 @@ describe('Dashboard (integration)', () => {
     const res = await agent().get('/api/v1/admin/dashboard').set('Cookie', limitedCookie).expect(200);
     const keys = res.body.data.metrics.map((metric: { key: string }) => metric.key);
     expect(keys).toEqual(['draftListings']);
-    expect(res.body.data.activity).toEqual([]);
-    expect(res.body.data.scheduledPosts).toEqual([]);
-    // listings.read sees listing figures and nothing from the queues it cannot open.
+    // No activity area is readable, so the section is omitted (null), not an empty list.
+    expect(res.body.data.activity).toBeNull();
+    expect(res.body.data.scheduledPosts).toBeNull(); // no posts.view
+    // listings.read sees listing figures and nothing from the queues it cannot open; category and area
+    // counts need categories.view and areas.view since the per-menu permissions of change log 1.13.
     expect(res.body.data.trend.series).toEqual([]);
-    expect(res.body.data.figures.map((figure: { key: string }) => figure.key)).toEqual(['publishedBusinesses', 'activeCategories', 'activeAreas']);
+    expect(res.body.data.figures.map((figure: { key: string }) => figure.key)).toEqual(['publishedBusinesses']);
     expect(res.body.data.averageRating).toBeNull();
-    expect(res.body.data.ratingDistribution).toEqual([]);
-    expect(res.body.data.enquiryDelivery).toEqual([]);
+    expect(res.body.data.ratingDistribution).toBeNull(); // no reviews.view
+    expect(res.body.data.enquiryDelivery).toBeNull(); // no enquiries.read
     expect(res.body.data.listingStatus).toHaveLength(3);
     await agent().get('/api/v1/admin/dashboard').expect(401);
   });

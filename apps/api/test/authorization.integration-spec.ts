@@ -78,7 +78,7 @@ describe('Administrator roles, permissions and enforcement (integration)', () =>
       await authed(agent().get('/api/v1/admin/permissions'), staffCookie).expect(403);
       const res = await authed(agent().get('/api/v1/admin/permissions'), superCookie).expect(200);
       const entry = res.body.data.find((p: { key: string }) => p.key === 'roles.update');
-      expect(entry).toMatchObject({ module: 'Access control', isActive: true, isSystem: true });
+      expect(entry).toMatchObject({ module: 'Configuration', isActive: true, isSystem: true });
       expect(entry.label.length).toBeGreaterThan(2);
       // The catalogue is code-declared: there is no create endpoint to call.
       await authed(agent().post('/api/v1/admin/permissions'), superCookie).send({ key: 'invented.permission' }).expect(404);
@@ -86,11 +86,11 @@ describe('Administrator roles, permissions and enforcement (integration)', () =>
 
     it('creates a role with permissions and refuses a duplicate or reserved key', async () => {
       const res = await authed(agent().post('/api/v1/admin/roles'), superCookie)
-        .send({ key: 'Editor', name: 'Editor', description: 'Writes and publishes articles', permissions: ['posts.update', 'posts.publish', 'media.upload'] })
+        .send({ key: 'Editor', name: 'Editor', description: 'Writes and publishes articles', permissions: ['posts.update', 'posts.publish', 'media.upload', 'media.view'] })
         .expect(201);
       editorRoleId = res.body.data.id;
       expect(res.body.data).toMatchObject({ key: 'editor', isSystem: false, isActive: true, version: 1 });
-      expect(res.body.data.permissions).toEqual(['media.upload', 'posts.publish', 'posts.update']);
+      expect(res.body.data.permissions).toEqual(['media.upload', 'media.view', 'posts.publish', 'posts.update']);
 
       await authed(agent().post('/api/v1/admin/roles'), superCookie).send({ key: 'editor', name: 'Editor again', description: '', permissions: [] }).expect(409);
       await authed(agent().post('/api/v1/admin/roles'), superCookie).send({ key: 'super_admin', name: 'Copy', description: '', permissions: [] }).expect(400);
@@ -116,9 +116,9 @@ describe('Administrator roles, permissions and enforcement (integration)', () =>
       await authed(agent().put(`/api/v1/admin/admins/${staffId}/roles`), staffCookie).send({ roleIds: [editorRoleId], expectedVersion: 1 }).expect(403);
       const admin = await testDatabase().adminUser.findUniqueOrThrow({ where: { id: staffId } });
       const res = await authed(agent().put(`/api/v1/admin/admins/${staffId}/roles`), superCookie).send({ roleIds: [editorRoleId], expectedVersion: admin.version }).expect(200);
-      expect(res.body.data.inheritedPermissions).toEqual(['media.upload', 'posts.publish', 'posts.update']);
+      expect(res.body.data.inheritedPermissions).toEqual(['media.upload', 'media.view', 'posts.publish', 'posts.update']);
       expect(res.body.data.directPermissions).toEqual([]);
-      expect(res.body.data.effectivePermissions).toEqual(['media.upload', 'posts.publish', 'posts.update']);
+      expect(res.body.data.effectivePermissions).toEqual(['media.upload', 'media.view', 'posts.publish', 'posts.update']);
       expect(res.body.data.sources['posts.update']).toEqual(['editor']);
     });
 
@@ -129,7 +129,7 @@ describe('Administrator roles, permissions and enforcement (integration)', () =>
         .send({ permissions: ['reviews.moderate', 'posts.update', 'reviews.moderate'], expectedVersion: admin.version })
         .expect(200);
       expect(res.body.data.directPermissions).toEqual(['posts.update', 'reviews.moderate']);
-      expect(res.body.data.effectivePermissions).toEqual(['media.upload', 'posts.publish', 'posts.update', 'reviews.moderate']);
+      expect(res.body.data.effectivePermissions).toEqual(['media.upload', 'media.view', 'posts.publish', 'posts.update', 'reviews.moderate']);
       expect(res.body.data.sources['posts.update'].sort()).toEqual(['direct', 'editor']);
     });
 
@@ -141,7 +141,7 @@ describe('Administrator roles, permissions and enforcement (integration)', () =>
       const res = await authed(agent().put(`/api/v1/admin/admins/${staffId}/roles`), superCookie)
         .send({ roleIds: [editorRoleId, moderator.body.data.id], expectedVersion: admin.version })
         .expect(200);
-      expect(res.body.data.inheritedPermissions).toEqual(['comments.moderate', 'media.upload', 'posts.publish', 'posts.update', 'reports.manage']);
+      expect(res.body.data.inheritedPermissions).toEqual(['comments.moderate', 'media.upload', 'media.view', 'posts.publish', 'posts.update', 'reports.manage']);
     });
 
     it('contributes nothing from an inactive role, and nothing at all from an inactive administrator', async () => {
@@ -185,7 +185,7 @@ describe('Administrator roles, permissions and enforcement (integration)', () =>
 
     it('allows the operation once the permission is granted, then ends the session and the access when it is removed', async () => {
       const fresh = cookieOf(await login(staff.email, staff.password).expect(200));
-      await authed(agent().get('/api/v1/admin/media'), fresh).expect(200); // media.manage, inherited
+      await authed(agent().get('/api/v1/admin/media'), fresh).expect(200); // media.view, inherited from the Editor role
 
       const admin = await testDatabase().adminUser.findUniqueOrThrow({ where: { id: staffId } });
       await authed(agent().put(`/api/v1/admin/admins/${staffId}/roles`), superCookie).send({ roleIds: [], expectedVersion: admin.version }).expect(200);
