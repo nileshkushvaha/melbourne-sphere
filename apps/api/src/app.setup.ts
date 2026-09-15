@@ -1,3 +1,4 @@
+import { json } from 'express';
 import type { INestApplication } from '@nestjs/common';
 import helmet from 'helmet';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -13,6 +14,9 @@ import { createValidationPipe } from './common/validation.js';
 export const API_PREFIX = '/api/v1';
 /** SRS API 004: JSON bodies are capped at 64 KB. */
 export const JSON_BODY_LIMIT = '64kb';
+/** Admin content routes that carry long formatted text (pages, articles); matches nginx `client_max_body_size 1m`. */
+export const CONTENT_BODY_LIMIT = '1mb';
+export const CONTENT_BODY_PATHS = ['/admin/pages', '/admin/posts'] as const;
 
 /**
  * Options that must be passed when creating the application (real or test).
@@ -55,6 +59,11 @@ export function configureApp(app: NestExpressApplication, options: ConfigureAppO
   // The provider webhook is signed over the exact bytes it sent, so the raw body
   // is kept alongside the parsed one for that route only (SRS 1.2 MAIL 007). The
   // express type for this option does not carry `verify`, but body-parser does.
+  // Page and article content is the one place an editor legitimately sends more
+  // than 64 KB (a page holds up to 200 000 characters of formatted text), so
+  // those routes alone accept up to the edge's 1 MB; body-parser skips a body
+  // that is already parsed, so the general parser below leaves them alone.
+  for (const path of CONTENT_BODY_PATHS) app.use(`${API_PREFIX}${path}`, json({ limit: CONTENT_BODY_LIMIT }));
   app.useBodyParser('json', {
     limit: JSON_BODY_LIMIT,
     verify: (req: IncomingMessage & { rawBody?: string; url?: string }, _res: unknown, buffer: Buffer) => {

@@ -64,7 +64,7 @@ describe('Access control — attack scenarios (integration)', () => {
     await testDatabase().adminUser.update({ where: { id: attackerId }, data: { status: 'active' } });
     // The attacker manages administrator accounts, which is a normal delegation.
     // It must not let them change what anyone (including themselves) may do.
-    await grantDirect(attackerId, ['admins.manage']);
+    await grantDirect(attackerId, ['admins.view']);
     attackerCookie = cookieOf(await login(attacker.email, attacker.password).expect(200));
   });
 
@@ -129,7 +129,7 @@ describe('Access control — attack scenarios (integration)', () => {
         .get(IdentityService)
         .createAdmin({ email: 'second.super@example.com', displayName: 'Second Super', passwordHash: await app.get(PasswordService).hash('second-super-password-1'), roleKeys: ['super_admin'] });
       await db.adminUser.update({ where: { id: second.id }, data: { status: 'active' } });
-      await grantDirect(attackerId, ['admins.manage', 'admins.access.manage']);
+      await grantDirect(attackerId, ['admins.view', 'admins.access.manage']);
       const cookie = cookieOf(await login(attacker.email, attacker.password).expect(200));
 
       const versions = await db.adminUser.findMany({ where: { id: { in: [superAdmin.id, second.id] } }, select: { id: true, version: true } });
@@ -179,7 +179,7 @@ describe('Access control — attack scenarios (integration)', () => {
   describe('sessions, cache and payloads', () => {
     it('cannot continue with a revoked session, even though its permissions are cached', async () => {
       const db = testDatabase();
-      await grantDirect(attackerId, ['admins.manage', 'audit.read']);
+      await grantDirect(attackerId, ['admins.view', 'activity.access_control.view']);
       const cookie = cookieOf(await login(attacker.email, attacker.password).expect(200));
       await authed(agent().get('/api/v1/admin/activity'), cookie).expect(200);
       await db.adminSession.updateMany({ where: { admin: { id: attackerId } }, data: { revokedAt: new Date(), revokedReason: 'audit_test' } });
@@ -237,7 +237,7 @@ describe('Access control — attack scenarios (integration)', () => {
         .send({ key: 'idempotency_probe', name: 'Idempotency probe', description: '', permissions: ['listings.read'] })
         .expect(201);
       const id = created.body.data.id;
-      const body = { permissions: ['listings.read', 'listings.write'] };
+      const body = { permissions: ['listings.read', 'listings.update'] };
       const first = await authed(agent().put(`/api/v1/admin/roles/${id}/permissions`), superCookie).send({ ...body, expectedVersion: created.body.data.version }).expect(200);
       const second = await authed(agent().put(`/api/v1/admin/roles/${id}/permissions`), superCookie).send({ ...body, expectedVersion: first.body.data.version }).expect(200);
       expect(second.body.data.permissions).toEqual(first.body.data.permissions);

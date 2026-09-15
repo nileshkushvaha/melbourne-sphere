@@ -63,7 +63,7 @@ describe('HealthController', () => {
       expect(res.statusCode).toBe(503);
       expect(res.headers['cache-control']).toBe('no-store');
       expect(res.body).toEqual({
-        error: { code: 'SERVICE_UNAVAILABLE', message: 'Database unavailable', fields: {}, requestId: 'rid-2' },
+        error: { code: 'SERVICE_UNAVAILABLE', message: 'Service not ready', fields: {}, requestId: 'rid-2' },
       });
     },
   );
@@ -72,6 +72,6 @@ describe('HealthController', () => {
     const res = fakeResponse();
     await new HealthController(fakeDatabase({ ok: true, latencyMs: 1 }), fakeRedis({ ok: false, reason: 'error' })).getReadiness({ requestId: 'rid-3' } as never, res as never);
     expect(res.statusCode).toBe(503);
-    expect(res.body).toEqual({ error: { code: 'SERVICE_UNAVAILABLE', message: 'Redis unavailable', fields: {}, requestId: 'rid-3' } });
+    expect(res.body).toEqual({ error: { code: 'SERVICE_UNAVAILABLE', message: 'Service not ready', fields: {}, requestId: 'rid-3' } });
   });
 });

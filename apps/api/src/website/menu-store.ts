@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Prisma } from '@melbourne-sphere/database';
+import type { ObjectStoragePort } from '../media/storage.port.js';
 import { menuItemDepths, validateMenuLink, type MenuTreeInputItem } from '@melbourne-sphere/domain';
 import { REFERENCE_COLUMN, isReferencedType, type MenuLookups, type StoredMenuItem } from './menu-resolver.js';
 
@@ -11,7 +12,7 @@ import { REFERENCE_COLUMN, isReferencedType, type MenuLookups, type StoredMenuIt
 const titled = <T extends { id: string; slug: string; title: string }>(rows: T[]) => new Map(rows.map((row) => [row.id, row]));
 
 /** Loads exactly the linked records these items reference, in one query per kind. */
-export async function loadMenuLookups(db: Prisma.TransactionClient, items: readonly StoredMenuItem[]): Promise<MenuLookups> {
+export async function loadMenuLookups(db: Prisma.TransactionClient, items: readonly StoredMenuItem[], storage?: Pick<ObjectStoragePort, 'publicUrl'>): Promise<MenuLookups> {
   const ids = (column: (typeof REFERENCE_COLUMN)[keyof typeof REFERENCE_COLUMN]) => [...new Set(items.map((item) => item[column]).filter((id): id is string => Boolean(id)))];
   const pageIds = ids('pageId');
   const postIds = ids('postId');
@@ -20,9 +21,10 @@ export async function loadMenuLookups(db: Prisma.TransactionClient, items: reado
   const categoryIds = ids('categoryId');
   const areaIds = ids('localAreaId');
   const businessIds = ids('businessId');
+  const documentIds = ids('documentId');
   const needsFaqs = items.some((item) => item.type === 'route' && item.routeKey === 'faqs');
 
-  const [pages, posts, blogCategories, blogTags, categories, areas, businesses, faqCount] = await Promise.all([
+  const [pages, posts, blogCategories, blogTags, categories, areas, businesses, documents, faqCount] = await Promise.all([
     pageIds.length ? db.staticPage.findMany({ where: { id: { in: pageIds } }, select: { id: true, slug: true, title: true, status: true } }) : [],
     postIds.length ? db.post.findMany({ where: { id: { in: postIds } }, select: { id: true, slug: true, title: true, status: true } }) : [],
     blogCategoryIds.length ? db.blogCategory.findMany({ where: { id: { in: blogCategoryIds } }, select: { id: true, slug: true, name: true, active: true } }) : [],
@@ -30,6 +32,7 @@ export async function loadMenuLookups(db: Prisma.TransactionClient, items: reado
     categoryIds.length ? db.category.findMany({ where: { id: { in: categoryIds } }, select: { id: true, slug: true, name: true, active: true, parent: { select: { active: true } } } }) : [],
     areaIds.length ? db.localArea.findMany({ where: { id: { in: areaIds } }, select: { id: true, slug: true, name: true, active: true } }) : [],
     businessIds.length ? db.business.findMany({ where: { id: { in: businessIds } }, select: { id: true, slug: true, name: true, status: true } }) : [],
+    documentIds.length ? db.mediaAsset.findMany({ where: { id: { in: documentIds }, kind: 'document' }, select: { id: true, title: true, sourceName: true, status: true, publicObjectKey: true } }) : [],
     needsFaqs ? db.faq.count({ where: { status: 'published' } }) : 0,
   ]);
 
@@ -42,6 +45,8 @@ export async function loadMenuLookups(db: Prisma.TransactionClient, items: reado
     categories: titled(categories.map((row) => ({ id: row.id, slug: row.slug, title: row.name, active: row.active && (row.parent?.active ?? true) }))),
     areas: titled(areas.map((row) => ({ ...row, title: row.name }))),
     businesses: titled(businesses.map((row) => ({ ...row, title: row.name }))),
+    // Without storage (the seed command) no address can be built, so a document reads as not published.
+    documents: new Map(documents.map((row) => [row.id, { title: row.title ?? row.sourceName, status: row.status, url: storage && row.publicObjectKey ? storage.publicUrl(row.publicObjectKey) : null }])),
     faqsPublished: faqCount > 0,
   };
 }
@@ -58,6 +63,7 @@ export const MENU_ITEM_SELECT = {
   categoryId: true,
   localAreaId: true,
   businessId: true,
+  documentId: true,
   routeKey: true,
   url: true,
   label: true,

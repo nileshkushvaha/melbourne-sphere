@@ -7,6 +7,7 @@ import type { SessionSummary } from './session.service.js';
 export const PUBLIC_ROUTE_KEY = 'ms:public';
 export const SESSION_ONLY_KEY = 'ms:session-only';
 export const PERMISSIONS_KEY = 'ms:permissions';
+export const ANY_PERMISSIONS_KEY = 'ms:any-permissions';
 
 /** Marks an admin-prefixed route as reachable without a session (login, forgot, reset). */
 export const Public = () => SetMetadata(PUBLIC_ROUTE_KEY, true);
@@ -16,6 +17,14 @@ export const SessionOnly = () => SetMetadata(SESSION_ONLY_KEY, true);
 
 /** Requires a valid session holding every listed permission. */
 export const RequirePermissions = (...permissions: [PermissionKey, ...PermissionKey[]]) => SetMetadata(PERMISSIONS_KEY, permissions);
+
+/**
+ * Requires a valid session holding at least one listed permission. Only for
+ * lookups another screen depends on — the listing editor's category list, the
+ * article editor's tag picker — so holding that screen's permission is enough
+ * without also being given the lookup's own menu item (change log 1.13).
+ */
+export const RequireAnyPermission = (...permissions: [PermissionKey, PermissionKey, ...PermissionKey[]]) => SetMetadata(ANY_PERMISSIONS_KEY, permissions);
 
 export interface AuthenticatedRequest extends Request {
   admin?: AdminPrincipal;

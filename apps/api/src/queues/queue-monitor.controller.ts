@@ -170,7 +170,7 @@ export class QueueMonitorController {
     return { data: await this.queues.setPaused(name, body.paused, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('system.queues.cancel')
+  @RequirePermissions('system.queues.clean')
   @Post(':name/clean')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')

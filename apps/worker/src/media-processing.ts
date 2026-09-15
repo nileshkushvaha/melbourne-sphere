@@ -18,6 +18,8 @@ export interface MediaProcessingDeps {
   storage: StorageAdapter;
   randomKey: () => string;
   now?: () => Date;
+  /** Receives the underlying error for the operator's log; the stored reason never carries it. */
+  onError?: (assetId: string, error: unknown) => void;
 }
 
 export type ProcessingOutcome = 'ready' | 'rejected' | 'skipped';
@@ -33,6 +35,8 @@ export async function processMediaAsset(data: MediaJobData, deps: MediaProcessin
   const now = deps.now ?? (() => new Date());
   const asset = await deps.db.mediaAsset.findUnique({ where: { id: data.mediaId }, include: { variants: true } });
   if (!asset) return 'skipped';
+  // A PDF is checked and published by the API when its upload completes (change log 1.16); it has no renditions to make.
+  if (asset.kind === 'document') return 'skipped';
   // Repeat delivery of the same event must not reprocess a finished asset (SRS EVT 002).
   if (asset.status !== 'quarantined') return 'skipped';
 
@@ -43,6 +47,7 @@ export async function processMediaAsset(data: MediaJobData, deps: MediaProcessin
     await reject(deps, asset.id, 'The uploaded file could not be read for processing');
     return 'rejected';
   }
+
 
   try {
     const image = sharp(original, { failOn: 'error' });
@@ -72,7 +77,10 @@ export async function processMediaAsset(data: MediaJobData, deps: MediaProcessin
     });
     return 'ready';
   } catch (error) {
-    await reject(deps, asset.id, error instanceof Error ? error.message.slice(0, 500) : 'Processing failed');
+    // The library or storage message can name buckets and keys; administrators
+    // see a sentence they can act on, and the detail goes to the log.
+    deps.onError?.(asset.id, error);
+    await reject(deps, asset.id, 'The image could not be processed. Try uploading it again, or use a different JPEG, PNG or WebP file.');
     return 'rejected';
   }
 }

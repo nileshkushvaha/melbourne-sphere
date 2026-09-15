@@ -21,8 +21,12 @@ async function bootstrap(): Promise<void> {
       res.json(document);
     });
   }
+  // Close the database, Redis and queue connections cleanly when systemd stops the service.
+  app.enableShutdownHooks();
   const port = config.get('PORT', { infer: true });
-  await app.listen(port);
+  // Only the reverse proxy on this host should reach the API in production.
+  const host = config.get('HOST', { infer: true }) ?? (config.get('NODE_ENV', { infer: true }) === 'production' ? '127.0.0.1' : undefined);
+  await (host ? app.listen(port, host) : app.listen(port));
   console.log(`[api] listening on http://localhost:${port}${API_PREFIX}`);
 }
 

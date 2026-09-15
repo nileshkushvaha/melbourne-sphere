@@ -322,7 +322,7 @@ export class DirectoryService {
     const db = await this.database.client();
     const row = await db.business.findUnique({ where: { id }, include });
     if (!row) throw notFound();
-    return this.toDto(row, actor.permissions.includes('listings.write'));
+    return this.toDto(row, actor.permissions.includes('listings.update'));
   }
 
   // ---- create / update -----------------------------------------------------
@@ -445,8 +445,13 @@ export class DirectoryService {
         else await tx.businessAddress.upsert({ where: { businessId: id }, create: { businessId: id, ...this.addressData(input.address) }, update: this.addressData(input.address) });
         changed.push('address');
       }
+      // A published listing's page, cards and search results show these fields.
+      if (current.status === 'published') {
+        await this.cache.recordInvalidation(tx, { resourceType: 'business', resourceId: id, correlationId: ctx.requestId, tags: [CACHE_TAGS.businesses, CACHE_TAGS.business(current.slug), CACHE_TAGS.sitemap] });
+      }
       return tx.business.findUniqueOrThrow({ where: { id }, include });
     });
+    if (current.status === 'published') await this.cache.bumpNamespace();
     await this.audit.record({ action: 'listing.update', actorAdminId: actor.id, targetType: 'business', targetId: id, metadata: { fields: changed.join(',') }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return this.toDto(row, true);
   }
@@ -555,7 +560,7 @@ export class DirectoryService {
   }
 
   /** Guard helper used by the controller for write actions. */
-  static assertCan(actor: AdminPrincipal, permission: 'listings.write' | 'listings.publish'): void {
+  static assertCan(actor: AdminPrincipal, permission: 'listings.update' | 'listings.publish'): void {
     if (!actor.permissions.includes(permission)) throw new ForbiddenException({ code: 'FORBIDDEN', message: 'You do not have permission to do that' });
   }
 }

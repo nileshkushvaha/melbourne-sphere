@@ -268,7 +268,7 @@ export class BlogService {
       return Promise.all(rows.map(async (row) => this.toTermDto(row, row._count.posts, await this.termImage(row.ogImageMediaId))));
     }
     const rows = await db.blogTag.findMany({ where, orderBy: [{ name: 'asc' }], include: { _count: { select: { posts: true } } } });
-    return rows.map((row) => this.toTermDto(row, row._count.posts));
+    return Promise.all(rows.map(async (row) => this.toTermDto(row, row._count.posts, await this.termImage(row.ogImageMediaId))));
   }
 
   async createTerm(kind: TermKind, input: BlogTermInputDto, actor: AdminPrincipal, ctx: RequestContext): Promise<BlogTermDto> {
@@ -291,12 +291,14 @@ export class BlogService {
     }
     if (await db.blogTag.findUnique({ where: { slug } })) throw slugTaken();
     const row = await db.$transaction(async (tx) => {
-      const created = await tx.blogTag.create({ data: { name: input.name, slug, landingContent } });
+      const created = await tx.blogTag.create({
+        data: { name: input.name, slug, landingContent, seoTitle: input.seoTitle ?? null, seoDescription: input.seoDescription ?? null, seoKeywords: input.seoKeywords ?? null, ogImageMediaId: input.ogImageMediaId ?? null },
+      });
       await syncContentMedia(tx, 'blog_tag', created.id, created.landingContent);
       return created;
     });
     await this.audit.record({ action: 'blog.tag.create', actorAdminId: actor.id, targetType: 'blog_tag', targetId: row.id, requestId: ctx.requestId, ipAddress: ctx.ip });
-    return this.toTermDto(row, 0);
+    return this.toTermDto(row, 0, await this.termImage(row.ogImageMediaId));
   }
 
   async updateTerm(kind: TermKind, id: string, input: UpdateBlogTermDto, actor: AdminPrincipal, ctx: RequestContext): Promise<BlogTermDto> {
@@ -311,23 +313,24 @@ export class BlogService {
       if (clash) throw slugTaken();
     }
     await this.assertTermSeo(kind, input);
-    // Search appearance exists on categories only; a field left out keeps its stored value.
-    const seo =
-      kind === 'category'
-        ? {
-            ...(input.seoTitle !== undefined ? { seoTitle: input.seoTitle } : {}),
-            ...(input.seoDescription !== undefined ? { seoDescription: input.seoDescription } : {}),
-            ...(input.seoKeywords !== undefined ? { seoKeywords: input.seoKeywords } : {}),
-            ...(input.ogImageMediaId !== undefined ? { ogImageMediaId: input.ogImageMediaId } : {}),
-          }
-        : {};
-    const data = { name: input.name, ...(input.slug ? { slug: input.slug } : {}), landingContent: input.landingContent ? renderSanitisedBody(input.landingContent) : null, ...seo, version: { increment: 1 } };
+    // Categories and tags both have a search appearance (change log 1.15); a field left out keeps its stored value.
+    const seo = {
+      ...(input.seoTitle !== undefined ? { seoTitle: input.seoTitle } : {}),
+      ...(input.seoDescription !== undefined ? { seoDescription: input.seoDescription } : {}),
+      ...(input.seoKeywords !== undefined ? { seoKeywords: input.seoKeywords } : {}),
+      ...(input.ogImageMediaId !== undefined ? { ogImageMediaId: input.ogImageMediaId } : {}),
+    };
+    // Landing content left out of the request keeps what is stored; an empty value clears it.
+    const landingContent = input.landingContent === undefined ? undefined : input.landingContent ? renderSanitisedBody(input.landingContent) : null;
+    const data = { name: input.name, ...(input.slug ? { slug: input.slug } : {}), ...(landingContent !== undefined ? { landingContent } : {}), ...seo, version: { increment: 1 } };
     const movedTo = input.slug && input.slug !== current.slug ? input.slug : null;
     await db.$transaction(async (tx) => {
       const table = kind === 'category' ? tx.blogCategory : tx.blogTag;
       const updated = await (table as typeof tx.blogTag).updateMany({ where: { id, version: input.expectedVersion }, data });
       if (updated.count !== 1) throw stale();
-      await syncContentMedia(tx, kind === 'category' ? 'blog_category' : 'blog_tag', id, data.landingContent);
+      if (landingContent !== undefined) await syncContentMedia(tx, kind === 'category' ? 'blog_category' : 'blog_tag', id, landingContent);
+      // Term lists, landing pages, article chips and the sitemap show these fields.
+      await this.cache.recordInvalidation(tx, { resourceType: kind === 'category' ? 'blog_category' : 'blog_tag', resourceId: id, correlationId: ctx.requestId, tags: [CACHE_TAGS.posts, CACHE_TAGS.taxonomy, CACHE_TAGS.sitemap, ...(movedTo ? [CACHE_TAGS.redirects, CACHE_TAGS.menus] : [])] });
       // A category and a tag both have a public landing page, so moving one
       // leaves saved links and search results pointing at nothing unless a
       // redirect goes with it — the same obligation a listing or an article
@@ -345,6 +348,7 @@ export class BlogService {
         });
       }
     });
+    await this.cache.bumpNamespace();
     await this.audit.record({ action: `blog.${kind}.update`, actorAdminId: actor.id, targetType: `blog_${kind}`, targetId: id, requestId: ctx.requestId, ipAddress: ctx.ip, metadata: movedTo ? { movedFrom: current.slug, movedTo } : undefined });
     return (await this.listTerms(kind)).find((t) => t.id === id)!;
   }
@@ -361,8 +365,13 @@ export class BlogService {
         : await db.postTag.count({ where: { tagId: id, post: { status: { not: 'archived' } } } });
       if (inUse > 0) throw new ConflictException({ code: 'TERM_IN_USE', message: `Cannot deactivate: ${inUse} live article(s) still use this term.` });
     }
-    const updated = await (model as typeof db.blogTag).updateMany({ where: { id, version: expectedVersion }, data: { active, version: { increment: 1 } } });
-    if (updated.count !== 1) throw stale();
+    await db.$transaction(async (tx) => {
+      const table = kind === 'category' ? tx.blogCategory : tx.blogTag;
+      const updated = await (table as typeof tx.blogTag).updateMany({ where: { id, version: expectedVersion }, data: { active, version: { increment: 1 } } });
+      if (updated.count !== 1) throw stale();
+      await this.cache.recordInvalidation(tx, { resourceType: kind === 'category' ? 'blog_category' : 'blog_tag', resourceId: id, correlationId: ctx.requestId, tags: [CACHE_TAGS.posts, CACHE_TAGS.taxonomy, CACHE_TAGS.sitemap, CACHE_TAGS.menus] });
+    });
+    await this.cache.bumpNamespace();
     await this.audit.record({ action: `blog.${kind}.${active ? 'activate' : 'deactivate'}`, actorAdminId: actor.id, targetType: `blog_${kind}`, targetId: id, requestId: ctx.requestId, ipAddress: ctx.ip });
     return (await this.listTerms(kind)).find((t) => t.id === id)!;
   }
@@ -880,16 +889,15 @@ export class BlogService {
   }
 
   private toTermDto(row: BlogCategory | BlogTag, postCount: number, ogImage: BlogTermDto['ogImage'] = null): BlogTermDto {
-    const category = 'seoTitle' in row ? row : null;
     return {
       id: row.id,
       name: row.name,
       slug: row.slug,
       landingContent: row.landingContent,
-      seoTitle: category?.seoTitle ?? null,
-      seoDescription: category?.seoDescription ?? null,
-      seoKeywords: category?.seoKeywords ?? null,
-      ogImageMediaId: category?.ogImageMediaId ?? null,
+      seoTitle: row.seoTitle,
+      seoDescription: row.seoDescription,
+      seoKeywords: row.seoKeywords,
+      ogImageMediaId: row.ogImageMediaId,
       ogImage,
       active: row.active,
       postCount,
@@ -905,16 +913,11 @@ export class BlogService {
   }
 
   /**
-   * A tag has no search appearance of its own, so a request that sets one is
-   * refused rather than silently dropped; a category's share image must exist
-   * and be processed, or the page would advertise a broken image when shared.
+   * A category's or tag's share image must exist and be processed, or the page
+   * would advertise a broken image when shared (change log 1.15: tags have a
+   * search appearance too).
    */
-  private async assertTermSeo(kind: TermKind, input: BlogTermInputDto): Promise<void> {
-    if (kind === 'tag') {
-      const field = (['seoTitle', 'seoDescription', 'seoKeywords', 'ogImageMediaId'] as const).find((key) => input[key]);
-      if (field) throw validation(field, 'Search appearance can be set on categories only');
-      return;
-    }
+  private async assertTermSeo(_kind: TermKind, input: BlogTermInputDto): Promise<void> {
     if (input.ogImageMediaId && !(await this.media.publicImageRefOfKind(input.ogImageMediaId, 'hero'))) {
       throw validation('ogImageMediaId', 'Choose a processed image from the media library');
     }

@@ -21,7 +21,7 @@ describe('PermissionsGuard (default deny)', () => {
   });
 
   it('denies an admin route that declares no permission, even for a Super Admin', () => {
-    const { guard, ctx } = make({}, { permissions: ['listings.read', 'admins.manage'] });
+    const { guard, ctx } = make({}, { permissions: ['listings.read', 'admins.view'] });
     expect(() => guard.canActivate(ctx)).toThrow(/Access denied/);
   });
 
@@ -31,7 +31,7 @@ describe('PermissionsGuard (default deny)', () => {
   });
 
   it('requires every declared permission and rejects unknown keys', () => {
-    const ok = make({ [PERMISSIONS_KEY]: ['listings.read', 'listings.write'] }, { permissions: ['listings.read', 'listings.write'] });
+    const ok = make({ [PERMISSIONS_KEY]: ['listings.read', 'listings.update'] }, { permissions: ['listings.read', 'listings.update'] });
     expect(ok.guard.canActivate(ok.ctx)).toBe(true);
     const missing = make({ [PERMISSIONS_KEY]: ['listings.read', 'listings.publish'] }, { permissions: ['listings.read'] });
     expect(() => missing.guard.canActivate(missing.ctx)).toThrow(/permission/);
@@ -49,8 +49,8 @@ describe('PermissionsGuard (default deny)', () => {
   });
 
   it('keeps two codes on one resource apart', () => {
-    // 'admins.manage' must not satisfy 'admins.access.manage'.
-    const { guard, ctx } = make({ [PERMISSIONS_KEY]: ['admins.access.manage'] }, { permissions: ['admins.manage'] });
+    // 'admins.view' must not satisfy 'admins.access.manage'.
+    const { guard, ctx } = make({ [PERMISSIONS_KEY]: ['admins.access.manage'] }, { permissions: ['admins.view'] });
     expect(() => guard.canActivate(ctx)).toThrow(/permission/);
     const granted = make({ [PERMISSIONS_KEY]: ['admins.access.manage'] }, { permissions: ['admins.access.manage'] });
     expect(granted.guard.canActivate(granted.ctx)).toBe(true);

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
-import { HomePublicController, SettingsAdminController, SiteSettingsPublicController, StaticPagesAdminController, StaticPagesPublicController } from './settings.controller.js';
+import { HomePublicController, SettingsAdminController, SiteSettingsPublicController, StaticPagePreviewController, StaticPagesAdminController, StaticPagesPublicController } from './settings.controller.js';
 import { SettingsGroupsController } from './settings-groups.controller.js';
 import { SettingsService } from './settings.service.js';
 
@@ -12,7 +12,7 @@ import { StaticPagesService } from './static-pages.service.js';
  */
 @Module({
   imports: [AuthModule],
-  controllers: [HomePublicController, SiteSettingsPublicController, SettingsAdminController, SettingsGroupsController, StaticPagesAdminController, StaticPagesPublicController],
+  controllers: [HomePublicController, SiteSettingsPublicController, SettingsAdminController, SettingsGroupsController, StaticPagesAdminController, StaticPagesPublicController, StaticPagePreviewController],
   providers: [SettingsService, StaticPagesService],
   exports: [SettingsService, StaticPagesService],
 })

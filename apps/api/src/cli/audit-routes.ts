@@ -16,7 +16,8 @@ import { PATH_METADATA, METHOD_METADATA } from '@nestjs/common/constants.js';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from '../app.module.js';
 import { API_PREFIX } from '../app.setup.js';
-import { PERMISSIONS_KEY, PUBLIC_ROUTE_KEY, SESSION_ONLY_KEY } from '../auth/decorators.js';
+import { ANY_PERMISSIONS_KEY, PERMISSIONS_KEY, PUBLIC_ROUTE_KEY, SESSION_ONLY_KEY } from '../auth/decorators.js';
+import { isActivePermissionKey } from '../identity/permissions.js';
 
 interface RouteRow {
   method: string;
@@ -67,10 +68,13 @@ async function main(): Promise<void> {
         const isPublic = reflector.getAllAndOverride<boolean>(PUBLIC_ROUTE_KEY, targets);
         const sessionOnly = reflector.getAllAndOverride<boolean>(SESSION_ONLY_KEY, targets);
         const permissions = reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, targets);
+        const anyOf = reflector.getAllAndOverride<string[]>(ANY_PERMISSIONS_KEY, targets);
+        // A retired or unknown code on a route is refused at runtime; flag it here so it is fixed before deploy.
+        const retired = [...(permissions ?? []), ...(anyOf ?? [])].filter((code) => !isActivePermissionKey(code));
         rows.push({
           method: METHOD_NAMES[requestMethod] ?? String(requestMethod),
           path: join(API_PREFIX, controllerPath, methodPath),
-          authorization: isPublic ? 'PUBLIC' : permissions?.length ? permissions.join(' + ') : sessionOnly ? 'SESSION ONLY' : 'NONE',
+          authorization: `${isPublic ? 'PUBLIC' : anyOf?.length ? anyOf.join(' | ') : permissions?.length ? permissions.join(' + ') : sessionOnly ? 'SESSION ONLY' : 'NONE'}${retired.length ? ` RETIRED(${retired.join(', ')})` : ''}`,
           controller: metatype.name,
           handler: name,
         });

@@ -1,3 +1,5 @@
+import { PAGE_MIN_BODY_CHARACTERS, pageTextBlockers } from '@melbourne-sphere/domain/page-sections';
+
 /**
  * Information pages (SRS CFG 002, amended in SRS 1.6 and 1.7).
  *
@@ -79,7 +81,7 @@ export function isProductRoute(slug: string): boolean {
 }
 
 /** Editor-facing description of a page an administrator created. */
-export const CUSTOM_PAGE_PURPOSE = 'A page you created. It is published at this address and listed in the site footer once it goes live.';
+export const CUSTOM_PAGE_PURPOSE = 'A page you created. It is published at this address once it goes live; add it to a menu to link it from the header or footer.';
 
 /**
  * Addresses a custom page may not take.
@@ -152,31 +154,14 @@ export function normalisePageSlug(input: string): string {
   return input.trim().toLowerCase();
 }
 
-/** Minimum body length that counts as real content rather than a stub. */
-export const MIN_BODY_CHARACTERS = 200;
-
-/** Wording that must never reach production (CFG 002: no sample or placeholder copy). */
-const PLACEHOLDER_PATTERNS = [
-  /lorem ipsum/i,
-  /\bTBD\b/i,
-  /\bTBC\b/i,
-  /to be (written|completed|confirmed)/i,
-  /placeholder/i,
-  /sample (text|content|address|email)/i,
-  /your (company|business) name here/i,
-  /example@example\.(com|org)/i,
-];
+/** Minimum body length that counts as real content rather than a stub; the rule itself lives in the domain package, shared with the worker. */
+export const MIN_BODY_CHARACTERS = PAGE_MIN_BODY_CHARACTERS;
 
 /**
- * Publication gate for an information page. Returns the reasons it cannot be
- * published; an empty list means it is ready.
+ * Publication gate for an information page's text. Returns the reasons it
+ * cannot be published; an empty list means it is ready. Pages built from
+ * sections are also held to `pageSectionBlockers` (see `pagePublicationBlockers`).
  */
 export function staticPageBlockers(input: { title: string; plainBody: string }): string[] {
-  const blockers: string[] = [];
-  if (input.title.trim().length < 3) blockers.push('Title must be at least 3 characters');
-  const body = input.plainBody.trim();
-  if (body.length < MIN_BODY_CHARACTERS) blockers.push(`Page content must be at least ${MIN_BODY_CHARACTERS} characters of real copy`);
-  const placeholder = PLACEHOLDER_PATTERNS.find((pattern) => pattern.test(body) || pattern.test(input.title));
-  if (placeholder) blockers.push('Remove placeholder or sample wording before publishing');
-  return blockers;
+  return pageTextBlockers(input);
 }

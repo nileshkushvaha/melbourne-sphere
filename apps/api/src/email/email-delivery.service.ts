@@ -195,7 +195,7 @@ export class EmailDeliveryService {
       ...(query.search ? { OR: [{ id: query.search }, { providerMessageId: query.search }, { relatedId: query.search }] } : {}),
     };
     const [rows, total] = await Promise.all([
-      db.emailDelivery.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (query.page - 1) * query.pageSize, take: query.pageSize }),
+      db.emailDelivery.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], skip: (query.page - 1) * query.pageSize, take: query.pageSize }),
       db.emailDelivery.count({ where }),
     ]);
     return { rows, total };

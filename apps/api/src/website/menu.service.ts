@@ -13,6 +13,7 @@ import {
 import { AuditService } from '../audit/audit.service.js';
 import { CacheService } from '../cache/cache.service.js';
 import { DatabaseService } from '../database/database.service.js';
+import { ObjectStoragePort } from '../media/storage.port.js';
 import type { RequestContext } from '../auth/auth.service.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import { assertVersion, recordContentActivity } from './content-support.js';
@@ -90,6 +91,7 @@ export class MenuService {
     private readonly database: DatabaseService,
     private readonly audit: AuditService,
     private readonly cache: CacheService,
+    private readonly storage: ObjectStoragePort,
   ) {}
 
   private validateName(name: string): string {
@@ -139,7 +141,7 @@ export class MenuService {
     const row = await db.menu.findUnique({ where: { id }, include: { items: { select: MENU_ITEM_SELECT }, locations: { select: { location: true } } } });
     if (!row) throw notFound();
     const ordered = orderMenuItems(row.items);
-    const lookups = await loadMenuLookups(db, ordered);
+    const lookups = await loadMenuLookups(db, ordered, this.storage);
     return {
       id: row.id,
       name: row.name,
@@ -200,6 +202,7 @@ export class MenuService {
       () => found('business_category', (ids) => tx.category.findMany({ where: { id: { in: ids } }, select })),
       () => found('area', (ids) => tx.localArea.findMany({ where: { id: { in: ids } }, select })),
       () => found('business', (ids) => tx.business.findMany({ where: { id: { in: ids } }, select })),
+      () => found('document', (ids) => tx.mediaAsset.findMany({ where: { id: { in: ids }, kind: 'document' }, select })),
     ]) {
       results.push(await lookup());
     }
@@ -333,7 +336,7 @@ export class MenuService {
     const db = await this.database.client();
     const rows = await db.menuLocation.findMany({ where: { menuId: { not: null } }, include: { menu: { include: { items: { select: MENU_ITEM_SELECT } } } } });
     const allItems = rows.flatMap((row) => row.menu?.items ?? []);
-    const lookups = await loadMenuLookups(db, allItems);
+    const lookups = await loadMenuLookups(db, allItems, this.storage);
     const out: PublicMenus = { primary: [], secondary: [], footer: [], footer_bottom: [] };
     for (const row of rows) out[row.location] = resolvePublicMenu(row.menu?.items ?? [], lookups);
     return out;

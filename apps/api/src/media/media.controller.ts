@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Header, HttpCode, Param, Patch, Post, Put, Query, Req } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { RequestContext } from '../auth/auth.service.js';
-import { CurrentAdmin, RequirePermissions, type AuthenticatedRequest } from '../auth/decorators.js';
+import { CurrentAdmin, RequireAnyPermission, RequirePermissions, type AuthenticatedRequest } from '../auth/decorators.js';
 import { getRequestId } from '../common/request-id.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import { CompleteUploadDto, GalleryEntryDto, ListMediaQueryDto, MediaAssetDto, RequestUploadDto, SetGalleryDto, UpdateMediaDto, UploadTicketDto } from './dto/media.dto.js';
@@ -9,22 +9,27 @@ import { MediaService } from './media.service.js';
 
 const ctxOf = (req: AuthenticatedRequest): RequestContext => ({ ip: req.ip ?? 'unknown', userAgent: req.headers['user-agent'], requestId: getRequestId(req) });
 
-/** Media library (SRS MED 001–004); `media.manage` throughout. */
+/**
+ * Media library (SRS MED 001–004, change log 1.16). Viewing, editing and
+ * deleting use the Media library codes; uploading needs `media.upload` for an
+ * image or `media.documents.upload` for a PDF, which the service checks against
+ * the declared type.
+ */
 @ApiTags('admin-media')
 @Controller('admin/media')
 export class MediaAdminController {
   constructor(private readonly media: MediaService) {}
 
-  @RequirePermissions('media.manage')
+  @RequirePermissions('media.view')
   @Get()
   @Header('Cache-Control', 'no-store')
-  @ApiOperation({ summary: 'List media assets (status, q, unused)' })
+  @ApiOperation({ summary: 'List media assets (kind, status, q, unused)' })
   @ApiOkResponse({ type: [MediaAssetDto] })
   list(@Query() query: ListMediaQueryDto) {
     return this.media.list(query);
   }
 
-  @RequirePermissions('media.manage')
+  @RequireAnyPermission('media.upload', 'media.documents.upload')
   @Post('uploads')
   @HttpCode(201)
   @Header('Cache-Control', 'no-store')
@@ -34,7 +39,7 @@ export class MediaAdminController {
     return { data: await this.media.requestUpload(body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('media.manage')
+  @RequireAnyPermission('media.upload', 'media.documents.upload')
   @Post(':id/complete')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
@@ -44,7 +49,7 @@ export class MediaAdminController {
     return { data: await this.media.completeUpload(id, body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('media.manage')
+  @RequirePermissions('media.view')
   @Get(':id')
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: MediaAssetDto })
@@ -52,7 +57,7 @@ export class MediaAdminController {
     return { data: await this.media.get(id) };
   }
 
-  @RequirePermissions('media.manage')
+  @RequirePermissions('media.update')
   @Patch(':id')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Edit alt text, credit, rights note and focal point' })
@@ -61,7 +66,7 @@ export class MediaAdminController {
     return { data: await this.media.update(id, body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('media.manage')
+  @RequirePermissions('media.delete')
   @Delete(':id')
   @HttpCode(204)
   @Header('Cache-Control', 'no-store')
@@ -85,7 +90,7 @@ export class BusinessGalleryController {
     return { data: await this.media.gallery(businessId) };
   }
 
-  @RequirePermissions('listings.write')
+  @RequirePermissions('listings.update')
   @Put()
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')

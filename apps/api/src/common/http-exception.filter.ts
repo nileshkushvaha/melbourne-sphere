@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { DatabaseUnavailableError } from '@melbourne-sphere/database';
+import { DatabaseUnavailableError, Prisma } from '@melbourne-sphere/database';
 import { getRequestId, type RequestWithId } from './request-id.js';
 import { sendErrorEnvelope } from './error-envelope.js';
 import { RequestValidationException, type FieldErrors } from './validation.js';
@@ -79,7 +79,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
     if (status >= 500) {
       const detail =
         exception instanceof Error ? (exception.stack ?? exception.message) : String(exception);
-      this.logger.error(`[${requestId}] ${req.method} ${req.originalUrl ?? req.url} -> ${status}\n${detail}`);
+      // The route pattern, not the address: a path can carry a preview token and
+      // a query string can carry whatever the caller typed.
+      const route = `${req.baseUrl ?? ''}${(req as { route?: { path?: string } }).route?.path ?? '[unmatched route]'}`;
+      this.logger.error(`[${requestId}] ${req.method} ${route} -> ${status}\n${detail}`);
     }
 
     sendErrorEnvelope(res, status, { code, message, fields, requestId });
@@ -97,6 +100,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     // Temporary infrastructure failure (SRS API 002: 503), never a stack trace.
     if (exception instanceof DatabaseUnavailableError) {
+      return { status: HttpStatus.SERVICE_UNAVAILABLE, code: 'SERVICE_UNAVAILABLE', message: 'Service temporarily unavailable. Please try again shortly.', fields: {} };
+    }
+
+    // Database errors that escaped a service: the right status, never Prisma's
+    // own text, which names models, fields and constraints.
+    if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+      if (exception.code === 'P2002') return { status: HttpStatus.CONFLICT, code: 'CONFLICT', message: 'This conflicts with an existing record.', fields: {} };
+      if (exception.code === 'P2025') return { status: HttpStatus.NOT_FOUND, code: 'NOT_FOUND', message: GENERIC_MESSAGES[404]!, fields: {} };
+    }
+    if (exception instanceof Prisma.PrismaClientInitializationError) {
       return { status: HttpStatus.SERVICE_UNAVAILABLE, code: 'SERVICE_UNAVAILABLE', message: 'Service temporarily unavailable. Please try again shortly.', fields: {} };
     }
 

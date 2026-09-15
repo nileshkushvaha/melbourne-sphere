@@ -173,7 +173,7 @@ export class AuthService {
       await tx.adminSession.updateMany({ where: { adminId: record.adminId, revokedAt: null }, data: { revokedAt: new Date(), revokedReason: 'password_reset' } });
     });
     await this.history.record(record.adminId, previousHash);
-    await this.throttle.reset('login', record.admin.email);
+    await this.throttle.reset('login', normaliseEmail(record.admin.email));
     await this.audit.record({ action: 'auth.password_reset.completed', actorAdminId: record.adminId, targetType: 'admin_user', targetId: record.adminId, requestId: ctx.requestId, ipAddress: ctx.ip });
   }
 

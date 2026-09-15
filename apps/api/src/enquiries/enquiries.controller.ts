@@ -79,7 +79,7 @@ export class EnquiriesAdminController {
     return { data: await this.enquiries.get(id) };
   }
 
-  @RequirePermissions('community.contacts.view')
+  @RequirePermissions('enquiries.contact.view')
   @Get(':id/contact')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Reveal the visitor’s contact details. Every reveal is recorded (SRS ENQ 007).' })
@@ -97,7 +97,7 @@ export class EnquiriesAdminController {
     return { data: await this.enquiries.updateHandling(id, body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('enquiries.manage')
+  @RequirePermissions('enquiries.retry')
   @Post(':id/retry')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')

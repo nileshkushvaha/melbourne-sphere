@@ -45,8 +45,25 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List audit entries, newest first */
+        /** List activity events, newest first; grouped, or the members of one group */
         get: operations["AuditController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/activity/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How many events each visible area has had since an instant (the area chips) */
+        get: operations["AuditController_summary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -765,7 +782,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List media assets (status, q, unused) */
+        /** List media assets (kind, status, q, unused) */
         get: operations["MediaAdminController_list"];
         put?: never;
         post?: never;
@@ -2537,6 +2554,158 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/pages/{slug}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish at a future time; the same checks run now and when the time comes (change log 1.17) */
+        post: operations["StaticPagesAdminController_schedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/pages/{slug}/unschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["StaticPagesAdminController_unschedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/pages/{slug}/address": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Move a custom page to a new address; a published page leaves a permanent redirect (SEO 004) */
+        post: operations["StaticPagesAdminController_changeAddress"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/pages/{slug}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy the page into a new draft at another address */
+        post: operations["StaticPagesAdminController_duplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/pages/{slug}/preview-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A private ten-minute link to the page in the public design, including the caller’s unsaved changes (change log 1.17) */
+        post: operations["StaticPagesAdminController_previewLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/pages/{slug}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Earlier versions of the page, newest first (up to 50) */
+        get: operations["StaticPagesAdminController_revisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/pages/{slug}/revisions/{revisionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["StaticPagesAdminController_revision"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/pages/{slug}/revisions/{revisionId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore an earlier version’s title and sections; the current content is kept as a version first */
+        post: operations["StaticPagesAdminController_restoreRevision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/pages/{slug}/autosave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller’s kept copy of unsaved changes, or null */
+        get: operations["StaticPagesAdminController_autosave"];
+        /** Keep a private copy of unsaved changes; never changes the page */
+        put: operations["StaticPagesAdminController_saveAutosave"];
+        post?: never;
+        delete: operations["StaticPagesAdminController_discardAutosave"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/pages": {
         parameters: {
             query?: never;
@@ -2563,6 +2732,23 @@ export interface paths {
         };
         /** One published information page (404 while it is a draft) */
         get: operations["StaticPagesPublicController_page"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/preview/pages/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A page behind a preview link issued to a signed-in editor */
+        get: operations["StaticPagePreviewController_preview"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3876,13 +4062,20 @@ export interface components {
         };
         MediaUsageDto: {
             /** @enum {string} */
-            kind: "business" | "post" | "page" | "author" | "testimonial" | "partner" | "category" | "area" | "blogCategory" | "blogTag" | "faq" | "setting";
+            kind: "business" | "post" | "page" | "author" | "testimonial" | "partner" | "category" | "area" | "blogCategory" | "blogTag" | "faq" | "setting" | "menu";
             id: string;
             label: string;
         };
         MediaAssetDto: {
             id: string;
             sourceName: string;
+            /** @enum {string} */
+            kind: "image" | "document";
+            /** @description A document's display name */
+            title: string | null;
+            /** @description The published PDF, once its upload has been checked */
+            documentUrl: string | null;
+            pageCount: number | null;
             mimeType: string;
             bytes: number;
             width: number | null;
@@ -3905,9 +4098,15 @@ export interface components {
         RequestUploadDto: {
             /** @description Original file name, for admin display only */
             fileName: string;
-            /** @enum {string} */
-            contentType: "image/jpeg" | "image/png" | "image/webp";
+            /**
+             * @description An image type, or application/pdf for a document (change log 1.16)
+             * @enum {string}
+             */
+            contentType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
+            /** @description Images up to 10 MB, documents up to 20 MB; the service applies the limit for the kind */
             bytes: number;
+            /** @description A document's display name; required for a PDF */
+            title?: string;
         };
         UploadTicketDto: {
             assetId: string;
@@ -3926,6 +4125,8 @@ export interface components {
         UpdateMediaDto: {
             expectedVersion: number;
             altText?: string | null;
+            /** @description A document's display name; documents only */
+            title?: string;
             credit?: string | null;
             rightsNote?: string | null;
             /** @description Focal point as a fraction of the width */
@@ -4762,7 +4963,7 @@ export interface components {
             slug: string;
             /** @description Sanitised HTML rendered on the landing page */
             landingContent: string | null;
-            /** @description Always null for a tag */
+            /** @description Search-result title, when set */
             seoTitle: string | null;
             seoDescription: string | null;
             seoKeywords: string | null;
@@ -4780,13 +4981,13 @@ export interface components {
             slug?: string;
             /** @description Editorial landing content (Markdown); a tag without it is noindex (SRS BLOG 005) */
             landingContent?: string | null;
-            /** @description Categories only. Search-result title; the composed one is used when empty */
+            /** @description Search-result title; the composed one is used when empty */
             seoTitle?: string | null;
-            /** @description Categories only. Meta description; the composed one is used when empty */
+            /** @description Meta description; the composed one is used when empty */
             seoDescription?: string | null;
-            /** @description Categories only. Comma-separated keywords */
+            /** @description Comma-separated keywords */
             seoKeywords?: string | null;
-            /** @description Categories only. A processed media asset used when the landing page is shared */
+            /** @description A processed media asset used when the landing page is shared */
             ogImageMediaId?: string | null;
         };
         UpdateBlogTermDto: {
@@ -4794,13 +4995,13 @@ export interface components {
             slug?: string;
             /** @description Editorial landing content (Markdown); a tag without it is noindex (SRS BLOG 005) */
             landingContent?: string | null;
-            /** @description Categories only. Search-result title; the composed one is used when empty */
+            /** @description Search-result title; the composed one is used when empty */
             seoTitle?: string | null;
-            /** @description Categories only. Meta description; the composed one is used when empty */
+            /** @description Meta description; the composed one is used when empty */
             seoDescription?: string | null;
-            /** @description Categories only. Comma-separated keywords */
+            /** @description Comma-separated keywords */
             seoKeywords?: string | null;
-            /** @description Categories only. A processed media asset used when the landing page is shared */
+            /** @description A processed media asset used when the landing page is shared */
             ogImageMediaId?: string | null;
             expectedVersion: number;
         };
@@ -5309,6 +5510,14 @@ export interface components {
             action: string;
             actorName: string | null;
             targetType: string | null;
+            targetId: string | null;
+            /** @description Readable name of the record, where it is not private */
+            targetLabel: string | null;
+            /** @description Activity area (ACT 002) */
+            category: string;
+            domainLabel: string;
+            /** @enum {string} */
+            outcome: "success" | "failure";
             /** Format: date-time */
             createdAt: string;
         };
@@ -5347,24 +5556,25 @@ export interface components {
         DashboardDto: {
             /** @description Only metrics the signed-in administrator may see */
             metrics: components["schemas"]["DashboardMetricDto"][];
-            scheduledPosts: components["schemas"]["DashboardScheduledPostDto"][];
-            /** @description Recent audit entries; never private message text (SRS ADM 003) */
-            activity: components["schemas"]["DashboardActivityDto"][];
+            /** @description Upcoming scheduled articles; null without posts.view */
+            scheduledPosts: components["schemas"]["DashboardScheduledPostDto"][] | null;
+            /** @description Recent audit entries, never private message text (SRS ADM 003); null without audit.read */
+            activity: components["schemas"]["DashboardActivityDto"][] | null;
             /** @description Length of the reporting period in days */
             periodDays: number;
             trend: components["schemas"]["DashboardTrendDto"];
             /** @description Headline totals the caller may see */
             figures: components["schemas"]["DashboardFigureDto"][];
-            /** @description Mean of approved ratings to one decimal; null without reviews.moderate or without approved reviews */
+            /** @description Mean of approved ratings to one decimal; null without reviews.view or without approved reviews */
             averageRating: number | null;
-            /** @description Approved reviews by rating, five stars first; empty without reviews.moderate */
-            ratingDistribution: components["schemas"]["DashboardBreakdownItemDto"][];
-            /** @description Enquiries received in the period by delivery state; empty without enquiries.read */
-            enquiryDelivery: components["schemas"]["DashboardBreakdownItemDto"][];
-            /** @description Listings by status; empty without listings.read */
-            listingStatus: components["schemas"]["DashboardBreakdownItemDto"][];
-            /** @description Primary categories with the most published listings; empty without listings.read */
-            topCategories: components["schemas"]["DashboardBreakdownItemDto"][];
+            /** @description Approved reviews by rating, five stars first; null without reviews.view */
+            ratingDistribution: components["schemas"]["DashboardBreakdownItemDto"][] | null;
+            /** @description Enquiries received in the period by delivery state; null without enquiries.read */
+            enquiryDelivery: components["schemas"]["DashboardBreakdownItemDto"][] | null;
+            /** @description Listings by status; null without listings.read */
+            listingStatus: components["schemas"]["DashboardBreakdownItemDto"][] | null;
+            /** @description Primary categories with the most published listings; null without listings.read */
+            topCategories: components["schemas"]["DashboardBreakdownItemDto"][] | null;
             /** Format: date-time */
             generatedAt: string;
         };
@@ -5835,6 +6045,30 @@ export interface components {
             /** @description Settings to change, by declared key. Omitted keys keep their stored value; an unknown key is rejected rather than ignored. */
             values: Record<string, never>;
         };
+        StaticPageReferencesDto: {
+            /** @description Library images the sections use, by id: a thumbnail and its alt text */
+            images: {
+                [key: string]: {
+                    url: string;
+                    alt: string;
+                };
+            };
+            /** @description Library documents the section buttons link, by id */
+            documents: {
+                [key: string]: {
+                    title: string;
+                    url: string;
+                };
+            };
+            /** @description Businesses the sections show, by id, whatever their status */
+            businesses: {
+                [key: string]: {
+                    name: string;
+                    slug: string;
+                    status: string;
+                };
+            };
+        };
         StaticPageDto: {
             /** @description Public address. The system pages are privacy, terms, review-guidelines; anything else is a page an administrator created. */
             slug: string;
@@ -5851,8 +6085,23 @@ export interface components {
             ogImageMediaId: string | null;
             /** @description Resolved share image, or null when the site image is used */
             ogImage: components["schemas"]["SettingsImageDto"] | null;
+            /** @description The page sections (change log 1.17); a page written before sections reads as one text section */
+            sections: Record<string, never>[];
+            /** @description True when the page has been saved with sections; false for a page still stored as one body */
+            hasSections: boolean;
+            /** @description Names and previews of what the sections refer to, so the editor can show them. Empty in the page list. */
+            references: components["schemas"]["StaticPageReferencesDto"];
+            /** @description Hidden from search engines and left out of the sitemap */
+            noindex: boolean;
+            /**
+             * Format: date-time
+             * @description When a scheduled page goes live
+             */
+            scheduledAt: string | null;
+            /** @description Why a scheduled page returned to draft */
+            publishFailure: string | null;
             /** @enum {string} */
-            status: "draft" | "published";
+            status: "draft" | "published" | "scheduled";
             /**
              * @description Where the supporting column sits, or whether the page runs full width
              * @enum {string}
@@ -5885,7 +6134,10 @@ export interface components {
              */
             slug: string;
             title: string;
-            body: string;
+            /** @description The page as one body; used only when `sections` is not sent */
+            body?: string;
+            /** @description The page sections (change log 1.17), validated and sanitised by the server */
+            sections?: Record<string, never>[];
             /**
              * @default html
              * @enum {string}
@@ -5903,12 +6155,19 @@ export interface components {
              * @enum {string}
              */
             layout: "rightSidebar" | "leftSidebar" | "fullWidth";
+            /** @description Hide from search engines and the sitemap */
+            noindex?: boolean;
         };
         UpdateStaticPageDto: {
             /** @description 0 for a page that has never been saved */
             expectedVersion: number;
             title: string;
-            body: string;
+            /** @description The page as one body; used only when `sections` is not sent */
+            body?: string;
+            /** @description The page sections (change log 1.17), validated and sanitised by the server */
+            sections?: Record<string, never>[];
+            /** @description Hide from search engines and the sitemap */
+            noindex?: boolean;
             /**
              * @default html
              * @enum {string}
@@ -5926,12 +6185,92 @@ export interface components {
              * @enum {string}
              */
             layout: "rightSidebar" | "leftSidebar" | "fullWidth";
-            /** @description Stored with the revision of the previous published text */
+            /** @description A note kept with the version this save replaces */
             revisionReason?: string;
         };
         StaticPageStateDto: {
             expectedVersion: number;
             reason?: string;
+        };
+        UnpublishStaticPageDto: {
+            expectedVersion: number;
+            /** @description Why the page is being taken down; kept in the activity log */
+            reason: string;
+        };
+        ScheduleStaticPageDto: {
+            expectedVersion: number;
+            reason?: string;
+            /**
+             * Format: date-time
+             * @description UTC instant; the admin picks Australia/Melbourne time. Must be in the future.
+             */
+            scheduledAt: string;
+        };
+        ChangeStaticPageAddressDto: {
+            expectedVersion: number;
+            /** @description The new address; the same rules as a new page */
+            slug: string;
+            reason?: string;
+        };
+        DuplicateStaticPageDto: {
+            /** @description Address of the copy */
+            slug: string;
+            title: string;
+        };
+        StaticPagePreviewLinkDto: {
+            /** @description Path on the public site that shows the page privately, e.g. /preview/page/<token> */
+            path: string;
+            /**
+             * Format: date-time
+             * @description The link stops working at this time, or when the editor signs out
+             */
+            expiresAt: string;
+        };
+        StaticPageRevisionDto: {
+            id: string;
+            /** @description The page version this snapshot was taken from */
+            version: number;
+            title: string | null;
+            reason: string | null;
+            actorName: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        StaticPageRevisionDetailDto: {
+            id: string;
+            /** @description The page version this snapshot was taken from */
+            version: number;
+            title: string | null;
+            reason: string | null;
+            actorName: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description The sections as they stood; a version saved before sections reads as one text section */
+            sections: Record<string, never>[];
+            /** @description The sanitised HTML of that version */
+            bodyHtml: string;
+        };
+        RestoreStaticPageRevisionDto: {
+            expectedVersion: number;
+        };
+        StaticPageAutosaveDto: {
+            title: string;
+            sections: Record<string, never>[];
+            baseVersion: number;
+            /** Format: date-time */
+            savedAt: string;
+            /** @description True when the page has been saved by anyone since this copy was made */
+            stale: boolean;
+        };
+        SaveStaticPageAutosaveDto: {
+            /** @description The page version the editor is working from */
+            baseVersion: number;
+            title: string;
+            sections: Record<string, never>[];
+        };
+        StaticPageAutosaveReceiptDto: {
+            /** Format: date-time */
+            savedAt: string;
         };
         PublicStaticPageSummaryDto: {
             slug: string;
@@ -5955,6 +6294,24 @@ export interface components {
              * @enum {string}
              */
             layout: "rightSidebar" | "leftSidebar" | "fullWidth";
+            /** @description Visible sections in order (change log 1.17); empty for a page still stored as one body */
+            sections: Record<string, never>[];
+            /** @description Library images the sections show, by id, with the credit recorded on the picture */
+            images: {
+                [key: string]: {
+                    url: string;
+                    alt: string;
+                    width: number;
+                    height: number;
+                    credit: string | null;
+                };
+            };
+            /** @description Published PDF documents the sections link, by id */
+            documents: Record<string, never>;
+            /** @description Published businesses the sections show, by id */
+            businesses: Record<string, never>;
+            /** @description Hidden from search engines */
+            noindex: boolean;
             /** Format: date-time */
             updatedAt: string;
         };
@@ -6306,7 +6663,7 @@ export interface components {
             key: string;
             parentKey?: string | null;
             /** @enum {string} */
-            type: "custom" | "heading" | "route" | "page" | "post" | "blog_category" | "blog_tag" | "business_category" | "area" | "business";
+            type: "custom" | "heading" | "route" | "page" | "post" | "blog_category" | "blog_tag" | "business_category" | "area" | "business" | "document";
             refId?: string | null;
             routeKey?: string | null;
             url?: string | null;
@@ -6336,7 +6693,7 @@ export interface components {
             key: string;
             parentKey?: string | null;
             /** @enum {string} */
-            type: "custom" | "heading" | "route" | "page" | "post" | "blog_category" | "blog_tag" | "business_category" | "area" | "business";
+            type: "custom" | "heading" | "route" | "page" | "post" | "blog_category" | "blog_tag" | "business_category" | "area" | "business" | "document";
             refId?: string | null;
             routeKey?: string | null;
             url?: string | null;
@@ -6537,6 +6894,7 @@ export interface operations {
                 order?: "asc" | "desc";
                 /** @description Exact action key or prefix ending with "*" (e.g. auth.*) */
                 action?: string;
+                /** @description An administrator id, or "system" for events the system recorded itself */
                 actorAdminId?: string;
                 targetType?: string;
                 targetId?: string;
@@ -6548,6 +6906,10 @@ export interface operations {
                 outcome?: "success" | "failure";
                 /** @description Exact request id, so one request can be followed across events. */
                 requestId?: string;
+                /** @description Collapse repeated events (same action and actor, same request or minute) into one row with a count (change log 1.14). */
+                grouped?: "true" | "false";
+                /** @description The members of one group, as returned in `groupKey` by a grouped list. */
+                groupKey?: string;
                 sort?: "createdAt";
             };
             header?: never;
@@ -6557,6 +6919,26 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description {data: AuditEntry[], meta} */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuditController_summary: {
+        parameters: {
+            query?: {
+                /** @description Count events from this instant; the interface sends the start of the Melbourne day. */
+                from?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -7377,6 +7759,10 @@ export interface operations {
                 /** @description Case-insensitive match on name or slug */
                 q?: string;
                 status?: "active" | "inactive";
+                /** @description Comma-separated ids (at most 50): only these terms, whatever their status — how a picker shows the names of terms already chosen */
+                ids?: string;
+                /** @description Categories only: just top-level categories (possible parents) */
+                topLevel?: boolean;
                 sort?: "name" | "slug" | "sortOrder" | "createdAt" | "updatedAt";
             };
             header?: never;
@@ -7519,6 +7905,10 @@ export interface operations {
                 /** @description Case-insensitive match on name or slug */
                 q?: string;
                 status?: "active" | "inactive";
+                /** @description Comma-separated ids (at most 50): only these terms, whatever their status — how a picker shows the names of terms already chosen */
+                ids?: string;
+                /** @description Categories only: just top-level categories (possible parents) */
+                topLevel?: boolean;
                 sort?: "name" | "slug" | "sortOrder" | "createdAt" | "updatedAt";
             };
             header?: never;
@@ -7661,6 +8051,10 @@ export interface operations {
                 /** @description Case-insensitive match on name or slug */
                 q?: string;
                 status?: "active" | "inactive";
+                /** @description Comma-separated ids (at most 50): only these terms, whatever their status — how a picker shows the names of terms already chosen */
+                ids?: string;
+                /** @description Categories only: just top-level categories (possible parents) */
+                topLevel?: boolean;
                 sort?: "name" | "slug" | "sortOrder" | "createdAt" | "updatedAt";
             };
             header?: never;
@@ -7798,6 +8192,8 @@ export interface operations {
         parameters: {
             query?: {
                 status?: "quarantined" | "ready" | "rejected";
+                /** @description Images or documents; both when omitted */
+                kind?: "image" | "document";
                 q?: string;
                 /** @description Only assets that are not used anywhere */
                 unused?: boolean;
@@ -10764,7 +11160,7 @@ export interface operations {
             query?: {
                 /** @description Matches title and address */
                 q?: string;
-                status?: "draft" | "published";
+                status?: "draft" | "published" | "scheduled";
             };
             header?: never;
             path?: never;
@@ -10906,6 +11302,56 @@ export interface operations {
         };
         requestBody: {
             content: {
+                "application/json": components["schemas"]["UnpublishStaticPageDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaticPageDto"];
+                };
+            };
+        };
+    };
+    StaticPagesAdminController_schedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleStaticPageDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaticPageDto"];
+                };
+            };
+        };
+    };
+    StaticPagesAdminController_unschedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
                 "application/json": components["schemas"]["StaticPageStateDto"];
             };
         };
@@ -10917,6 +11363,211 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["StaticPageDto"];
                 };
+            };
+        };
+    };
+    StaticPagesAdminController_changeAddress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeStaticPageAddressDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaticPageDto"];
+                };
+            };
+        };
+    };
+    StaticPagesAdminController_duplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DuplicateStaticPageDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaticPageDto"];
+                };
+            };
+        };
+    };
+    StaticPagesAdminController_previewLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaticPagePreviewLinkDto"];
+                };
+            };
+        };
+    };
+    StaticPagesAdminController_revisions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaticPageRevisionDto"][];
+                };
+            };
+        };
+    };
+    StaticPagesAdminController_revision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                revisionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaticPageRevisionDetailDto"];
+                };
+            };
+        };
+    };
+    StaticPagesAdminController_restoreRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                revisionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreStaticPageRevisionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaticPageDto"];
+                };
+            };
+        };
+    };
+    StaticPagesAdminController_autosave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaticPageAutosaveDto"];
+                };
+            };
+        };
+    };
+    StaticPagesAdminController_saveAutosave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveStaticPageAutosaveDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaticPageAutosaveReceiptDto"];
+                };
+            };
+        };
+    };
+    StaticPagesAdminController_discardAutosave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -10945,6 +11596,27 @@ export interface operations {
             header?: never;
             path: {
                 slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicStaticPageDto"];
+                };
+            };
+        };
+    };
+    StaticPagePreviewController_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
             };
             cookie?: never;
         };
@@ -11942,7 +12614,7 @@ export interface operations {
                 page?: components["schemas"]["Object"];
                 pageSize?: components["schemas"]["Object"];
                 order?: "asc" | "desc";
-                type: "route" | "page" | "post" | "blog_category" | "blog_tag" | "business_category" | "area" | "business";
+                type: "route" | "page" | "post" | "blog_category" | "blog_tag" | "business_category" | "area" | "business" | "document";
                 q?: string;
                 sort?: "recent" | "title";
             };
@@ -12033,7 +12705,7 @@ export interface operations {
                 page?: components["schemas"]["Object"];
                 pageSize?: components["schemas"]["Object"];
                 order?: "asc" | "desc";
-                type: "route" | "page" | "post" | "blog_category" | "blog_tag" | "business_category" | "area" | "business";
+                type: "route" | "page" | "post" | "blog_category" | "blog_tag" | "business_category" | "area" | "business" | "document";
                 q?: string;
                 sort?: "recent" | "title";
             };

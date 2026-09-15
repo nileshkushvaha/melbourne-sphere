@@ -13,6 +13,11 @@ export class DashboardActivityDto {
   @ApiProperty() action!: string;
   @ApiProperty({ type: String, nullable: true }) actorName!: string | null;
   @ApiProperty({ type: String, nullable: true }) targetType!: string | null;
+  @ApiProperty({ type: String, nullable: true }) targetId!: string | null;
+  @ApiProperty({ type: String, nullable: true, description: 'Readable name of the record, where it is not private' }) targetLabel!: string | null;
+  @ApiProperty({ description: 'Activity area (ACT 002)' }) category!: string;
+  @ApiProperty() domainLabel!: string;
+  @ApiProperty({ enum: ['success', 'failure'] }) outcome!: 'success' | 'failure';
   @ApiProperty({ format: 'date-time' }) createdAt!: string;
 }
 
@@ -53,15 +58,15 @@ export class DashboardBreakdownItemDto {
 
 export class DashboardDto {
   @ApiProperty({ type: [DashboardMetricDto], description: 'Only metrics the signed-in administrator may see' }) metrics!: DashboardMetricDto[];
-  @ApiProperty({ type: [DashboardScheduledPostDto] }) scheduledPosts!: DashboardScheduledPostDto[];
-  @ApiProperty({ type: [DashboardActivityDto], description: 'Recent audit entries; never private message text (SRS ADM 003)' }) activity!: DashboardActivityDto[];
+  @ApiProperty({ type: [DashboardScheduledPostDto], nullable: true, description: 'Upcoming scheduled articles; null without posts.view' }) scheduledPosts!: DashboardScheduledPostDto[] | null;
+  @ApiProperty({ type: [DashboardActivityDto], nullable: true, description: 'Recent audit entries, never private message text (SRS ADM 003); null without audit.read' }) activity!: DashboardActivityDto[] | null;
   @ApiProperty({ description: 'Length of the reporting period in days' }) periodDays!: number;
   @ApiProperty({ type: DashboardTrendDto }) trend!: DashboardTrendDto;
   @ApiProperty({ type: [DashboardFigureDto], description: 'Headline totals the caller may see' }) figures!: DashboardFigureDto[];
-  @ApiProperty({ type: Number, nullable: true, description: 'Mean of approved ratings to one decimal; null without reviews.moderate or without approved reviews' }) averageRating!: number | null;
-  @ApiProperty({ type: [DashboardBreakdownItemDto], description: 'Approved reviews by rating, five stars first; empty without reviews.moderate' }) ratingDistribution!: DashboardBreakdownItemDto[];
-  @ApiProperty({ type: [DashboardBreakdownItemDto], description: 'Enquiries received in the period by delivery state; empty without enquiries.read' }) enquiryDelivery!: DashboardBreakdownItemDto[];
-  @ApiProperty({ type: [DashboardBreakdownItemDto], description: 'Listings by status; empty without listings.read' }) listingStatus!: DashboardBreakdownItemDto[];
-  @ApiProperty({ type: [DashboardBreakdownItemDto], description: 'Primary categories with the most published listings; empty without listings.read' }) topCategories!: DashboardBreakdownItemDto[];
+  @ApiProperty({ type: Number, nullable: true, description: 'Mean of approved ratings to one decimal; null without reviews.view or without approved reviews' }) averageRating!: number | null;
+  @ApiProperty({ type: [DashboardBreakdownItemDto], nullable: true, description: 'Approved reviews by rating, five stars first; null without reviews.view' }) ratingDistribution!: DashboardBreakdownItemDto[] | null;
+  @ApiProperty({ type: [DashboardBreakdownItemDto], nullable: true, description: 'Enquiries received in the period by delivery state; null without enquiries.read' }) enquiryDelivery!: DashboardBreakdownItemDto[] | null;
+  @ApiProperty({ type: [DashboardBreakdownItemDto], nullable: true, description: 'Listings by status; null without listings.read' }) listingStatus!: DashboardBreakdownItemDto[] | null;
+  @ApiProperty({ type: [DashboardBreakdownItemDto], nullable: true, description: 'Primary categories with the most published listings; null without listings.read' }) topCategories!: DashboardBreakdownItemDto[] | null;
   @ApiProperty({ format: 'date-time' }) generatedAt!: string;
 }

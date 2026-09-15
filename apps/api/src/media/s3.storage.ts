@@ -96,8 +96,10 @@ export class S3ObjectStorage extends ObjectStoragePort implements OnApplicationB
     return Buffer.concat(chunks);
   }
 
-  async put(bucket: 'quarantine' | 'public', key: string, body: Buffer, contentType: string): Promise<void> {
-    await this.client.send(new PutObjectCommand({ Bucket: this.bucket(bucket), Key: key, Body: body, ContentType: contentType, CacheControl: bucket === 'public' ? 'public, max-age=31536000, immutable' : 'no-store' }));
+  async put(bucket: 'quarantine' | 'public', key: string, body: Buffer, contentType: string, options: { contentDisposition?: string } = {}): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({ Bucket: this.bucket(bucket), Key: key, Body: body, ContentType: contentType, CacheControl: bucket === 'public' ? 'public, max-age=31536000, immutable' : 'no-store', ...(options.contentDisposition ? { ContentDisposition: options.contentDisposition } : {}) }),
+    );
   }
 
   async delete(bucket: 'quarantine' | 'public', key: string): Promise<void> {

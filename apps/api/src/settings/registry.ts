@@ -300,8 +300,8 @@ export const SETTING_GROUPS: readonly SettingGroupDeclaration[] = [
     // its own richer validator in SettingsService; `general` is the one the
     // registry names. Both are written through the same shared store path.
     storeKey: 'general',
-    viewPermission: 'settings.manage',
-    updatePermission: 'settings.manage',
+    viewPermission: 'settings.general.view',
+    updatePermission: 'settings.general.update',
     settings: [],
     note: 'Validated by SettingsService (`home-settings.ts`, `general-settings.ts`), whose rules are richer than a declaration list can express; persistence, versioning, audit and cache invalidation are the shared settings path.',
   },

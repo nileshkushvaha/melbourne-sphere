@@ -81,10 +81,10 @@ export class BlogTermInputDto {
   @ApiProperty({ minLength: 2, maxLength: 80 }) @trim() @IsString() @Length(2, 80) name!: string;
   @ApiPropertyOptional({ maxLength: 100 }) @IsOptional() @trim() @IsString() @MaxLength(100) @Matches(SLUG, { message: 'slug must be lowercase words separated by hyphens' }) slug?: string;
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 5000, description: 'Editorial landing content (Markdown); a tag without it is noindex (SRS BLOG 005)' }) @IsOptional() @emptyToNull() @IsString() @MaxLength(5000) landingContent?: string | null;
-  @ApiPropertyOptional({ type: String, maxLength: 180, nullable: true, description: 'Categories only. Search-result title; the composed one is used when empty' }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(180) seoTitle?: string | null;
-  @ApiPropertyOptional({ type: String, maxLength: 300, nullable: true, description: 'Categories only. Meta description; the composed one is used when empty' }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(300) seoDescription?: string | null;
-  @ApiPropertyOptional({ type: String, maxLength: 255, nullable: true, description: 'Categories only. Comma-separated keywords' }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(255) seoKeywords?: string | null;
-  @ApiPropertyOptional({ type: String, maxLength: 64, nullable: true, description: 'Categories only. A processed media asset used when the landing page is shared' }) @IsOptional() @emptyToNull() @IsString() @MaxLength(64) ogImageMediaId?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 180, nullable: true, description: 'Search-result title; the composed one is used when empty' }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(180) seoTitle?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 300, nullable: true, description: 'Meta description; the composed one is used when empty' }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(300) seoDescription?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 255, nullable: true, description: 'Comma-separated keywords' }) @IsOptional() @emptyToNull() @trim() @IsString() @MaxLength(255) seoKeywords?: string | null;
+  @ApiPropertyOptional({ type: String, maxLength: 64, nullable: true, description: 'A processed media asset used when the landing page is shared' }) @IsOptional() @emptyToNull() @IsString() @MaxLength(64) ogImageMediaId?: string | null;
 }
 
 export class UpdateBlogTermDto extends BlogTermInputDto {
@@ -124,7 +124,7 @@ export class BlogTermDto {
   @ApiProperty() name!: string;
   @ApiProperty() slug!: string;
   @ApiProperty({ type: String, nullable: true, description: 'Sanitised HTML rendered on the landing page' }) landingContent!: string | null;
-  @ApiProperty({ type: String, nullable: true, description: 'Always null for a tag' }) seoTitle!: string | null;
+  @ApiProperty({ type: String, nullable: true, description: 'Search-result title, when set' }) seoTitle!: string | null;
   @ApiProperty({ type: String, nullable: true }) seoDescription!: string | null;
   @ApiProperty({ type: String, nullable: true }) seoKeywords!: string | null;
   @ApiProperty({ type: String, nullable: true }) ogImageMediaId!: string | null;

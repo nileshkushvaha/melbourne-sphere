@@ -1,4 +1,6 @@
 import { ConflictException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { CacheService } from '../../cache/cache.service.js';
+import { CACHE_TAGS } from '@melbourne-sphere/domain';
 import type { HoursException, OpeningInterval } from '@melbourne-sphere/database';
 import { AuditService } from '../../audit/audit.service.js';
 import type { RequestContext } from '../../auth/auth.service.js';
@@ -46,6 +48,7 @@ export class HoursService {
   constructor(
     private readonly database: DatabaseService,
     private readonly audit: AuditService,
+    private readonly cache: CacheService,
   ) {}
 
   async get(businessId: string, now = new Date()): Promise<HoursDto> {
@@ -57,7 +60,7 @@ export class HoursService {
 
   async put(businessId: string, input: PutHoursDto, actor: AdminPrincipal, ctx: RequestContext): Promise<HoursDto> {
     const db = await this.database.client();
-    const current = await db.business.findUnique({ where: { id: businessId }, select: { id: true, version: true, status: true } });
+    const current = await db.business.findUnique({ where: { id: businessId }, select: { id: true, version: true, status: true, slug: true } });
     if (!current) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Listing not found' });
     if (current.version !== input.expectedVersion) throw stale();
     if (current.status === 'archived') throw new ConflictException({ code: 'INVALID_STATE', message: 'Restore the listing before editing its hours' });
@@ -86,8 +89,13 @@ export class HoursService {
       await tx.hoursException.deleteMany({ where: { businessId } });
       if (intervalRows.length > 0) await tx.openingInterval.createMany({ data: intervalRows });
       if (exceptionRows.length > 0) await tx.hoursException.createMany({ data: exceptionRows });
+      // The listing page and the "open now" filter read these hours.
+      if (current.status === 'published') {
+        await this.cache.recordInvalidation(tx, { resourceType: 'business', resourceId: businessId, correlationId: ctx.requestId, tags: [CACHE_TAGS.businesses, CACHE_TAGS.business(current.slug)] });
+      }
       return tx.business.findUniqueOrThrow({ where: { id: businessId }, select: { version: true, hoursMode: true, openingHours: true, hoursExceptions: true } });
     });
+    if (current.status === 'published') await this.cache.bumpNamespace();
     await this.audit.record({ action: 'listing.hours.update', actorAdminId: actor.id, targetType: 'business', targetId: businessId, metadata: { mode: input.mode, intervals: intervalRows.length, exceptions: exceptions.length }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return this.toDto(result.hoursMode, result.openingHours, result.hoursExceptions, result.version);
   }

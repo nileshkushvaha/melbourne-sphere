@@ -96,3 +96,21 @@ describe('media variant processing (SRS MED 001–003)', () => {
     expect(variants).toHaveLength(0);
   });
 });
+
+describe('documents (change log 1.16)', () => {
+  it('leaves a PDF alone: the API checks and publishes documents itself', async () => {
+    const storage = new MemoryStorage();
+    let updated = false;
+    const db = {
+      mediaAsset: {
+        findUnique: async () => ({ id: 'doc-1', kind: 'document', objectKey: 'quarantine/doc-1/abc.pdf', status: 'quarantined', variants: [] }),
+        update: async () => {
+          updated = true;
+        },
+      },
+    };
+    expect(await processMediaAsset({ eventId: 'e', mediaId: 'doc-1' }, { db: db as never, storage, randomKey: () => 'k' })).toBe('skipped');
+    expect(updated).toBe(false);
+    expect(storage.objects.size).toBe(0);
+  });
+});

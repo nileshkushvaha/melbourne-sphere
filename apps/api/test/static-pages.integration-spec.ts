@@ -151,7 +151,7 @@ describe('Static pages (integration)', () => {
 
     it('deletes an unpublished page and stops serving its address', async () => {
       const current = await agent().get('/api/v1/admin/pages/community-guidelines').set('Cookie', cookie).expect(200);
-      await post('/api/v1/admin/pages/community-guidelines/unpublish').send({ expectedVersion: current.body.data.version }).expect(200);
+      await post('/api/v1/admin/pages/community-guidelines/unpublish').send({ expectedVersion: current.body.data.version, reason: 'Replaced by the new guidelines' }).expect(200);
       await agent().delete('/api/v1/admin/pages/community-guidelines').set('Origin', ORIGIN).set('Cookie', cookie).expect(204);
 
       await agent().get('/api/v1/pages/community-guidelines').expect(404);

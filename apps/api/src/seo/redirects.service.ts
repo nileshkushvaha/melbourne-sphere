@@ -15,7 +15,7 @@ interface RecordChangeInput {
   sourcePath: string;
   targetPath: string;
   /** What moved. Stored as a plain string column, so this list grows without a migration. */
-  resourceType: 'business' | 'post' | 'category' | 'local_area' | 'blog_category' | 'blog_tag';
+  resourceType: 'business' | 'post' | 'category' | 'local_area' | 'blog_category' | 'blog_tag' | 'static_page';
   resourceId: string;
   actorAdminId: string;
   reason?: string | null;
@@ -138,12 +138,13 @@ export class RedirectsService {
     const pageSize = query.pageSize ?? 25;
     const where: Prisma.RedirectWhereInput = {};
     if (query.kind) where.kind = query.kind;
+    if (query.isActive !== undefined) where.isActive = query.isActive;
     if (query.q) {
       const q = query.q.trim().toLowerCase();
       where.OR = [{ sourcePath: { contains: q } }, { targetPath: { contains: q } }];
     }
     const [rows, total] = await Promise.all([
-      db.redirect.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * pageSize, take: pageSize }),
+      db.redirect.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], skip: (page - 1) * pageSize, take: pageSize }),
       db.redirect.count({ where }),
     ]);
     return { data: rows.map(toDto), meta: { total, page, pageSize } };

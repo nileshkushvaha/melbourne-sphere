@@ -120,12 +120,12 @@ describe('enquiry delivery (SRS ENQ 004–006)', () => {
     const transient = deps();
     transient.mailer.failWith = new TransientDeliveryError('provider 503');
     await expect(deliverEnquiry({ eventId: 'e1', enquiryId: 'enq-1234567890abc' }, transient.dependencies)).rejects.toBeInstanceOf(TransientDeliveryError);
-    expect(transient.updates.at(-1)).toMatchObject({ deliveryStatus: 'retrying', lastError: 'provider 503' });
+    expect(transient.updates.at(-1)).toMatchObject({ deliveryStatus: 'retrying', lastError: 'The mail provider did not accept this message yet; it will be retried.' });
 
     const permanent = deps();
     permanent.mailer.failWith = new PermanentDeliveryError('invalid recipient');
     expect(await deliverEnquiry({ eventId: 'e1', enquiryId: 'enq-1234567890abc' }, permanent.dependencies)).toBe('skipped');
-    expect(permanent.updates.at(-1)).toMatchObject({ deliveryStatus: 'failed', lastError: 'invalid recipient' });
+    expect(permanent.updates.at(-1)).toMatchObject({ deliveryStatus: 'failed', lastError: 'The mail provider refused this message.' });
   });
 
   it('marks exhausted deliveries failed', async () => {

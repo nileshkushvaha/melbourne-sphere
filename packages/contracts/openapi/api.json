@@ -115,6 +115,7 @@
             "name": "actorAdminId",
             "required": false,
             "in": "query",
+            "description": "An administrator id, or \"system\" for events the system recorded itself",
             "schema": {
               "type": "string"
             }
@@ -195,6 +196,30 @@
             }
           },
           {
+            "name": "grouped",
+            "required": false,
+            "in": "query",
+            "description": "Collapse repeated events (same action and actor, same request or minute) into one row with a count (change log 1.14).",
+            "schema": {
+              "default": "false",
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "groupKey",
+            "required": false,
+            "in": "query",
+            "description": "The members of one group, as returned in `groupKey` by a grouped list.",
+            "schema": {
+              "maxLength": 400,
+              "type": "string"
+            }
+          },
+          {
             "name": "sort",
             "required": false,
             "in": "query",
@@ -212,7 +237,33 @@
             "description": "{data: AuditEntry[], meta}"
           }
         },
-        "summary": "List audit entries, newest first",
+        "summary": "List activity events, newest first; grouped, or the members of one group",
+        "tags": [
+          "admin-activity"
+        ]
+      }
+    },
+    "/api/v1/admin/activity/summary": {
+      "get": {
+        "operationId": "AuditController_summary",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Count events from this instant; the interface sends the start of the Melbourne day.",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "How many events each visible area has had since an instant (the area chips)",
         "tags": [
           "admin-activity"
         ]
@@ -1432,6 +1483,24 @@
             }
           },
           {
+            "name": "ids",
+            "required": false,
+            "in": "query",
+            "description": "Comma-separated ids (at most 50): only these terms, whatever their status — how a picker shows the names of terms already chosen",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "topLevel",
+            "required": false,
+            "in": "query",
+            "description": "Categories only: just top-level categories (possible parents)",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "name": "sort",
             "required": false,
             "in": "query",
@@ -1698,6 +1767,24 @@
                 "active",
                 "inactive"
               ]
+            }
+          },
+          {
+            "name": "ids",
+            "required": false,
+            "in": "query",
+            "description": "Comma-separated ids (at most 50): only these terms, whatever their status — how a picker shows the names of terms already chosen",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "topLevel",
+            "required": false,
+            "in": "query",
+            "description": "Categories only: just top-level categories (possible parents)",
+            "schema": {
+              "type": "boolean"
             }
           },
           {
@@ -1969,6 +2056,24 @@
             }
           },
           {
+            "name": "ids",
+            "required": false,
+            "in": "query",
+            "description": "Comma-separated ids (at most 50): only these terms, whatever their status — how a picker shows the names of terms already chosen",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "topLevel",
+            "required": false,
+            "in": "query",
+            "description": "Categories only: just top-level categories (possible parents)",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "name": "sort",
             "required": false,
             "in": "query",
@@ -2186,6 +2291,19 @@
             }
           },
           {
+            "name": "kind",
+            "required": false,
+            "in": "query",
+            "description": "Images or documents; both when omitted",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "image",
+                "document"
+              ]
+            }
+          },
+          {
             "name": "q",
             "required": false,
             "in": "query",
@@ -2248,7 +2366,7 @@
             }
           }
         },
-        "summary": "List media assets (status, q, unused)",
+        "summary": "List media assets (kind, status, q, unused)",
         "tags": [
           "admin-media"
         ]
@@ -7202,7 +7320,8 @@
               "type": "string",
               "enum": [
                 "draft",
-                "published"
+                "published",
+                "scheduled"
               ]
             }
           }
@@ -7408,6 +7527,87 @@
           "content": {
             "application/json": {
               "schema": {
+                "$ref": "#/components/schemas/UnpublishStaticPageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticPageDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-settings"
+        ]
+      }
+    },
+    "/api/v1/admin/pages/{slug}/schedule": {
+      "post": {
+        "operationId": "StaticPagesAdminController_schedule",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleStaticPageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticPageDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Publish at a future time; the same checks run now and when the time comes (change log 1.17)",
+        "tags": [
+          "admin-settings"
+        ]
+      }
+    },
+    "/api/v1/admin/pages/{slug}/unschedule": {
+      "post": {
+        "operationId": "StaticPagesAdminController_unschedule",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
                 "$ref": "#/components/schemas/StaticPageStateDto"
               }
             }
@@ -7423,6 +7623,331 @@
                 }
               }
             }
+          }
+        },
+        "tags": [
+          "admin-settings"
+        ]
+      }
+    },
+    "/api/v1/admin/pages/{slug}/address": {
+      "post": {
+        "operationId": "StaticPagesAdminController_changeAddress",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeStaticPageAddressDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticPageDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Move a custom page to a new address; a published page leaves a permanent redirect (SEO 004)",
+        "tags": [
+          "admin-settings"
+        ]
+      }
+    },
+    "/api/v1/admin/pages/{slug}/duplicate": {
+      "post": {
+        "operationId": "StaticPagesAdminController_duplicate",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DuplicateStaticPageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticPageDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Copy the page into a new draft at another address",
+        "tags": [
+          "admin-settings"
+        ]
+      }
+    },
+    "/api/v1/admin/pages/{slug}/preview-link": {
+      "post": {
+        "operationId": "StaticPagesAdminController_previewLink",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticPagePreviewLinkDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "A private ten-minute link to the page in the public design, including the caller’s unsaved changes (change log 1.17)",
+        "tags": [
+          "admin-settings"
+        ]
+      }
+    },
+    "/api/v1/admin/pages/{slug}/revisions": {
+      "get": {
+        "operationId": "StaticPagesAdminController_revisions",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StaticPageRevisionDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Earlier versions of the page, newest first (up to 50)",
+        "tags": [
+          "admin-settings"
+        ]
+      }
+    },
+    "/api/v1/admin/pages/{slug}/revisions/{revisionId}": {
+      "get": {
+        "operationId": "StaticPagesAdminController_revision",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "revisionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticPageRevisionDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "admin-settings"
+        ]
+      }
+    },
+    "/api/v1/admin/pages/{slug}/revisions/{revisionId}/restore": {
+      "post": {
+        "operationId": "StaticPagesAdminController_restoreRevision",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "revisionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreStaticPageRevisionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticPageDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Restore an earlier version’s title and sections; the current content is kept as a version first",
+        "tags": [
+          "admin-settings"
+        ]
+      }
+    },
+    "/api/v1/admin/pages/{slug}/autosave": {
+      "get": {
+        "operationId": "StaticPagesAdminController_autosave",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticPageAutosaveDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "The caller’s kept copy of unsaved changes, or null",
+        "tags": [
+          "admin-settings"
+        ]
+      },
+      "put": {
+        "operationId": "StaticPagesAdminController_saveAutosave",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveStaticPageAutosaveDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaticPageAutosaveReceiptDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Keep a private copy of unsaved changes; never changes the page",
+        "tags": [
+          "admin-settings"
+        ]
+      },
+      "delete": {
+        "operationId": "StaticPagesAdminController_discardAutosave",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
           }
         },
         "tags": [
@@ -7481,6 +8006,37 @@
           }
         },
         "summary": "One published information page (404 while it is a draft)",
+        "tags": [
+          "public-site"
+        ]
+      }
+    },
+    "/api/v1/preview/pages/{token}": {
+      "get": {
+        "operationId": "StaticPagePreviewController_preview",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicStaticPageDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "A page behind a preview link issued to a signed-in editor",
         "tags": [
           "public-site"
         ]
@@ -9281,7 +9837,8 @@
                 "blog_tag",
                 "business_category",
                 "area",
-                "business"
+                "business",
+                "document"
               ]
             }
           },
@@ -9479,7 +10036,8 @@
                 "blog_tag",
                 "business_category",
                 "area",
-                "business"
+                "business",
+                "document"
               ]
             }
           },
@@ -11910,7 +12468,8 @@
               "blogCategory",
               "blogTag",
               "faq",
-              "setting"
+              "setting",
+              "menu"
             ]
           },
           "id": {
@@ -11934,6 +12493,27 @@
           },
           "sourceName": {
             "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "image",
+              "document"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "nullable": true,
+            "description": "A document's display name"
+          },
+          "documentUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "The published PDF, once its upload has been checked"
+          },
+          "pageCount": {
+            "type": "number",
+            "nullable": true
           },
           "mimeType": {
             "type": "string"
@@ -12005,6 +12585,10 @@
         "required": [
           "id",
           "sourceName",
+          "kind",
+          "title",
+          "documentUrl",
+          "pageCount",
           "mimeType",
           "bytes",
           "width",
@@ -12035,13 +12619,21 @@
             "enum": [
               "image/jpeg",
               "image/png",
-              "image/webp"
-            ]
+              "image/webp",
+              "application/pdf"
+            ],
+            "description": "An image type, or application/pdf for a document (change log 1.16)"
           },
           "bytes": {
             "type": "number",
             "minimum": 1,
-            "maximum": 10485760
+            "maximum": 20971520,
+            "description": "Images up to 10 MB, documents up to 20 MB; the service applies the limit for the kind"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 180,
+            "description": "A document's display name; required for a PDF"
           }
         },
         "required": [
@@ -12099,6 +12691,11 @@
             "type": "string",
             "nullable": true,
             "maxLength": 255
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 180,
+            "description": "A document's display name; documents only"
           },
           "credit": {
             "type": "string",
@@ -15172,7 +15769,7 @@
           "seoTitle": {
             "type": "string",
             "nullable": true,
-            "description": "Always null for a tag"
+            "description": "Search-result title, when set"
           },
           "seoDescription": {
             "type": "string",
@@ -15248,25 +15845,25 @@
             "type": "string",
             "maxLength": 180,
             "nullable": true,
-            "description": "Categories only. Search-result title; the composed one is used when empty"
+            "description": "Search-result title; the composed one is used when empty"
           },
           "seoDescription": {
             "type": "string",
             "maxLength": 300,
             "nullable": true,
-            "description": "Categories only. Meta description; the composed one is used when empty"
+            "description": "Meta description; the composed one is used when empty"
           },
           "seoKeywords": {
             "type": "string",
             "maxLength": 255,
             "nullable": true,
-            "description": "Categories only. Comma-separated keywords"
+            "description": "Comma-separated keywords"
           },
           "ogImageMediaId": {
             "type": "string",
             "maxLength": 64,
             "nullable": true,
-            "description": "Categories only. A processed media asset used when the landing page is shared"
+            "description": "A processed media asset used when the landing page is shared"
           }
         },
         "required": [
@@ -15295,25 +15892,25 @@
             "type": "string",
             "maxLength": 180,
             "nullable": true,
-            "description": "Categories only. Search-result title; the composed one is used when empty"
+            "description": "Search-result title; the composed one is used when empty"
           },
           "seoDescription": {
             "type": "string",
             "maxLength": 300,
             "nullable": true,
-            "description": "Categories only. Meta description; the composed one is used when empty"
+            "description": "Meta description; the composed one is used when empty"
           },
           "seoKeywords": {
             "type": "string",
             "maxLength": 255,
             "nullable": true,
-            "description": "Categories only. Comma-separated keywords"
+            "description": "Comma-separated keywords"
           },
           "ogImageMediaId": {
             "type": "string",
             "maxLength": 64,
             "nullable": true,
-            "description": "Categories only. A processed media asset used when the landing page is shared"
+            "description": "A processed media asset used when the landing page is shared"
           },
           "expectedVersion": {
             "type": "number"
@@ -17100,6 +17697,29 @@
             "type": "string",
             "nullable": true
           },
+          "targetId": {
+            "type": "string",
+            "nullable": true
+          },
+          "targetLabel": {
+            "type": "string",
+            "nullable": true,
+            "description": "Readable name of the record, where it is not private"
+          },
+          "category": {
+            "type": "string",
+            "description": "Activity area (ACT 002)"
+          },
+          "domainLabel": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "success",
+              "failure"
+            ]
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -17110,6 +17730,11 @@
           "action",
           "actorName",
           "targetType",
+          "targetId",
+          "targetLabel",
+          "category",
+          "domainLabel",
+          "outcome",
           "createdAt"
         ]
       },
@@ -17238,13 +17863,16 @@
             }
           },
           "scheduledPosts": {
+            "nullable": true,
+            "description": "Upcoming scheduled articles; null without posts.view",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DashboardScheduledPostDto"
             }
           },
           "activity": {
-            "description": "Recent audit entries; never private message text (SRS ADM 003)",
+            "nullable": true,
+            "description": "Recent audit entries, never private message text (SRS ADM 003); null without audit.read",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DashboardActivityDto"
@@ -17267,31 +17895,35 @@
           "averageRating": {
             "type": "number",
             "nullable": true,
-            "description": "Mean of approved ratings to one decimal; null without reviews.moderate or without approved reviews"
+            "description": "Mean of approved ratings to one decimal; null without reviews.view or without approved reviews"
           },
           "ratingDistribution": {
-            "description": "Approved reviews by rating, five stars first; empty without reviews.moderate",
+            "nullable": true,
+            "description": "Approved reviews by rating, five stars first; null without reviews.view",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DashboardBreakdownItemDto"
             }
           },
           "enquiryDelivery": {
-            "description": "Enquiries received in the period by delivery state; empty without enquiries.read",
+            "nullable": true,
+            "description": "Enquiries received in the period by delivery state; null without enquiries.read",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DashboardBreakdownItemDto"
             }
           },
           "listingStatus": {
-            "description": "Listings by status; empty without listings.read",
+            "nullable": true,
+            "description": "Listings by status; null without listings.read",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DashboardBreakdownItemDto"
             }
           },
           "topCategories": {
-            "description": "Primary categories with the most published listings; empty without listings.read",
+            "nullable": true,
+            "description": "Primary categories with the most published listings; null without listings.read",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DashboardBreakdownItemDto"
@@ -18978,6 +19610,77 @@
           "values"
         ]
       },
+      "StaticPageReferencesDto": {
+        "type": "object",
+        "properties": {
+          "images": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": [
+                "url",
+                "alt"
+              ],
+              "properties": {
+                "url": {
+                  "type": "string"
+                },
+                "alt": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Library images the sections use, by id: a thumbnail and its alt text"
+          },
+          "documents": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": [
+                "title",
+                "url"
+              ],
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Library documents the section buttons link, by id"
+          },
+          "businesses": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": [
+                "name",
+                "slug",
+                "status"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "slug": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Businesses the sections show, by id, whatever their status"
+          }
+        },
+        "required": [
+          "images",
+          "documents",
+          "businesses"
+        ]
+      },
       "StaticPageDto": {
         "type": "object",
         "properties": {
@@ -19029,11 +19732,46 @@
               }
             ]
           },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "The page sections (change log 1.17); a page written before sections reads as one text section"
+          },
+          "hasSections": {
+            "type": "boolean",
+            "description": "True when the page has been saved with sections; false for a page still stored as one body"
+          },
+          "references": {
+            "description": "Names and previews of what the sections refer to, so the editor can show them. Empty in the page list.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StaticPageReferencesDto"
+              }
+            ]
+          },
+          "noindex": {
+            "type": "boolean",
+            "description": "Hidden from search engines and left out of the sitemap"
+          },
+          "scheduledAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When a scheduled page goes live"
+          },
+          "publishFailure": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why a scheduled page returned to draft"
+          },
           "status": {
             "type": "string",
             "enum": [
               "draft",
-              "published"
+              "published",
+              "scheduled"
             ]
           },
           "layout": {
@@ -19099,6 +19837,12 @@
           "seoKeywords",
           "ogImageMediaId",
           "ogImage",
+          "sections",
+          "hasSections",
+          "references",
+          "noindex",
+          "scheduledAt",
+          "publishFailure",
           "status",
           "layout",
           "publishedAt",
@@ -19128,7 +19872,16 @@
           },
           "body": {
             "type": "string",
-            "maxLength": 200000
+            "maxLength": 200000,
+            "description": "The page as one body; used only when `sections` is not sent"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 30,
+            "description": "The page sections (change log 1.17), validated and sanitised by the server"
           },
           "bodyFormat": {
             "type": "string",
@@ -19168,12 +19921,15 @@
             ],
             "default": "rightSidebar",
             "description": "Page layout: a sidebar on the right or left of the reading column, or the full width"
+          },
+          "noindex": {
+            "type": "boolean",
+            "description": "Hide from search engines and the sitemap"
           }
         },
         "required": [
           "slug",
-          "title",
-          "body"
+          "title"
         ]
       },
       "UpdateStaticPageDto": {
@@ -19191,7 +19947,20 @@
           },
           "body": {
             "type": "string",
-            "maxLength": 200000
+            "maxLength": 200000,
+            "description": "The page as one body; used only when `sections` is not sent"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 30,
+            "description": "The page sections (change log 1.17), validated and sanitised by the server"
+          },
+          "noindex": {
+            "type": "boolean",
+            "description": "Hide from search engines and the sitemap"
           },
           "bodyFormat": {
             "type": "string",
@@ -19235,13 +20004,12 @@
           "revisionReason": {
             "type": "string",
             "maxLength": 500,
-            "description": "Stored with the revision of the previous published text"
+            "description": "A note kept with the version this save replaces"
           }
         },
         "required": [
           "expectedVersion",
-          "title",
-          "body"
+          "title"
         ]
       },
       "StaticPageStateDto": {
@@ -19258,6 +20026,273 @@
         },
         "required": [
           "expectedVersion"
+        ]
+      },
+      "UnpublishStaticPageDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number",
+            "minimum": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500,
+            "description": "Why the page is being taken down; kept in the activity log"
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "reason"
+        ]
+      },
+      "ScheduleStaticPageDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number",
+            "minimum": 1
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "scheduledAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UTC instant; the admin picks Australia/Melbourne time. Must be in the future."
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "scheduledAt"
+        ]
+      },
+      "ChangeStaticPageAddressDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number",
+            "minimum": 1
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "The new address; the same rules as a new page"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "slug"
+        ]
+      },
+      "DuplicateStaticPageDto": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "Address of the copy"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 180
+          }
+        },
+        "required": [
+          "slug",
+          "title"
+        ]
+      },
+      "StaticPagePreviewLinkDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path on the public site that shows the page privately, e.g. /preview/page/<token>"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The link stops working at this time, or when the editor signs out"
+          }
+        },
+        "required": [
+          "path",
+          "expiresAt"
+        ]
+      },
+      "StaticPageRevisionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number",
+            "description": "The page version this snapshot was taken from"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "actorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "title",
+          "reason",
+          "actorName",
+          "createdAt"
+        ]
+      },
+      "StaticPageRevisionDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number",
+            "description": "The page version this snapshot was taken from"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "actorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "The sections as they stood; a version saved before sections reads as one text section"
+          },
+          "bodyHtml": {
+            "type": "string",
+            "description": "The sanitised HTML of that version"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "title",
+          "reason",
+          "actorName",
+          "createdAt",
+          "sections",
+          "bodyHtml"
+        ]
+      },
+      "RestoreStaticPageRevisionDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "StaticPageAutosaveDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "baseVersion": {
+            "type": "number"
+          },
+          "savedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "True when the page has been saved by anyone since this copy was made"
+          }
+        },
+        "required": [
+          "title",
+          "sections",
+          "baseVersion",
+          "savedAt",
+          "stale"
+        ]
+      },
+      "SaveStaticPageAutosaveDto": {
+        "type": "object",
+        "properties": {
+          "baseVersion": {
+            "type": "number",
+            "minimum": 0,
+            "description": "The page version the editor is working from"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 180
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 30
+          }
+        },
+        "required": [
+          "baseVersion",
+          "title",
+          "sections"
+        ]
+      },
+      "StaticPageAutosaveReceiptDto": {
+        "type": "object",
+        "properties": {
+          "savedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "savedAt"
         ]
       },
       "PublicStaticPageSummaryDto": {
@@ -19328,6 +20363,57 @@
             ],
             "description": "Layout the editor chose for this page"
           },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Visible sections in order (change log 1.17); empty for a page still stored as one body"
+          },
+          "images": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": [
+                "url",
+                "alt",
+                "width",
+                "height",
+                "credit"
+              ],
+              "properties": {
+                "url": {
+                  "type": "string"
+                },
+                "alt": {
+                  "type": "string"
+                },
+                "width": {
+                  "type": "number"
+                },
+                "height": {
+                  "type": "number"
+                },
+                "credit": {
+                  "type": "string",
+                  "nullable": true
+                }
+              }
+            },
+            "description": "Library images the sections show, by id, with the credit recorded on the picture"
+          },
+          "documents": {
+            "type": "object",
+            "description": "Published PDF documents the sections link, by id"
+          },
+          "businesses": {
+            "type": "object",
+            "description": "Published businesses the sections show, by id"
+          },
+          "noindex": {
+            "type": "boolean",
+            "description": "Hidden from search engines"
+          },
           "updatedAt": {
             "type": "string",
             "format": "date-time"
@@ -19344,6 +20430,11 @@
           "ogImage",
           "ogImageCredit",
           "layout",
+          "sections",
+          "images",
+          "documents",
+          "businesses",
+          "noindex",
           "updatedAt"
         ]
       },
@@ -20694,7 +21785,8 @@
               "blog_tag",
               "business_category",
               "area",
-              "business"
+              "business",
+              "document"
             ]
           },
           "refId": {
@@ -20834,7 +21926,8 @@
               "blog_tag",
               "business_category",
               "area",
-              "business"
+              "business",
+              "document"
             ]
           },
           "refId": {

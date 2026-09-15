@@ -30,7 +30,7 @@ describe('API foundation (e2e)', () => {
       expect(res.body).toEqual({
         error: {
           code: 'SERVICE_UNAVAILABLE',
-          message: 'Database and Redis unavailable',
+          message: 'Service not ready',
           fields: {},
           requestId: res.headers['x-request-id'],
         },

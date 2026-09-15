@@ -55,7 +55,8 @@ export class TurnstileVerifier extends CaptchaPort {
       this.logger.warn('turnstile hostname mismatch');
       return { ok: false, reason: 'invalid' };
     }
-    if (payload.action && payload.action !== action) {
+    // The site's widget always sends its action, so a missing one is a token minted elsewhere.
+    if (payload.action !== action) {
       this.logger.warn('turnstile action mismatch');
       return { ok: false, reason: 'invalid' };
     }

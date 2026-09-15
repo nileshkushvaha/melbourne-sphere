@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@melbourne-sphere/database';
 import { SEO_ROUTES } from '@melbourne-sphere/domain';
+import { readableFileSize } from '@melbourne-sphere/domain';
 import { DatabaseService } from '../database/database.service.js';
+import { ObjectStoragePort } from '../media/storage.port.js';
 import { RESERVED_SLUGS, isProductRoute } from '../settings/static-pages.js';
 import type { MenuSourceState } from './menu-resolver.js';
 
-export const MENU_LINK_SOURCE_TYPES = ['route', 'page', 'post', 'blog_category', 'blog_tag', 'business_category', 'area', 'business'] as const;
+export const MENU_LINK_SOURCE_TYPES = ['route', 'page', 'post', 'blog_category', 'blog_tag', 'business_category', 'area', 'business', 'document'] as const;
 export type MenuLinkSourceType = (typeof MENU_LINK_SOURCE_TYPES)[number];
 
 export interface MenuLinkSource {
@@ -39,7 +41,10 @@ const PRODUCT_ROUTE_SLUGS = (RESERVED_SLUGS as readonly string[]).filter(isProdu
  */
 @Injectable()
 export class MenuLinkSourcesService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly storage: ObjectStoragePort,
+  ) {}
 
   async search(query: MenuLinkSourceQuery): Promise<{ rows: MenuLinkSource[]; total: number }> {
     const db = await this.database.client();
@@ -124,6 +129,24 @@ export class MenuLinkSourcesService {
           db.business.count({ where }),
         ]);
         return { rows: rows.map((row) => ({ id: row.id, title: row.name, href: `/business/${row.slug}`, state: 'ok', hint: null })), total };
+      }
+      case 'document': {
+        // PDFs from the media library (change log 1.16); one still being checked is listed but not yet linkable publicly.
+        const where: Prisma.MediaAssetWhereInput = { kind: 'document', status: { not: 'rejected' }, ...(q ? { OR: [{ title: { contains: q } }, { sourceName: { contains: q } }] } : {}) };
+        const [rows, total] = await Promise.all([
+          db.mediaAsset.findMany({ where, orderBy: recent ? [{ createdAt: 'desc' }, { id: 'asc' }] : [{ title: 'asc' }, { id: 'asc' }], skip, take, select: { id: true, title: true, sourceName: true, status: true, bytes: true, pageCount: true, publicObjectKey: true } }),
+          db.mediaAsset.count({ where }),
+        ]);
+        return {
+          rows: rows.map((row) => ({
+            id: row.id,
+            title: row.title ?? row.sourceName,
+            href: row.publicObjectKey ? this.storage.publicUrl(row.publicObjectKey) : '',
+            state: row.status === 'ready' ? 'ok' : 'unpublished',
+            hint: ['PDF', readableFileSize(row.bytes), row.pageCount ? `${row.pageCount} page${row.pageCount === 1 ? '' : 's'}` : null].filter(Boolean).join(' · '),
+          })),
+          total,
+        };
       }
     }
   }

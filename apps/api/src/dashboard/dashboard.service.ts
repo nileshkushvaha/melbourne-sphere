@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
+import { describeActivity } from '../audit/activity-catalogue.js';
+import { activityScope, visibleCategories } from '../audit/activity-scope.js';
+import { targetLabelFor, targetLabels } from '../audit/activity-targets.js';
+import type { ActivityCategory } from '../audit/activity-catalogue.js';
 import { TREND_DAYS, bucketByDay, periods, trailingDays, windowStart } from './dashboard-trend.js';
 import type {
   DashboardActivityDto,
@@ -46,23 +50,32 @@ export class DashboardService {
   async summary(actor: AdminPrincipal, now = new Date()): Promise<DashboardDto> {
     const db = await this.database.client();
     const can = (permission: string) => actor.permissions.includes(permission);
-    const mayReviews = can('reviews.moderate');
-    const mayComments = can('comments.moderate');
+    // Each widget follows the View permission of the menu item it links to, so a
+    // figure never leads to a screen that answers 403 (change log 1.13).
+    const mayReviews = can('reviews.view');
+    const mayComments = can('comments.view');
+    const mayReports = can('reports.view');
     const mayEnquiries = can('enquiries.read');
     const mayListings = can('listings.read');
-    const mayPosts = can('posts.write');
-    const mayTaxonomy = can('taxonomy.manage') || mayListings;
+    const mayPosts = can('posts.view');
+    const mayPublish = can('posts.publish');
+    const mayMedia = can('media.view');
+    const mayCategories = can('categories.view');
+    const mayAreas = can('areas.view');
+    // Recent activity follows the areas of the log this administrator may read (change log 1.14).
+    const activityAreas = visibleCategories(actor.permissions);
+    const mayActivity = activityAreas.length > 0;
     const metrics: DashboardMetricDto[] = [];
 
     const [pendingReviews, pendingComments, openReports, failedEnquiries, newEnquiries, draftListings, quarantinedMedia, duePosts, refusedScheduledPosts] = await Promise.all([
       mayReviews ? db.review.count({ where: { status: 'pending' } }) : Promise.resolve(0),
       mayComments ? db.comment.count({ where: { status: 'pending' } }) : Promise.resolve(0),
-      can('reports.manage') ? db.abuseReport.count({ where: { status: 'open' } }) : Promise.resolve(0),
+      mayReports ? db.abuseReport.count({ where: { status: 'open' } }) : Promise.resolve(0),
       mayEnquiries ? db.enquiry.count({ where: { deliveryStatus: 'failed' } }) : Promise.resolve(0),
       mayEnquiries ? db.enquiry.count({ where: { handlingStatus: 'new' } }) : Promise.resolve(0),
       mayListings ? db.business.count({ where: { status: 'draft' } }) : Promise.resolve(0),
-      can('media.manage') ? db.mediaAsset.count({ where: { status: 'quarantined' } }) : Promise.resolve(0),
-      can('posts.publish') ? db.post.count({ where: { status: 'scheduled', scheduledAt: { lte: now } } }) : Promise.resolve(0),
+      mayMedia ? db.mediaAsset.count({ where: { status: 'quarantined' } }) : Promise.resolve(0),
+      mayPublish ? db.post.count({ where: { status: 'scheduled', scheduledAt: { lte: now } } }) : Promise.resolve(0),
       mayPosts ? db.post.count({ where: { status: 'draft', publishFailure: { not: null } } }) : Promise.resolve(0),
     ]);
 
@@ -71,12 +84,12 @@ export class DashboardService {
     };
     add('pendingReviews', 'Reviews awaiting moderation', pendingReviews, '/reviews', 'attention', mayReviews);
     add('pendingComments', 'Comments awaiting moderation', pendingComments, '/comments', 'attention', mayComments);
-    add('openReports', 'Open abuse reports', openReports, '/reports', 'critical', can('reports.manage'));
+    add('openReports', 'Open abuse reports', openReports, '/reports', 'critical', mayReports);
     add('failedEnquiries', 'Enquiries that failed to send', failedEnquiries, '/enquiries', 'critical', mayEnquiries);
     add('newEnquiries', 'New enquiries', newEnquiries, '/enquiries', 'attention', mayEnquiries);
     add('draftListings', 'Listings in draft', draftListings, '/businesses', 'neutral', mayListings);
-    add('quarantinedMedia', 'Uploads still processing', quarantinedMedia, '/media', 'neutral', can('media.manage'));
-    add('duePosts', 'Scheduled articles past their time', duePosts, '/posts', 'critical', can('posts.publish'));
+    add('quarantinedMedia', 'Uploads still processing', quarantinedMedia, '/media', 'neutral', mayMedia);
+    add('duePosts', 'Scheduled articles past their time', duePosts, '/posts', 'critical', mayPublish);
     add('refusedScheduledPosts', 'Scheduled articles that could not publish', refusedScheduledPosts, '/posts?status=draft', 'critical', mayPosts);
 
     // ---- trend: submissions per Melbourne day, with the previous period -----
@@ -121,8 +134,8 @@ export class DashboardService {
         mayPosts ? db.post.count({ where: { status: 'published', publishedAt: { gte: currentStart } } }) : null,
         mayReviews ? db.review.count({ where: { status: 'approved' } }) : null,
         mayReviews ? db.review.aggregate({ where: { status: 'approved' }, _avg: { rating: true } }) : null,
-        mayTaxonomy ? db.category.count({ where: { active: true } }) : null,
-        mayTaxonomy ? db.localArea.count({ where: { active: true } }) : null,
+        mayCategories ? db.category.count({ where: { active: true } }) : null,
+        mayAreas ? db.localArea.count({ where: { active: true } }) : null,
         mayReviews ? db.review.groupBy({ by: ['rating'], where: { status: 'approved' }, _count: { _all: true } }) : [],
         mayEnquiries ? db.enquiry.groupBy({ by: ['deliveryStatus'], where: inCurrent, _count: { _all: true } }) : [],
         mayListings ? db.business.groupBy({ by: ['status'], _count: { _all: true } }) : [],
@@ -141,25 +154,26 @@ export class DashboardService {
     const average = ratingMean?._avg.rating;
     const averageRating = average === null || average === undefined ? null : Math.round(average * 10) / 10;
 
-    const ratingDistribution: DashboardBreakdownItemDto[] = mayReviews
+    const ratingDistribution: DashboardBreakdownItemDto[] | null = mayReviews
       ? [5, 4, 3, 2, 1].map((rating) => ({ key: String(rating), label: rating === 1 ? '1 star' : `${rating} stars`, value: ratingGroups.find((group) => group.rating === rating)?._count._all ?? 0 }))
-      : [];
-    const enquiryDelivery: DashboardBreakdownItemDto[] = mayEnquiries
+      : null;
+    const enquiryDelivery: DashboardBreakdownItemDto[] | null = mayEnquiries
       ? DELIVERY_STATES.map(([key, label]) => ({ key, label, value: deliveryGroups.find((group) => group.deliveryStatus === key)?._count._all ?? 0 }))
-      : [];
-    const listingStatus: DashboardBreakdownItemDto[] = mayListings
+      : null;
+    const listingStatus: DashboardBreakdownItemDto[] | null = mayListings
       ? LISTING_STATES.map(([key, label]) => ({ key, label, value: statusGroups.find((group) => group.status === key)?._count._all ?? 0 }))
-      : [];
+      : null;
 
     const categoryNames =
       categoryGroups.length > 0 ? await db.category.findMany({ where: { id: { in: categoryGroups.map((group) => group.primaryCategoryId) } }, select: { id: true, name: true } }) : [];
-    const topCategories: DashboardBreakdownItemDto[] = categoryGroups.map((group) => ({
+    const topCategories: DashboardBreakdownItemDto[] | null = !mayListings ? null : categoryGroups.map((group) => ({
       key: group.primaryCategoryId,
       label: categoryNames.find((category) => category.id === group.primaryCategoryId)?.name ?? 'Unnamed category',
       value: group._count.primaryCategoryId ?? 0,
     }));
 
-    const scheduledPosts: DashboardScheduledPostDto[] = mayPosts
+    // Null rather than empty when not permitted: an empty list means "nothing to do", never "not allowed".
+    const scheduledPosts: DashboardScheduledPostDto[] | null = mayPosts
       ? (
           await db.post.findMany({
             where: { status: 'scheduled' },
@@ -168,17 +182,13 @@ export class DashboardService {
             select: { id: true, title: true, scheduledAt: true },
           })
         ).map((row) => ({ id: row.id, title: row.title, scheduledAt: (row.scheduledAt ?? now).toISOString(), overdue: (row.scheduledAt?.getTime() ?? Infinity) <= now.getTime() }))
-      : [];
+      : null;
 
-    const activity: DashboardActivityDto[] = can('audit.read')
+    const activity: DashboardActivityDto[] | null = mayActivity
       ? (
-          await db.auditLog.findMany({
-            orderBy: { createdAt: 'desc' },
-            take: ACTIVITY_LIMIT,
-            select: { id: true, action: true, targetType: true, createdAt: true, actor: { select: { displayName: true } } },
-          })
-        ).map((row) => ({ id: row.id, action: row.action, actorName: row.actor?.displayName ?? null, targetType: row.targetType, createdAt: row.createdAt.toISOString() }))
-      : [];
+          await this.recentActivity(db, activityAreas)
+        )
+      : null;
 
     return {
       metrics,
@@ -194,5 +204,31 @@ export class DashboardService {
       topCategories,
       generatedAt: now.toISOString(),
     };
+  }
+
+  /** The latest events in the areas the caller may read, with readable target names and no private text. */
+  private async recentActivity(db: Awaited<ReturnType<DatabaseService['client']>>, areas: ActivityCategory[]): Promise<DashboardActivityDto[]> {
+    const rows = await db.auditLog.findMany({
+      where: activityScope(areas),
+      orderBy: { createdAt: 'desc' },
+      take: ACTIVITY_LIMIT,
+      select: { id: true, action: true, targetType: true, targetId: true, createdAt: true, actor: { select: { displayName: true } } },
+    });
+    const labels = await targetLabels(db, rows);
+    return rows.map((row) => {
+      const described = describeActivity(row.action);
+      return {
+        id: row.id,
+        action: row.action,
+        category: described.category,
+        domainLabel: described.domainLabel,
+        outcome: described.outcome,
+        actorName: row.actor?.displayName ?? null,
+        targetType: row.targetType,
+        targetId: row.targetId,
+        targetLabel: targetLabelFor(labels, row),
+        createdAt: row.createdAt.toISOString(),
+      };
+    });
   }
 }

@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { ConflictException, HttpException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { CacheService } from '../cache/cache.service.js';
+import { ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { MediaAsset, MediaVariant, Prisma } from '@melbourne-sphere/database';
-import { MEDIA_SETTING_REFERENCES, extensionForMime, imageRejectionReason, objectKeyFor, unusedMediaRelations, type ImageFacts } from '@melbourne-sphere/domain';
+import { MEDIA_SETTING_REFERENCES, documentRejectionReason, extensionForMime, imageRejectionReason, maxBytesFor, mediaKindForMime, objectKeyFor, pdfPageCount, safeDownloadName, unusedMediaRelations, type ImageFacts, type MediaKind, CACHE_TAGS } from '@melbourne-sphere/domain';
 import { fileTypeFromBuffer } from 'file-type';
 import { AuditService } from '../audit/audit.service.js';
 import type { RequestContext } from '../auth/auth.service.js';
@@ -14,6 +15,10 @@ import type { CompleteUploadDto, GalleryEntryDto, ListMediaQueryDto, MediaAssetD
 import { mediaEvents } from '../observability/metrics.registry.js';
 
 const notFound = () => new NotFoundException({ code: 'NOT_FOUND', message: 'Media not found' });
+/** The upload permission each kind needs (change log 1.16). */
+const UPLOAD_PERMISSION: Record<MediaKind, string> = { image: 'media.upload', document: 'media.documents.upload' };
+const invalid = (field: string, message: string) => new HttpException({ code: 'VALIDATION_ERROR', message, fields: { [field]: [message] } }, HttpStatus.BAD_REQUEST);
+
 const stale = () => new ConflictException({ code: 'STALE_VERSION', message: 'This asset was changed by someone else. Reload and try again.' });
 
 type AssetRow = MediaAsset & { variants: MediaVariant[] };
@@ -28,6 +33,7 @@ const USAGE_INCLUDE = {
   businesses: { include: { business: { select: { name: true } } } },
   coverOf: { select: { id: true, title: true } },
   shareImageOf: { select: { id: true, title: true } },
+  menuItemDocuments: { select: { id: true, menu: { select: { id: true, name: true } } } },
   pageShareImageOf: { select: { slug: true, title: true } },
   authorOf: { select: { id: true, displayName: true } },
   testimonials: { select: { id: true, displayName: true } },
@@ -38,6 +44,7 @@ const USAGE_INCLUDE = {
   areaShareImageOf: { select: { id: true, name: true } },
   businessShareImageOf: { select: { id: true, name: true } },
   blogCategoryShareImageOf: { select: { id: true, name: true } },
+  blogTagShareImageOf: { select: { id: true, name: true } },
   bodyReferences: { select: { resourceType: true, resourceId: true } },
 } satisfies Prisma.MediaAssetInclude;
 
@@ -75,6 +82,8 @@ function relationUsages(row: UsageRow, bodyTitles: BodyTitles = new Map()): Medi
     ...row.areaShareImageOf.map((a) => ({ kind: 'area' as const, id: a.id, label: `${a.name} (share image)` })),
     ...row.businessShareImageOf.map((b) => ({ kind: 'business' as const, id: b.id, label: `${b.name} (share image)` })),
     ...row.blogCategoryShareImageOf.map((c) => ({ kind: 'blogCategory' as const, id: c.id, label: `${c.name} (blog category share image)` })),
+    ...row.menuItemDocuments.map((item) => ({ kind: 'menu' as const, id: item.menu.id, label: `${item.menu.name} (menu link)` })),
+    ...row.blogTagShareImageOf.map((t) => ({ kind: 'blogTag' as const, id: t.id, label: `${t.name} (blog tag share image)` })),
     // An image placed inside a body is a use like any other (MED 004): without
     // it the library offered to delete a picture a published article shows.
     ...row.bodyReferences.map((ref) => {
@@ -99,14 +108,26 @@ export class MediaService {
     private readonly audit: AuditService,
     private readonly storage: ObjectStoragePort,
     private readonly outbox: OutboxService,
+    private readonly cache: CacheService,
   ) {}
 
   async requestUpload(input: RequestUploadDto, actor: AdminPrincipal, ctx: RequestContext): Promise<UploadTicketDto> {
+    const kind = mediaKindForMime(input.contentType);
+    if (!kind) throw invalid('contentType', 'That file type is not accepted');
+    this.assertMayUpload(actor, kind);
+    if (input.bytes > maxBytesFor(kind)) {
+      const limit = `${Math.round(maxBytesFor(kind) / (1024 * 1024))} MB`;
+      throw invalid('bytes', kind === 'document' ? `Documents must be ${limit} or smaller` : `Images must be ${limit} or smaller`);
+    }
+    const title = input.title?.trim() ?? '';
+    if (kind === 'document' && title === '') throw invalid('title', 'Give the document a title');
     const db = await this.database.client();
     const asset = await db.mediaAsset.create({
       data: {
         sourceName: input.fileName,
         mimeType: input.contentType,
+        kind,
+        title: kind === 'document' ? title : null,
         bytes: input.bytes,
         objectKey: 'pending',
         status: 'quarantined',
@@ -119,7 +140,7 @@ export class MediaService {
     await db.mediaAsset.update({ where: { id: asset.id }, data: { objectKey } });
     const presigned = await this.storage.presignUpload('quarantine', objectKey, input.contentType, input.bytes);
     mediaEvents.inc({ event: 'upload_requested' });
-    await this.audit.record({ action: 'media.upload.requested', actorAdminId: actor.id, targetType: 'media_asset', targetId: asset.id, metadata: { bytes: input.bytes, contentType: input.contentType }, requestId: ctx.requestId, ipAddress: ctx.ip });
+    await this.audit.record({ action: 'media.upload.requested', actorAdminId: actor.id, targetType: 'media_asset', targetId: asset.id, metadata: { bytes: input.bytes, contentType: input.contentType, kind }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return { assetId: asset.id, uploadUrl: presigned.url, headers: presigned.headers, expiresInSeconds: presigned.expiresInSeconds };
   }
 
@@ -131,10 +152,12 @@ export class MediaService {
     const db = await this.database.client();
     const asset = await db.mediaAsset.findUnique({ where: { id }, include: { variants: true } });
     if (!asset) throw notFound();
+    this.assertMayUpload(actor, asset.kind);
     if (asset.status !== 'quarantined') throw new ConflictException({ code: 'INVALID_STATE', message: `This upload is already ${asset.status}` });
-    // A completed upload is already queued for processing; completing again would
-    // queue a second job for the same bytes.
-    if (asset.checksum) throw new ConflictException({ code: 'INVALID_STATE', message: 'This upload has already been submitted for processing' });
+    // A completed image upload is already queued for processing; completing again
+    // would queue a second job for the same bytes. A document is never queued, so
+    // one completed before the API published documents itself can be completed again.
+    if (asset.checksum && asset.kind !== 'document') throw new ConflictException({ code: 'INVALID_STATE', message: 'This upload has already been submitted for processing' });
 
     const head = await this.storage.head('quarantine', asset.objectKey);
     if (!head) throw new HttpException({ code: 'UPLOAD_MISSING', message: 'The uploaded file was not found. Please upload it again.' }, HttpStatus.CONFLICT);
@@ -144,6 +167,7 @@ export class MediaService {
       return this.reject(asset, 'The uploaded file did not match its checksum', actor, ctx);
     }
     const detected = await fileTypeFromBuffer(bytes);
+    if (asset.kind === 'document') return this.publishDocument(asset, bytes, checksum, detected?.mime ?? null, actor, ctx);
     const facts: ImageFacts = {
       detectedMime: detected?.mime ?? null,
       // Dimensions come from the header; the worker re-decodes fully when it processes variants.
@@ -181,7 +205,8 @@ export class MediaService {
     const settings = await this.settingUsages();
     const where: Prisma.MediaAssetWhereInput = {
       ...(query.status ? { status: query.status } : {}),
-      ...(query.q ? { sourceName: { contains: query.q } } : {}),
+      ...(query.kind ? { kind: query.kind } : {}),
+      ...(query.q ? { OR: [{ sourceName: { contains: query.q } }, { title: { contains: query.q } }] } : {}),
       // "Unused" means no relation uses it and no settings document names it;
       // the settings ids are few, so they are excluded by id.
       ...(query.unused ? { ...unusedMediaRelations(), ...(settings.size > 0 ? { id: { notIn: [...settings.keys()] } } : {}) } : {}),
@@ -206,21 +231,34 @@ export class MediaService {
 
   async update(id: string, input: UpdateMediaDto, actor: AdminPrincipal, ctx: RequestContext): Promise<MediaAssetDto> {
     const db = await this.database.client();
-    const current = await db.mediaAsset.findUnique({ where: { id }, select: { version: true } });
+    const current = await db.mediaAsset.findUnique({ where: { id }, select: { version: true, kind: true } });
     if (!current) throw notFound();
     if (current.version !== input.expectedVersion) throw stale();
-    const updated = await db.mediaAsset.updateMany({
+    // A document has a title and no picture to describe; an image the reverse.
+    if (current.kind === 'document' && (input.altText !== undefined || input.focalX !== undefined || input.focalY !== undefined)) throw invalid('altText', 'A document has a title rather than alt text or a focal point');
+    if (current.kind === 'image' && input.title !== undefined) throw invalid('title', 'An image is described by its alt text');
+    // Alt text, title and credit are shown wherever the file is used, so pages using it are refreshed.
+    const inUse = (await this.get(id)).usages.length > 0;
+    const updated = await db.$transaction(async (tx) => {
+      const result = await tx.mediaAsset.updateMany({
       where: { id, version: input.expectedVersion },
       data: {
         ...(input.altText !== undefined ? { altText: input.altText } : {}),
+        ...(input.title !== undefined ? { title: input.title } : {}),
         ...(input.credit !== undefined ? { credit: input.credit } : {}),
         ...(input.rightsNote !== undefined ? { rightsNote: input.rightsNote } : {}),
         ...(input.focalX !== undefined ? { focalX: input.focalX } : {}),
         ...(input.focalY !== undefined ? { focalY: input.focalY } : {}),
         version: { increment: 1 },
       },
+      });
+      if (result.count === 1 && inUse) {
+        await this.cache.recordInvalidation(tx, { resourceType: 'media_asset', resourceId: id, correlationId: ctx.requestId, tags: [CACHE_TAGS.businesses, CACHE_TAGS.posts, CACHE_TAGS.pages, CACHE_TAGS.taxonomy, CACHE_TAGS.settings] });
+      }
+      return result;
     });
     if (updated.count !== 1) throw stale();
+    if (inUse) await this.cache.bumpNamespace();
     await this.audit.record({ action: 'media.update', actorAdminId: actor.id, targetType: 'media_asset', targetId: id, requestId: ctx.requestId, ipAddress: ctx.ip });
     return this.get(id);
   }
@@ -239,10 +277,11 @@ export class MediaService {
     if (usages.length > 0) {
       throw new ConflictException({
         code: 'MEDIA_IN_USE',
-        message: `This image is used in ${usages.length} place${usages.length === 1 ? '' : 's'}: ${usages.map((usage) => usage.label).join(', ')}. Remove it from ${usages.length === 1 ? 'there' : 'those'} first.`,
+        message: `This ${asset.kind === 'document' ? 'document' : 'image'} is used in ${usages.length} place${usages.length === 1 ? '' : 's'}: ${usages.map((usage) => usage.label).join(', ')}. Remove it from ${usages.length === 1 ? 'there' : 'those'} first.`,
       });
     }
     for (const variant of asset.variants) await this.storage.delete('public', variant.objectKey).catch(() => undefined);
+    if (asset.publicObjectKey) await this.storage.delete('public', asset.publicObjectKey).catch(() => undefined);
     await this.storage.delete('quarantine', asset.objectKey).catch(() => undefined);
     await db.mediaAsset.delete({ where: { id } });
     await this.audit.record({ action: 'media.delete', actorAdminId: actor.id, targetType: 'media_asset', targetId: id, requestId: ctx.requestId, ipAddress: ctx.ip });
@@ -312,7 +351,7 @@ export class MediaService {
     if (new Set(mediaIds).size !== mediaIds.length) throw new HttpException({ code: 'VALIDATION_ERROR', message: 'An image can only appear once in a gallery', fields: { items: ['Duplicate image'] } }, HttpStatus.BAD_REQUEST);
     if (input.items.filter((item) => item.isCover).length > 1) throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Only one image can be the cover', fields: { items: ['Choose a single cover image'] } }, HttpStatus.BAD_REQUEST);
     if (mediaIds.length > 0) {
-      const assets = await db.mediaAsset.findMany({ where: { id: { in: mediaIds } }, select: { id: true, status: true, altText: true } });
+      const assets = await db.mediaAsset.findMany({ where: { id: { in: mediaIds }, kind: 'image' }, select: { id: true, status: true, altText: true } });
       const byId = new Map(assets.map((a) => [a.id, a]));
       for (const item of input.items) {
         const asset = byId.get(item.mediaId);
@@ -321,9 +360,14 @@ export class MediaService {
         if (!(item.altOverride ?? asset.altText)) throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Every gallery image needs alt text', fields: { items: ['Add alt text for each image'] } }, HttpStatus.BAD_REQUEST);
       }
     }
+    const owner = await db.business.findUnique({ where: { id: businessId }, select: { slug: true, status: true } });
     await db.$transaction(async (tx) => {
       const updated = await tx.business.updateMany({ where: { id: businessId, version: input.expectedVersion }, data: { version: { increment: 1 } } });
       if (updated.count !== 1) throw stale();
+      // The cover and gallery appear on the listing page and its cards.
+      if (owner?.status === 'published') {
+        await this.cache.recordInvalidation(tx, { resourceType: 'business', resourceId: businessId, correlationId: ctx.requestId, tags: [CACHE_TAGS.businesses, CACHE_TAGS.business(owner.slug)] });
+      }
       await tx.businessMedia.deleteMany({ where: { businessId } });
       if (input.items.length > 0) {
         await tx.businessMedia.createMany({
@@ -331,6 +375,7 @@ export class MediaService {
         });
       }
     });
+    if (owner?.status === 'published') await this.cache.bumpNamespace();
     await this.audit.record({ action: 'listing.gallery.update', actorAdminId: actor.id, targetType: 'business', targetId: businessId, metadata: { images: input.items.length }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return this.gallery(businessId);
   }
@@ -366,7 +411,7 @@ export class MediaService {
     if (!assetId) return null;
     const db = await this.database.client();
     const asset = await db.mediaAsset.findUnique({ where: { id: assetId }, include: { variants: true } });
-    if (!asset || asset.status !== 'ready') return null;
+    if (!asset || asset.status !== 'ready' || asset.kind !== 'image') return null;
     const variants = this.variantDtos(asset.variants);
     const chosen = variants.find((variant) => variant.kind === preferred) ?? variants[0];
     return chosen ? { id: asset.id, url: chosen.url, alt: asset.altText ?? '', width: chosen.width, height: chosen.height } : null;
@@ -380,7 +425,7 @@ export class MediaService {
   async heroRendition(assetId: string): Promise<{ url: string; previewUrl: string; alt: string; width: number; height: number } | null> {
     const db = await this.database.client();
     const asset = await db.mediaAsset.findUnique({ where: { id: assetId }, include: { variants: true } });
-    if (!asset || asset.status !== 'ready') return null;
+    if (!asset || asset.status !== 'ready' || asset.kind !== 'image') return null;
     const variants = this.variantDtos(asset.variants);
     const hero = variants.find((variant) => variant.kind === 'hero') ?? variants.at(-1);
     const preview = variants.find((variant) => variant.kind === 'card') ?? variants[0];
@@ -392,9 +437,67 @@ export class MediaService {
   async assertUsableImage(assetId: string): Promise<void> {
     const db = await this.database.client();
     const asset = await db.mediaAsset.findUnique({ where: { id: assetId } });
-    if (!asset) throw new HttpException({ code: 'VALIDATION_ERROR', message: 'That image does not exist', fields: { imageMediaId: ['That image does not exist'] } }, HttpStatus.BAD_REQUEST);
+    if (!asset || asset.kind !== 'image') throw new HttpException({ code: 'VALIDATION_ERROR', message: 'That image does not exist', fields: { imageMediaId: ['That image does not exist'] } }, HttpStatus.BAD_REQUEST);
     if (asset.status !== 'ready') throw new HttpException({ code: 'VALIDATION_ERROR', message: 'That image is still being processed', fields: { imageMediaId: ['That image is still being processed'] } }, HttpStatus.BAD_REQUEST);
     if (!asset.altText || asset.altText.trim() === '') throw new HttpException({ code: 'VALIDATION_ERROR', message: 'Add alt text to the image before using it', fields: { imageMediaId: ['Add alt text to the image before using it'] } }, HttpStatus.BAD_REQUEST);
+  }
+
+  /**
+   * A PDF (change log 1.16) is checked from its own bytes and, when it passes,
+   * published at once: one copy under a random key that downloads rather than
+   * renders, with the quarantined original then removed. There are no
+   * renditions to make, so nothing is queued for the worker.
+   *
+   * There is no virus scanner (client decision of 15 Sep 2026). What protects a
+   * reader is the refusal of scripts, launch actions, attachments, rich media,
+   * XML forms and encryption; delivery as a download from the media host; that
+   * host's `nosniff` and sandbox headers; and uploads being limited to
+   * administrators given this one permission, every upload recorded.
+   */
+  private async publishDocument(asset: AssetRow, bytes: Buffer, checksum: string, detectedMime: string | null, actor: AdminPrincipal, ctx: RequestContext): Promise<MediaAssetDto> {
+    const text = bytes.toString('latin1');
+    const reason = documentRejectionReason({ detectedMime, bytes: bytes.byteLength, text }, asset.mimeType);
+    if (reason) return this.reject(asset, reason, actor, ctx);
+    const db = await this.database.client();
+    const publicObjectKey = objectKeyFor('media', asset.id, 'pdf', randomBytes(12).toString('hex'));
+    await this.storage.put('public', publicObjectKey, bytes, 'application/pdf', { contentDisposition: `attachment; filename="${safeDownloadName(asset.sourceName)}"` });
+    let row: AssetRow;
+    try {
+      row = await db.mediaAsset.update({
+        where: { id: asset.id },
+        data: { status: 'ready', readyAt: new Date(), bytes: bytes.byteLength, checksum, publicObjectKey, pageCount: pdfPageCount(text), rejectionReason: null, version: { increment: 1 } },
+        include: { variants: true },
+      });
+    } catch (error) {
+      await this.storage.delete('public', publicObjectKey).catch(() => undefined);
+      throw error;
+    }
+    await this.storage.delete('quarantine', asset.objectKey).catch(() => undefined);
+    mediaEvents.inc({ event: 'document_published' });
+    await this.audit.record({ action: 'media.upload.completed', actorAdminId: actor.id, targetType: 'media_asset', targetId: asset.id, metadata: { bytes: bytes.byteLength, kind: 'document', pages: row.pageCount ?? 0 }, requestId: ctx.requestId, ipAddress: ctx.ip });
+    return this.toDto(row, []);
+  }
+
+  /** A published document for a public page (change log 1.17); null unless it is ready. */
+  async publicDocumentRefs(ids: readonly string[]): Promise<Record<string, { url: string; title: string; bytes: number }>> {
+    if (ids.length === 0) return {};
+    const db = await this.database.client();
+    const rows = await db.mediaAsset.findMany({ where: { id: { in: [...ids] }, kind: 'document', status: 'ready', publicObjectKey: { not: null } }, select: { id: true, title: true, sourceName: true, bytes: true, publicObjectKey: true } });
+    return Object.fromEntries(rows.map((row) => [row.id, { url: this.storage.publicUrl(row.publicObjectKey!), title: row.title ?? row.sourceName, bytes: row.bytes }]));
+  }
+
+  /** Throws unless the asset is a published document with a title (change log 1.16). */
+  async assertUsableDocument(assetId: string, field = 'documentId'): Promise<void> {
+    const db = await this.database.client();
+    const asset = await db.mediaAsset.findUnique({ where: { id: assetId }, select: { kind: true, status: true, title: true } });
+    if (!asset || asset.kind !== 'document') throw invalid(field, 'That document does not exist');
+    if (asset.status !== 'ready') throw invalid(field, 'That document has not finished uploading');
+    if (!asset.title?.trim()) throw invalid(field, 'Give the document a title before linking it');
+  }
+
+  /** Refuses an upload of a kind the administrator may not upload (change log 1.16). */
+  private assertMayUpload(actor: AdminPrincipal, kind: MediaKind): void {
+    if (!actor.permissions.includes(UPLOAD_PERMISSION[kind])) throw new ForbiddenException({ code: 'FORBIDDEN', message: 'You do not have permission to do that' });
   }
 
   // ---- retention ------------------------------------------------------------
@@ -417,6 +520,11 @@ export class MediaService {
     return {
       id: row.id,
       sourceName: row.sourceName,
+      kind: row.kind,
+      title: row.title,
+      // Only a published document has an address (change log 1.16).
+      documentUrl: row.kind === 'document' && row.status === 'ready' && row.publicObjectKey ? this.storage.publicUrl(row.publicObjectKey) : null,
+      pageCount: row.pageCount,
       mimeType: row.mimeType,
       bytes: row.bytes,
       width: row.width,

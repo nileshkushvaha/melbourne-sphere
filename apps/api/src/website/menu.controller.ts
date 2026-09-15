@@ -4,7 +4,7 @@ import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Ma
 import { Type } from 'class-transformer';
 import { MENU_ITEM_STYLES, MENU_ITEM_TYPE_KEYS, MENU_LIMITS, MENU_LOCATION_KEYS, type MenuItemStyle, type MenuItemType, type MenuLocationKey } from '@melbourne-sphere/domain';
 import type { RequestContext } from '../auth/auth.service.js';
-import { CurrentAdmin, Public, RequirePermissions, type AuthenticatedRequest } from '../auth/decorators.js';
+import { CurrentAdmin, Public, RequirePermissions, RequireAnyPermission, type AuthenticatedRequest } from '../auth/decorators.js';
 import { getRequestId } from '../common/request-id.js';
 import { PaginationQueryDto, collectionMeta } from '../common/pagination.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
@@ -187,7 +187,7 @@ export class MenuAdminController {
     return { data: await this.menus.locations() };
   }
 
-  @RequirePermissions('website.menus.manage')
+  @RequirePermissions('website.menus.assign')
   @Put('locations/:location')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Show a menu in a location, or clear it' })
@@ -252,7 +252,7 @@ export class MenuAdminController {
 export class EditorLinkSourcesController {
   constructor(private readonly sources: MenuLinkSourcesService) {}
 
-  @RequirePermissions('posts.write')
+  @RequireAnyPermission('posts.create', 'posts.update', 'website.pages.create', 'website.pages.update')
   @Get()
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Content an article can link to or show as a card' })

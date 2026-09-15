@@ -224,14 +224,19 @@ export class ReviewsService {
   /** Editorial redaction: the published text changes, the original and the rating never do (SRS REV 003). */
   async redact(id: string, input: RedactReviewDto, actor: AdminPrincipal, ctx: RequestContext): Promise<AdminReviewDto> {
     const db = await this.database.client();
-    const current = await db.review.findUnique({ where: { id }, select: { version: true } });
+    const current = await db.review.findUnique({ where: { id }, select: { version: true, businessId: true } });
     if (!current) throw notFound();
     if (current.version !== input.expectedVersion) throw stale();
-    const updated = await db.review.updateMany({
-      where: { id, version: input.expectedVersion },
-      data: { publicText: input.publicText ?? null, redactionReason: input.reason, version: { increment: 1 } },
+    await db.$transaction(async (tx) => {
+      const updated = await tx.review.updateMany({
+        where: { id, version: input.expectedVersion },
+        data: { publicText: input.publicText ?? null, redactionReason: input.reason, version: { increment: 1 } },
+      });
+      if (updated.count !== 1) throw stale();
+      // The redacted text replaces the original on the public listing straight away.
+      await this.cache.recordInvalidation(tx, { resourceType: 'review', resourceId: id, urgent: true, correlationId: ctx.requestId, tags: [CACHE_TAGS.reviews, CACHE_TAGS.reviewsFor(current.businessId), CACHE_TAGS.businesses] });
     });
-    if (updated.count !== 1) throw stale();
+    await this.cache.bumpNamespace();
     await this.audit.record({ action: 'review.redact', actorAdminId: actor.id, targetType: 'review', targetId: id, reason: input.reason, metadata: { restored: input.publicText === null }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return this.adminGet(id);
   }

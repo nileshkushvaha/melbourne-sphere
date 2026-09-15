@@ -42,4 +42,9 @@ export class AbilityFactory {
   static allows(ability: AdminAbility, required: readonly string[]): boolean {
     return required.every((code) => isActivePermissionKey(code) && ability.can(code, ADMIN_SUBJECT));
   }
+
+  /** True when the ability allows at least one of the codes (lookup routes shared by several screens). */
+  static allowsAny(ability: AdminAbility, accepted: readonly string[]): boolean {
+    return accepted.some((code) => isActivePermissionKey(code) && ability.can(code, ADMIN_SUBJECT));
+  }
 }

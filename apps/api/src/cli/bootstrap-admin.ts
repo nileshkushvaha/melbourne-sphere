@@ -22,7 +22,7 @@ async function main(): Promise<void> {
   try {
     const identity = app.get(IdentityService);
     const seeded = await identity.seedRbac();
-    console.log(`[bootstrap] RBAC seeded (permissions created: ${seeded.permissionsCreated}, role created: ${seeded.roleCreated})`);
+    console.log(`[bootstrap] RBAC seeded (permissions created: ${seeded.permissionsCreated}, grants carried over: ${seeded.grantsCarriedOver}, role created: ${seeded.roleCreated})`);
     if (mode === 'seed') return;
 
     const email = process.env.ADMIN_BOOTSTRAP_EMAIL?.trim();

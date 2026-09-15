@@ -17,7 +17,7 @@ export class AuthFixtureController {
     return { data: { ok: true } };
   }
 
-  @RequirePermissions('admins.manage')
+  @RequirePermissions('admins.view')
   @Post('mutate')
   mutate() {
     return { data: { mutated: true } };

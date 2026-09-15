@@ -152,7 +152,16 @@ export class SearchService {
     const [idRows, countRows, categoryFacets, areaFacets] = await Promise.all([
       db.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT b.id ${organicWhere} ${orderBy} LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`),
       db.$queryRaw<{ total: bigint }[]>(Prisma.sql`SELECT COUNT(*) AS total ${organicWhere}`),
-      db.$queryRaw<{ id: string; count: bigint }[]>(Prisma.sql`SELECT b.primaryCategoryId AS id, COUNT(*) AS count ${from} ${keywordWhere} ${areaWhere(areaId)} ${ratingWhere} ${openNowWhere} GROUP BY b.primaryCategoryId`),
+      // A business counts under its primary and every secondary category, the same
+      // rule the category filter applies, so a facet's number is what clicking it shows.
+      db.$queryRaw<{ id: string; count: bigint }[]>(
+        Prisma.sql`SELECT x.categoryId AS id, COUNT(DISTINCT x.businessId) AS count FROM (
+            SELECT b.id AS businessId, b.primaryCategoryId AS categoryId ${from} ${keywordWhere} ${areaWhere(areaId)} ${ratingWhere} ${openNowWhere}
+            UNION ALL
+            SELECT b.id AS businessId, bcx.categoryId AS categoryId FROM businesses b JOIN categories c ON c.id = b.primaryCategoryId LEFT JOIN business_ratings r ON r.businessId = b.id JOIN business_categories bcx ON bcx.businessId = b.id
+            WHERE b.status = 'published' ${keywordWhere} ${areaWhere(areaId)} ${ratingWhere} ${openNowWhere}
+          ) x GROUP BY x.categoryId`,
+      ),
       db.$queryRaw<{ id: string; count: bigint }[]>(Prisma.sql`SELECT b.localAreaId AS id, COUNT(*) AS count ${from} ${keywordWhere} ${categoryWhere(categoryIds)} ${ratingWhere} ${openNowWhere} GROUP BY b.localAreaId`),
     ]);
     const total = Number(countRows[0]?.total ?? 0);
@@ -198,9 +207,12 @@ export class SearchService {
 
   async detailBySlug(slug: string, now = new Date()): Promise<PublicBusinessDetailDto> {
     // Detail pages have a five-minute freshness bound (SRS CACHE 001) and the
-    // namespace retires them the moment publication state changes. Hours are
-    // recomputed per request inside toDetail, so "open now" is never stale.
-    return this.cache.getOrSet(`business:${slug}`, DETAIL_CACHE_SECONDS, () => this.loadDetail(slug, now));
+    // namespace retires them the moment publication state changes. Whether the
+    // business is open is worked out again on every request from the cached
+    // schedule, so a shop never shows "Open" for minutes after it has closed.
+    const detail = await this.cache.getOrSet(`business:${slug}`, DETAIL_CACHE_SECONDS, () => this.loadDetail(slug, now));
+    const schedule = { mode: detail.hours.mode, weekly: detail.hours.weekly, exceptions: detail.hours.exceptions } as unknown as Parameters<typeof evaluateHours>[0];
+    return { ...detail, hours: { ...detail.hours, status: evaluateHours(schedule, now), evaluatedAt: now.toISOString() } };
   }
 
   private async loadDetail(slug: string, now: Date): Promise<PublicBusinessDetailDto> {

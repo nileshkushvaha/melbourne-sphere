@@ -51,7 +51,7 @@ describe('Administrator authentication and RBAC (integration)', () => {
     it('returns the principal, sets a hardened cookie scoped to /api/v1/admin, records audit', async () => {
       const res = await login().expect(200);
       expect(res.body.data.admin).toMatchObject({ email: TEST_ADMIN.normalisedEmail, displayName: TEST_ADMIN.displayName, roles: ['super_admin'] });
-      expect(res.body.data.admin.permissions).toContain('admins.manage');
+      expect(res.body.data.admin.permissions).toContain('admins.view');
       expect(res.body.data.admin.permissions).toContain('listings.read');
       expect(res.body.data.admin).not.toHaveProperty('passwordHash');
       expect(res.body.data.session.expiresAt).toBeDefined();

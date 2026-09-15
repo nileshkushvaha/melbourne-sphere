@@ -51,7 +51,7 @@ export class SeoPublicController {
 export class RedirectsAdminController {
   constructor(private readonly redirects: RedirectsService) {}
 
-  @RequirePermissions('redirects.manage')
+  @RequirePermissions('redirects.view')
   @Get()
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'List redirects (q, kind, page, pageSize)' })
@@ -68,7 +68,7 @@ export class RedirectsAdminController {
    * it answers 404 for "switched off" and "no rule at all" alike — which would
    * tell an administrator a path is free while a deactivated rule sits on it.
    */
-  @RequirePermissions('redirects.manage')
+  @RequirePermissions('redirects.view')
   @Get('resolve')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'What a given path does right now, and why when it does nothing' })
@@ -77,7 +77,7 @@ export class RedirectsAdminController {
     return { data: await this.redirects.preview(path ?? '') };
   }
 
-  @RequirePermissions('redirects.manage')
+  @RequirePermissions('redirects.create')
   @Post()
   @HttpCode(201)
   @Header('Cache-Control', 'no-store')
@@ -87,7 +87,7 @@ export class RedirectsAdminController {
     return { data: await this.redirects.create(body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('redirects.manage')
+  @RequirePermissions('redirects.update')
   @Post(':id/deactivate')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
@@ -97,7 +97,7 @@ export class RedirectsAdminController {
     return { data: await this.redirects.setActive(id, false, body.reason ?? null, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('redirects.manage')
+  @RequirePermissions('redirects.update')
   @Post(':id/activate')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
@@ -107,7 +107,7 @@ export class RedirectsAdminController {
     return { data: await this.redirects.setActive(id, true, body.reason ?? null, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('redirects.manage')
+  @RequirePermissions('redirects.delete')
   @Delete(':id')
   @HttpCode(204)
   @Header('Cache-Control', 'no-store')

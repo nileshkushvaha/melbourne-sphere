@@ -1,5 +1,5 @@
 import { plainToInstance } from 'class-transformer';
-import { ArrayNotEmpty, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUrl, Max, MaxLength, Min, MinLength, Validate, validateSync } from 'class-validator';
+import { ArrayNotEmpty, IsBoolean, IsIP, IsIn, IsInt, IsOptional, IsString, IsUrl, Max, MaxLength, Min, MinLength, Validate, validateSync } from 'class-validator';
 import type { ValidationArguments, ValidatorConstraintInterface } from 'class-validator';
 import { ValidatorConstraint } from 'class-validator';
 import { hasVerifiedTls, parseMysqlUrl } from '@melbourne-sphere/database';
@@ -101,6 +101,11 @@ export class EnvironmentVariables {
    * wildcard: spoofable X-Forwarded-For from the open internet must not
    * influence rate limits or audit records.
    */
+  /** Interface the API listens on. Defaults to 127.0.0.1 in production, every interface otherwise. */
+  @IsOptional()
+  @IsIP(undefined, { message: 'HOST must be an IP address, e.g. 127.0.0.1' })
+  HOST?: string;
+
   @IsInt({ message: 'TRUST_PROXY must be an integer number of proxy hops' })
   @Min(0)
   @Max(10)
@@ -326,7 +331,7 @@ function toInteger(value: unknown): unknown {
 export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {
   const raw: Record<string, unknown> = {};
   const KEYS = [
-    'NODE_ENV', 'PORT', 'DATABASE_URL', 'DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL', 'DATABASE_CONNECTION_LIMIT', 'TRUST_PROXY',
+    'NODE_ENV', 'PORT', 'HOST', 'DATABASE_URL', 'DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL', 'DATABASE_CONNECTION_LIMIT', 'TRUST_PROXY',
     'REDIS_URL', 'METRICS_TOKEN', 'APP_SECRET_KEY', 'TRUSTED_ORIGINS', 'SESSION_COOKIE_SECURE', 'SESSION_IDLE_MINUTES',
     'SESSION_ABSOLUTE_HOURS', 'ARGON2_MEMORY_KIB', 'ARGON2_TIME_COST', 'ARGON2_PARALLELISM',
     'PUBLIC_ADMIN_URL', 'PUBLIC_SITE_URL', 'MAIL_TRANSPORT', 'OPENAPI_ENABLED', 'FIELD_ENCRYPTION_KEY',
@@ -402,6 +407,9 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
       production.push('  - DATABASE_URL: must use verified TLS in production (append ?sslmode=verify-identity, or ?sslmode=verify-ca&sslca=/path/to/ca.pem)');
     }
     if (validated.TRUSTED_ORIGINS.some((o) => o.startsWith('http://'))) production.push('  - TRUSTED_ORIGINS: must be https origins in production');
+    if (validated.OPENAPI_ENABLED) production.push('  - OPENAPI_ENABLED: must be false in production (the contract is published from CI, not the live API)');
+    if (!validated.METRICS_TOKEN) production.push('  - METRICS_TOKEN: required in production (behind a local reverse proxy every request looks like loopback)');
+    if (validated.TRUST_PROXY === 0) production.push('  - TRUST_PROXY: must be at least 1 in production (behind nginx, 0 puts every visitor in one rate-limit bucket)');
     if (production.length) {
       throw new Error(`Invalid environment configuration for production:\n${production.join('\n')}`);
     }
@@ -413,6 +421,8 @@ export function validateEnv(config: Record<string, unknown>): EnvironmentVariabl
     DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL: validated.DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL,
     DATABASE_CONNECTION_LIMIT: validated.DATABASE_CONNECTION_LIMIT,
     TRUST_PROXY: validated.TRUST_PROXY,
+    HOST: validated.HOST,
+    METRICS_TOKEN: validated.METRICS_TOKEN,
     REDIS_URL: validated.REDIS_URL,
     APP_SECRET_KEY: validated.APP_SECRET_KEY,
     TRUSTED_ORIGINS: validated.TRUSTED_ORIGINS,

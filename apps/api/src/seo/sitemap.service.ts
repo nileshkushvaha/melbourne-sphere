@@ -49,7 +49,7 @@ export class SitemapService {
     // created it: what makes a page listable is that it answers 200 to an
     // anonymous visitor, which publication is exactly the record of.
     // A row kept under a product route's address is not a page any more.
-    const rows = (await db.staticPage.findMany({ where: { status: 'published' }, select: { slug: true, updatedAt: true }, orderBy: { slug: 'asc' } })).filter((row) => !isProductRoute(row.slug));
+    const rows = (await db.staticPage.findMany({ where: { status: 'published', noindex: false }, select: { slug: true, updatedAt: true }, orderBy: { slug: 'asc' } })).filter((row) => !isProductRoute(row.slug));
     const entries = rows.map((row) => ({ path: `/${row.slug}`, lastModified: row.updatedAt.toISOString() }));
     // `/about` and `/contact` are product routes rather than editable content,
     // so their last-modified time is the newest page change we know of.

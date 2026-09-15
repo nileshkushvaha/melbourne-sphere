@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable, Logger, type CanActivate, type Executio
 import { Reflector } from '@nestjs/core';
 import { AbilityFactory } from '../../authorization/ability.factory.js';
 import { isActivePermissionKey } from '../../identity/permissions.js';
-import { PERMISSIONS_KEY, PUBLIC_ROUTE_KEY, SESSION_ONLY_KEY, type AuthenticatedRequest } from '../decorators.js';
+import { ANY_PERMISSIONS_KEY, PERMISSIONS_KEY, PUBLIC_ROUTE_KEY, SESSION_ONLY_KEY, type AuthenticatedRequest } from '../decorators.js';
 import { isAdminPath } from './admin-path.js';
 
 /**
@@ -36,6 +36,18 @@ export class PermissionsGuard implements CanActivate {
     if (!req.admin) throw new ForbiddenException({ code: 'FORBIDDEN', message: 'Access denied' });
     if (this.reflector.getAllAndOverride<boolean>(SESSION_ONLY_KEY, targets)) return true;
 
+    const anyOf = this.reflector.getAllAndOverride<string[] | undefined>(ANY_PERMISSIONS_KEY, targets);
+    if (anyOf && anyOf.length > 0) {
+      const undeclaredAny = anyOf.filter((key) => !isActivePermissionKey(key));
+      if (undeclaredAny.length > 0) {
+        this.logger.error(`route ${req.method} ${req.path} accepts unregistered or retired permission(s): ${undeclaredAny.join(', ')}`);
+        throw new ForbiddenException({ code: 'PERMISSION_UNDECLARED', message: 'Access denied' });
+      }
+      if (!AbilityFactory.allowsAny(this.abilities.build(req.admin.permissions), anyOf)) {
+        throw new ForbiddenException({ code: 'FORBIDDEN', message: 'You do not have permission to do that' });
+      }
+      return true;
+    }
     const required = this.reflector.getAllAndOverride<string[] | undefined>(PERMISSIONS_KEY, targets);
     if (!required || required.length === 0) {
       this.logger.error(`route ${req.method} ${req.path} declares no permission; denied by default`);

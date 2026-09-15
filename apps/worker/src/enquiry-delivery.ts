@@ -116,7 +116,10 @@ export async function deliverEnquiry(data: DeliveryJobData, deps: DeliveryDeps):
   } catch (error) {
     const permanent = error instanceof PermanentDeliveryError;
     const message = error instanceof Error ? error.message.slice(0, 500) : 'Delivery failed';
-    await deps.db.enquiry.update({ where: { id: enquiry.id }, data: { deliveryStatus: permanent ? 'failed' : 'retrying', lastError: message } });
+    // Shown on the Enquiries screen: a fixed sentence. The provider's own words
+    // stay in the redacted delivery record and the job log.
+    const lastError = permanent ? 'The mail provider refused this message.' : 'The mail provider did not accept this message yet; it will be retried.';
+    await deps.db.enquiry.update({ where: { id: enquiry.id }, data: { deliveryStatus: permanent ? 'failed' : 'retrying', lastError } });
     if (delivery) {
       await deps.db.emailDelivery
         .update({

@@ -16,10 +16,10 @@ function contextOf(req: AuthenticatedRequest): RequestContext {
 
 @ApiTags('admin-admins')
 @Controller('admin/admins')
-@RequirePermissions('admins.manage')
 export class AdminsController {
   constructor(private readonly admins: AdminsService) {}
 
+  @RequirePermissions('admins.view')
   @Get()
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'List administrators (paginated; q, status, sort, order)' })
@@ -28,6 +28,7 @@ export class AdminsController {
     return this.admins.list(query);
   }
 
+  @RequirePermissions('admins.create')
   @Post()
   @SensitiveMutation()
   @HttpCode(201)
@@ -38,6 +39,7 @@ export class AdminsController {
     return { data: await this.admins.create(body, actor, contextOf(req)) };
   }
 
+  @RequirePermissions('admins.view')
   @Get(':id')
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: AdminEnvelopeDto })
@@ -45,6 +47,7 @@ export class AdminsController {
     return { data: await this.admins.get(id) };
   }
 
+  @RequirePermissions('admins.update')
   @Patch(':id')
   @SensitiveMutation()
   @Header('Cache-Control', 'no-store')
@@ -54,6 +57,7 @@ export class AdminsController {
     return { data: await this.admins.update(id, body, actor, contextOf(req)) };
   }
 
+  @RequirePermissions('admins.status')
   @Post(':id/disable')
   @SensitiveMutation()
   @HttpCode(200)
@@ -64,6 +68,7 @@ export class AdminsController {
     return { data: await this.admins.disable(id, body.expectedVersion, body.reason, actor, contextOf(req)) };
   }
 
+  @RequirePermissions('admins.status')
   @Post(':id/enable')
   @SensitiveMutation()
   @HttpCode(200)
@@ -73,6 +78,7 @@ export class AdminsController {
     return { data: await this.admins.enable(id, body.expectedVersion, body.reason, actor, contextOf(req)) };
   }
 
+  @RequirePermissions('admins.create')
   @Post(':id/resend-setup')
   @SensitiveMutation()
   @HttpCode(202)

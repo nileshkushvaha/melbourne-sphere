@@ -100,7 +100,7 @@ export class AuthorizationController {
   }
 
   @Get('admins/:id/access')
-  @RequirePermissions('admins.manage')
+  @RequirePermissions('admins.view')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: "An administrator's roles, direct permissions, effective permissions and their sources" })
   async adminAccess(@Param('id') id: string) {

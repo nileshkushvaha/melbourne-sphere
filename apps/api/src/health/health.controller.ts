@@ -1,4 +1,4 @@
-import { Controller, Get, Header, HttpStatus, Req, Res } from '@nestjs/common';
+import { Controller, Get, Header, HttpStatus, Req, Res, Logger } from '@nestjs/common';
 import type { Response } from 'express';
 import { DatabaseService } from '../database/database.service.js';
 import { RedisService } from '../redis/redis.service.js';
@@ -23,6 +23,8 @@ export interface ReadinessResponse {
  */
 @Controller('health')
 export class HealthController {
+  private readonly logger = new Logger('Health');
+
   constructor(
     private readonly database: DatabaseService,
     private readonly redis: RedisService,
@@ -39,10 +41,12 @@ export class HealthController {
   async getReadiness(@Req() req: RequestWithId, @Res() res: Response): Promise<void> {
     const [database, redis] = await Promise.all([this.database.ping(), this.redis.ping()]);
     if (!database.ok || !redis.ok) {
-      const failing = [!database.ok && 'Database', !redis.ok && 'Redis'].filter(Boolean).join(' and ');
+      // Which dependency failed is for the operator's log, not a public response.
+      const failing = [!database.ok && 'database', !redis.ok && 'redis'].filter(Boolean).join(', ');
+      this.logger.warn(`[${getRequestId(req)}] not ready: ${failing}`);
       sendErrorEnvelope(res, HttpStatus.SERVICE_UNAVAILABLE, {
         code: 'SERVICE_UNAVAILABLE',
-        message: `${failing} unavailable`,
+        message: 'Service not ready',
         requestId: getRequestId(req),
       });
       return;

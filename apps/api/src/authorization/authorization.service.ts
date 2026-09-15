@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service.js';
 import { DatabaseService } from '../database/database.service.js';
-import { ACTIVE_PERMISSION_KEYS, isActivePermissionKey, permissionDefinition, SUPER_ADMIN_ROLE, type PermissionKey } from '../identity/permissions.js';
+import { ACTIVE_PERMISSION_KEYS, isActivePermissionKey, isPermissionKey, permissionDefinition, type PermissionKey, permissionOrder, SUPER_ADMIN_ROLE } from '../identity/permissions.js';
 import type { AdminPrincipal } from '../identity/identity.service.js';
 import { EffectivePermissionsService } from './effective-permissions.service.js';
 
@@ -63,14 +63,23 @@ export class AuthorizationService {
   async listPermissions() {
     const db = await this.database.client();
     const rows = await db.permission.findMany({ orderBy: [{ module: 'asc' }, { key: 'asc' }] });
-    return rows.map((row) => ({
-      key: row.key,
-      label: row.label || row.key,
-      description: row.description,
-      module: row.module,
-      isActive: row.isActive && isActivePermissionKey(row.key),
-      isSystem: row.isSystem,
-    }));
+    // Catalogue order is sidebar order; the menu item and action come from code,
+    // so the matrix reads like the navigation (change log 1.13).
+    return rows
+      .sort((a, b) => permissionOrder(a.key) - permissionOrder(b.key))
+      .map((row) => {
+        const definition = isPermissionKey(row.key) ? permissionDefinition(row.key) : null;
+        return {
+          key: row.key,
+          label: row.label || row.key,
+          description: row.description,
+          module: row.module,
+          menuItem: definition?.menuItem ?? row.module,
+          action: definition?.action ?? 'Other',
+          isActive: row.isActive && isActivePermissionKey(row.key),
+          isSystem: row.isSystem,
+        };
+      });
   }
 
   async listRoles(params: { page: number; pageSize: number; q?: string }) {

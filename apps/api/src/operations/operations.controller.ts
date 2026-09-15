@@ -10,7 +10,7 @@ import { OperationsService } from './operations.service.js';
 export class OperationsController {
   constructor(private readonly operations: OperationsService) {}
 
-  @RequirePermissions('audit.read')
+  @RequirePermissions('system.status.view')
   @Get('status')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Queue age, failed events, delivery failures, publishing lateness and moderation backlog' })

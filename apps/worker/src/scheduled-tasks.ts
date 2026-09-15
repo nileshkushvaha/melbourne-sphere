@@ -6,11 +6,13 @@ import {
   QUARANTINE_MAX_AGE_HOURS,
   SCHEDULED_RUN_RETENTION_DAYS,
   UNUSED_READY_MAX_AGE_DAYS,
+  pagePublicationBlockers,
   postPublicationBlockers,
   scheduledTask,
   scheduledTaskLockKey,
   unusedMediaRelations,
   htmlToPlainText,
+  validatePageSections,
   type ScheduledTaskDefinition,
 } from '@melbourne-sphere/domain';
 
@@ -66,7 +68,7 @@ const daysAgo = (now: Date, days: number) => new Date(now.getTime() - days * 86_
  */
 export const TASK_IMPLEMENTATIONS: Record<string, (ctx: TaskContext) => Promise<TaskResult>> = {
   /**
-   * Publishes articles whose scheduled time has passed (SRS BLOG 002). This is
+   * Publishes articles (SRS BLOG 002) and information pages (change log 1.17) whose scheduled time has passed. This is
    * the only scheduled publisher: the API no longer runs its own timer, so the
    * two can never disagree about what publishing records.
    *
@@ -129,11 +131,54 @@ export const TASK_IMPLEMENTATIONS: Record<string, (ctx: TaskContext) => Promise<
         published += 1;
       });
     }
+
+    // Information pages scheduled from the page editor (change log 1.17), under
+    // the same rules the API applies when someone presses Publish.
+    const duePages = await db.staticPage.findMany({
+      where: { status: 'scheduled', scheduledAt: { lte: now } },
+      select: { id: true, slug: true, version: true, title: true, sanitizedBody: true, sections: true },
+      orderBy: { scheduledAt: 'asc' },
+      take: 200,
+    });
+    let pagesPublished = 0;
+    let pagesReturned = 0;
+    for (const page of duePages) {
+      const blockers = pagePublicationBlockers({ title: page.title, plainBody: plainTextOf(page.sanitizedBody), sections: Array.isArray(page.sections) ? validatePageSections(page.sections).sections : null });
+      await db.$transaction(async (tx) => {
+        if (blockers.length > 0) {
+          const updated = await tx.staticPage.updateMany({
+            where: { id: page.id, status: 'scheduled', version: page.version },
+            data: { status: 'draft', scheduledAt: null, publishFailure: blockers.join(' ').slice(0, 300), version: { increment: 1 } },
+          });
+          if (updated.count === 0) return;
+          await tx.auditLog.create({ data: { action: 'settings.page.schedule_blocked', targetType: 'static_page', targetId: page.id, metadata: { slug: page.slug, blockers } } });
+          pagesReturned += 1;
+          return;
+        }
+        const updated = await tx.staticPage.updateMany({
+          where: { id: page.id, status: 'scheduled', version: page.version },
+          data: { status: 'published', publishedAt: now, scheduledAt: null, publishFailure: null, version: { increment: 1 } },
+        });
+        // Another replica, or an editor's change, got there first.
+        if (updated.count === 0) return;
+        await tx.outboxEvent.create({
+          data: { type: 'cache.invalidate', resourceType: 'static_page', resourceId: page.id, payload: { tags: [CACHE_TAGS.pages, CACHE_TAGS.page(page.slug), CACHE_TAGS.sitemap, CACHE_TAGS.menus].join(',') } },
+        });
+        await tx.auditLog.create({ data: { action: 'settings.page.publish', targetType: 'static_page', targetId: page.id, metadata: { slug: page.slug, from: 'scheduled', to: 'published', scheduled: true } } });
+        pagesPublished += 1;
+      });
+    }
+
     const parts = [
       published > 0 ? `Published ${published} article${published === 1 ? '' : 's'}` : null,
       returned > 0 ? `returned ${returned} to draft because ${returned === 1 ? 'it no longer meets' : 'they no longer meet'} the publication requirements` : null,
-    ].filter(Boolean);
-    return parts.length === 0 ? 'Nothing was due' : parts.join('; ');
+      pagesPublished > 0 ? `published ${pagesPublished} page${pagesPublished === 1 ? '' : 's'}` : null,
+      pagesReturned > 0 ? `returned ${pagesReturned} page${pagesReturned === 1 ? '' : 's'} to draft because ${pagesReturned === 1 ? 'it no longer meets' : 'they no longer meet'} the publication requirements` : null,
+    ].filter((part): part is string => part !== null);
+    if (parts.length === 0) return 'Nothing was due';
+    const summary = parts.join('; ');
+    // The article wording is unchanged; a summary that starts with pages gets its capital.
+    return published === 0 && returned === 0 ? summary.charAt(0).toUpperCase() + summary.slice(1) : summary;
   },
 
   /** Activity retention (ACT 006, PRIV 001). */
@@ -180,11 +225,17 @@ export const TASK_IMPLEMENTATIONS: Record<string, (ctx: TaskContext) => Promise<
         OR: [{ status: 'rejected' }, { status: 'quarantined', checksum: null }],
       },
       select: { id: true, objectKey: true },
+      // Oldest first, so the backlog is worked through in order.
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       take: 100,
     });
+    let abandonedRemoved = 0;
+    let failed = 0;
     for (const asset of abandoned) {
       await storage.delete('quarantine', asset.objectKey).catch(() => undefined);
-      await db.mediaAsset.delete({ where: { id: asset.id } }).catch(() => undefined);
+      const removed = await db.mediaAsset.delete({ where: { id: asset.id } }).then(() => true, () => false);
+      if (removed) abandonedRemoved += 1;
+      else failed += 1;
     }
     // "Unused" is the shared definition the media library also refuses deletion
     // by: every relation that shows an image, plus the settings documents that
@@ -203,15 +254,22 @@ export const TASK_IMPLEMENTATIONS: Record<string, (ctx: TaskContext) => Promise<
         ...unusedMediaRelations(),
         ...(namedBySettings.length > 0 ? { id: { notIn: [...new Set(namedBySettings)] } } : {}),
       },
-      select: { id: true, objectKey: true, variants: { select: { objectKey: true } } },
+      select: { id: true, objectKey: true, publicObjectKey: true, variants: { select: { objectKey: true } } },
+      orderBy: [{ readyAt: 'asc' }, { id: 'asc' }],
       take: 100,
     });
+    let unusedRemoved = 0;
     for (const asset of unused) {
       for (const variant of asset.variants) await storage.delete('public', variant.objectKey).catch(() => undefined);
+      // A document's published copy (change log 1.16).
+      if (asset.publicObjectKey) await storage.delete('public', asset.publicObjectKey).catch(() => undefined);
       await storage.delete('quarantine', asset.objectKey).catch(() => undefined);
-      await db.mediaAsset.delete({ where: { id: asset.id } }).catch(() => undefined);
+      const removed = await db.mediaAsset.delete({ where: { id: asset.id } }).then(() => true, () => false);
+      if (removed) unusedRemoved += 1;
+      else failed += 1;
     }
-    return `Removed ${abandoned.length} abandoned upload${abandoned.length === 1 ? '' : 's'} and ${unused.length} unused image${unused.length === 1 ? '' : 's'}`;
+    // Counts what was actually removed; a record that could not be deleted is reported, not hidden.
+    return `Removed ${abandonedRemoved} abandoned upload${abandonedRemoved === 1 ? '' : 's'} and ${unusedRemoved} unused file${unusedRemoved === 1 ? '' : 's'}${failed > 0 ? `; ${failed} could not be removed and will be retried` : ''}`;
   },
 
   /** Queue housekeeping (QMON 003 bounds: completed only, never recent). */

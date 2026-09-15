@@ -42,7 +42,8 @@ function embedMarker(attribs: sanitizeHtml.Attributes): sanitizeHtml.Attributes 
 const SANITISE_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: ALLOWED_TAGS,
   allowedAttributes: {
-    a: ['href', 'title', 'rel', 'target'],
+    // A document link (change log 1.16) names its library PDF like an image does, so it counts as in use.
+    a: ['href', 'title', 'rel', 'target', 'class', 'data-media-id'],
     // `data-media-id` names the library image so the image counts as in use
     // (MED 004); anything but an id-shaped value is removed below.
     img: ['src', 'alt', 'title', 'width', 'height', 'loading', 'data-media-id'],
@@ -52,7 +53,7 @@ const SANITISE_OPTIONS: sanitizeHtml.IOptions = {
     figure: ['class'],
     div: ['class', 'data-embed', 'data-embed-id', 'data-embed-src', 'data-embed-title', 'data-business-id'],
   },
-  allowedClasses: { figure: ['ms-figure', 'ms-figure--wide'], div: ['ms-embed'] },
+  allowedClasses: { figure: ['ms-figure', 'ms-figure--wide'], div: ['ms-embed'], a: ['ms-doc-link'] },
   // Only these protocols survive; javascript:, data: and vbscript: never do.
   allowedSchemes: ['http', 'https', 'mailto', 'tel'],
   allowedSchemesAppliedToAttributes: ['href', 'src'],
@@ -79,7 +80,9 @@ const SANITISE_OPTIONS: sanitizeHtml.IOptions = {
     a: (tagName, attribs) => {
       const href = attribs.href ?? '';
       const external = /^https?:\/\//i.test(href);
-      return { tagName, attribs: { ...attribs, ...(external ? { rel: 'noopener noreferrer nofollow', target: '_blank' } : { rel: attribs.rel ?? 'noopener' }) } };
+      const { 'data-media-id': mediaId, ...rest } = attribs;
+      const validId = typeof mediaId === 'string' && /^[a-z0-9]{20,40}$/.test(mediaId);
+      return { tagName, attribs: { ...rest, ...(validId ? { 'data-media-id': mediaId } : {}), ...(external ? { rel: 'noopener noreferrer nofollow', target: '_blank' } : { rel: attribs.rel ?? 'noopener' }) } };
     },
     img: (tagName, attribs) => {
       const { 'data-media-id': mediaId, ...rest } = attribs;

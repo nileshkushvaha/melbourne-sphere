@@ -88,7 +88,7 @@ export class ReviewsPublicController {
 export class ReviewsAdminController {
   constructor(private readonly reviews: ReviewsService) {}
 
-  @RequirePermissions('reviews.moderate')
+  @RequirePermissions('reviews.view')
   @Get()
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'List reviews (status, business, repeatFlagged, reported)' })
@@ -97,7 +97,7 @@ export class ReviewsAdminController {
     return this.reviews.adminList(query);
   }
 
-  @RequirePermissions('community.contacts.view')
+  @RequirePermissions('reviews.email.view')
   @Get(':id/email')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Reveal the reviewer’s private address. Every reveal is recorded.' })
@@ -105,7 +105,7 @@ export class ReviewsAdminController {
     return { data: { email: await this.reviews.revealEmail(id, admin, ctxOf(req)) } };
   }
 
-  @RequirePermissions('reviews.moderate')
+  @RequirePermissions('reviews.view')
   @Get(':id')
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: AdminReviewDto })
@@ -140,7 +140,7 @@ export class ReviewsAdminController {
     return { data: await this.reviews.moderate(id, 'spam', body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('reviews.moderate')
+  @RequirePermissions('reviews.redact')
   @Patch(':id/redaction')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
@@ -157,7 +157,7 @@ export class ReviewsAdminController {
 export class ReportsAdminController {
   constructor(private readonly reports: ReportsService) {}
 
-  @RequirePermissions('community.contacts.view')
+  @RequirePermissions('reports.email.view')
   @Get(':id/reporter-email')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Reveal the reporter’s address. Every reveal is recorded (SRS REP 001).' })
@@ -165,7 +165,7 @@ export class ReportsAdminController {
     return { data: { email: await this.reports.revealReporterEmail(id, admin, ctxOf(req)) } };
   }
 
-  @RequirePermissions('reports.manage')
+  @RequirePermissions('reports.view')
   @Get()
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: [AdminReportDto] })
@@ -173,7 +173,7 @@ export class ReportsAdminController {
     return this.reports.list(query);
   }
 
-  @RequirePermissions('reports.manage')
+  @RequirePermissions('reports.view')
   @Get(':id')
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: AdminReportDto })

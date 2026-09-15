@@ -1,4 +1,6 @@
 import { ConflictException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { CacheService } from '../cache/cache.service.js';
+import { CACHE_TAGS } from '@melbourne-sphere/domain';
 import type { Category, LocalArea, Prisma, Service, ServiceSynonym } from '@melbourne-sphere/database';
 import { AuditService } from '../audit/audit.service.js';
 import type { RequestContext } from '../auth/auth.service.js';
@@ -68,7 +70,23 @@ export class TaxonomyService {
     private readonly audit: AuditService,
     private readonly redirects: RedirectsService,
     private readonly media: MediaService,
+    private readonly cache: CacheService,
   ) {}
+
+  /**
+   * Categories, services and areas appear in public navigation, filters,
+   * listing cards and the sitemap, so every change refreshes those pages
+   * (SRS CACHE 002). A slug change or an activation also changes menu links.
+   */
+  private async purge(tx: Prisma.TransactionClient | null, resourceType: string, resourceId: string, ctx: RequestContext, options: { menus?: boolean } = {}): Promise<void> {
+    const tags = [CACHE_TAGS.taxonomy, CACHE_TAGS.businesses, CACHE_TAGS.sitemap, ...(options.menus ? [CACHE_TAGS.menus] : [])];
+    const record = (client: Prisma.TransactionClient) => this.cache.recordInvalidation(client, { resourceType, resourceId, correlationId: ctx.requestId, tags });
+    if (tx) await record(tx);
+    else {
+      const db = await this.database.client();
+      await db.$transaction(record);
+    }
+  }
 
   /** The two pictures a category or an area can carry, resolved to public addresses. */
   private async categoryImages(c: { imageMediaId: string | null; ogImageMediaId: string | null }) {
@@ -123,6 +141,7 @@ export class TaxonomyService {
   private listWhere(q: ListTermsQueryDto) {
     return {
       ...(q.status ? { active: q.status === 'active' } : {}),
+      ...(q.ids?.length ? { id: { in: q.ids } } : {}),
       ...(q.q ? { OR: [{ name: { contains: q.q } }, { slug: { contains: q.q } }] } : {}),
     };
   }
@@ -132,7 +151,7 @@ export class TaxonomyService {
 
   async listCategories(q: ListTermsQueryDto) {
     const db = await this.database.client();
-    const where: Prisma.CategoryWhereInput = this.listWhere(q);
+    const where: Prisma.CategoryWhereInput = { ...this.listWhere(q), ...(q.topLevel ? { parentId: null } : {}) };
     const [total, rows] = await Promise.all([
       db.category.count({ where }),
       db.category.findMany({ where, include: { parent: { select: { name: true } } }, orderBy: this.listOrder(q), skip: skipFor(q.page, q.pageSize), take: q.pageSize }),
@@ -191,6 +210,8 @@ export class TaxonomyService {
         imageMediaId: input.imageMediaId ?? null, seoTitle: input.seoTitle ?? null, seoDescription: input.seoDescription ?? null, seoKeywords: input.seoKeywords ?? null, ogImageMediaId: input.ogImageMediaId ?? null,
       },
     });
+    await this.purge(null, 'category', row.id, ctx, { menus: true });
+    await this.cache.bumpNamespace();
     await this.audit.record({ action: 'taxonomy.category.create', actorAdminId: actor.id, targetType: 'category', targetId: row.id, metadata: { slug, parentId: row.parentId }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return toCategoryDto(row);
   }
@@ -229,7 +250,9 @@ export class TaxonomyService {
       // A category has a public page, so moving it leaves a 301 behind rather
       // than a dead URL (SRS SEO 004) — the same rule business listings follow.
       if (data.slug) await this.redirects.recordSlugChange(tx, { sourcePath: this.publicPath('category', current.slug), targetPath: this.publicPath('category', String(data.slug)), resourceType: 'category', resourceId: id, actorAdminId: actor.id, reason: null });
+      await this.purge(tx, 'category', id, ctx, { menus: Boolean(data.slug) || data.parentId !== undefined });
     });
+    await this.cache.bumpNamespace();
     await this.audit.record({ action: 'taxonomy.category.update', actorAdminId: actor.id, targetType: 'category', targetId: id, metadata: { fields: Object.keys(data).join(',') }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return this.getCategory(id);
   }
@@ -261,6 +284,8 @@ export class TaxonomyService {
     if (await db.service.findUnique({ where: { slug } })) throw slugTaken();
     const synonyms = normaliseSynonyms(input.synonyms);
     const row = await db.service.create({ data: { name: input.name, slug, icon: input.icon ?? null, synonyms: { create: synonyms.map((term) => ({ term })) } }, include: { synonyms: true } });
+    await this.purge(null, 'service', row.id, ctx);
+    await this.cache.bumpNamespace();
     await this.audit.record({ action: 'taxonomy.service.create', actorAdminId: actor.id, targetType: 'service', targetId: row.id, metadata: { slug, synonyms: synonyms.length }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return toServiceDto(row);
   }
@@ -285,7 +310,9 @@ export class TaxonomyService {
         await tx.serviceSynonym.deleteMany({ where: { serviceId: id } });
         await tx.serviceSynonym.createMany({ data: normaliseSynonyms(input.synonyms).map((term) => ({ serviceId: id, term })) });
       }
+      await this.purge(tx, 'service', id, ctx);
     });
+    await this.cache.bumpNamespace();
     await this.audit.record({ action: 'taxonomy.service.update', actorAdminId: actor.id, targetType: 'service', targetId: id, metadata: { fields: [...Object.keys(data), ...(input.synonyms !== undefined ? ['synonyms'] : [])].join(',') }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return this.getService(id);
   }
@@ -303,6 +330,8 @@ export class TaxonomyService {
         imageMediaId: input.imageMediaId ?? null, seoTitle: input.seoTitle ?? null, seoDescription: input.seoDescription ?? null, seoKeywords: input.seoKeywords ?? null, ogImageMediaId: input.ogImageMediaId ?? null,
       },
     });
+    await this.purge(null, 'local_area', row.id, ctx, { menus: true });
+    await this.cache.bumpNamespace();
     await this.audit.record({ action: 'taxonomy.area.create', actorAdminId: actor.id, targetType: 'local_area', targetId: row.id, metadata: { slug, verified: !!input.eligibilitySource }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return toLocalAreaDto(row);
   }
@@ -336,7 +365,9 @@ export class TaxonomyService {
       const result = await tx.localArea.updateMany({ where: { id, version: input.expectedVersion }, data: { ...data, version: { increment: 1 } } });
       if (result.count !== 1) throw stale();
       if (data.slug) await this.redirects.recordSlugChange(tx, { sourcePath: this.publicPath('localArea', current.slug), targetPath: this.publicPath('localArea', String(data.slug)), resourceType: 'local_area', resourceId: id, actorAdminId: actor.id, reason: null });
+      await this.purge(tx, 'local_area', id, ctx, { menus: Boolean(data.slug) });
     });
+    await this.cache.bumpNamespace();
     await this.audit.record({ action: 'taxonomy.area.update', actorAdminId: actor.id, targetType: 'local_area', targetId: id, metadata: { fields: Object.keys(data).join(',') }, requestId: ctx.requestId, ipAddress: ctx.ip });
     return this.getLocalArea(id);
   }
@@ -363,8 +394,13 @@ export class TaxonomyService {
       const parent = await db.category.findUnique({ where: { id: current.parentId } });
       if (!parent?.active) throw new ConflictException({ code: 'PARENT_INACTIVE', message: 'Activate the parent category first' });
     }
-    const result = await (delegate as typeof db.category).updateMany({ where: { id, version: expectedVersion }, data: { active, version: { increment: 1 } } });
-    if (result.count !== 1) throw stale();
+    await db.$transaction(async (tx) => {
+      const table = kind === 'category' ? tx.category : kind === 'service' ? tx.service : tx.localArea;
+      const result = await (table as typeof tx.category).updateMany({ where: { id, version: expectedVersion }, data: { active, version: { increment: 1 } } });
+      if (result.count !== 1) throw stale();
+      await this.purge(tx, kind === 'localArea' ? 'local_area' : kind, id, ctx, { menus: true });
+    });
+    await this.cache.bumpNamespace();
     await this.audit.record({ action: `taxonomy.${kind === 'localArea' ? 'area' : kind}.${active ? 'activate' : 'deactivate'}`, actorAdminId: actor.id, targetType: kind === 'localArea' ? 'local_area' : kind, targetId: id, reason: reason ?? null, requestId: ctx.requestId, ipAddress: ctx.ip });
     return kind === 'category' ? this.getCategory(id) : kind === 'service' ? this.getService(id) : this.getLocalArea(id);
   }

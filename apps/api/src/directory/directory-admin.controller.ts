@@ -33,7 +33,7 @@ export class DirectoryAdminController {
     return this.directory.list(q);
   }
 
-  @RequirePermissions('listings.write')
+  @RequirePermissions('listings.create')
   @Post()
   @HttpCode(201)
   @Header('Cache-Control', 'no-store')
@@ -50,7 +50,7 @@ export class DirectoryAdminController {
     return { data: await this.directory.get(id, actor) };
   }
 
-  @RequirePermissions('listings.write')
+  @RequirePermissions('listings.update')
   @Patch(':id')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Edit a draft/published listing (expectedVersion required)' })
@@ -115,7 +115,7 @@ export class DirectoryAdminController {
     return { data: await this.hours.get(id) };
   }
 
-  @RequirePermissions('listings.write')
+  @RequirePermissions('listings.update')
   @Put(':id/hours')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
@@ -132,7 +132,7 @@ export class DirectoryAdminController {
 export class FeaturedAdminController {
   constructor(private readonly featured: FeaturedService) {}
 
-  @RequirePermissions('listings.read')
+  @RequirePermissions('featured.view')
   @Get()
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'All placements with their current state' })
@@ -141,7 +141,7 @@ export class FeaturedAdminController {
     return { data: await this.featured.list() };
   }
 
-  @RequirePermissions('listings.publish')
+  @RequirePermissions('featured.manage')
   @Post()
   @HttpCode(201)
   @Header('Cache-Control', 'no-store')
@@ -151,7 +151,7 @@ export class FeaturedAdminController {
     return { data: await this.featured.create(body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('listings.publish')
+  @RequirePermissions('featured.manage')
   @Patch(':id')
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: FeaturedPlacementDto })
@@ -159,7 +159,7 @@ export class FeaturedAdminController {
     return { data: await this.featured.update(id, body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('listings.publish')
+  @RequirePermissions('featured.manage')
   @Delete(':id')
   @HttpCode(204)
   @Header('Cache-Control', 'no-store')

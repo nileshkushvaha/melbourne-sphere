@@ -7,16 +7,16 @@ describe('AbilityFactory', () => {
     const ability = factory.build(['listings.read', 'reviews.moderate']);
     expect(AbilityFactory.allows(ability, ['listings.read'])).toBe(true);
     expect(AbilityFactory.allows(ability, ['listings.read', 'reviews.moderate'])).toBe(true);
-    expect(AbilityFactory.allows(ability, ['listings.write'])).toBe(false);
-    expect(AbilityFactory.allows(ability, ['listings.read', 'listings.write'])).toBe(false);
+    expect(AbilityFactory.allows(ability, ['listings.update'])).toBe(false);
+    expect(AbilityFactory.allows(ability, ['listings.read', 'listings.update'])).toBe(false);
   });
 
   it('never lets a ".manage" code become a wildcard over its resource', () => {
     // CASL reserves the action "manage" for "every action". Splitting
     // `admins.manage` into can('manage', 'admins') would silently grant
     // `admins.access.manage` — the escalation this mapping exists to avoid.
-    const ability = factory.build(['admins.manage']);
-    expect(AbilityFactory.allows(ability, ['admins.manage'])).toBe(true);
+    const ability = factory.build(['admins.view']);
+    expect(AbilityFactory.allows(ability, ['admins.view'])).toBe(true);
     expect(AbilityFactory.allows(ability, ['admins.access.manage'])).toBe(false);
     expect(ability.can('manage', ADMIN_SUBJECT)).toBe(false);
   });

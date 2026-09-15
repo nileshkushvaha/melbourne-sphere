@@ -31,10 +31,10 @@ describe('SEO: sitemaps and redirects (integration)', () => {
     await seedSuperAdmin(app);
     cookie = await loginAs(TEST_ADMIN.email, TEST_ADMIN.password, '203.0.113.190');
 
-    // An administrator with every listing and post permission but no redirects.manage.
+    // An administrator with every listing and post permission but no redirect permissions.
     const db = testDatabase();
     const role = await db.role.create({ data: { key: 'seo_limited', name: 'Limited', description: 'test' } });
-    const perms = await db.permission.findMany({ where: { key: { in: ['listings.read', 'listings.write', 'listings.publish', 'posts.write', 'posts.publish'] } } });
+    const perms = await db.permission.findMany({ where: { key: { in: ['listings.read', 'listings.create', 'listings.update', 'listings.publish', 'posts.view', 'posts.create', 'posts.update', 'posts.publish'] } } });
     await db.rolePermission.createMany({ data: perms.map((p) => ({ roleId: role.id, permissionId: p.id })) });
     await seedSuperAdmin(app, { email: 'limited@example.com', password: 'limited-password-12345', displayName: 'Limited' });
     const limited = await db.adminUser.findUniqueOrThrow({ where: { email: 'limited@example.com' } });

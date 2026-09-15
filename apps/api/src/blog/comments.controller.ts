@@ -15,7 +15,7 @@ const ctxOf = (req: AuthenticatedRequest): RequestContext => ({ ip: req.ip ?? 'u
 export class CommentsAdminController {
   constructor(private readonly comments: CommentsService) {}
 
-  @RequirePermissions('comments.moderate')
+  @RequirePermissions('comments.view')
   @Get()
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'List comments (status, post, reported)' })
@@ -24,7 +24,7 @@ export class CommentsAdminController {
     return this.comments.adminList(query);
   }
 
-  @RequirePermissions('community.contacts.view')
+  @RequirePermissions('comments.email.view')
   @Get(':id/email')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Reveal the commenter’s private address. Every reveal is recorded.' })
@@ -32,7 +32,7 @@ export class CommentsAdminController {
     return { data: { email: await this.comments.revealEmail(id, admin, ctxOf(req)) } };
   }
 
-  @RequirePermissions('comments.moderate')
+  @RequirePermissions('comments.view')
   @Get(':id')
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: AdminCommentDto })
@@ -67,7 +67,7 @@ export class CommentsAdminController {
     return { data: await this.comments.moderate(id, 'spam', body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('comments.moderate')
+  @RequirePermissions('comments.redact')
   @Patch(':id/redaction')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
@@ -77,7 +77,7 @@ export class CommentsAdminController {
     return { data: await this.comments.redact(id, body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('comments.moderate')
+  @RequirePermissions('comments.reply')
   @Post(':id/reply')
   @HttpCode(201)
   @Header('Cache-Control', 'no-store')

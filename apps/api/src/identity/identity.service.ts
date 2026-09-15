@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { AdminUser } from '@melbourne-sphere/database';
 import { DatabaseService } from '../database/database.service.js';
 import { EffectivePermissionsService } from '../authorization/effective-permissions.service.js';
-import { ACTIVE_PERMISSION_KEYS, ALL_PERMISSION_KEYS, permissionDefinition, SUPER_ADMIN_ROLE } from './permissions.js';
+import { ACTIVE_PERMISSION_KEYS, ALL_PERMISSION_KEYS, permissionDefinition, SUPER_ADMIN_ROLE, type PermissionKey } from './permissions.js';
 
 export interface AdminPrincipal {
   id: string;
@@ -44,15 +44,18 @@ export class IdentityService {
    * Retired entries are deactivated rather than deleted, so history and any
    * existing assignment survive while granting nothing.
    */
-  async seedRbac(): Promise<{ permissionsCreated: number; permissionsRetired: number; roleCreated: boolean }> {
+  async seedRbac(): Promise<{ permissionsCreated: number; permissionsRetired: number; roleCreated: boolean; grantsCarriedOver: number }> {
     const db = await this.database.client();
-    const before = await db.permission.count({ where: { key: { in: ALL_PERMISSION_KEYS } } });
+    const existing = new Set((await db.permission.findMany({ where: { key: { in: ALL_PERMISSION_KEYS } }, select: { key: true } })).map((row) => row.key));
     for (const key of ALL_PERMISSION_KEYS) {
       const definition = permissionDefinition(key);
       const row = { label: definition.label, description: definition.description, module: definition.module, isActive: definition.active !== false, isSystem: true };
       await db.permission.upsert({ where: { key }, create: { key, ...row }, update: row });
     }
-    const permissionsCreated = (await db.permission.count({ where: { key: { in: ALL_PERMISSION_KEYS } } })) - before;
+    const created = ALL_PERMISSION_KEYS.filter((key) => !existing.has(key));
+    const permissionsCreated = created.length;
+    let grantsCarriedOver = 0;
+    for (const key of created) grantsCarriedOver += await this.carryOverGrants(key);
     // A permission no longer declared in code cannot grant access; the row stays
     // for the audit trail and for any assignment still pointing at it.
     const retired = await db.permission.updateMany({ where: { key: { notIn: ALL_PERMISSION_KEYS }, isActive: true }, data: { isActive: false } });
@@ -75,7 +78,61 @@ export class IdentityService {
     });
     // Everyone holding the repaired role must see the change on their next request.
     await db.adminUser.updateMany({ where: { roles: { some: { roleId: role.id } } }, data: { authzVersion: { increment: 1 } } });
-    return { permissionsCreated, permissionsRetired: retired.count, roleCreated: !existingRole };
+    return { permissionsCreated, permissionsRetired: retired.count, roleCreated: !existingRole, grantsCarriedOver };
+  }
+
+  /**
+   * Copies the role and direct grants of the codes a newly created permission
+   * replaces onto it (change log 1.13), so splitting a permission never takes
+   * access away on deploy. Called only in the run that creates the code, so a
+   * grant a Super Admin removes afterwards is never re-added. The copy, the
+   * cache invalidation and its audit record commit together.
+   */
+  private async carryOverGrants(key: PermissionKey): Promise<number> {
+    const sources = permissionDefinition(key).migratesFrom ?? [];
+    if (sources.length === 0) return 0;
+    const db = await this.database.client();
+    const [target, sourceRows] = await Promise.all([
+      db.permission.findUnique({ where: { key }, select: { id: true } }),
+      db.permission.findMany({ where: { key: { in: [...sources] } }, select: { id: true } }),
+    ]);
+    if (!target || sourceRows.length === 0) return 0;
+    const sourceIds = sourceRows.map((row) => row.id);
+    const [roleGrants, directGrants] = await Promise.all([
+      db.rolePermission.findMany({ where: { permissionId: { in: sourceIds } }, select: { roleId: true, assignedById: true } }),
+      db.adminPermission.findMany({ where: { permissionId: { in: sourceIds } }, select: { adminId: true, assignedById: true } }),
+    ]);
+    const roles = [...new Map(roleGrants.map((grant) => [grant.roleId, grant])).values()];
+    const admins = [...new Map(directGrants.map((grant) => [grant.adminId, grant])).values()];
+    if (roles.length === 0 && admins.length === 0) return 0;
+
+    await db.$transaction(async (tx) => {
+      const roleResult = await tx.rolePermission.createMany({
+        data: roles.map((grant) => ({ roleId: grant.roleId, permissionId: target.id, assignedById: grant.assignedById })),
+        skipDuplicates: true,
+      });
+      const directResult = await tx.adminPermission.createMany({
+        data: admins.map((grant) => ({ adminId: grant.adminId, permissionId: target.id, assignedById: grant.assignedById })),
+        skipDuplicates: true,
+      });
+      const roleIds = roles.map((grant) => grant.roleId);
+      if (roleIds.length > 0) await tx.role.updateMany({ where: { id: { in: roleIds } }, data: { version: { increment: 1 } } });
+      // Everyone whose effective set changed sees it on their next request (RBAC 009).
+      await tx.adminUser.updateMany({
+        where: { OR: [{ id: { in: admins.map((grant) => grant.adminId) } }, { roles: { some: { roleId: { in: roleIds } } } }] },
+        data: { authzVersion: { increment: 1 } },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'authz.permission.migrated',
+          targetType: 'permission',
+          targetId: key,
+          metadata: { from: sources.join(', '), roles: roleResult.count, directGrants: directResult.count },
+        },
+      });
+    });
+    this.logger.log(`carried ${roles.length} role and ${admins.length} direct grant(s) from ${sources.join(', ')} to ${key}`);
+    return roles.length + admins.length;
   }
 
   async countAdmins(): Promise<number> {

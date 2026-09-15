@@ -22,6 +22,7 @@ function fakeDb(overrides: Record<string, unknown> = {}) {
     auditLog: { deleteMany: vi.fn(async () => ({ count: 7 })) },
     emailDelivery: { updateMany: vi.fn(async () => ({ count: 2 })), deleteMany: vi.fn(async () => ({ count: 1 })) },
     post: { findMany: vi.fn(async () => []) },
+    staticPage: { findMany: vi.fn(async () => []) },
     setting: { findMany: vi.fn(async () => []) },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(db)),
     ...overrides,
@@ -168,7 +169,7 @@ describe('task implementations', () => {
   });
 
   it('counts article text the way the sanitiser does', () => {
-    expect(plainTextOf('<h2>Title</h2><p>Some&nbsp;text &amp; more</p>')).toBe('Title Some text _ more');
+    expect(plainTextOf('<h2>Title</h2><p>Some&nbsp;text &amp; more</p>')).toBe('Title Some text & more');
   });
 
   it('removes the address from a delivery record long before deleting the record itself', async () => {
@@ -192,7 +193,7 @@ describe('task implementations', () => {
       },
     });
     const detail = await TASK_IMPLEMENTATIONS['media.retention']!({ db, now: NOW, queue: {} as Queue, storage });
-    expect(detail).toBe('Removed 1 abandoned upload and 1 unused image');
+    expect(detail).toBe('Removed 1 abandoned upload and 1 unused file');
     expect(deleted).toEqual(['quarantine:q/a1', 'public:p/r1-card', 'quarantine:q/r1']);
 
     // Without storage the task reports rather than deleting rows whose bytes

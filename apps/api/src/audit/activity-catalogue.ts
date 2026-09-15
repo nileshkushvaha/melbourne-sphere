@@ -1,3 +1,5 @@
+import type { PermissionKey } from '../identity/permissions.js';
+
 /**
  * The activity event catalogue (SRS 1.2 ACT 001–002).
  *
@@ -17,6 +19,25 @@
  */
 export const ACTIVITY_CATEGORIES = ['authentication', 'access_control', 'content', 'moderation', 'communication', 'configuration', 'system'] as const;
 export type ActivityCategory = (typeof ACTIVITY_CATEGORIES)[number];
+
+/**
+ * The permission that shows each area of the log (change log 1.14). Events from
+ * an unregistered domain belong to `system`, so nothing is ever unreadable.
+ */
+export const ACTIVITY_VIEW_PERMISSION = {
+  authentication: 'activity.authentication.view',
+  access_control: 'activity.access_control.view',
+  content: 'activity.content.view',
+  moderation: 'activity.moderation.view',
+  communication: 'activity.communication.view',
+  configuration: 'activity.configuration.view',
+  system: 'activity.system.view',
+} as const satisfies Record<ActivityCategory, PermissionKey>;
+
+/** The areas of the log a set of effective permissions may read. */
+export function categoriesVisibleTo(permissions: readonly string[]): ActivityCategory[] {
+  return ACTIVITY_CATEGORIES.filter((category) => permissions.includes(ACTIVITY_VIEW_PERMISSION[category]));
+}
 
 export interface ActivityDomain {
   category: ActivityCategory;

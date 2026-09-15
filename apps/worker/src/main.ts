@@ -38,7 +38,6 @@ async function main(): Promise<void> {
   const fromAddress = config.mailFromAddress ?? 'no-reply@melbourne-sphere.local';
 
   const storage = new S3Storage(config.media);
-
   // One identity per replica, so a run record says which process did the work
   // and a lock can only be released by its holder (SRS TASK 004/005).
   const runnerId = `${process.pid}-${randomBytes(4).toString('hex')}`;
@@ -62,7 +61,14 @@ async function main(): Promise<void> {
   async function route(job: Job<DeliveryJobData & MediaJobData & CacheInvalidationJobData & ScheduledTaskJobData>): Promise<unknown> {
     if (job.name === SCHEDULED_TASK_JOB) return schedules.run(job.data);
     if (job.name === CACHE_INVALIDATE_JOB) return invalidateCache(job.data, { target: config.revalidate });
-    if (job.name === MEDIA_PROCESS_JOB) return processMediaAsset(job.data, { db, storage, randomKey: () => randomBytes(12).toString('hex') });
+    if (job.name === MEDIA_PROCESS_JOB) {
+      return processMediaAsset(job.data, {
+        db,
+        storage,
+        randomKey: () => randomBytes(12).toString('hex'),
+        onError: (_assetId, error) => log('error', 'media processing failed', { jobId: job.id, jobName: job.name, error: error instanceof Error ? error.message : String(error) }),
+      });
+    }
     if (job.name !== ENQUIRY_EMAIL_JOB) throw new Error(`Unknown job ${job.name}`);
     return deliverEnquiry(job.data, {
       db,
@@ -84,7 +90,9 @@ async function main(): Promise<void> {
     log('error', 'job failed', { jobId: job?.id, jobName: job?.name, attempt: job?.attemptsMade ?? 0, error: error.message });
     // Attempts exhausted: record a visible failure so an admin can retry (SRS EVT 002).
     if (job && job.attemptsMade >= (job.opts.attempts ?? 1) && job.data?.enquiryId) {
-      void markDeliveryFailed(db, job.data.enquiryId, error.message);
+      markDeliveryFailed(db, job.data.enquiryId, 'Delivery failed after every retry. Check the mail provider, then retry.').catch((cause: unknown) =>
+        log('error', 'could not record delivery failure', { jobId: job.id, enquiryId: job.data.enquiryId, error: cause instanceof Error ? cause.message : String(cause) }),
+      );
     }
   });
 
@@ -122,6 +130,15 @@ async function main(): Promise<void> {
   process.on('SIGINT', () => void shutdown('SIGINT'));
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
 }
+
+// A promise nobody awaited, or an exception nobody caught, leaves the worker in
+// an unknown state: log one structured line and exit so systemd restarts it.
+const fatal = (message: string) => (error: unknown) => {
+  process.stderr.write(`${JSON.stringify({ time: new Date().toISOString(), level: 'error', service: 'worker', message, error: error instanceof Error ? error.message : String(error) })}\n`);
+  process.exit(1);
+};
+process.on('unhandledRejection', fatal('unhandled promise rejection'));
+process.on('uncaughtException', fatal('uncaught exception'));
 
 main().catch((error: unknown) => {
   process.stderr.write(`${JSON.stringify({ time: new Date().toISOString(), level: 'error', service: 'worker', message: 'failed to start', error: (error as Error).message })}\n`);

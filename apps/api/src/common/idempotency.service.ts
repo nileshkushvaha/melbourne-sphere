@@ -41,8 +41,14 @@ export class IdempotencyService {
     return createHmac('sha256', this.secret).update(key).digest('hex');
   }
 
+  /**
+   * What makes two submissions "the same". The Turnstile token is single-use and
+   * the honeypot is not content, so a retry after a lost response (which needs
+   * a fresh token) is recognised as the same submission instead of a conflict.
+   */
   fingerprint(payload: unknown): string {
-    return createHash('sha256').update(JSON.stringify(payload ?? null)).digest('hex');
+    const content = payload && typeof payload === 'object' && !Array.isArray(payload) ? Object.fromEntries(Object.entries(payload as Record<string, unknown>).filter(([key]) => key !== 'captchaToken' && key !== 'website')) : payload;
+    return createHash('sha256').update(JSON.stringify(content ?? null)).digest('hex');
   }
 
   /** Returns the stored receipt for a replay, or null when this is a new request. */

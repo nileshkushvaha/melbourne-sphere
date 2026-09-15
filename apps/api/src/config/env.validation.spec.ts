@@ -62,8 +62,8 @@ describe('validateEnv', () => {
 
   it('parses a valid PORT string and NODE_ENV', () => {
     expect(
-      validateEnv({ ...BASE, DATABASE_URL: DB_TLS, NODE_ENV: 'production', PORT: '8080', TRUSTED_ORIGINS: 'https://example.com', PUBLIC_ADMIN_URL: 'https://example.com/admin', PUBLIC_SITE_URL: 'https://example.com', TURNSTILE_SECRET_KEY: 'a'.repeat(20), MAIL_FROM_ADDRESS: 'no-reply@example.com', MEDIA_S3_ACCESS_KEY_ID: 'key', MEDIA_S3_SECRET_ACCESS_KEY: 'secret', MEDIA_PUBLIC_BASE_URL: 'https://cdn.example.com', ...SMTP_PROD }),
-    ).toEqual({ ...DEFAULTS, DATABASE_URL: DB_TLS, NODE_ENV: 'production', PORT: 8080, TRUSTED_ORIGINS: ['https://example.com'], PUBLIC_ADMIN_URL: 'https://example.com/admin', PUBLIC_SITE_URL: 'https://example.com', TURNSTILE_SECRET_KEY: 'a'.repeat(20), MAIL_FROM_ADDRESS: 'no-reply@example.com', MEDIA_S3_ACCESS_KEY_ID: 'key', MEDIA_S3_SECRET_ACCESS_KEY: 'secret', MEDIA_PUBLIC_BASE_URL: 'https://cdn.example.com', ...SMTP_PROD });
+      validateEnv({ ...BASE, DATABASE_URL: DB_TLS, NODE_ENV: 'production', PORT: '8080', TRUSTED_ORIGINS: 'https://example.com', PUBLIC_ADMIN_URL: 'https://example.com/admin', PUBLIC_SITE_URL: 'https://example.com', TURNSTILE_SECRET_KEY: 'a'.repeat(20), MAIL_FROM_ADDRESS: 'no-reply@example.com', MEDIA_S3_ACCESS_KEY_ID: 'key', MEDIA_S3_SECRET_ACCESS_KEY: 'secret', MEDIA_PUBLIC_BASE_URL: 'https://cdn.example.com', METRICS_TOKEN: 'm'.repeat(32), TRUST_PROXY: '1', ...SMTP_PROD }),
+    ).toEqual({ ...DEFAULTS, DATABASE_URL: DB_TLS, NODE_ENV: 'production', PORT: 8080, TRUSTED_ORIGINS: ['https://example.com'], PUBLIC_ADMIN_URL: 'https://example.com/admin', PUBLIC_SITE_URL: 'https://example.com', TURNSTILE_SECRET_KEY: 'a'.repeat(20), MAIL_FROM_ADDRESS: 'no-reply@example.com', MEDIA_S3_ACCESS_KEY_ID: 'key', MEDIA_S3_SECRET_ACCESS_KEY: 'secret', MEDIA_PUBLIC_BASE_URL: 'https://cdn.example.com', METRICS_TOKEN: 'm'.repeat(32), TRUST_PROXY: 1, ...SMTP_PROD });
   });
 
   it('ignores unrelated variables', () => {
@@ -182,7 +182,7 @@ describe('validateEnv', () => {
     });
 
     it('refuses insecure production settings', () => {
-      const prod = { ...BASE, DATABASE_URL: DB_TLS, NODE_ENV: 'production', TRUSTED_ORIGINS: 'https://example.com', PUBLIC_ADMIN_URL: 'https://example.com/admin' };
+      const prod = { ...BASE, DATABASE_URL: DB_TLS, NODE_ENV: 'production', TRUSTED_ORIGINS: 'https://example.com', PUBLIC_ADMIN_URL: 'https://example.com/admin', METRICS_TOKEN: 'm'.repeat(32), TRUST_PROXY: '1' };
       expect(() => validateEnv({ ...prod, SESSION_COOKIE_SECURE: 'false' })).toThrow(/SESSION_COOKIE_SECURE: must be true/);
       expect(() => validateEnv({ ...prod, MAIL_TRANSPORT: 'console' })).toThrow(/MAIL_TRANSPORT: console/);
       expect(() => validateEnv({ ...prod, DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL: 'true' })).toThrow(/DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL/);
@@ -195,7 +195,7 @@ describe('validateEnv', () => {
      * mysql2 advisories. Production must refuse to start, not warn.
      */
     it('refuses a production database connection without verified TLS', () => {
-      const prod = { ...BASE, NODE_ENV: 'production', TRUSTED_ORIGINS: 'https://example.com', PUBLIC_ADMIN_URL: 'https://example.com/admin' };
+      const prod = { ...BASE, NODE_ENV: 'production', TRUSTED_ORIGINS: 'https://example.com', PUBLIC_ADMIN_URL: 'https://example.com/admin', METRICS_TOKEN: 'm'.repeat(32), TRUST_PROXY: '1' };
       for (const url of [
         'mysql://app:secret@db.internal:3306/melbourne_sphere',
         'mysql://app:secret@db.internal:3306/melbourne_sphere?sslmode=disabled',
@@ -236,7 +236,7 @@ describe('validateEnv', () => {
       // It exists because the MySQL 8 handshake needs an RSA exchange without
       // TLS; allowing it in production would be exactly the unprotected path.
       expect(validateEnv({ ...BASE, DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL: 'true' }).DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL).toBe(true);
-      const prod = { ...BASE, DATABASE_URL: DB_TLS, NODE_ENV: 'production', TRUSTED_ORIGINS: 'https://example.com', PUBLIC_ADMIN_URL: 'https://example.com/admin' };
+      const prod = { ...BASE, DATABASE_URL: DB_TLS, NODE_ENV: 'production', TRUSTED_ORIGINS: 'https://example.com', PUBLIC_ADMIN_URL: 'https://example.com/admin', METRICS_TOKEN: 'm'.repeat(32), TRUST_PROXY: '1' };
       expect(() => validateEnv({ ...prod, DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL: 'true' })).toThrow(/must be false in production/);
     });
   });
@@ -258,6 +258,9 @@ describe('validateEnv', () => {
 
 describe('public submission configuration (SRS SEC 002/003)', () => {
   const PROD = {
+    // Production also requires a metrics token and at least one trusted proxy hop.
+    METRICS_TOKEN: 'm'.repeat(32),
+    TRUST_PROXY: '1',
     ...BASE,
     // Production also requires verified TLS to the database; that rule has its
     // own test, so this block supplies a compliant URL and checks the rest.

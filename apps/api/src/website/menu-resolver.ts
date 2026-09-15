@@ -21,6 +21,7 @@ export interface StoredMenuItem {
   categoryId: string | null;
   localAreaId: string | null;
   businessId: string | null;
+  documentId: string | null;
   routeKey: string | null;
   url: string | null;
   label: string | null;
@@ -55,6 +56,8 @@ export interface MenuLookups {
   categories: Map<string, Titled & { active: boolean }>;
   areas: Map<string, Titled & { active: boolean }>;
   businesses: Map<string, Titled & { status: string }>;
+  /** Documents by id, with their published address when ready (change log 1.16). */
+  documents: Map<string, { title: string; url: string | null; status: string }>;
   /** The FAQ route answers 404 while nothing is published. */
   faqsPublished: boolean;
 }
@@ -67,6 +70,7 @@ export const emptyLookups = (): MenuLookups => ({
   categories: new Map(),
   areas: new Map(),
   businesses: new Map(),
+  documents: new Map(),
   faqsPublished: false,
 });
 
@@ -79,6 +83,7 @@ export const REFERENCE_COLUMN = {
   business_category: 'categoryId',
   area: 'localAreaId',
   business: 'businessId',
+  document: 'documentId',
 } as const satisfies Partial<Record<MenuItemType, keyof StoredMenuItem>>;
 
 export type ReferencedMenuItemType = keyof typeof REFERENCE_COLUMN;
@@ -134,6 +139,11 @@ export function resolveSource(item: StoredMenuItem, lookups: MenuLookups): MenuS
     case 'business': {
       const row = item.businessId ? lookups.businesses.get(item.businessId) : undefined;
       return row ? { state: published(row.status), title: row.title, href: `/business/${row.slug}` } : missing;
+    }
+    case 'document': {
+      // A document is shown only once its upload has been checked and published.
+      const row = item.documentId ? lookups.documents.get(item.documentId) : undefined;
+      return row ? { state: row.status === 'ready' && row.url ? 'ok' : 'unpublished', title: row.title, href: row.url } : missing;
     }
   }
 }

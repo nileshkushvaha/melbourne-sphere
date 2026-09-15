@@ -1,7 +1,7 @@
 import { SERVICE_ICON_KEYS } from '@melbourne-sphere/domain/service-icons';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsIn, IsInt, IsOptional, IsString, Length, Matches, Max, MaxLength, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Length, Matches, Max, MaxLength, Min } from 'class-validator';
 import { PaginationQueryDto } from '../../common/pagination.js';
 import { SLUG_MAX_LENGTH, SLUG_PATTERN } from '../../common/slug.js';
 
@@ -21,6 +21,20 @@ export class ListTermsQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(['active', 'inactive'])
   status?: 'active' | 'inactive';
+
+  @ApiPropertyOptional({ type: String, description: 'Comma-separated ids (at most 50): only these terms, whatever their status — how a picker shows the names of terms already chosen' })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.split(',').map((id) => id.trim()).filter(Boolean) : value))
+  @IsArray()
+  @ArrayMaxSize(50)
+  @Matches(/^[a-z0-9]{20,40}$/, { each: true, message: 'ids must be record ids' })
+  ids?: string[];
+
+  @ApiPropertyOptional({ description: 'Categories only: just top-level categories (possible parents)' })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  topLevel?: boolean;
 
   @ApiPropertyOptional({ enum: TERM_SORT_FIELDS, default: 'name' })
   @IsOptional()

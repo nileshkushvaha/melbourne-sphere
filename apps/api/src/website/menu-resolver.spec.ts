@@ -13,6 +13,7 @@ const base: StoredMenuItem = {
   categoryId: null,
   localAreaId: null,
   businessId: null,
+  documentId: null,
   routeKey: 'home',
   url: null,
   label: null,

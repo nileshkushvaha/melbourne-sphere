@@ -23,7 +23,8 @@ export abstract class ObjectStoragePort {
   abstract presignUpload(bucket: 'quarantine' | 'public', key: string, contentType: string, maxBytes: number): Promise<PresignedUpload>;
   abstract head(bucket: 'quarantine' | 'public', key: string): Promise<StoredObject | null>;
   abstract getBytes(bucket: 'quarantine' | 'public', key: string): Promise<Buffer>;
-  abstract put(bucket: 'quarantine' | 'public', key: string, body: Buffer, contentType: string): Promise<void>;
+  /** `contentDisposition` makes a published document download rather than render (change log 1.16). */
+  abstract put(bucket: 'quarantine' | 'public', key: string, body: Buffer, contentType: string, options?: { contentDisposition?: string }): Promise<void>;
   abstract delete(bucket: 'quarantine' | 'public', key: string): Promise<void>;
   /** Public URL of a published object; quarantine objects have none. */
   abstract publicUrl(key: string): string;

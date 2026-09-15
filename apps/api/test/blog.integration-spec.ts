@@ -27,8 +27,9 @@ describe('Blog editorial core (integration)', () => {
     cookie = await login(TEST_ADMIN.email, TEST_ADMIN.password, '203.0.113.190');
     const db = testDatabase();
     const role = await db.role.create({ data: { key: 'post_writer', name: 'Writer', description: 'test' } });
-    const perm = await db.permission.findUniqueOrThrow({ where: { key: 'posts.write' } });
-    await db.rolePermission.create({ data: { roleId: role.id, permissionId: perm.id } });
+    // What the retired posts.write carried over to (change log 1.13).
+    const perms = await db.permission.findMany({ where: { key: { in: ['posts.view', 'posts.create', 'posts.update', 'authors.view', 'blog_categories.view', 'blog_tags.view'] } } });
+    await db.rolePermission.createMany({ data: perms.map((perm) => ({ roleId: role.id, permissionId: perm.id })) });
     await seedSuperAdmin(app, { email: 'writer@example.com', password: 'writer-password-12345', displayName: 'Writer' });
     const writer = await db.adminUser.findUniqueOrThrow({ where: { email: 'writer@example.com' } });
     await db.adminRole.deleteMany({ where: { adminId: writer.id } });

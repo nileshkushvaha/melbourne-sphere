@@ -1,6 +1,6 @@
 import type { MediaVariantKind } from '@melbourne-sphere/database';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { Prisma } from '@melbourne-sphere/database';
+import { Prisma } from '@melbourne-sphere/database';
 import { collectionMeta, skipFor } from '../common/pagination.js';
 import { DatabaseService } from '../database/database.service.js';
 import { ObjectStoragePort } from '../media/storage.port.js';
@@ -84,11 +84,17 @@ export class BlogPublicService {
   private async search(where: Prisma.PostWhereInput, terms: string, query: ListPublicPostsQueryDto): Promise<{ data: PublicPostCardDto[]; meta: ReturnType<typeof collectionMeta> }> {
     const db = await this.database.client();
     // `terms` is built from letters and digits only and is passed as a bound parameter.
-    const hits = await db.$queryRaw<{ id: string }[]>`
-      SELECT id FROM posts
-      WHERE status = 'published' AND MATCH(title, excerpt, searchText) AGAINST (${terms} IN BOOLEAN MODE)
-      ORDER BY MATCH(title, excerpt, searchText) AGAINST (${terms} IN BOOLEAN MODE) DESC, publishedAt DESC, id ASC
-      LIMIT ${SEARCH_CANDIDATE_LIMIT}`;
+    // Category, tag, author and featured filters apply inside the ranked query, so
+    // a narrowed search is not limited to whichever posts ranked highest overall.
+    const filters = Prisma.sql`${query.category ? Prisma.sql`AND p.categoryId IN (SELECT bc.id FROM blog_categories bc WHERE bc.slug = ${query.category} AND bc.active = 1)` : Prisma.empty}
+      ${query.tag ? Prisma.sql`AND EXISTS (SELECT 1 FROM post_tags pt JOIN blog_tags bt ON bt.id = pt.tagId WHERE pt.postId = p.id AND bt.slug = ${query.tag} AND bt.active = 1)` : Prisma.empty}
+      ${query.author ? Prisma.sql`AND p.authorId IN (SELECT a.id FROM authors a WHERE a.slug = ${query.author} AND a.active = 1)` : Prisma.empty}
+      ${query.featured ? Prisma.sql`AND p.featuredAt IS NOT NULL` : Prisma.empty}`;
+    const hits = await db.$queryRaw<{ id: string }[]>(Prisma.sql`
+      SELECT p.id FROM posts p
+      WHERE p.status = 'published' AND MATCH(p.title, p.excerpt, p.searchText) AGAINST (${terms} IN BOOLEAN MODE) ${filters}
+      ORDER BY MATCH(p.title, p.excerpt, p.searchText) AGAINST (${terms} IN BOOLEAN MODE) DESC, p.publishedAt DESC, p.id ASC
+      LIMIT ${SEARCH_CANDIDATE_LIMIT}`);
     if (hits.length === 0) return { data: [], meta: collectionMeta(query.page, query.pageSize, 0) };
     const rank = new Map(hits.map((hit, index) => [hit.id, index]));
     const matching = await db.post.findMany({ where: { ...where, id: { in: [...rank.keys()] } }, select: { id: true } });
@@ -226,9 +232,22 @@ export class BlogPublicService {
         shareImage: this.renditions(row.ogImage).at(-1) ?? null,
       }));
     }
-    // A tag has no search appearance of its own (SRS BLOG 005).
-    const tags = await db.blogTag.findMany({ where: { active: true }, orderBy: [{ name: 'asc' }], include: { _count: { select: { posts: { where: { post: { status: 'published' } } } } } } });
-    return tags.map((row) => ({ name: row.name, slug: row.slug, landingContent: row.landingContent, postCount: row._count.posts, seoTitle: null, seoDescription: null, seoKeywords: null, shareImage: null }));
+    // Tags carry the same search appearance as categories (change log 1.15).
+    const tags = await db.blogTag.findMany({
+      where: { active: true },
+      orderBy: [{ name: 'asc' }],
+      include: { _count: { select: { posts: { where: { post: { status: 'published' } } } } }, ogImage: { include: { variants: true } } },
+    });
+    return tags.map((row) => ({
+      name: row.name,
+      slug: row.slug,
+      landingContent: row.landingContent,
+      postCount: row._count.posts,
+      seoTitle: row.seoTitle,
+      seoDescription: row.seoDescription,
+      seoKeywords: row.seoKeywords,
+      shareImage: this.renditions(row.ogImage).at(-1) ?? null,
+    }));
   }
 
   /** Byline data only; nothing private and nothing an editor has not published. */

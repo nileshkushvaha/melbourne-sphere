@@ -122,3 +122,14 @@ describe('renderSanitisedBody (rich-editor HTML)', () => {
     expect(html).toContain('loading="lazy"');
   });
 });
+
+describe('document links (change log 1.16)', () => {
+  it('keeps the library id and the document class on a link, and nothing else extra', () => {
+    const html = renderSanitisedBody('<p><a href="https://media.example/media/cmu2a3ydk0000yjumqnk96o5a/x.pdf" data-media-id="cmu2a3ydk0000yjumqnk96o5a" class="ms-doc-link evil" onclick="x()">Price list</a> <a href="/about" data-media-id="not an id">About</a></p>', 'html');
+    expect(html).toContain('data-media-id="cmu2a3ydk0000yjumqnk96o5a"');
+    expect(html).toContain('class="ms-doc-link"');
+    expect(html).not.toContain('evil');
+    expect(html).not.toContain('onclick');
+    expect(html).not.toContain('not an id');
+  });
+});

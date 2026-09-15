@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Header, HttpCode, Param, Patch, Post, Put, Query, Req } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { RequestContext } from '../auth/auth.service.js';
-import { CurrentAdmin, CurrentSession, RequirePermissions, type AuthenticatedRequest } from '../auth/decorators.js';
+import { CurrentAdmin, CurrentSession, RequirePermissions, RequireAnyPermission, type AuthenticatedRequest } from '../auth/decorators.js';
 import type { SessionSummary } from '../auth/session.service.js';
 import { PostPreviewLinkDto, RenderPostPreviewDto, RenderedPostPreviewDto } from './dto/post-preview.dto.js';
 import { PostAutosaveDto, PostAutosaveReceiptDto, PostRevisionDetailDto, RestorePostRevisionDto, SavePostAutosaveDto } from './dto/post-history.dto.js';
@@ -39,7 +39,7 @@ const ctxOf = (req: AuthenticatedRequest): RequestContext => ({ ip: req.ip ?? 'u
 export class AuthorsAdminController {
   constructor(private readonly blog: BlogService) {}
 
-  @RequirePermissions('posts.write')
+  @RequireAnyPermission('authors.view', 'posts.view', 'posts.create', 'posts.update')
   @Get()
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: [AuthorDto] })
@@ -48,7 +48,7 @@ export class AuthorsAdminController {
   }
 
   // Declared before `:id`, so "mine" is never read as an author id.
-  @RequirePermissions('posts.write')
+  @RequireAnyPermission('posts.create', 'posts.update')
   @Get('mine')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'The signed-in administrator’s default author for new articles' })
@@ -57,7 +57,7 @@ export class AuthorsAdminController {
     return { data: await this.blog.getDefaultAuthor(actor) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequireAnyPermission('posts.create', 'posts.update')
   @Put('mine')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Choose, or clear, the signed-in administrator’s default author' })
@@ -66,7 +66,7 @@ export class AuthorsAdminController {
     return { data: await this.blog.setDefaultAuthor(body.authorId ?? null, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('authors.view')
   @Get(':id')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'One author profile with links, photo and counts' })
@@ -75,7 +75,7 @@ export class AuthorsAdminController {
     return { data: await this.blog.getAuthor(id) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('authors.create')
   @Post()
   @HttpCode(201)
   @Header('Cache-Control', 'no-store')
@@ -84,7 +84,7 @@ export class AuthorsAdminController {
     return { data: await this.blog.createAuthor(body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('authors.update')
   @Patch(':id')
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: AuthorDto })
@@ -92,7 +92,7 @@ export class AuthorsAdminController {
     return { data: await this.blog.updateAuthor(id, body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('authors.update')
   @Post(':id/activate')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
@@ -100,7 +100,7 @@ export class AuthorsAdminController {
     return { data: await this.blog.setAuthorActive(id, true, body.expectedVersion, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('authors.update')
   @Post(':id/deactivate')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
@@ -115,7 +115,7 @@ export class AuthorsAdminController {
 export class BlogCategoriesAdminController {
   constructor(private readonly blog: BlogService) {}
 
-  @RequirePermissions('posts.write')
+  @RequireAnyPermission('blog_categories.view', 'posts.view', 'posts.create', 'posts.update')
   @Get()
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: [BlogTermDto] })
@@ -123,7 +123,7 @@ export class BlogCategoriesAdminController {
     return { data: await this.blog.listTerms('category', query) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('blog_categories.create')
   @Post()
   @HttpCode(201)
   @Header('Cache-Control', 'no-store')
@@ -131,14 +131,14 @@ export class BlogCategoriesAdminController {
     return { data: await this.blog.createTerm('category', body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('blog_categories.update')
   @Patch(':id')
   @Header('Cache-Control', 'no-store')
   async update(@Param('id') id: string, @Body() body: UpdateBlogTermDto, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest) {
     return { data: await this.blog.updateTerm('category', id, body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('blog_categories.update')
   @Post(':id/activate')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
@@ -146,7 +146,7 @@ export class BlogCategoriesAdminController {
     return { data: await this.blog.setTermActive('category', id, true, body.expectedVersion, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('blog_categories.update')
   @Post(':id/deactivate')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
@@ -161,7 +161,7 @@ export class BlogCategoriesAdminController {
 export class BlogTagsAdminController {
   constructor(private readonly blog: BlogService) {}
 
-  @RequirePermissions('posts.write')
+  @RequireAnyPermission('blog_tags.view', 'posts.view', 'posts.create', 'posts.update')
   @Get()
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: [BlogTermDto] })
@@ -169,7 +169,7 @@ export class BlogTagsAdminController {
     return { data: await this.blog.listTerms('tag', query) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('blog_tags.create')
   @Post()
   @HttpCode(201)
   @Header('Cache-Control', 'no-store')
@@ -177,14 +177,14 @@ export class BlogTagsAdminController {
     return { data: await this.blog.createTerm('tag', body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('blog_tags.update')
   @Patch(':id')
   @Header('Cache-Control', 'no-store')
   async update(@Param('id') id: string, @Body() body: UpdateBlogTermDto, @CurrentAdmin() actor: AdminPrincipal, @Req() req: AuthenticatedRequest) {
     return { data: await this.blog.updateTerm('tag', id, body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('blog_tags.update')
   @Post(':id/activate')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
@@ -192,7 +192,7 @@ export class BlogTagsAdminController {
     return { data: await this.blog.setTermActive('tag', id, true, body.expectedVersion, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('blog_tags.update')
   @Post(':id/deactivate')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
@@ -207,7 +207,7 @@ export class BlogTagsAdminController {
 export class PostsAdminController {
   constructor(private readonly blog: BlogService) {}
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('posts.view')
   @Get()
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'List articles (status, category, tag, author, q, sort, order, page, pageSize)' })
@@ -216,7 +216,7 @@ export class PostsAdminController {
     return this.blog.listPosts(query);
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('posts.create')
   @Post()
   @HttpCode(201)
   @Header('Cache-Control', 'no-store')
@@ -225,7 +225,7 @@ export class PostsAdminController {
     return { data: await this.blog.createPost(body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('posts.view')
   @Get(':id')
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: PostDto })
@@ -233,7 +233,7 @@ export class PostsAdminController {
     return { data: await this.blog.getPost(id) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequireAnyPermission('posts.create', 'posts.update')
   @Post('preview-render')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store, private')
@@ -244,7 +244,7 @@ export class PostsAdminController {
     return { data: await this.blog.renderPreview(body) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('posts.view')
   @Post(':id/preview-link')
   @HttpCode(201)
   @Header('Cache-Control', 'no-store')
@@ -254,7 +254,7 @@ export class PostsAdminController {
     return { data: await this.blog.createPreviewLink(id, session.id) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('posts.view')
   @Get(':id/preview')
   @Header('Cache-Control', 'no-store, private')
   @Header('X-Robots-Tag', 'noindex, nofollow')
@@ -264,7 +264,7 @@ export class PostsAdminController {
     return { data: await this.blog.preview(id) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('posts.view')
   @Get(':id/revisions')
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: [PostRevisionDto] })
@@ -272,7 +272,7 @@ export class PostsAdminController {
     return { data: await this.blog.revisions(id) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('posts.view')
   @Get(':id/revisions/:revisionId')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'One earlier version of the article, as written, for comparison' })
@@ -281,7 +281,7 @@ export class PostsAdminController {
     return { data: await this.blog.revisionDetail(id, revisionId) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('posts.update')
   @Post(':id/revisions/:revisionId/restore')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
@@ -291,7 +291,7 @@ export class PostsAdminController {
     return { data: await this.blog.restoreRevision(id, revisionId, body.expectedVersion, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('posts.update')
   @Get(':id/autosave')
   @Header('Cache-Control', 'no-store, private')
   @ApiOperation({ summary: 'The signed-in editor’s own unsaved work on this article, or null' })
@@ -300,7 +300,7 @@ export class PostsAdminController {
     return { data: await this.blog.getAutosave(id, actor) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('posts.update')
   @Put(':id/autosave')
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Keep unsaved work while writing; never changes the article' })
@@ -309,7 +309,7 @@ export class PostsAdminController {
     return { data: await this.blog.saveAutosave(id, body, actor) };
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('posts.update')
   @Delete(':id/autosave')
   @HttpCode(204)
   @Header('Cache-Control', 'no-store')
@@ -317,7 +317,7 @@ export class PostsAdminController {
     await this.blog.discardAutosave(id, actor, ctxOf(req));
   }
 
-  @RequirePermissions('posts.write')
+  @RequirePermissions('posts.update')
   @Patch(':id')
   @Header('Cache-Control', 'no-store')
   @ApiOkResponse({ type: PostDto })
@@ -381,7 +381,7 @@ export class PostsAdminController {
     return { data: await this.blog.transition(id, 'restore', body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('posts.publish')
+  @RequirePermissions('posts.feature')
   @Post(':id/feature')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
@@ -391,7 +391,7 @@ export class PostsAdminController {
     return { data: await this.blog.setFeatured(id, true, body, actor, ctxOf(req)) };
   }
 
-  @RequirePermissions('posts.publish')
+  @RequirePermissions('posts.feature')
   @Post(':id/unfeature')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')

@@ -14,7 +14,7 @@ import { AppModule } from '../app.module.js';
 import { DatabaseService } from '../database/database.service.js';
 import { EffectivePermissionsService } from '../authorization/effective-permissions.service.js';
 import { normaliseEmail } from '../identity/identity.service.js';
-import { ACTIVE_PERMISSION_KEYS, SUPER_ADMIN_ROLE } from '../identity/permissions.js';
+import { ACTIVE_PERMISSION_KEYS, ALL_PERMISSION_KEYS, permissionDefinition, SUPER_ADMIN_ROLE } from '../identity/permissions.js';
 
 async function main(): Promise<void> {
   const target = process.argv[2]?.trim();
@@ -84,6 +84,23 @@ async function main(): Promise<void> {
       db.adminPermission.count({ where: { permission: { isActive: false } } }),
     ]);
     console.log(`[authz] assignments that currently grant nothing: ${inactiveRoleAssignments} via inactive roles, ${retiredDirect} via retired permissions`);
+
+    // A split permission (change log 1.13): every holder of the old code should
+    // hold each code that replaced it, unless someone removed it on purpose since.
+    let missing = 0;
+    for (const key of ALL_PERMISSION_KEYS) {
+      for (const source of permissionDefinition(key).migratesFrom ?? []) {
+        const [roles, admins] = await Promise.all([
+          db.role.count({ where: { permissions: { some: { permission: { key: source } }, none: { permission: { key } } } } }),
+          db.adminUser.count({ where: { directPermissions: { some: { permission: { key: source } }, none: { permission: { key } } } } }),
+        ]);
+        if (roles + admins > 0) {
+          missing += roles + admins;
+          console.log(`[authz]   ${source} → ${key}: ${roles} role(s) and ${admins} administrator(s) hold the old code without the new one`);
+        }
+      }
+    }
+    console.log(`[authz] split permissions: ${missing === 0 ? 'every holder of an old code holds its replacements' : `${missing} holder(s) without a replacement (removed on purpose, or the sync has not run)`}`);
   } finally {
     await app.close();
     if (!healthy) process.exitCode = 1;
