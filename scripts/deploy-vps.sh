@@ -116,6 +116,18 @@ ls -t "$BACKUP_DIR"/* 2>/dev/null | tail -n +21 | xargs -r rm -f
 # working on the new schema; a failure here stops before anything switches.
 api_command pnpm db:migrate:deploy
 api_command pnpm db:migrate:status
+# Permission codes live in code, not migrations: register new ones, carry the
+# grants of codes they replace, and give Super Admin every active permission
+# (idempotent). Without this a release that adds permissions hides its screens
+# from everyone, Super Admin included. Uses the application's database URL,
+# not the Prisma CLI one api_command prepares.
+(
+  set -a
+  . "$ROOT/shared/api.env"
+  set +a
+  cd "$DIR/apps/api"
+  node dist/cli/bootstrap-admin.js --seed-only
+)
 
 wait_url() {
   local url=$1
