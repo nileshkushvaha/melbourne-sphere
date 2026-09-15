@@ -9,7 +9,14 @@ export const dynamic = 'force-dynamic';
 
 /** The blog's RSS feed (SRS 1.10 BLOG 005): the newest 20 published articles. */
 export async function GET(): Promise<Response> {
-  const [settings, posts] = await Promise.all([fetchSiteSettings(), fetchPosts({ page: 1, pageSize: FEED_SIZE })]);
+  let posts;
+  const settingsPromise = fetchSiteSettings();
+  try {
+    posts = await fetchPosts({ page: 1, pageSize: FEED_SIZE });
+  } catch {
+    return new Response('Temporarily unavailable', { status: 503, headers: { 'Retry-After': '120', 'cache-control': 'no-store' } });
+  }
+  const settings = await settingsPromise;
   const xml = blogFeedXml({
     siteName: settings.name,
     description: 'Guides, local stories and practical advice about Melbourne’s businesses, neighbourhoods and city life, written by our editors.',

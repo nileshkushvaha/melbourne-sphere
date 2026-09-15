@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { StarIcon } from 'lucide-react';
 import { Button, Input, Label } from '@melbourne-sphere/ui';
-import { newIdempotencyKey, validateReviewForm, withoutCaptchaError, type FieldErrors, type ReviewFormValues } from '@/lib/submissions';
+import { REVIEW_FIELD_COPY, newIdempotencyKey, readerFieldErrors, reviewFailureMessage, validateReviewForm, withoutCaptchaError, type FieldErrors, type ReviewFormValues } from '@/lib/submissions';
 import { TurnstileWidget, type TurnstileWidgetHandle } from './turnstile-widget';
 
 interface Props {
@@ -31,6 +31,8 @@ export function ReviewForm({ businessId, businessName, turnstileSiteKey, guideli
   const [idempotencyKey, setIdempotencyKey] = useState(() => newIdempotencyKey());
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const turnstile = useRef<TurnstileWidgetHandle | null>(null);
+  // The button is disabled only after a render; this stops a second press before that.
+  const inFlight = useRef(false);
   const onToken = useCallback((token: string | null) => {
     setCaptchaToken(token);
     if (token) setErrors((current) => withoutCaptchaError(current));
@@ -48,6 +50,7 @@ export function ReviewForm({ businessId, businessName, turnstileSiteKey, guideli
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (inFlight.current) return;
     setFormError(null);
     const found = validateReviewForm(values);
     if (!captchaToken) found.captchaToken = ['Please complete the security check'];
@@ -55,6 +58,7 @@ export function ReviewForm({ businessId, businessName, turnstileSiteKey, guideli
     if (Object.keys(found).length > 0) return;
     const form = event.currentTarget;
     const honeypot = (new FormData(form).get('website') as string | null) ?? '';
+    inFlight.current = true;
     setSubmitting(true);
     try {
       const response = await fetch(`/api/v1/businesses/${encodeURIComponent(businessId)}/reviews`, {
@@ -62,10 +66,10 @@ export function ReviewForm({ businessId, businessName, turnstileSiteKey, guideli
         headers: { 'content-type': 'application/json', accept: 'application/json', 'idempotency-key': idempotencyKey },
         body: JSON.stringify({ rating: values.rating, displayName: values.displayName.trim(), email: values.email.trim(), text: values.text.trim(), acknowledged: values.acknowledged, captchaToken, website: honeypot || undefined }),
       });
-      const body = (await response.json().catch(() => null)) as { data?: { receiptId: string; message: string }; error?: { message: string; fields?: FieldErrors } } | null;
+      const body = (await response.json().catch(() => null)) as { data?: { receiptId: string; message: string }; error?: { code?: string; fields?: FieldErrors } } | null;
       if (!response.ok) {
-        setErrors(body?.error?.fields ?? {});
-        setFormError(body?.error?.message ?? 'Your review could not be submitted. Please try again.');
+        setErrors(readerFieldErrors(body?.error?.fields, REVIEW_FIELD_COPY));
+        setFormError(reviewFailureMessage(response.status, body?.error?.code));
         // A token is single use: once the API has seen it, a retry needs a new one.
         turnstile.current?.reset();
         return;
@@ -77,6 +81,7 @@ export function ReviewForm({ businessId, businessName, turnstileSiteKey, guideli
       setFormError('We could not reach the server. Please try again.');
       turnstile.current?.reset();
     } finally {
+      inFlight.current = false;
       setSubmitting(false);
     }
   };

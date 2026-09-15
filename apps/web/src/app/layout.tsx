@@ -11,7 +11,7 @@ import { SiteHeader } from '@/components/site-header';
 import { PageMotion } from '@/components/page-motion';
 import { RouteProgress } from '@/components/route-progress';
 import Script from 'next/script';
-import { siteOrigin, siteTitle, turnstileSiteKey } from '@/lib/site';
+import { siteOrigin, siteTitle, turnstileSiteKey, siteNoindex } from '@/lib/site';
 import { fetchSiteSettings } from '@/lib/api';
 import './globals.css';
 
@@ -38,7 +38,7 @@ export async function generateMetadata(): Promise<Metadata> {
     alternates: { types: { 'application/rss+xml': [{ url: '/blog/feed.xml', title: `${settings.name} blog` }] } },
     // Pages built with `pageMetadata` replace these with their own complete set;
     // they stand only for a route that declares nothing (SRS SEO 001).
-    robots: { index: true, follow: true, googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 } },
+    robots: siteNoindex() ? { index: false, follow: false } : { index: true, follow: true, googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 } },
     openGraph: {
       siteName: settings.name,
       locale: 'en_AU',

@@ -92,6 +92,7 @@ export function validateCommentForm(values: CommentFormValues): FieldErrors {
  */
 export function submissionFailureMessage(status: number, code?: string): string {
   if (status === 0 || code === 'NETWORK') return 'We could not reach the server. Check your connection and try again.';
+  if (code === 'IDEMPOTENCY_KEY_REUSED') return 'We’ve already received this comment, so there’s no need to send it again.';
   if (status === 429 || code === 'RATE_LIMITED') return 'You’re submitting comments too quickly. Please wait a moment and try again.';
   if (status === 503) return 'Comments are temporarily unavailable. Please try again shortly.';
   if (status === 404) return 'This article is no longer available, so the comment was not submitted.';
@@ -211,4 +212,71 @@ export function contactFailureMessage(status: number, code?: string): string {
   if (status === 400 || status === 422) return 'We couldn’t send your message. Check the highlighted fields below.';
   if (status === 503) return 'We can’t accept messages right now. Your message is still on this page, so please try again shortly.';
   return 'We couldn’t send your message right now. Your message is still on this page, so you can try again.';
+}
+
+/**
+ * The API's field errors in reader's words (SRS API 002). Only the fields a form
+ * actually shows are kept, and each gets copy written here, so a validator's
+ * developer-facing sentence never reaches a visitor.
+ */
+export function readerFieldErrors(fields: FieldErrors | undefined, copy: Record<string, string>): FieldErrors {
+  const out: FieldErrors = {};
+  for (const [key, messages] of Object.entries(fields ?? {})) {
+    if (Array.isArray(messages) && messages.length > 0 && copy[key]) out[key] = [copy[key]];
+  }
+  return out;
+}
+
+const SECURITY_CHECK_AGAIN = 'The security check didn’t pass. Please complete it again.';
+
+export const REVIEW_FIELD_COPY: Record<string, string> = {
+  rating: 'Choose a rating from 1 to 5.',
+  displayName: `Enter your name (${REVIEW_LIMITS.name.min}–${REVIEW_LIMITS.name.max} characters).`,
+  email: 'Enter a valid email address.',
+  text: `Your review must be ${REVIEW_LIMITS.text.min}–${REVIEW_LIMITS.text.max} characters.`,
+  acknowledged: 'Please accept the review guidelines and privacy notice.',
+  captchaToken: SECURITY_CHECK_AGAIN,
+};
+
+export const COMMENT_FIELD_COPY: Record<string, string> = {
+  displayName: `Enter your name (${COMMENT_LIMITS.name.min}–${COMMENT_LIMITS.name.max} characters).`,
+  email: 'Enter a valid email address.',
+  text: `Your comment must be ${COMMENT_LIMITS.text.min}–${COMMENT_LIMITS.text.max} characters.`,
+  acknowledged: 'Please confirm you have read the comment guidelines and privacy notice.',
+  captchaToken: SECURITY_CHECK_AGAIN,
+};
+
+export const ENQUIRY_FIELD_COPY: Record<string, string> = {
+  name: 'Enter your name (2–80 characters).',
+  email: 'Enter a valid email address.',
+  phone: 'Enter a valid phone number, or leave it blank.',
+  subject: 'Enter a subject (3–150 characters).',
+  message: 'Your message must be 20–5000 characters.',
+  acknowledged: 'Please confirm your details may be shared with the business.',
+  captchaToken: SECURITY_CHECK_AGAIN,
+};
+
+/** Form-level copy for a failed review; the API's message is never shown. */
+export function reviewFailureMessage(status: number, code?: string): string {
+  if (status === 0) return 'We could not reach the server. Check your connection and try again.';
+  if (code === 'IDEMPOTENCY_KEY_REUSED') return 'We’ve already received this review, so there’s no need to send it again.';
+  if (code === 'CAPTCHA_FAILED') return 'The security check didn’t pass. Please complete it again and resubmit.';
+  if (status === 429 || code === 'RATE_LIMITED') return 'Too many reviews have been sent from this connection. Please wait a little and try again.';
+  if (status === 404) return 'This business is no longer listed, so the review was not submitted.';
+  if (status === 400 || status === 422) return 'Please check the highlighted fields and try again.';
+  if (status === 503) return 'Reviews are temporarily unavailable. Please try again shortly.';
+  return 'Your review could not be submitted right now. Please try again.';
+}
+
+/** Form-level copy for a failed business enquiry; the API's message is never shown. */
+export function enquiryFailureMessage(status: number, code?: string): string {
+  if (status === 0) return 'We could not reach the server. Check your connection and try again.';
+  if (code === 'IDEMPOTENCY_KEY_REUSED') return 'We’ve already received this message, so there’s no need to send it again.';
+  if (code === 'CAPTCHA_FAILED') return 'The security check didn’t pass. Please complete it again and resend your message.';
+  if (status === 429 || code === 'RATE_LIMITED') return 'Too many messages have been sent from this connection. Please wait a little and try again.';
+  if (status === 404) return 'This business is no longer listed, so the message was not sent.';
+  if (status === 409 || code === 'NO_ENQUIRY_ROUTE') return 'This business isn’t accepting messages here right now. Please use its phone number or website instead.';
+  if (status === 400 || status === 422) return 'Please check the highlighted fields and try again.';
+  if (status === 503) return 'Messages can’t be sent right now. Please try again shortly.';
+  return 'Your message could not be sent right now. Please try again.';
 }

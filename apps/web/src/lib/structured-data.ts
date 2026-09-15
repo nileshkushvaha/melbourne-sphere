@@ -253,6 +253,27 @@ function htmlToText(html: string): string {
 }
 
 /**
+ * An information page as a `WebPage` (change log 1.17, SRS SEO 005): its own
+ * name, description and last change, part of the site and published by the
+ * organisation. Only what the page shows is described.
+ */
+export function webPageJsonLd(options: { path: string; name: string; description?: string | null; updatedAt?: string | null }): JsonLd {
+  const url = absoluteUrl(options.path);
+  return compact({
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': `${url}#webpage`,
+    url,
+    name: options.name,
+    description: options.description ?? undefined,
+    dateModified: options.updatedAt ?? undefined,
+    inLanguage: 'en-AU',
+    isPartOf: { '@id': `${siteOrigin()}/#website` },
+    publisher: { '@id': `${siteOrigin()}/#organization` },
+  });
+}
+
+/**
  * The About page as an `AboutPage` about the organisation (SRS SEO 005). Only
  * what the page shows is described: the title, its own description and the
  * organisation it is about, which is defined once by `organizationJsonLd`.

@@ -59,7 +59,7 @@ export async function routeMetadata(key: (typeof SEO_ROUTES)[number]['key'], bas
  * a generated card for the page (see `pageMetadata`).
  */
 export function staticPageMetadata(
-  page: { slug: string; title: string; seoTitle: string | null; seoDescription: string | null; seoKeywords: string | null; ogImage: { url: string; alt: string; width: number; height: number } | null },
+  page: { slug: string; title: string; seoTitle: string | null; seoDescription: string | null; seoKeywords: string | null; ogImage: { url: string; alt: string; width: number; height: number } | null; noindex?: boolean },
   canonical: string = `/${page.slug}`,
 ): Promise<Metadata> {
   return pageMetadata({
@@ -69,5 +69,7 @@ export function staticPageMetadata(
     keywords: page.seoKeywords ? [page.seoKeywords] : [page.title],
     image: page.ogImage,
     og: { kind: 'page', key: page.slug },
+    // Hidden from search by the editor (change log 1.17): still followed, so links out keep their value.
+    ...(page.noindex ? { robots: { index: false, follow: true } } : {}),
   });
 }

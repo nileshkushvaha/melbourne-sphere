@@ -1,4 +1,5 @@
 import { DEFAULT_MELBOURNE_MAP_SRC, SITE_MAP_TITLE } from '@melbourne-sphere/domain/embeds';
+import type { PageSection } from '@melbourne-sphere/domain/page-sections';
 import { DEFAULT_PRICING } from '@melbourne-sphere/domain/pricing';
 import 'server-only';
 import type { components } from '@melbourne-sphere/contracts';
@@ -138,13 +139,16 @@ export interface PublicFaq {
 }
 
 /**
- * Published questions (SRS 1.2 FAQ 004). A failure returns an empty list so the
- * section is omitted rather than breaking the page it sits on.
+ * Published questions (SRS 1.2 FAQ 004). Where questions are one section of a
+ * larger page a failure returns an empty list, so the section is omitted; the
+ * FAQ page itself passes `required`, so an outage shows the error page rather
+ * than a 404 that could be cached or drop the page from search.
  */
-export async function fetchFaqs(): Promise<PublicFaq[]> {
+export async function fetchFaqs(options: { required?: boolean } = {}): Promise<PublicFaq[]> {
   try {
     return (await apiGet<{ data: PublicFaq[] }>('/faqs', { revalidate: 300, tags: ['faqs'] })).data;
-  } catch {
+  } catch (error) {
+    if (options.required) throw error;
     return [];
   }
 }
@@ -244,6 +248,22 @@ export async function fetchPostPreview(token: string): Promise<PostDetail | null
   }
 }
 
+/**
+ * The page behind a private preview link (change log 1.17). Never cached — the
+ * token and the editor's session are checked on every request — and null for
+ * anything the API refuses, so the preview answers 404.
+ */
+export async function fetchPagePreview(token: string): Promise<StaticPageContent | null> {
+  if (!/^[A-Za-z0-9_-]{32}$/.test(token)) return null;
+  try {
+    const response = await fetch(`${apiOrigin}/api/v1/preview/pages/${encodeURIComponent(token)}`, { headers: { accept: 'application/json' }, cache: 'no-store' });
+    if (!response.ok) return null;
+    return ((await response.json()) as { data: StaticPageContent }).data;
+  } catch {
+    return null;
+  }
+}
+
 /** null for 404 (draft/unknown) so the page renders not-found (SRS BLOG 003). */
 export async function fetchPost(slug: string): Promise<PostDetail | null> {
   try {
@@ -310,6 +330,14 @@ export interface StaticPageContent {
   ogImageCredit: string | null;
   /** The layout an editor chose for this page in the admin. */
   layout: PageLayout;
+  /** Visible sections in order (change log 1.17); empty for a page still stored as one body. */
+  sections: PageSection[];
+  /** Section pictures, with the photographer credit recorded in the media library. */
+  images: Record<string, { url: string; alt: string; width: number; height: number; credit?: string | null }>;
+  documents: Record<string, { url: string; title: string; bytes: number }>;
+  businesses: Record<string, { id: string; slug: string; name: string; categoryName: string | null; areaName: string | null }>;
+  /** Hidden from search engines by the editor. */
+  noindex: boolean;
   updatedAt: string;
 }
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { Button, Input, Label } from '@melbourne-sphere/ui';
-import { newIdempotencyKey, withoutCaptchaError, type FieldErrors } from '@/lib/submissions';
+import { ENQUIRY_FIELD_COPY, enquiryFailureMessage, newIdempotencyKey, readerFieldErrors, withoutCaptchaError, type FieldErrors } from '@/lib/submissions';
 import { TurnstileWidget, type TurnstileWidgetHandle } from './turnstile-widget';
 
 interface Props {
@@ -52,6 +52,8 @@ export function EnquiryForm({ businessId, businessName, turnstileSiteKey, compac
   const [idempotencyKey, setIdempotencyKey] = useState(() => newIdempotencyKey());
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const turnstile = useRef<TurnstileWidgetHandle | null>(null);
+  // The button is disabled only after a render; this stops a second press before that.
+  const inFlight = useRef(false);
   const onToken = useCallback((token: string | null) => {
     setCaptchaToken(token);
     if (token) setErrors((current) => withoutCaptchaError(current));
@@ -66,12 +68,14 @@ export function EnquiryForm({ businessId, businessName, turnstileSiteKey, compac
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (inFlight.current) return;
     setFormError(null);
     const found = validate(values);
     if (!captchaToken) found.captchaToken = ['Please complete the security check'];
     setErrors(found);
     if (Object.keys(found).length > 0) return;
     const data = new FormData(event.currentTarget);
+    inFlight.current = true;
     setSubmitting(true);
     try {
       const response = await fetch(`/api/v1/businesses/${encodeURIComponent(businessId)}/enquiries`, {
@@ -88,10 +92,10 @@ export function EnquiryForm({ businessId, businessName, turnstileSiteKey, compac
           website: (data.get('website') as string | null) || undefined,
         }),
       });
-      const body = (await response.json().catch(() => null)) as { data?: { receiptId: string }; error?: { message: string; fields?: FieldErrors } } | null;
+      const body = (await response.json().catch(() => null)) as { data?: { receiptId: string }; error?: { code?: string; fields?: FieldErrors } } | null;
       if (!response.ok) {
-        setErrors(body?.error?.fields ?? {});
-        setFormError(body?.error?.message ?? 'Your message could not be sent. Please try again.');
+        setErrors(readerFieldErrors(body?.error?.fields, ENQUIRY_FIELD_COPY));
+        setFormError(enquiryFailureMessage(response.status, body?.error?.code));
         // A token is single use: once the API has seen it, a retry needs a new one.
         turnstile.current?.reset();
         return;
@@ -103,6 +107,7 @@ export function EnquiryForm({ businessId, businessName, turnstileSiteKey, compac
       setFormError('We could not reach the server. Please try again.');
       turnstile.current?.reset();
     } finally {
+      inFlight.current = false;
       setSubmitting(false);
     }
   };

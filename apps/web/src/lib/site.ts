@@ -27,6 +27,15 @@ export function absoluteUrl(path: string): string {
   return `${siteOrigin()}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
+/**
+ * True on a staging or preview deployment (`SITE_NOINDEX=true`): robots.txt
+ * disallows everything and every page says noindex, so a copy of the site can
+ * never compete with the real one in search. Production leaves it unset.
+ */
+export function siteNoindex(): boolean {
+  return (process.env.SITE_NOINDEX ?? '').trim().toLowerCase() === 'true';
+}
+
 /** Turnstile site key for public forms; null when unset, so forms explain they are closed instead of failing silently (SRS SEC 003). */
 export function turnstileSiteKey(): string | null {
   const value = (process.env.TURNSTILE_SITE_KEY ?? '').trim();

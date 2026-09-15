@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Button, Input, Label } from '@melbourne-sphere/ui';
-import { COMMENT_LIMITS, newIdempotencyKey, submissionFailureMessage, validateCommentForm, withoutCaptchaError, type CommentFormValues, type FieldErrors } from '@/lib/submissions';
+import { COMMENT_FIELD_COPY, COMMENT_LIMITS, newIdempotencyKey, readerFieldErrors, submissionFailureMessage, validateCommentForm, withoutCaptchaError, type CommentFormValues, type FieldErrors } from '@/lib/submissions';
 import { TurnstileWidget, type TurnstileWidgetHandle } from './turnstile-widget';
 
 const EMPTY: CommentFormValues = { displayName: '', email: '', text: '', acknowledged: false };
@@ -120,7 +120,7 @@ export function CommentForm({ postId, turnstileSiteKey, guidelinesHref, privacyH
       });
       const payload = (await response.json().catch(() => null)) as { data?: { receiptId: string }; error?: { code?: string; fields?: FieldErrors } } | null;
       if (!response.ok) {
-        failWith(submissionFailureMessage(response.status, payload?.error?.code), payload?.error?.fields ?? {});
+        failWith(submissionFailureMessage(response.status, payload?.error?.code), readerFieldErrors(payload?.error?.fields, COMMENT_FIELD_COPY));
         // A token is single use: once the API has seen it, a retry needs a new one.
         turnstile.current?.reset();
         return;

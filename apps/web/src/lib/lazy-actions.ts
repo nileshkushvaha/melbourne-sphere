@@ -1,6 +1,6 @@
 'use server';
 
-import { fetchPosts, searchBusinesses, type BusinessCard, type PostCard } from './api';
+import { fetchPosts, fetchReviews, searchBusinesses, type BusinessCard, type PostCard, type PublicReview } from './api';
 import { parseSearchParams } from './search-params';
 
 /**
@@ -24,6 +24,16 @@ const bounded = (page: number): number => (Number.isInteger(page) && page >= 1 &
 export async function loadBusinessPage(input: { query: string; category?: string; area?: string; page: number }): Promise<BusinessCard[]> {
   const state = parseSearchParams(Object.fromEntries(new URLSearchParams(input.query)));
   const { data } = await searchBusinesses({ ...state, page: bounded(input.page) }, { category: slug(input.category), area: slug(input.area) });
+  return data;
+}
+
+/** Record ids as the API issues them (cuid). */
+const ID = /^[a-z0-9]{20,40}$/;
+
+/** One more page of a business's approved reviews. */
+export async function loadReviewPage(input: { businessId: string; page: number }): Promise<PublicReview[]> {
+  if (!ID.test(input.businessId)) return [];
+  const { data } = await fetchReviews(input.businessId, bounded(input.page));
   return data;
 }
 

@@ -61,7 +61,7 @@ interface Group {
  * container. Structured data stays behind its flag (FAQ 005).
  */
 export default async function FaqsPage() {
-  const [faqs, settings] = await Promise.all([fetchFaqs(), fetchSiteSettings()]);
+  const [faqs, settings] = await Promise.all([fetchFaqs({ required: true }), fetchSiteSettings()]);
   if (faqs.length === 0) notFound();
 
   const byName = new Map<string, PublicFaq[]>();

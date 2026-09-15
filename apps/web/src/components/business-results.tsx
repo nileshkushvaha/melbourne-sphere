@@ -48,7 +48,7 @@ export async function BusinessResults({ basePath, state, fixed = {} }: Props) {
         </p>
         <FilterChips chips={chips} resetHref={basePath} />
       </div>
-      {meta.featured.length > 0 && (
+      {state.page === 1 && meta.featured.length > 0 && (
         <section aria-labelledby="featured-heading" className="rounded-card-lg border border-border bg-sky-50 p-5 sm:p-6">
           <div className="mb-3 flex flex-wrap items-baseline gap-2">
             <h2 id="featured-heading" className="text-lg font-semibold">

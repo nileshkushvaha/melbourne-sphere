@@ -23,11 +23,23 @@ const PAGE: StaticPageContent = {
   seoKeywords: null,
   ogImage: null,
   ogImageCredit: null,
-  layout: 'rightSidebar',
+  layout: 'rightSidebar', sections: [], images: {}, documents: {}, businesses: {}, noindex: false,
   updatedAt: '2026-09-08T02:00:00.000Z',
 };
 
-const load = async () => import('./page');
+const load = async () => {
+  const route = await import('./page');
+  /**
+   * The route hands the page to the shared `StaticPageView` (also used by the
+   * private preview), an async server component the test renderer cannot
+   * await; this renders the route and then resolves that view, as the server does.
+   */
+  const renderRoute = async (props: { params: Promise<{ slug: string }> }) => {
+    const element = (await route.default(props as never)) as React.ReactElement<object, (props: object) => Promise<React.ReactNode>>;
+    return element.type(element.props);
+  };
+  return { default: renderRoute, generateMetadata: route.generateMetadata };
+};
 const params = (slug: string) => Promise.resolve({ slug });
 
 /**

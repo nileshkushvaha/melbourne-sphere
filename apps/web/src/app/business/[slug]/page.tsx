@@ -19,6 +19,7 @@ import { fetchBusiness, fetchReviews, fetchSiteSettings, reviewGuidelinesHref } 
 import { EnquiryForm } from '@/components/enquiry-form';
 import { ReviewForm } from '@/components/review-form';
 import { ReviewList } from '@/components/review-list';
+import { MoreReviews } from '@/components/more-reviews';
 import { contactChannelFrom, reviewRichResultsEnabled, turnstileSiteKey } from '@/lib/site';
 import { categoryGradient, initials } from '@/lib/category-visuals';
 import { CategoryIcon } from '@/components/category-icon';
@@ -61,7 +62,9 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
   const { slug } = await params;
   const business = await fetchBusiness(slug);
   if (!business) notFound();
-  const [reviews, settings] = await Promise.all([fetchReviews(business.id), fetchSiteSettings()]);
+  // Reviews are one section of the page: if only they fail, the listing still shows, with a notice.
+  const [loadedReviews, settings] = await Promise.all([fetchReviews(business.id).catch(() => null), fetchSiteSettings()]);
+  const reviews = loadedReviews ?? { data: [], meta: { page: 1, pageSize: 10, total: 0, pageCount: 0 } };
   // The editors' own address, published in the general settings; null until one
   // is configured, and then no correction link is offered rather than a dead one.
   const editorsEmail = contactChannelFrom(settings).email;
@@ -210,6 +213,8 @@ export default async function BusinessPage({ params }: PageProps<'/business/[slu
             <RatingPanel rating={business.rating} breakdown={business.ratingBreakdown} />
             {/* The panel already says "no reviews yet"; the list would repeat it. */}
             {reviews.data.length > 0 && <ReviewList reviews={reviews.data} />}
+            {reviews.data.length > 0 && <MoreReviews businessId={business.id} pageCount={reviews.meta.pageCount} shownIds={reviews.data.map((review) => review.id)} />}
+            {loadedReviews === null && <p role="status" className="text-sm text-text-muted">Reviews can’t be shown right now. Please try again shortly.</p>}
             <div id="write-review" className="scroll-mt-24">
               <h3 className="mb-3 text-lg font-semibold">Write a review</h3>
               <ReviewForm businessId={business.id} businessName={business.name} turnstileSiteKey={turnstileSiteKey()} guidelinesHref={await reviewGuidelinesHref()} />

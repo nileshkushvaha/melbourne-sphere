@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { Metadata } from 'next';
 import { fetchSiteSettings } from './api';
+import { siteNoindex } from './site';
 
 /**
  * One way to describe a public page for search and sharing (SRS SEO 001).
@@ -97,7 +98,8 @@ export async function pageMetadata(input: PageSeo): Promise<Metadata> {
     ...(keywords.length > 0 ? { keywords } : {}),
     // Every page points feed readers at the blog feed (SRS 1.10 BLOG 005).
     alternates: { canonical: url, types: { 'application/rss+xml': [{ url: '/blog/feed.xml', title: `${settings.name} blog` }] } },
-    ...(input.robots ? { robots: input.robots } : {}),
+    // A staging copy is never indexable, whatever a page asks for.
+    ...(siteNoindex() ? { robots: { index: false, follow: false } } : input.robots ? { robots: input.robots } : {}),
     openGraph: input.article
       ? { ...common, type: 'article', ...input.article }
       : { ...common, type: 'website' },

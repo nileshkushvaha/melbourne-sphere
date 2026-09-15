@@ -15,6 +15,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ sec
   const { section } = await params;
   const name = section.replace(/\.xml$/, '');
   if (!(SECTIONS as readonly string[]).includes(name)) notFound();
-  const entries = await fetchSitemapSection(name as Section);
+  let entries;
+  try {
+    entries = await fetchSitemapSection(name as Section);
+  } catch {
+    return new Response('Temporarily unavailable', { status: 503, headers: { 'Retry-After': '120', 'cache-control': 'no-store' } });
+  }
   return new Response(urlSetXml(entries), { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=300' } });
 }

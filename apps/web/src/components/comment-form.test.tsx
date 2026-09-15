@@ -171,10 +171,15 @@ describe('CommentForm failures (SRS API 002)', () => {
     await turnstile.pass();
     submit();
 
-    await screen.findByText('Name must be 2–80 characters');
+    // The API's field is marked against its control, in the form's own words.
+    const message = await screen.findByText('Enter your name (2–80 characters).');
+    const name = screen.getByLabelText(/Your name/);
+    expect(name).toHaveAttribute('aria-invalid', 'true');
+    expect(name).toHaveAttribute('aria-describedby', message.id);
     expect(screen.getByRole('alert')).toHaveTextContent('Please check the highlighted fields and try again.');
-    // The API's own wording can name internal types; it is never shown.
+    // The API's own wording (form-level or per field) can name internal types; it is never shown.
     expect(screen.queryByText(/SubmitCommentDto/)).toBeNull();
+    expect(screen.queryByText(/Name must be 2–80 characters/)).toBeNull();
   });
 
   it('explains rate limiting as something to wait out', async () => {

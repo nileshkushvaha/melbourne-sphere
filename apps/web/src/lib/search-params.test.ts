@@ -37,6 +37,21 @@ describe('search params', () => {
     expect(toQueryString({ openNow: true })).toBe('?openNow=1');
     expect(toQueryString({ openNow: false })).toBe('');
   });
+
+  it('counts "open now" as a filter and offers a chip that removes only it', () => {
+    const state = parseSearchParams({ openNow: '1', category: 'cafes', sort: 'rating', page: '3' });
+    expect(isFiltered(state)).toBe(true);
+    expect(isFiltered(parseSearchParams({ openNow: '1' }))).toBe(true);
+    expect(isFiltered(parseSearchParams({ openNow: 'yes' }))).toBe(false);
+
+    const chips = buildChips(state, '/business');
+    expect(chips.map((chip) => chip.key)).toEqual(['category', 'openNow']);
+    const openNow = chips.find((chip) => chip.key === 'openNow');
+    // The other filters and the sort survive; the page resets to 1 (DIR 005).
+    expect(openNow).toEqual({ key: 'openNow', label: 'Open now', href: '/business?category=cafes&sort=rating' });
+    expect(chips.find((chip) => chip.key === 'category')?.href).toBe('/business?openNow=1&sort=rating');
+    expect(buildChips(parseSearchParams({ category: 'cafes' }), '/business').some((chip) => chip.key === 'openNow')).toBe(false);
+  });
 });
 
 describe('landingRobots (SRS SEO 003)', () => {

@@ -16,11 +16,13 @@ export async function generateMetadata({ params, searchParams }: PageProps<'/blo
   const page = readPageParam((await searchParams).page);
   const tag = await findTag(slug);
   if (!tag) return { title: 'Tag not found', robots: { index: false } };
+  // The editor's search appearance first (change log 1.15); each empty field falls back to the composed text.
   return pageMetadata({
-    title: pagedTitle(`${tag.name} articles`, page),
-    description: `Articles tagged ${tag.name.toLowerCase()}: Melbourne guides, local stories and practical advice from our editors.`,
+    title: pagedTitle(tag.seoTitle ?? `${tag.name} articles`, page),
+    description: tag.seoDescription ?? `Articles tagged ${tag.name.toLowerCase()}: Melbourne guides, local stories and practical advice from our editors.`,
     path: pagedPath(`/blog/tag/${tag.slug}`, page),
-    keywords: [tag.name, `${tag.name} Melbourne`, `${tag.name} articles`, 'Melbourne blog'],
+    keywords: tag.seoKeywords ? [tag.seoKeywords] : [tag.name, `${tag.name} Melbourne`, `${tag.name} articles`, 'Melbourne blog'],
+    image: tag.shareImage ? { url: tag.shareImage.url, width: tag.shareImage.width, height: tag.shareImage.height, alt: `${tag.name} articles` } : null,
     // A tag is indexed only with its own landing content and at least one article
     // (SRS BLOG 005: "a tag with no substantive editorial landing shall be
     // noindex"). The sitemap applies the same rule, so the two cannot disagree.

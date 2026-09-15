@@ -74,7 +74,11 @@ function LazyGrid<T>({ initial, initialPage, pageCount, load, render, keyOf, nou
     setFailed(false);
     try {
       const next = await loader.current(page + 1);
-      setItems((current) => [...current, ...next]);
+      // Something published between two loads shifts the pages by one; a card already shown is not added again.
+      setItems((current) => {
+        const seen = new Set(current.map(keyOf));
+        return [...current, ...next.filter((item) => !seen.has(keyOf(item)))];
+      });
       setPage((current) => current + 1);
     } catch {
       // The message is in the button; the page itself is still good.
@@ -83,7 +87,7 @@ function LazyGrid<T>({ initial, initialPage, pageCount, load, render, keyOf, nou
       inFlight.current = false;
       setLoading(false);
     }
-  }, [page]);
+  }, [page, keyOf]);
 
   useEffect(() => {
     const target = sentinel.current;

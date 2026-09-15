@@ -14,6 +14,15 @@ const SECTIONS = ['businesses', 'editorial', 'taxonomies', 'pages'] as const;
  * that section; a section with nothing to list is left out entirely.
  */
 export async function GET(): Promise<Response> {
+  try {
+    return await sitemapIndex();
+  } catch {
+    // A crawler told to come back later keeps what it has; a 500 reads as broken.
+    return new Response('Temporarily unavailable', { status: 503, headers: { 'Retry-After': '120', 'cache-control': 'no-store' } });
+  }
+}
+
+async function sitemapIndex(): Promise<Response> {
   const sections = await Promise.all(
     SECTIONS.map(async (section) => {
       const entries = await fetchSitemapSection(section);

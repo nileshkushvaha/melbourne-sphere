@@ -60,11 +60,11 @@ export function toQueryString(state: Partial<SearchState>): string {
 
 /** Whether any filter narrows the directory (drives the noindex rule, SEO 003, and the reset chip). */
 export function isFiltered(state: SearchState): boolean {
-  return Boolean(state.q || state.category || state.area || state.minRating);
+  return Boolean(state.q || state.category || state.area || state.minRating || state.openNow);
 }
 
 export interface Chip {
-  key: 'q' | 'category' | 'area' | 'minRating';
+  key: 'q' | 'category' | 'area' | 'minRating' | 'openNow';
   label: string;
   /** URL with this filter removed (page reset to 1, DIR 005). */
   href: string;
@@ -73,11 +73,12 @@ export interface Chip {
 /** Removable chips for the active filters; labels resolve slugs to names when known. */
 export function buildChips(state: SearchState, basePath: string, names: { categories?: Record<string, string>; areas?: Record<string, string> } = {}): Chip[] {
   const chips: Chip[] = [];
-  const without = (key: Chip['key']) => `${basePath}${toQueryString({ ...state, [key]: key === 'q' ? '' : null, page: 1 })}`;
+  const without = (key: Chip['key']) => `${basePath}${toQueryString({ ...state, [key]: key === 'q' ? '' : key === 'openNow' ? false : null, page: 1 })}`;
   if (state.q) chips.push({ key: 'q', label: `“${state.q}”`, href: without('q') });
   if (state.category) chips.push({ key: 'category', label: names.categories?.[state.category] ?? state.category, href: without('category') });
   if (state.area) chips.push({ key: 'area', label: names.areas?.[state.area] ?? state.area, href: without('area') });
   if (state.minRating) chips.push({ key: 'minRating', label: `${state.minRating}+ stars`, href: without('minRating') });
+  if (state.openNow) chips.push({ key: 'openNow', label: 'Open now', href: without('openNow') });
   return chips;
 }
 

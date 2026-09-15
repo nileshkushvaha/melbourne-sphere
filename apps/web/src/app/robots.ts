@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { siteOrigin } from '@/lib/site';
+import { siteNoindex, siteOrigin } from '@/lib/site';
 
 /**
  * Crawl guidance (SRS SEO 002): the sitemap index plus the routes that should
@@ -8,6 +8,7 @@ import { siteOrigin } from '@/lib/site';
  */
 export default function robots(): MetadataRoute.Robots {
   const origin = siteOrigin();
+  if (siteNoindex()) return { rules: [{ userAgent: '*', disallow: '/' }] };
   return {
     rules: [
       {

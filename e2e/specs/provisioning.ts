@@ -191,3 +191,27 @@ export async function setRolePermissions(roleId: string, keys: string[]): Promis
     await db.$disconnect();
   }
 }
+
+/** Every information page a journey creates starts with this, so cleanup is exact. */
+export const E2E_PAGE_PREFIX = 'e2e-page-';
+
+/**
+ * Removes the pages the page-builder journey created, with their versions,
+ * kept copies and redirects, even when the journey stopped half way. Guarded
+ * like provisioning: never against a production database.
+ */
+export async function removeE2ePages(): Promise<void> {
+  const db = client();
+  try {
+    const pages = await db.staticPage.findMany({ where: { slug: { startsWith: E2E_PAGE_PREFIX } }, select: { id: true } });
+    const ids = pages.map((page) => page.id);
+    if (ids.length > 0) {
+      await db.contentRevision.deleteMany({ where: { resourceType: 'static_page', resourceId: { in: ids } } });
+      await db.redirect.deleteMany({ where: { resourceType: 'static_page', resourceId: { in: ids } } });
+      await db.staticPage.deleteMany({ where: { id: { in: ids } } });
+    }
+    await db.redirect.deleteMany({ where: { sourcePath: { startsWith: `/${E2E_PAGE_PREFIX}` } } });
+  } finally {
+    await db.$disconnect();
+  }
+}

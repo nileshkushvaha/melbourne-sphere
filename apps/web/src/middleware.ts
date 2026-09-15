@@ -63,6 +63,8 @@ function renamedDirectoryPath(pathname: string): string | null {
 
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+  // Single-segment matches include files such as /favicon.ico, which are never redirected.
+  if (pathname.includes('.')) return NextResponse.next();
 
   const renamed = renamedDirectoryPath(pathname.replace(/\/+$/, '') || '/');
   if (renamed) return NextResponse.redirect(new URL(`${renamed}${search}`, request.nextUrl.origin), 301);
@@ -89,7 +91,11 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-/** Only content routes are consulted; assets and API routes never are. */
+/**
+ * Only content routes are consulted; assets and API routes never are.
+ * `/:slug` covers information pages (`/about-us`), whose address can be
+ * changed in the admin and leaves a redirect from the old one behind.
+ */
 export const config = {
-  matcher: ['/business/:path*', '/blog/:path*', '/directory/:path*'],
+  matcher: ['/business/:path*', '/blog/:path*', '/directory/:path*', '/:slug'],
 };
